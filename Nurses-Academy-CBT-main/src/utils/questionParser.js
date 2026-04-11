@@ -1,0 +1,371 @@
+// src/utils/questionParser.js
+// ─────────────────────────────────────────────────────────────────────
+// Supports ALL these formats:
+//
+// FORMAT A — Inline answer:
+//   1. Question?
+//   A. Option   B. Option   C. Option   D. Option
+//   Answer: C
+//
+// FORMAT B — Separate answer key (paste in second textarea):
+//   1. C    or    1. C  2. A  3. D ...
+//   2. A
+//
+// FORMAT C — Options on separate lines:
+//   1. Question?
+//   A) Option one
+//   B) Option two
+//   C) Option three
+//   D) Option four
+//   ANS: B
+//
+// FORMAT D — Inline options on same line:
+//   1. Question? A. Opt1 B. Opt2 C. Opt3 D. Opt4
+//
+// FORMAT E — Mixed short options (2 per line):
+//   A. Sympathy   C. Socialism
+//   B. Criticism  D. Empathy
+//
+// ─────────────────────────────────────────────────────────────────────
+
+// ── Shuffle Utilities ─────────────────────────────────────────────────
+
+/**
+ * Fisher-Yates shuffle — returns a NEW array, does not mutate original.
+ */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Shuffles the options of a single parsed question and
+ * updates correctIndex to point to wherever the correct
+ * answer landed after the shuffle.
+ *
+ * Expects question shape:
+ *   { options: string[], correctIndex: number, ... }
+ */
+export function shuffleQuestionOptions(question) {
+  const options = question.options.map(o =>
+    typeof o === 'string' ? o : (o.text || '')
+  );
+
+  if (options.length < 2) return question;
+
+  const correctText = options[question.correctIndex] ?? options[0];
+  const shuffled    = shuffleArray(options);
+  const newIndex    = shuffled.indexOf(correctText);
+
+  return {
+    ...question,
+    options:      shuffled,
+    correctIndex: newIndex >= 0 ? newIndex : 0,
+  };
+}
+
+/**
+ * Shuffles options for every question in an array.
+ * Call this on the parsed result before uploading to Firestore.
+ */
+export function shuffleAllQuestionsOptions(questions) {
+  return questions.map(shuffleQuestionOptions);
+}
+
+// ── Answer Key Parser ─────────────────────────────────────────────────
+
+export function parseAnswerKey(answerText) {
+  if (!answerText?.trim()) return {};
+
+  // Normalize whitespace variants that \s doesn't catch (non-breaking space, etc.)
+  const normalized = answerText
+    .replace(/\r/g, '')
+    .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
+
+  const map = {};
+
+  // Universal pattern — handles: "1. B", "1) B", "1: B", "1 B", "1.B",
+  //   "Q1: B", "Q1. B", and packed "Q1: B    Q2: A" on one line.
+  const pattern = /Q?(\d+)\s*[.):–\-]?\s*([A-Ea-e])\b/gi;
+  let m;
+  while ((m = pattern.exec(normalized)) !== null) {
+    map[parseInt(m[1], 10)] = m[2].toUpperCase();
+  }
+
+  // Fallback: letter-only lines with implied sequence (e.g. "B\nA\nC\nD")
+  if (Object.keys(map).length === 0) {
+    const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+    lines.forEach((line, i) => {
+      const single = line.match(/^([A-Ea-e])\s*$/i);
+      if (single) map[i + 1] = single[1].toUpperCase();
+    });
+  }
+
+  return map;
+}
+
+// ── Main Parser ───────────────────────────────────────────────────────
+
+export function parseQuestionsFromText(rawText, answerKeyText = '') {
+  const answerKey = parseAnswerKey(answerKeyText);
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  const questions = [];
+  let current = null;
+  let qNumber = 0;
+
+  const optLetters = ['A', 'B', 'C', 'D', 'E'];
+
+  const isQuestionLine = (line) =>
+    /^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i.test(line);
+
+  const isOptionLine = (line) =>
+    /^([A-Ea-e][\.\)\-:]|\([A-Ea-e]\))\s*.+/i.test(line);
+
+  const isAnswerLine = (line) =>
+    /^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(line);
+
+  const isExplanationLine = (line) =>
+    /^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line);
+
+  const getQuestionNumber = (line) => {
+    const m = line.match(/^(\d+)/);
+    return m ? parseInt(m[1]) : null;
+  };
+
+  const extractOptionLetter = (line) => {
+    const m = line.match(/^([A-Ea-e])[\.\)\-:]|\(([A-Ea-e])\)/i);
+    return m ? (m[1] || m[2]).toUpperCase() : null;
+  };
+
+  const extractOptionText = (line) => {
+    return line.replace(/^([A-Ea-e][\.\)\-:]|\([A-Ea-e]\))\s*/i, '').trim();
+  };
+
+  const extractAnswerLetter = (line) => {
+    const cleaned = line.replace(/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i, '').trim();
+    const m = cleaned.match(/^([A-Ea-e])\b/i);
+    return m ? m[1].toUpperCase() : null;
+  };
+
+  // Try to detect inline options on same line as question
+  // e.g. "1. Question text? A. Opt1 B. Opt2 C. Opt3 D. Opt4"
+  const extractInlineOptions = (line) => {
+    const optPattern = /\b([A-D])\.\s*([^A-D\.]{2,}?)(?=\s+[A-D]\.|$)/g;
+    const opts = [];
+    let m;
+    while ((m = optPattern.exec(line)) !== null) {
+      opts.push({ letter: m[1].toUpperCase(), text: m[2].trim() });
+    }
+    return opts.length >= 2 ? opts : null;
+  };
+
+  // Detect two options on same line (short format):
+  // "A. Sympathy   C. Socialism"
+  const extractDoubleOptions = (line) => {
+    const m = line.match(
+      /^([A-Ea-e])[\.\)]\s*(.+?)\s{2,}([A-Ea-e])[\.\)]\s*(.+)$/i
+    );
+    if (m) {
+      return [
+        { letter: m[1].toUpperCase(), text: m[2].trim() },
+        { letter: m[3].toUpperCase(), text: m[4].trim() },
+      ];
+    }
+    return null;
+  };
+
+  const saveQuestion = () => {
+    if (!current) return;
+    if (current.question && current.options.length >= 2) {
+      // Always sort options into A→B→C→D order so array index == letter index.
+      // Without this, 2-per-line format (A,C then B,D) causes index mismatch.
+      const sortedOpts = [...current.options].sort(
+        (a, b) => optLetters.indexOf(a.letter) - optLetters.indexOf(b.letter)
+      );
+
+      // Resolve correct answer — inline answer in text takes priority
+      let correctLetter = null;
+      if (current.answerLetter) {
+        correctLetter = current.answerLetter;
+      } else if (answerKey[current.qNumber] !== undefined) {
+        correctLetter = answerKey[current.qNumber];
+      }
+
+      // Use findIndex against the sorted letter list so index is always accurate
+      const correctIdx = correctLetter !== null
+        ? sortedOpts.findIndex(o => o.letter === correctLetter)
+        : -1;
+
+      questions.push({
+        question:       current.question.trim(),
+        options:        sortedOpts.map(o => o.text),
+        correctIndex:   correctIdx >= 0 ? correctIdx : -1,   // -1 = no answer yet
+        explanation:    current.explanation || '',
+        _qNumber:       current.qNumber,
+        _hasAnswer:     correctIdx >= 0,
+        _sortedLetters: sortedOpts.map(o => o.letter), // e.g. ['A','B','C','D']
+      });
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (isQuestionLine(line)) {
+      saveQuestion();
+      qNumber = getQuestionNumber(line) || qNumber + 1;
+
+      // Strip question number prefix
+      let qText = line.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
+
+      // Check if options are inline on same line
+      const inlineOpts = extractInlineOptions(qText);
+      if (inlineOpts && inlineOpts.length >= 2) {
+        // Remove options text from question
+        const firstOptPos = qText.search(/\b[A-D]\.\s/);
+        if (firstOptPos > 0) qText = qText.substring(0, firstOptPos).trim();
+        current = { question: qText, options: inlineOpts, answerLetter: null, explanation: '', qNumber };
+      } else {
+        current = { question: qText, options: [], answerLetter: null, explanation: '', qNumber };
+      }
+      continue;
+    }
+
+    if (!current) continue;
+
+    // Double options on one line (e.g. "A. Sympathy   C. Socialism")
+    if (!isAnswerLine(line) && !isExplanationLine(line)) {
+      const double = extractDoubleOptions(line);
+      if (double) {
+        double.forEach(o => {
+          if (!current.options.find(x => x.letter === o.letter)) {
+            current.options.push(o);
+          }
+        });
+        continue;
+      }
+    }
+
+    // Single option line
+    if (isOptionLine(line)) {
+      const letter = extractOptionLetter(line);
+      const text   = extractOptionText(line);
+      if (letter && text && !current.options.find(o => o.letter === letter)) {
+        current.options.push({ letter, text });
+      }
+      continue;
+    }
+
+    // Answer line
+    if (isAnswerLine(line)) {
+      current.answerLetter = extractAnswerLetter(line);
+      continue;
+    }
+
+    // Explanation line
+    if (isExplanationLine(line)) {
+      current.explanation = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1];
+        if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
+        current.explanation += ' ' + next;
+        i++;
+      }
+      continue;
+    }
+
+    // Continuation of question text (before any options)
+    if (current.options.length === 0 && !isOptionLine(line)) {
+      current.question += ' ' + line;
+    }
+  }
+
+  saveQuestion();
+
+  // Sort by question number
+  questions.sort((a, b) => (a._qNumber || 0) - (b._qNumber || 0));
+
+  // Apply separate answer key.
+  // Strategy: try number-match first; if that fails for a question, fall back
+  // to positional alignment (answer key position i → questions[i]).
+  // Positional is the most robust because it doesn't depend on numbering matching.
+  if (Object.keys(answerKey).length > 0) {
+    // Build a positionally-ordered array of answer letters from the key
+    const positionalAnswers = Object.entries(answerKey)
+      .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+      .map(([, letter]) => letter);
+
+    questions.forEach((q, posIdx) => {
+      if (q._hasAnswer) return; // inline answer already resolved — keep it
+
+      // 1. Try strict number match: answerKey[3] → question with _qNumber === 3
+      let letter = answerKey[q._qNumber];
+
+      // 2. Positional fallback: answer key position i → questions[i]
+      //    This is the most reliable when the question text numbering doesn't
+      //    match the answer key numbering (e.g. questions start at 1 but
+      //    answer key starts at 51 for a sub-section).
+      if (letter === undefined && posIdx < positionalAnswers.length) {
+        letter = positionalAnswers[posIdx];
+      }
+
+      if (letter !== undefined) {
+        // Find the index of the correct letter within THIS question's sorted options.
+        // Using optLetters.indexOf(letter) was wrong — it returns the alphabet position
+        // (e.g. C=2) but the question may have fewer/reordered options so index 2
+        // might point to the wrong option. We must search q.options by letter instead.
+        // q.options stores plain text strings after saveQuestion(), so we reconstruct
+        // the letter mapping from sortedOpts order: A=0, B=1, C=2, D=3, E=4 only
+        // if all 4/5 options are present. Use a safer findIndex on the sorted structure.
+        const idx = q._sortedLetters
+          ? q._sortedLetters.indexOf(letter)
+          : optLetters.indexOf(letter);
+        q.correctIndex = idx >= 0 ? idx : 0;
+        q._hasAnswer   = true;
+      } else {
+        q.correctIndex = 0; // no answer found anywhere — default A
+      }
+    });
+  } else {
+    // No separate answer key — ensure any -1 correctIndex defaults to 0
+    questions.forEach(q => { if (q.correctIndex < 0) q.correctIndex = 0; });
+  }
+
+  return questions;
+}
+
+export function validateQuestion(q) {
+  const errors = [];
+  if (!q.question || q.question.trim().length < 5) errors.push('Question text too short.');
+  if (!q.options || q.options.length < 2) errors.push('Need at least 2 options.');
+  if (q.correctIndex === undefined || q.correctIndex < 0) errors.push('No correct answer marked.');
+  if (q.options && q.correctIndex >= q.options.length) errors.push('Correct index out of range.');
+  return errors;
+}
+
+export function formatQuestionForFirestore(q, meta = {}) {
+  const options = Array.isArray(q.options)
+    ? q.options.map(o => (typeof o === 'string' ? o : o.text || '').trim())
+    : [];
+  return {
+    question:     q.question.trim(),
+    options,
+    correctIndex: (q.correctIndex !== undefined && q.correctIndex >= 0) ? q.correctIndex : 0,
+    explanation:  q.explanation?.trim() || '',
+    category:     meta.category     || 'general_nursing',
+    examType:     meta.examType     || 'past_questions',
+    year:         meta.year         || '2024',
+    subject:      meta.subject      || '',
+    difficulty:   meta.difficulty   || 'medium',
+    tags:         meta.tags         || [],
+    source:       meta.source       || '',
+    course:       meta.course       || '',   // ← required for course_drill filtering
+    topic:        meta.topic        || '',   // ← required for topic_drill filtering
+    active:       true,
+    createdAt:    new Date().toISOString(),
+  };
+}

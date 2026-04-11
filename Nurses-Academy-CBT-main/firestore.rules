@@ -1,0 +1,73 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth()  { return request.auth != null; }
+    function uid()     { return request.auth.uid; }
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
+    }
+
+    // ── Users ────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && uid() == userId;
+      allow update: if isAuth() && (uid() == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── Questions ────────────────────────────────────────────────
+    match /questions/{qId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin();
+    }
+
+    // ── Exam sessions ────────────────────────────────────────────
+    match /examSessions/{sessionId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAdmin();
+    }
+
+    // ── Access codes ─────────────────────────────────────────────
+    match /accessCodes/{codeId} {
+      allow read:   if isAuth();
+      allow write:  if isAdmin();
+    }
+
+    // ── Payments ─────────────────────────────────────────────────
+    match /payments/{payId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Notifications ────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── Bookmarks ────────────────────────────────────────────────
+    match /bookmarks/{bookmarkId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
+
+    // ── Announcements ────────────────────────────────────────────
+    match /announcements/{annId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+  }
+}
