@@ -131,6 +131,12 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const isExplanationLine = (line) =>
     /^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line);
 
+  // Extract [image: URL] tag from any line
+  const extractImageTag = (text) => {
+    const m = text.match(/\[image:\s*(https?:\/\/[^\]]+)\]/i);
+    return m ? { url: m[1].trim(), text: text.replace(m[0], '').trim() } : { url: '', text };
+  };
+
   const getQuestionNumber = (line) => {
     const m = line.match(/^(\d+)/);
     return m ? parseInt(m[1]) : null;
@@ -203,11 +209,13 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       questions.push({
         question:       current.question.trim(),
         options:        sortedOpts.map(o => o.text),
-        correctIndex:   correctIdx >= 0 ? correctIdx : -1,   // -1 = no answer yet
+        correctIndex:   correctIdx >= 0 ? correctIdx : -1,
         explanation:    current.explanation || '',
+        imageUrl:       current.imageUrl || '',
+        explanationImageUrl: current.explanationImageUrl || '',
         _qNumber:       current.qNumber,
         _hasAnswer:     correctIdx >= 0,
-        _sortedLetters: sortedOpts.map(o => o.letter), // e.g. ['A','B','C','D']
+        _sortedLetters: sortedOpts.map(o => o.letter),
       });
     }
   };
@@ -222,15 +230,19 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       // Strip question number prefix
       let qText = line.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
 
+      // Extract image tag from question line
+      const qImg = extractImageTag(qText);
+      qText = qImg.text;
+
       // Check if options are inline on same line
       const inlineOpts = extractInlineOptions(qText);
       if (inlineOpts && inlineOpts.length >= 2) {
         // Remove options text from question
         const firstOptPos = qText.search(/\b[A-D]\.\s/);
         if (firstOptPos > 0) qText = qText.substring(0, firstOptPos).trim();
-        current = { question: qText, options: inlineOpts, answerLetter: null, explanation: '', qNumber };
+        current = { question: qText, options: inlineOpts, answerLetter: null, explanation: '', qNumber, imageUrl: qImg.url, explanationImageUrl: '' };
       } else {
-        current = { question: qText, options: [], answerLetter: null, explanation: '', qNumber };
+        current = { question: qText, options: [], answerLetter: null, explanation: '', qNumber, imageUrl: qImg.url, explanationImageUrl: '' };
       }
       continue;
     }
@@ -268,13 +280,16 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
     // Explanation line
     if (isExplanationLine(line)) {
-      current.explanation = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
+      let explText = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
       while (i + 1 < lines.length) {
         const next = lines[i + 1];
         if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
-        current.explanation += ' ' + next;
+        explText += ' ' + next;
         i++;
       }
+      const explImg = extractImageTag(explText);
+      current.explanation = explImg.text;
+      if (explImg.url) current.explanationImageUrl = explImg.url;
       continue;
     }
 
@@ -356,6 +371,8 @@ export function formatQuestionForFirestore(q, meta = {}) {
     options,
     correctIndex: (q.correctIndex !== undefined && q.correctIndex >= 0) ? q.correctIndex : 0,
     explanation:  q.explanation?.trim() || '',
+    imageUrl:     q.imageUrl || '',
+    explanationImageUrl: q.explanationImageUrl || '',
     category:     meta.category     || 'general_nursing',
     examType:     meta.examType     || 'past_questions',
     year:         meta.year         || '2024',
@@ -363,8 +380,8 @@ export function formatQuestionForFirestore(q, meta = {}) {
     difficulty:   meta.difficulty   || 'medium',
     tags:         meta.tags         || [],
     source:       meta.source       || '',
-    course:       meta.course       || '',   // ← required for course_drill filtering
-    topic:        meta.topic        || '',   // ← required for topic_drill filtering
+    course:       meta.course       || '',
+    topic:        meta.topic        || '',
     active:       true,
     createdAt:    new Date().toISOString(),
   };
