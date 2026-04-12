@@ -29,6 +29,7 @@ import MockExamPage       from './components/exam/MockExamPage';
 import MockReviewStoragePage from './components/exam/MockReviewStoragePage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
+import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -68,7 +69,7 @@ export default function App() {
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard"      element={<StudentDashboard />} />
                 <Route path="/exams"          element={<ExamSetup />} />
-                <Route path="/past-questions" element={<ExamSetup />} />
+                <Route path="/past-questions" element={<PastQuestionsPage />} />
 
                 {/* ── Daily Practice ───────────────────────────────────── */}
                 <Route path="/daily-practice" element={<DailyPracticePage />} />
