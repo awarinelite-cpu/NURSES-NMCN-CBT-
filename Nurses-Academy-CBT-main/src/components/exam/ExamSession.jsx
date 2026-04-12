@@ -62,6 +62,18 @@ export default function ExamSession() {
           qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         }
 
+        // Fallback: old questions uploaded without examId (legacy flow)
+        // Query by category + examType instead
+        if (qs.length === 0 && examType && category) {
+          const snap = await getDocs(query(
+            collection(db, 'questions'),
+            where('examType', '==', examType),
+            where('category', '==', category),
+            where('active',   '==', true),
+          ));
+          qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
         if (doShuffle) qs = qs.sort(() => Math.random() - 0.5);
         qs = qs.slice(0, count);
         setQuestions(qs);
