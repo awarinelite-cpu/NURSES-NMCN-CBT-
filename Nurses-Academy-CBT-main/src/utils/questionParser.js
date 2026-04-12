@@ -81,7 +81,6 @@ export function shuffleAllQuestionsOptions(questions) {
 export function parseAnswerKey(answerText) {
   if (!answerText?.trim()) return {};
 
-  // Normalize whitespace variants that \s doesn't catch (non-breaking space, etc.)
   const normalized = answerText
     .replace(/\r/g, '')
     .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
@@ -89,8 +88,8 @@ export function parseAnswerKey(answerText) {
   const map = {};
 
   // Universal pattern — handles: "1. B", "1) B", "1: B", "1 B", "1.B",
-  //   "Q1: B", "Q1. B", and packed "Q1: B    Q2: A" on one line.
-  const pattern = /Q?(\d+)\s*[.):–\-]?\s*([A-Ea-e])\b/gi;
+  //   "Q1: B", "Q1. B", "Q1. Answer: B" and packed "Q1: B    Q2: A" on one line.
+  const pattern = /Q?(\d+)\s*[.):–\-]?\s*(?:Answer\s*:\s*)?([A-Ea-e])\b/gi;
   let m;
   while ((m = pattern.exec(normalized)) !== null) {
     map[parseInt(m[1], 10)] = m[2].toUpperCase();
@@ -108,10 +107,55 @@ export function parseAnswerKey(answerText) {
   return map;
 }
 
+// Parses rationales from answer key textarea (e.g. "Q1. Answer: B\nRationale: ...")
+export function parseRationaleKey(answerText) {
+  if (!answerText?.trim()) return {};
+
+  const rationaleMap = {};
+  const lines = answerText.replace(/\r/g, '').split('\n');
+  let currentNum = null;
+  let currentRationale = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Detect Q1. Answer: B or Q1. B lines
+    const qLine = trimmed.match(/^Q?(\d+)\s*[.):–\-]?\s*(?:Answer\s*:\s*)?[A-Ea-e]\b/i);
+    if (qLine) {
+      if (currentNum !== null && currentRationale) {
+        rationaleMap[currentNum] = currentRationale.trim();
+      }
+      currentNum = parseInt(qLine[1], 10);
+      currentRationale = '';
+      continue;
+    }
+
+    // Detect Rationale: / Explanation: lines
+    const ratLine = trimmed.match(/^(rationale|explanation|explain|reason|note)[\s\.\:\-]*/i);
+    if (ratLine && currentNum !== null) {
+      currentRationale = trimmed.replace(/^(rationale|explanation|explain|reason|note)[\s\.\:\-]*/i, '').trim();
+      continue;
+    }
+
+    // Continuation of rationale text
+    if (currentNum !== null && currentRationale && trimmed) {
+      currentRationale += ' ' + trimmed;
+    }
+  }
+
+  // Save last one
+  if (currentNum !== null && currentRationale) {
+    rationaleMap[currentNum] = currentRationale.trim();
+  }
+
+  return rationaleMap;
+}
+
 // ── Main Parser ───────────────────────────────────────────────────────
 
 export function parseQuestionsFromText(rawText, answerKeyText = '') {
-  const answerKey = parseAnswerKey(answerKeyText);
+  const answerKey   = parseAnswerKey(answerKeyText);
+  const rationaleMap = parseRationaleKey(answerKeyText);
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
   const questions = [];
   let current = null;
@@ -343,6 +387,10 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
         q._hasAnswer   = true;
       } else {
         q.correctIndex = 0; // no answer found anywhere — default A
+      }
+      // Apply rationale from answer key if question has no inline explanation
+      if (!q.explanation && rationaleMap[q._qNumber]) {
+        q.explanation = rationaleMap[q._qNumber];
       }
     });
   } else {
