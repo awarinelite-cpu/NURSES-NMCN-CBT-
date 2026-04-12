@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
+  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc,
   query, where, orderBy, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -202,12 +202,36 @@ export default function QuestionsManager() {
     finally { setLoading(false); }
   };
 
+  // ── Sync exam's totalQuestions after any deletion ──────────────────────────
+  const syncExamQuestionCount = async (examId) => {
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('examId', '==', examId),
+        where('active', '==', true),
+      ));
+      await updateDoc(doc(db, 'exams', examId), {
+        totalQuestions: snap.size,
+      });
+    } catch (e) {
+      console.warn('syncExamQuestionCount failed for', examId, e);
+    }
+  };
+
   // ── Delete ──────────────────────────────────────────────────────
   const deleteQuestion = async (id) => {
     if (!window.confirm('Delete this question?')) return;
     try {
+      // Get the question's examId before deleting
+      const qSnap = await getDoc(doc(db, 'questions', id));
+      const examId = qSnap.exists() ? qSnap.data().examId : null;
+
       await deleteDoc(doc(db, 'questions', id));
       setQuestions(prev => prev.filter(q => q.id !== id));
+
+      // Update exam's totalQuestions count
+      if (examId) await syncExamQuestionCount(examId);
+
       toast('Deleted.', 'success');
     } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
   };
@@ -216,11 +240,20 @@ export default function QuestionsManager() {
     if (selected.size === 0) return;
     if (!window.confirm(`Delete ${selected.size} questions?`)) return;
     try {
+      // Collect examIds before deletion so we can update counts
+      const examIds = new Set(
+        questions.filter(q => selected.has(q.id) && q.examId).map(q => q.examId)
+      );
+
       const batch = writeBatch(db);
       selected.forEach(id => batch.delete(doc(db, 'questions', id)));
       await batch.commit();
       setQuestions(prev => prev.filter(q => !selected.has(q.id)));
       setSelected(new Set());
+
+      // Update totalQuestions on each affected exam
+      await Promise.all([...examIds].map(syncExamQuestionCount));
+
       toast(`Deleted.`, 'success');
     } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
   };
