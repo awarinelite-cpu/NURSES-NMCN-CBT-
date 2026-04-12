@@ -17,19 +17,18 @@ import BookmarksPage     from './components/student/BookmarksPage';
 import SubscriptionPage  from './components/student/SubscriptionPage';
 
 // Exam
-import ExamSetup                from './components/exam/ExamSetup';
-import ExamSession              from './components/exam/ExamSession';
-import ExamReviewPage           from './components/exam/ExamReviewPage';           // ← new
-import CategoryPickerPage       from './components/exam/CategoryPickerPage';
-import ExamConfigPage           from './components/exam/ExamConfigPage';
-import DailyPracticePage        from './components/exam/DailyPracticePage';
-import DailyPracticeArchivePage from './components/exam/DailyPracticeArchivePage';
-import MockExamPage             from './components/exam/MockExamPage';
-import DailyReviewStoragePage   from './components/exam/DailyReviewStoragePage';
-import MockReviewStoragePage    from './components/exam/MockReviewStoragePage';
-import CourseDrillPage          from './components/exam/CourseDrillPage';
-import TopicDrillArchivePage    from './components/exam/TopicDrillArchivePage';
-import CourseDrillArchivePage   from './components/exam/CourseDrillArchivePage';
+import ExamSetup          from './components/exam/ExamSetup';
+import ExamSession        from './components/exam/ExamSession';
+import ExamReviewPage     from './components/exam/ExamReviewPage';
+import CategoryPickerPage from './components/exam/CategoryPickerPage';
+import ExamConfigPage     from './components/exam/ExamConfigPage';
+import ExamListPage       from './components/exam/ExamListPage';
+import ExamSetupPage      from './components/exam/ExamSetupPage';
+import DailyPracticePage  from './components/exam/DailyPracticePage';
+import MockExamPage       from './components/exam/MockExamPage';
+import MockReviewStoragePage from './components/exam/MockReviewStoragePage';
+import CourseDrillPage    from './components/exam/CourseDrillPage';
+import TopicDrillPage     from './components/exam/TopicDrillPage';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -72,17 +71,24 @@ export default function App() {
                 <Route path="/past-questions" element={<ExamSetup />} />
 
                 {/* ── Daily Practice ───────────────────────────────────── */}
-                <Route path="/daily-practice"         element={<DailyPracticePage />} />
-                <Route path="/daily-practice-archive" element={<DailyPracticeArchivePage />} />
+                <Route path="/daily-practice" element={<DailyPracticePage />} />
 
-                {/* Legacy kept for backward compat */}
-                <Route path="/daily-reviews" element={<DailyPracticeArchivePage />} />
+                {/* Legacy redirect — keep URL alive, send to new page */}
+                <Route path="/daily-reviews"  element={<DailyPracticePage />} />
 
-                <Route path="/mock-exams"           element={<MockExamPage />} />
-                <Route path="/mock-reviews"         element={<MockReviewStoragePage />} />
-                <Route path="/course-drill"         element={<CourseDrillPage />} />
-                <Route path="/topic-drill-archive"  element={<TopicDrillArchivePage />} />
-                <Route path="/course-drill-archive" element={<CourseDrillArchivePage />} />
+                {/* ── Drill types ──────────────────────────────────────── */}
+                <Route path="/course-drill"   element={<CourseDrillPage />} />
+                <Route path="/topic-drill"    element={<TopicDrillPage />} />
+
+                {/* ── Shared exam list + setup ─────────────────────────── */}
+                <Route path="/exam/list"      element={<ExamListPage />} />
+                <Route path="/exam/setup"     element={<ExamSetupPage />} />
+
+                {/* ── Mock exams ───────────────────────────────────────── */}
+                <Route path="/mock-exams"     element={<MockExamPage />} />
+                <Route path="/mock-reviews"   element={<MockReviewStoragePage />} />
+
+                {/* ── Analytics / bookmarks / subscription ─────────────── */}
                 <Route path="/results"      element={<AnalyticsPage />} />
                 <Route path="/bookmarks"    element={<BookmarksPage />} />
                 <Route path="/subscription" element={<SubscriptionPage />} />
