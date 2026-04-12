@@ -28,7 +28,8 @@ export default function ExamSession() {
   const count       = Number(state?.count     || 20);
   const timeLimit   = Number(state?.timeLimit || 0);
   const doShuffle   = state?.doShuffle  !== false;
-  const reviewMode  = state?.reviewMode || false; // true = show answers immediately
+  const reviewMode  = state?.reviewMode || false;
+  const examYear    = state?.examYear   || '';
 
   const catInfo = NURSING_CATEGORIES.find(c => c.id === category);
 
@@ -63,14 +64,15 @@ export default function ExamSession() {
         }
 
         // Fallback: old questions uploaded without examId (legacy flow)
-        // Query by category + examType instead
+        // Query by category + examType, then filter by year if provided
         if (qs.length === 0 && examType && category) {
-          const snap = await getDocs(query(
-            collection(db, 'questions'),
+          const constraints = [
             where('examType', '==', examType),
             where('category', '==', category),
             where('active',   '==', true),
-          ));
+          ];
+          if (examYear) constraints.push(where('year', '==', examYear));
+          const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
           qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         }
 
