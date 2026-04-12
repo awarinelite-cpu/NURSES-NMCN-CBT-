@@ -161,6 +161,7 @@ export default function ExamListPage() {
           course,
           courseLabel,
           topic,
+          examYear:       exam.year || '',
           totalQuestions: exam.totalQuestions || 0,
           reviewMode:     false,
         },

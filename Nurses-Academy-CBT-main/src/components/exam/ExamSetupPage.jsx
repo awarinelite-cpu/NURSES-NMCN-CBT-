@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { NURSING_CATEGORIES } from '../../data/categories';
+import { NURSING_CATEGORIES, EXAM_YEARS } from '../../data/categories';
 
 const TIME_OPTIONS = [
   { label: 'No Timer',  value: 0   },
@@ -30,6 +30,7 @@ export default function ExamSetupPage() {
   const topic         = state?.topic         || '';
   const totalQuestions = Number(state?.totalQuestions || 0);
   const reviewMode    = state?.reviewMode    || false;
+  const examYear      = state?.examYear      || '';
 
   const catInfo = NURSING_CATEGORIES.find(c => c.id === category);
 
@@ -72,6 +73,7 @@ export default function ExamSetupPage() {
 
   const previewRows = [
     ['🏥 Category',   catInfo?.shortLabel || category],
+    ...(examYear ? [['📅 Year', examYear]] : []),
     ...(course ? [['📖 Course', courseLabel]] : []),
     ...(topic  ? [['🎯 Topic',  topic]]        : []),
     ['❓ Questions',  `${count} of ${totalQuestions}`],
@@ -127,6 +129,26 @@ export default function ExamSetupPage() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Year — shown for past_questions */}
+        {examType === 'past_questions' && examYear && (
+          <div className="card" style={styles.section}>
+            <div style={styles.sectionHead}>📅 Exam Year</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {EXAM_YEARS.map(y => (
+                <div key={y} style={{
+                  ...styles.chipBtn,
+                  borderColor: examYear === y ? 'var(--gold)' : 'var(--border)',
+                  background:  examYear === y ? 'rgba(245,158,11,0.12)' : 'var(--bg-tertiary)',
+                  color:       examYear === y ? '#B45309' : 'var(--text-muted)',
+                  cursor: 'default',
+                }}>
+                  {y} {examYear === y && '✓'}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Question count */}
         <div className="card" style={styles.section}>
