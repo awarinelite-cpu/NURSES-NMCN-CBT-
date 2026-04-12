@@ -1,3 +1,5 @@
+name: Deploy Firestore Indexes
+
 on:
   push:
     branches:
