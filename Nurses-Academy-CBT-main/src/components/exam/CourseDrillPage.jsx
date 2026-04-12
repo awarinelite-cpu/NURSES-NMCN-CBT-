@@ -14,7 +14,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, getCountFromServer } from 'firebase/firestore';
 import { db }         from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { useAuth }    from '../../context/AuthContext';
@@ -70,13 +70,13 @@ export default function CourseDrillPage() {
         const countResults = await Promise.all(
           active.map(async c => {
             try {
-              const qSnap = await getDocs(query(
+              const snap = await getCountFromServer(query(
                 collection(db, 'questions'),
                 where('examType', '==', 'course_drill'),
                 where('course',   '==', c.id),
                 where('active',   '==', true),
               ));
-              return [c.id, qSnap.size];
+              return [c.id, snap.data().count];
             } catch {
               return [c.id, 0];
             }
