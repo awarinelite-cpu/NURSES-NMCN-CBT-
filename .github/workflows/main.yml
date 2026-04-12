@@ -28,3 +28,4 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
           PROJECT_ID=$(python3 -c "import sys,json; print(json.load(open('service-account.json'))['project_id'])")
           firebase deploy --only firestore:indexes --project $PROJECT_ID
+
