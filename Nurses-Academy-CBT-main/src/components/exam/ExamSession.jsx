@@ -9,6 +9,7 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import { updateStreak } from '../../utils/streakUtils';
 
 export default function ExamSession() {
   const { state }        = useLocation();
@@ -212,9 +213,14 @@ export default function ExamSession() {
         });
       }
 
-      // ── 3. Save to Daily Practice Archive ──
+      // ── 3. Save to Daily Practice Archive + update streak ──
       if (examType === 'daily_practice') {
         await saveDailyPracticeArchive(scorePercent);
+        // updateStreak is fire-and-forget — a streak write failure
+        // must never block the student from seeing their results.
+        updateStreak(currentUser.uid).catch(e =>
+          console.warn('Streak update failed (non-critical):', e)
+        );
       }
 
     } catch (e) { console.error('Session save error:', e); }

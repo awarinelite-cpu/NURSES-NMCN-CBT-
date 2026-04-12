@@ -9,10 +9,11 @@
 // On submit, ExamSession saves to the "dailyPracticeArchive" subcollection
 // under the student's uid (first-time only — see DailyPracticeArchivePage).
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
+import { fetchStreak, practicedToday, streakLabel } from '../../utils/streakUtils';
 
 const QUESTION_COUNTS = [10, 20, 30, 50, 100];
 const TIME_OPTIONS = [
@@ -34,6 +35,14 @@ export default function DailyPracticePage() {
   const [timeLimit, setTimeLimit] = useState(30);
   const [shuffle,   setShuffle]   = useState(true);
   const [showExpl,  setShowExpl]  = useState(false);
+
+  // ── Streak ─────────────────────────────────────────────────────────────────
+  const [streakData, setStreakData] = useState(null);
+
+  useEffect(() => {
+    if (!profile?.uid) return;
+    fetchStreak(profile.uid).then(setStreakData).catch(() => {});
+  }, [profile?.uid]);
 
   // ── Step 1 handlers ────────────────────────────────────────────────────────
   const handleCategoryClick = (cat) => {
@@ -81,6 +90,11 @@ export default function DailyPracticePage() {
             Choose a nursing category to begin today's practice quiz.
           </p>
         </div>
+
+        {/* ── Streak banner ── */}
+        {streakData && streakData.currentStreak >= 1 && (
+          <StreakBanner streakData={streakData} />
+        )}
 
         {/* Step indicator */}
         <StepIndicator step={1} />
@@ -256,6 +270,88 @@ export default function DailyPracticePage() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+// ── Streak Banner ──────────────────────────────────────────────────────────────
+function StreakBanner({ streakData }) {
+  const done    = practicedToday(streakData);
+  const current = streakData?.currentStreak || 0;
+  const longest = streakData?.longestStreak || 0;
+  const label   = streakLabel(current);
+
+  // Pick a motivational message based on streak length
+  let message = "Keep it going!";
+  if (done)         message = "✅ You've practiced today. Come back tomorrow!";
+  else if (current >= 30) message = "Incredible discipline — don't stop now!";
+  else if (current >= 14) message = "Two weeks strong. You're unstoppable!";
+  else if (current >= 7)  message = "One week in — habits are forming!";
+  else if (current >= 3)  message = "Nice momentum — practice again today!";
+  else                    message = "Good start — keep the streak alive!";
+
+  const flameColor = current >= 14 ? '#FF4500' : current >= 7 ? '#F97316' : '#F59E0B';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 16, flexWrap: 'wrap',
+      padding: '14px 20px', marginBottom: 24, borderRadius: 14,
+      background: `linear-gradient(135deg, ${flameColor}12, ${flameColor}06)`,
+      border: `1.5px solid ${flameColor}30`,
+    }}>
+      {/* Left: flame + streak count */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+          background: `${flameColor}20`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 28,
+        }}>
+          🔥
+        </div>
+        <div>
+          <div style={{
+            fontWeight: 900, fontSize: 22, color: flameColor, lineHeight: 1.1,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+            {message}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: best streak pill */}
+      {longest > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 14px', borderRadius: 30, flexShrink: 0,
+          background: `${flameColor}12`, border: `1px solid ${flameColor}30`,
+        }}>
+          <span style={{ fontSize: 13 }}>🏆</span>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Best
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: flameColor, lineHeight: 1 }}>
+              {longest} days
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Today done indicator */}
+      {done && (
+        <div style={{
+          fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20,
+          background: 'rgba(22,163,74,0.12)', color: '#16A34A',
+          border: '1px solid rgba(22,163,74,0.3)', flexShrink: 0,
+        }}>
+          ✅ Done today
+        </div>
+      )}
     </div>
   );
 }
