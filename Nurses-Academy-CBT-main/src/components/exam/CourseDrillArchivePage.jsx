@@ -9,12 +9,15 @@
 // Reads from 'examSessions' collection where:
 //   userId == current user AND examType == 'course_drill'
 //
+// FIX: Sessions where all saved questionIds have been deleted by admin
+// are automatically hidden — they would open to an empty review screen.
+//
 // NOTE: This page is ARCHIVE-ONLY. The take-exam flow is CourseDrillPage (/course-drill).
 
 import { useState, useEffect } from 'react';
 import { useNavigate }          from 'react-router-dom';
 import {
-  collection, getDocs, query, where, orderBy,
+  collection, getDocs, query, where, orderBy, doc, getDoc,
 } from 'firebase/firestore';
 import { db }                   from '../../firebase/config';
 import { useAuth }              from '../../context/AuthContext';
@@ -34,6 +37,23 @@ const COURSE_CATEGORY_MAP = {
   microbiology:        'all',
 };
 
+// ── Helper: check if a session still has at least one live question ──────────
+async function sessionHasLiveQuestions(session) {
+  const ids = session.questionIds;
+  // If no questionIds field, keep session (legacy structure)
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return true;
+
+  // Sample up to 10 ids — one live question is enough to keep the session
+  const sample = ids.slice(0, 10);
+  for (const qid of sample) {
+    try {
+      const snap = await getDoc(doc(db, 'questions', qid));
+      if (snap.exists()) return true;
+    } catch { /* ignore */ }
+  }
+  return false;
+}
+
 export default function CourseDrillArchivePage() {
   const { user }  = useAuth();
   const navigate  = useNavigate();
@@ -41,7 +61,7 @@ export default function CourseDrillArchivePage() {
   const [step,      setStep]      = useState(1);
   const [specialty, setSpecialty] = useState(null);
   const [course,    setCourse]    = useState(null);
-  const [sessions,  setSessions]  = useState([]);  // all user's course_drill attempts
+  const [sessions,  setSessions]  = useState([]);  // all user's course_drill attempts (live only)
   const [allCourses, setAllCourses] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
@@ -62,39 +82,47 @@ export default function CourseDrillArchivePage() {
     load();
   }, []);
 
-  // Load all this user's course_drill sessions from examSessions
+  // Load all this user's course_drill sessions, then filter out empty ones
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(query(
-          collection(db, 'examSessions'),
-          where('userId',   '==', user.uid),
-          where('examType', '==', 'course_drill'),
-          orderBy('completedAt', 'desc'),
-        ));
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error('CourseDrillArchivePage load error:', e);
-        // Try without orderBy if composite index not yet created
+        let raw = [];
         try {
-          const snap2 = await getDocs(query(
+          const snap = await getDocs(query(
             collection(db, 'examSessions'),
             where('userId',   '==', user.uid),
             where('examType', '==', 'course_drill'),
+            orderBy('completedAt', 'desc'),
           ));
-          const sorted = snap2.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => {
-              const ta = a.completedAt?.toDate?.()?.getTime?.() || 0;
-              const tb = b.completedAt?.toDate?.()?.getTime?.() || 0;
-              return tb - ta;
-            });
-          setSessions(sorted);
-        } catch (e2) {
-          console.error('CourseDrillArchivePage fallback error:', e2);
+          raw = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.error('CourseDrillArchivePage load error:', e);
+          // Fallback without orderBy if composite index not yet created
+          try {
+            const snap2 = await getDocs(query(
+              collection(db, 'examSessions'),
+              where('userId',   '==', user.uid),
+              where('examType', '==', 'course_drill'),
+            ));
+            raw = snap2.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => {
+                const ta = a.completedAt?.toDate?.()?.getTime?.() || 0;
+                const tb = b.completedAt?.toDate?.()?.getTime?.() || 0;
+                return tb - ta;
+              });
+          } catch (e2) {
+            console.error('CourseDrillArchivePage fallback error:', e2);
+          }
         }
+
+        // ── FILTER: remove sessions whose questions were all deleted by admin ──
+        const liveChecks = await Promise.all(raw.map(sessionHasLiveQuestions));
+        const live = raw.filter((_, i) => liveChecks[i]);
+
+        setSessions(live);
       } finally {
         setLoading(false);
       }

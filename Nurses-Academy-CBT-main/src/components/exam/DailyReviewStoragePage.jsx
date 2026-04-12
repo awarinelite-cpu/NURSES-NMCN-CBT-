@@ -6,22 +6,43 @@
 // Students can review answers or retake any exam.
 //
 // Route: /daily-reviews  AND  /daily-practice-archive
+//
+// FIX: Sessions where all saved questionIds have been deleted by admin
+// are automatically hidden — they would open to an empty review screen.
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, getDocs, query, where, orderBy,
-  doc, getDoc,
+  doc, getDoc, documentId,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES, ALL_EXAM_TYPES } from '../../data/categories';
 
+// ── Helper: check if a session still has at least one live question ──────────
+async function sessionHasLiveQuestions(session) {
+  const ids = session.questionIds;
+  // If no questionIds field at all, keep the session (legacy / different structure)
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return true;
+
+  // Check up to the first 10 ids — if any one exists, the session is valid.
+  // (Checking all could be expensive; one live question is enough to show review.)
+  const sample = ids.slice(0, 10);
+  for (const qid of sample) {
+    try {
+      const snap = await getDoc(doc(db, 'questions', qid));
+      if (snap.exists()) return true;
+    } catch { /* ignore single-doc errors */ }
+  }
+  return false;
+}
+
 export default function DailyReviewStoragePage() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
 
-  const [results,   setResults]   = useState([]);   // exam attempt records
+  const [results,   setResults]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [filterType, setFilterType] = useState('');
   const [filterCat,  setFilterCat]  = useState('');
@@ -33,7 +54,6 @@ export default function DailyReviewStoragePage() {
     const load = async () => {
       setLoading(true);
       try {
-        // FIX 1: Query 'examSessions' — this is where ExamSession.jsx saves results
         const q = query(
           collection(db, 'examSessions'),
           where('userId', '==', user.uid),
@@ -42,10 +62,10 @@ export default function DailyReviewStoragePage() {
         const snap = await getDocs(q);
         const attempts = snap.docs.map(d => ({ resultId: d.id, ...d.data() }));
 
-        // For each attempt, enrich with exam metadata if not already stored
+        // Enrich with exam metadata if not stored
         const enriched = await Promise.all(
           attempts.map(async (attempt) => {
-            if (attempt.examName) return attempt; // already has name
+            if (attempt.examName) return attempt;
             if (!attempt.examId)  return attempt;
             try {
               const examSnap = await getDoc(doc(db, 'exams', attempt.examId));
@@ -58,7 +78,11 @@ export default function DailyReviewStoragePage() {
           })
         );
 
-        setResults(enriched);
+        // ── FILTER: remove sessions whose questions were all deleted by admin ──
+        const liveChecks = await Promise.all(enriched.map(sessionHasLiveQuestions));
+        const liveResults = enriched.filter((_, i) => liveChecks[i]);
+
+        setResults(liveResults);
       } catch (e) {
         console.error('DailyReviewStoragePage error:', e);
       } finally {
@@ -69,7 +93,6 @@ export default function DailyReviewStoragePage() {
   }, [user?.uid]);
 
   // ── Derived stats ────────────────────────────────────────────────
-  // FIX 2: Use `scorePercent` — that's the field ExamSession.jsx saves
   const passed     = results.filter(r => (r.scorePercent ?? 0) >= 50);
   const failed     = results.filter(r => (r.scorePercent ?? 0) < 50);
   const avgScore   = results.length > 0
@@ -237,7 +260,6 @@ export default function DailyReviewStoragePage() {
           {filtered.map(r => {
             const cat   = getCat(r.category);
             const type  = getType(r.examType);
-            // FIX 3: Use scorePercent field
             const score = r.scorePercent ?? null;
             const sc    = score !== null ? scoreColor(score) : 'var(--border)';
 
