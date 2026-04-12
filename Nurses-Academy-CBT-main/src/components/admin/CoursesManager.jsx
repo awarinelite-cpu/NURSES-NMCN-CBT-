@@ -6,15 +6,15 @@
 //   Level 0 — All specialties as cards (with course count)
 //   Level 1 — Click specialty → see its courses (built-ins + custom)
 //             + Add Course button → inline form
-//             + Delete button on every course (built-in or custom)
+//             + Edit button on EVERY course (built-in or custom)
+//             + Delete/Hide button on every course
 //
 // FIRESTORE:
-//   Custom courses   → 'courses' collection  { label, icon, category, description, createdAt }
-//   Deleted defaults → 'deletedDefaultCourses' collection  { label, deletedAt }
+//   Custom courses      → 'courses' collection  { label, icon, category, description, createdAt }
+//   Built-in overrides  → 'courses' collection with SAME id as the default course
+//                         (same collection, just an override doc that replaces label/icon)
+//   Deleted defaults    → 'deletedDefaultCourses' collection  { label, deletedAt }
 //     CourseDrillPage skips any default course whose id appears in deletedDefaultCourses.
-//
-// NOTE: This is a DROP-IN replacement for the old CoursesManager.jsx.
-//       Import and route paths stay exactly the same.
 
 import { useState, useEffect } from 'react';
 import {
@@ -62,7 +62,6 @@ export default function CoursesManager() {
       setCustomCourses(courseSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setDeletedDefaults(deletedSnap.docs.map(d => d.id));
     } catch (e) {
-      // 'courses' or 'deletedDefaultCourses' may not exist yet — that's fine
       try {
         const courseSnap = await getDocs(collection(db, 'courses'));
         setCustomCourses(courseSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -76,14 +75,26 @@ export default function CoursesManager() {
   useEffect(() => { loadData(); }, []);
 
   // ── Computed lists ─────────────────────────────────────────────
-  // All active courses for a given specialty (for display + counts)
+  // All active courses for a given specialty
   const coursesForSpecialty = (specialtyId) => {
+    // Default courses, excluding hidden ones, with Firestore overrides applied
     const defaults = DEFAULT_NURSING_COURSES
       .filter(c => c.category === specialtyId && !deletedDefaults.includes(c.id))
-      .map(c => ({ ...c, _source: 'default' }));
+      .map(c => {
+        // Check if admin has saved an override for this built-in course
+        const override = customCourses.find(fc => fc.id === c.id);
+        if (override) {
+          return { ...c, label: override.label, icon: override.icon, description: override.description, _source: 'default', _overridden: true };
+        }
+        return { ...c, _source: 'default', _overridden: false };
+      });
+
+    // Custom courses (those whose id is NOT in DEFAULT_NURSING_COURSES)
+    const defaultIds = DEFAULT_NURSING_COURSES.map(c => c.id);
     const customs = customCourses
-      .filter(c => c.category === specialtyId)
+      .filter(c => c.category === specialtyId && !defaultIds.includes(c.id))
       .map(c => ({ ...c, _source: 'custom' }));
+
     return [...defaults, ...customs];
   };
 
@@ -93,7 +104,9 @@ export default function CoursesManager() {
       c.category === specialtyId && deletedDefaults.includes(c.id)
     );
 
-  const totalCustom = customCourses.length;
+  const totalCustom = customCourses.filter(c =>
+    !DEFAULT_NURSING_COURSES.find(d => d.id === c.id)
+  ).length;
 
   // ── Reset form ─────────────────────────────────────────────────
   const resetForm = () => {
@@ -108,15 +121,18 @@ export default function CoursesManager() {
     setSaving(true);
     try {
       if (editId) {
-        await updateDoc(doc(db, 'courses', editId), {
+        // Both custom and built-in overrides are saved to 'courses' collection with their id
+        await setDoc(doc(db, 'courses', editId), {
           label:       formLabel.trim(),
           icon:        formIcon || '📖',
+          category:    selectedSpecialty.id,
           description: formDesc.trim(),
           updatedAt:   serverTimestamp(),
-        });
+        }, { merge: true });
         toast('Course updated!', 'success');
       } else {
-        const slug = formLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        // New custom course
+        const slug  = formLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
         const newId = `${selectedSpecialty.id}_${slug}_${Date.now()}`;
         await setDoc(doc(db, 'courses', newId), {
           label:       formLabel.trim(),
@@ -146,16 +162,18 @@ export default function CoursesManager() {
     setShowIconPicker(false);
   };
 
-  // ── Delete ─────────────────────────────────────────────────────
+  // ── Delete / Hide ──────────────────────────────────────────────
   const handleDelete = async (course) => {
     const isDefault = course._source === 'default';
     const msg = isDefault
-      ? `Hide "${course.label}"?\n\nThis is a built-in course. It will be hidden from students but can be restored later.`
+      ? `Hide "${course.label}"?\n\nThis built-in course will be hidden from students but can be restored later.`
       : `Delete "${course.label}"?\n\nThis custom course will be permanently removed.`;
     if (!window.confirm(msg)) return;
     setDeletingId(course.id);
     try {
       if (isDefault) {
+        // Also remove any override doc so restore brings back original
+        try { await deleteDoc(doc(db, 'courses', course.id)); } catch { /* may not exist */ }
         await setDoc(doc(db, 'deletedDefaultCourses', course.id), {
           label: course.label,
           deletedAt: serverTimestamp(),
@@ -189,9 +207,9 @@ export default function CoursesManager() {
   // LEVEL 1 — Specialty detail view
   // ══════════════════════════════════════════════════════════════
   if (selectedSpecialty) {
-    const allCourses   = coursesForSpecialty(selectedSpecialty.id);
+    const allCourses    = coursesForSpecialty(selectedSpecialty.id);
     const hiddenCourses = deletedForSpecialty(selectedSpecialty.id);
-    const filtered     = allCourses.filter(c =>
+    const filtered      = allCourses.filter(c =>
       c.label.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -374,7 +392,7 @@ export default function CoursesManager() {
                   {filtered.map(course => (
                     <div key={course.id} style={{
                       ...styles.courseRow,
-                      borderLeft: `4px solid ${course._source === 'custom' ? selectedSpecialty.color : 'var(--border)'}`,
+                      borderLeft: `4px solid ${course._source === 'custom' ? selectedSpecialty.color : course._overridden ? '#F59E0B' : 'var(--border)'}`,
                     }}>
                       <div style={{ ...styles.courseIcon, background: `${selectedSpecialty.color}18` }}>
                         {course.icon || '📖'}
@@ -388,13 +406,17 @@ export default function CoursesManager() {
                             fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
                             background: course._source === 'custom'
                               ? `${selectedSpecialty.color}20`
-                              : 'var(--bg-tertiary)',
+                              : course._overridden
+                                ? 'rgba(245,158,11,0.15)'
+                                : 'var(--bg-tertiary)',
                             color: course._source === 'custom'
                               ? selectedSpecialty.color
-                              : 'var(--text-muted)',
-                            border: `1px solid ${course._source === 'custom' ? `${selectedSpecialty.color}40` : 'var(--border)'}`,
+                              : course._overridden
+                                ? '#F59E0B'
+                                : 'var(--text-muted)',
+                            border: `1px solid ${course._source === 'custom' ? `${selectedSpecialty.color}40` : course._overridden ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
                           }}>
-                            {course._source === 'custom' ? '✨ Custom' : '⚙️ Built-in'}
+                            {course._source === 'custom' ? '✨ Custom' : course._overridden ? '✏️ Edited' : '⚙️ Built-in'}
                           </span>
                         </div>
                         {course.description && (
@@ -404,12 +426,11 @@ export default function CoursesManager() {
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                        {course._source === 'custom' && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleEdit(course)}
-                          >✏️ Edit</button>
-                        )}
+                        {/* Edit available for ALL courses — both custom and built-in */}
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleEdit(course)}
+                        >✏️ Edit</button>
                         <button
                           className="btn btn-danger btn-sm"
                           disabled={deletingId === course.id}
@@ -489,7 +510,7 @@ export default function CoursesManager() {
         fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
       }}>
         💡 <strong>How it works:</strong> Click a specialty to view and manage its courses.
-        Each specialty comes with built-in courses you can hide, and you can add your own custom courses.
+        Built-in courses can be <strong>edited</strong> or <strong>hidden</strong>. You can also add custom courses.
         All changes reflect instantly on the student Course Drill page.
       </div>
 
@@ -500,7 +521,10 @@ export default function CoursesManager() {
           {NURSING_CATEGORIES.map(cat => {
             const courses     = coursesForSpecialty(cat.id);
             const hidden      = deletedForSpecialty(cat.id).length;
-            const customCount = customCourses.filter(c => c.category === cat.id).length;
+            const customCount = customCourses.filter(c => {
+              const defaultIds = DEFAULT_NURSING_COURSES.map(d => d.id);
+              return c.category === cat.id && !defaultIds.includes(c.id);
+            }).length;
 
             return (
               <button
