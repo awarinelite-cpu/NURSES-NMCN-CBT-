@@ -203,6 +203,8 @@ export default function QuestionsManager() {
   };
 
   // ── Sync exam's totalQuestions after any deletion ──────────────────────────
+  // If all questions are gone, also set active:false so the exam disappears
+  // from students' Course Drill / Topic Drill lists immediately.
   const syncExamQuestionCount = async (examId) => {
     try {
       const snap = await getDocs(query(
@@ -210,8 +212,10 @@ export default function QuestionsManager() {
         where('examId', '==', examId),
         where('active', '==', true),
       ));
+      const remaining = snap.size;
       await updateDoc(doc(db, 'exams', examId), {
-        totalQuestions: snap.size,
+        totalQuestions: remaining,
+        ...(remaining === 0 ? { active: false } : {}),
       });
     } catch (e) {
       console.warn('syncExamQuestionCount failed for', examId, e);
