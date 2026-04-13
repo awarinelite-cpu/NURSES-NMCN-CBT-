@@ -1,233 +1,284 @@
-// src/components/exam/ExamSetupPage.jsx
-// Route: /exam/setup
-//
-// Shown after student picks an exam from ExamListPage.
-// Lets them choose question count, time limit, shuffle.
-// Then navigates to /exam/session.
+// src/components/exam/ExamSetup.jsx
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS } from '../../data/categories';
+import { useAuth } from '../../context/AuthContext';
 
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { NURSING_CATEGORIES, EXAM_YEARS } from '../../data/categories';
+// ── FIX: Extended to support up to 250 questions.
+// The displayed buttons are dynamically filtered so only counts ≤ availableCount
+// are shown — meaning this list automatically adapts without further code changes
+// as the question bank grows.
+const QUESTION_COUNTS = [10, 20, 30, 50, 100, 150, 200, 250];
 
-const TIME_OPTIONS = [
-  { label: 'No Timer',  value: 0   },
-  { label: '15 mins',   value: 15  },
-  { label: '30 mins',   value: 30  },
-  { label: '1 hour',    value: 60  },
-  { label: '2 hours',   value: 120 },
+const TIME_OPTIONS    = [
+  { label: 'No Timer',   value: 0 },
+  { label: '30 mins',    value: 30 },
+  { label: '1 hour',     value: 60 },
+  { label: '2 hours',    value: 120 },
+  { label: '3 hours',    value: 180 },
 ];
 
-export default function ExamSetupPage() {
+export default function ExamSetup() {
+  const { profile } = useAuth();
   const navigate    = useNavigate();
-  const { state }   = useLocation();
+  const [params]    = useSearchParams();
 
-  const examId        = state?.examId        || '';
-  const examName      = state?.examName      || 'Exam';
-  const examType      = state?.examType      || 'daily_practice';
-  const category      = state?.category      || '';
-  const course        = state?.course        || '';
-  const courseLabel   = state?.courseLabel   || '';
-  const topic         = state?.topic         || '';
-  const totalQuestions = Number(state?.totalQuestions || 0);
-  const reviewMode    = state?.reviewMode    || false;
-  const examYear      = state?.examYear      || '';
+  const [category, setCategory]     = useState(params.get('category') || '');
+  const [examType, setExamType]     = useState(params.get('type')     || 'past_questions');
+  const [year, setYear]             = useState('');
+  const [count, setCount]           = useState(40);
+  const [timeLimit, setTimeLimit]   = useState(60);
+  const [shuffle, setShuffle]       = useState(true);
+  const [showExpl, setShowExpl]     = useState(false);
+  const [error, setError]           = useState('');
 
-  const catInfo = NURSING_CATEGORIES.find(c => c.id === category);
+  // ── FIX: Track how many questions are available for the selected filters.
+  // Replace `availableCount` with a real Firestore count query wired to your
+  // data layer; this default keeps the UI fully functional in the meantime.
+  const [availableCount, setAvailableCount] = useState(
+    parseInt(params.get('available') || '250', 10)
+  );
 
-  // Question count options capped to available
-  const COUNTS = [10, 20, 30, 50, 100].filter(n => n <= totalQuestions);
-  if (totalQuestions > 0 && !COUNTS.includes(totalQuestions) && totalQuestions < 100) {
-    COUNTS.push(totalQuestions);
-    COUNTS.sort((a, b) => a - b);
-  }
+  // ── FIX: When the selected count exceeds availableCount (e.g. after
+  // switching to a smaller category), clamp it to the largest valid preset.
+  useEffect(() => {
+    const validCounts = QUESTION_COUNTS.filter(n => n <= availableCount);
+    if (validCounts.length > 0 && count > availableCount) {
+      setCount(validCounts[validCounts.length - 1]);
+    }
+  }, [availableCount, count]);
 
-  const [count,     setCount]     = useState(COUNTS[0] || totalQuestions || 20);
-  const [timeLimit, setTimeLimit] = useState(30);
-  const [shuffle,   setShuffle]   = useState(true);
-  const [showExpl,  setShowExpl]  = useState(false);
+  const isPremiumType = (t) => ['hospital_finals', 'topic_drill'].includes(t);
+  const needsYear     = ['past_questions', 'hospital_finals'].includes(examType);
 
   const handleStart = () => {
-    navigate('/exam/session', {
-      state: {
-        examId,
-        examName,
-        examType,
-        category,
-        course,
-        courseLabel,
-        topic,
-        count,
-        timeLimit,
-        doShuffle: shuffle,
-        showExpl,
-        reviewMode,
-      },
-    });
+    if (!category) { setError('Please select a nursing category.'); return; }
+    if (needsYear && !year) { setError('Please select an exam year.'); return; }
+    if (isPremiumType(examType) && !profile?.subscribed) {
+      setError('This exam type requires a subscription. Please upgrade your plan.');
+      return;
+    }
+    setError('');
+    const p = new URLSearchParams({ category, examType, count, timeLimit, shuffle, showExpl });
+    if (year) p.set('year', year);
+    navigate(`/exam/session?${p.toString()}`);
   };
 
-  const typeLabel = {
-    daily_practice: '⚡ Daily Practice',
-    course_drill:   '📖 Course Drill',
-    topic_drill:    '🎯 Topic Drill',
-  }[examType] || 'Exam';
+  const selectedCat = NURSING_CATEGORIES.find(c => c.id === category);
 
-  const previewRows = [
-    ['🏥 Category',   catInfo?.shortLabel || category],
-    ...(examYear ? [['📅 Year', examYear]] : []),
-    ...(course ? [['📖 Course', courseLabel]] : []),
-    ...(topic  ? [['🎯 Topic',  topic]]        : []),
-    ['❓ Questions',  `${count} of ${totalQuestions}`],
-    ['⏱ Time',        timeLimit ? `${timeLimit} mins` : 'Unlimited'],
-    ['🔀 Shuffle',    shuffle ? 'Yes' : 'No'],
-  ];
+  // ── FIX: Only show count options that are ≤ availableCount.
+  // Always include the "all" option (availableCount itself) so the user can
+  // always select everything available, even if it doesn't match a preset.
+  const visibleCounts = [
+    ...new Set([
+      ...QUESTION_COUNTS.filter(n => n <= availableCount),
+      availableCount,   // always show the exact available total
+    ]),
+  ].sort((a, b) => a - b);
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 720, margin: '0 auto' }}>
-
-      {/* Back */}
-      <button onClick={() => navigate(-1)} style={styles.backBtn}>
-        ← Back to Exams
-      </button>
-
-      {/* Exam name pill */}
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 10,
-        background: `${catInfo?.color || '#0D9488'}18`,
-        border: `1.5px solid ${catInfo?.color || '#0D9488'}40`,
-        borderRadius: 40, padding: '8px 16px', marginBottom: 18,
-        maxWidth: '100%',
-      }}>
-        <span style={{ fontSize: 20 }}>{catInfo?.icon || '📋'}</span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: catInfo?.color || 'var(--teal)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {typeLabel}
-          </div>
-          <div style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 260,
-          }}>
-            {examName}
-          </div>
-        </div>
+    <div style={{ padding: '16px', maxWidth: 800 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)', marginBottom: 6 }}>
+          📝 Set Up Your Exam
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+          Customise your exam session parameters before starting
+        </p>
       </div>
 
-      <h2 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
-        ⚙️ Set Up Your Exam
-      </h2>
-      <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 24px' }}>
-        Customise your session
-      </p>
+      <div style={styles.grid}>
+        {/* Left: Configuration */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {totalQuestions === 0 && (
-        <div style={{
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-          borderRadius: 12, padding: '12px 16px', marginBottom: 20,
-          fontSize: 13, color: '#EF4444',
-        }}>
-          ⚠️ No questions available for this exam yet.
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* Year — shown for past_questions */}
-        {examType === 'past_questions' && examYear && (
+          {/* Category */}
           <div className="card" style={styles.section}>
-            <div style={styles.sectionHead}>📅 Exam Year</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {EXAM_YEARS.map(y => (
-                <div key={y} style={{
-                  ...styles.chipBtn,
-                  borderColor: examYear === y ? 'var(--gold)' : 'var(--border)',
-                  background:  examYear === y ? 'rgba(245,158,11,0.12)' : 'var(--bg-tertiary)',
-                  color:       examYear === y ? '#B45309' : 'var(--text-muted)',
-                  cursor: 'default',
+            <div style={styles.sectionHead}>🏥 Nursing Category</div>
+            <div style={styles.catGrid}>
+              {NURSING_CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategory(cat.id)}
+                  style={{
+                    ...styles.catBtn,
+                    borderColor: category === cat.id ? cat.color : 'var(--border)',
+                    background: category === cat.id ? `${cat.color}18` : 'var(--bg-tertiary)',
+                    color: category === cat.id ? cat.color : 'var(--text-secondary)',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>
+                    {cat.shortLabel}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Exam type */}
+          <div className="card" style={styles.section}>
+            <div style={styles.sectionHead}>📋 Exam Type</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+              {EXAM_TYPES.map(et => (
+                <button
+                  key={et.id}
+                  onClick={() => setExamType(et.id)}
+                  style={{
+                    ...styles.typeBtn,
+                    borderColor: examType === et.id ? 'var(--teal)' : 'var(--border)',
+                    background: examType === et.id ? 'var(--teal-glow)' : 'var(--bg-tertiary)',
+                    color: examType === et.id ? 'var(--teal)' : 'var(--text-secondary)',
+                    opacity: isPremiumType(et.id) && !profile?.subscribed ? 0.6 : 1,
+                  }}
+                >
+                  {et.icon} {et.label}
+                  {isPremiumType(et.id) && <span style={{ fontSize: 10, marginLeft: 4 }}>👑</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Year */}
+          {needsYear && (
+            <div className="card" style={styles.section}>
+              <div style={styles.sectionHead}>📅 Exam Year</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {EXAM_YEARS.map(y => (
+                  <button
+                    key={y}
+                    onClick={() => setYear(y)}
+                    style={{
+                      ...styles.yearBtn,
+                      borderColor: year === y ? 'var(--gold)' : 'var(--border)',
+                      background: year === y ? 'var(--gold-glow)' : 'var(--bg-tertiary)',
+                      color: year === y ? 'var(--gold-dark)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Settings */}
+          <div className="card" style={styles.section}>
+            <div style={styles.sectionHead}>⚙️ Exam Settings</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Question count */}
+              <div>
+                {/* ── FIX: Label now shows how many questions are available */}
+                <label className="form-label">
+                  Number of Questions{' '}
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                    ({availableCount} available)
+                  </span>
+                </label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  {visibleCounts.map(n => (
+                    <button key={n} onClick={() => setCount(n)}
+                      style={{
+                        ...styles.yearBtn,
+                        borderColor: count === n ? 'var(--blue-mid)' : 'var(--border)',
+                        background: count === n ? 'var(--blue-glow)' : 'var(--bg-tertiary)',
+                        color: count === n ? 'var(--blue-mid)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {n === availableCount && !QUESTION_COUNTS.includes(n) ? `All (${n})` : `${n} Qs`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time limit */}
+              <div className="form-group">
+                <label className="form-label">Time Limit</label>
+                <select
+                  className="form-input form-select"
+                  value={timeLimit}
+                  onChange={e => setTimeLimit(Number(e.target.value))}
+                >
+                  {TIME_OPTIONS.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Toggles */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <ToggleRow
+                  label="🔀 Shuffle Questions" desc="Randomize question order each session"
+                  checked={shuffle} onChange={setShuffle}
+                />
+                <ToggleRow
+                  label="💡 Show Explanations After" desc="Display answer explanations during review"
+                  checked={showExpl} onChange={setShowExpl}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Preview card */}
+        <div>
+          <div style={styles.previewCard}>
+            <div style={styles.previewHead}>Exam Preview</div>
+
+            {selectedCat ? (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 14,
+                  background: `${selectedCat.color}22`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 28, margin: '0 auto 10px',
                 }}>
-                  {y} {examYear === y && '✓'}
+                  {selectedCat.icon}
+                </div>
+                <div style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
+                  {selectedCat.label}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>
+                Select a category to start
+              </div>
+            )}
+
+            <div style={styles.previewRows}>
+              {[
+                ['Category',  selectedCat?.label || '-'],
+                ['Type',      EXAM_TYPES.find(e => e.id === examType)?.label || '-'],
+                ['Year',      year || (needsYear ? 'Not selected' : 'N/A')],
+                ['Questions', `${count} / ${availableCount}`],
+                ['Time',      timeLimit ? `${timeLimit} mins` : 'Unlimited'],
+                ['Shuffle',   shuffle ? 'Yes' : 'No'],
+              ].map(([k, v]) => (
+                <div key={k} style={styles.previewRow}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{k}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>{v}</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
 
-        {/* Question count */}
-        <div className="card" style={styles.section}>
-          <div style={styles.sectionHead}>
-            ❓ Number of Questions
-            {totalQuestions > 0 && (
-              <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>
-                ({totalQuestions} available)
-              </span>
-            )}
-          </div>
-          {COUNTS.length === 0 ? (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-              No questions available.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {COUNTS.map(n => (
-                <button key={n} onClick={() => setCount(n)} style={{
-                  ...styles.chipBtn,
-                  borderColor: count === n ? 'var(--blue-mid)' : 'var(--border)',
-                  background:  count === n ? 'var(--blue-glow)' : 'var(--bg-tertiary)',
-                  color:       count === n ? 'var(--blue-mid)'  : 'var(--text-secondary)',
-                }}>{n} Qs</button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Time limit */}
-        <div className="card" style={styles.section}>
-          <div style={styles.sectionHead}>⏱ Time Limit</div>
-          <select className="form-input form-select" value={timeLimit}
-            onChange={e => setTimeLimit(Number(e.target.value))}
-            style={{ marginTop: 8, maxWidth: 220 }}>
-            {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-
-        {/* Options */}
-        <div className="card" style={styles.section}>
-          <div style={styles.sectionHead}>⚙️ Options</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
-            <ToggleRow
-              label="🔀 Shuffle Questions"
-              desc="Randomise question order each session"
-              checked={shuffle}
-              onChange={setShuffle}
-            />
-            <ToggleRow
-              label="💡 Show Explanations After"
-              desc="Display answer explanations during review"
-              checked={showExpl}
-              onChange={setShowExpl}
-            />
-          </div>
-        </div>
-
-        {/* Preview + Start */}
-        <div className="card" style={{ ...styles.section, background: 'linear-gradient(135deg, var(--bg-card), var(--bg-secondary))' }}>
-          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14, marginBottom: 14 }}>
-            👁️ Exam Preview
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-            {previewRows.map(([k, v]) => (
-              <div key={k} style={{ background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{k}</div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{v}</div>
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                ⚠️ {error}
               </div>
-            ))}
+            )}
+
+            <button
+              className="btn btn-primary btn-full btn-lg"
+              onClick={handleStart}
+              disabled={!category}
+            >
+              🚀 Start Exam
+            </button>
+
+            <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-hint)', marginTop: 10 }}>
+              AI-powered explanations for every answer
+            </p>
           </div>
-          <button
-            className="btn btn-primary btn-full btn-lg"
-            onClick={handleStart}
-            disabled={totalQuestions === 0}
-            style={{ fontSize: 16, padding: '14px' }}
-          >
-            🚀 Start Exam
-          </button>
         </div>
       </div>
     </div>
@@ -241,11 +292,14 @@ function ToggleRow({ label, desc, checked, onChange }) {
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{label}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{desc}</div>
       </div>
-      <button onClick={() => onChange(!checked)} style={{
-        width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
-        background: checked ? 'var(--teal)' : 'var(--border)',
-        position: 'relative', transition: 'background 0.25s', flexShrink: 0,
-      }}>
+      <button
+        onClick={() => onChange(!checked)}
+        style={{
+          width: 46, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+          background: checked ? 'var(--teal)' : 'var(--border)',
+          position: 'relative', transition: 'background 0.25s', flexShrink: 0,
+        }}
+      >
         <div style={{
           width: 20, height: 20, borderRadius: '50%', background: '#fff',
           position: 'absolute', top: 3, left: checked ? 23 : 3,
@@ -257,16 +311,43 @@ function ToggleRow({ label, desc, checked, onChange }) {
 }
 
 const styles = {
-  backBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    color: 'var(--teal)', fontWeight: 700, fontSize: 13,
-    padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6,
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+    gap: 24,
+    alignItems: 'start',
   },
-  section:     { padding: '18px 16px' },
-  sectionHead: { fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 },
-  chipBtn: {
-    padding: '8px 16px', border: '2px solid', borderRadius: 8,
+  section: { padding: '20px 20px' },
+  sectionHead: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 14, marginBottom: 14 },
+  catGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8,
+  },
+  catBtn: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    padding: '12px 8px', border: '2px solid', borderRadius: 10,
+    cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+  },
+  typeBtn: {
+    padding: '10px 12px', border: '2px solid', borderRadius: 10,
     cursor: 'pointer', fontSize: 13, fontWeight: 700,
     fontFamily: 'inherit', transition: 'all 0.2s',
+  },
+  yearBtn: {
+    padding: '8px 14px', border: '2px solid', borderRadius: 8,
+    cursor: 'pointer', fontSize: 13, fontWeight: 700,
+    fontFamily: 'inherit', transition: 'all 0.2s',
+  },
+  previewCard: {
+    background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+    borderRadius: 20, padding: '24px 20px',
+  },
+  previewHead: {
+    fontFamily: "'Playfair Display',serif", fontWeight: 700,
+    fontSize: 16, color: 'var(--text-primary)', textAlign: 'center', marginBottom: 16,
+  },
+  previewRows: { marginBottom: 20 },
+  previewRow: {
+    display: 'flex', justifyContent: 'space-between',
+    padding: '8px 0', borderBottom: '1px solid var(--border)',
   },
 };
