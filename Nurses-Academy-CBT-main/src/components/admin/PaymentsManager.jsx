@@ -1,232 +1,261 @@
-// src/components/admin/PaymentsManager.jsx
-import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+// src/components/admin/AdminPayments.jsx
+// Allows admin to view all payments and confirm/reject manual bank transfers
+import { useEffect, useState } from 'react';
+import {
+  collection, query, orderBy, getDocs, doc,
+  updateDoc, serverTimestamp, writeBatch, increment,
+} from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { useToast } from '../shared/Toast';
-import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
-export default function PaymentsManager() {
-  const { toast }         = useToast();
+const STATUS_COLORS = {
+  confirmed: { color: '#16A34A', bg: 'rgba(22,163,74,0.12)',  label: '✅ Confirmed' },
+  pending:   { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', label: '⏳ Pending'   },
+  rejected:  { color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  label: '❌ Rejected'  },
+};
+
+export default function AdminPayments() {
   const [payments, setPayments] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState('all'); // all | pending | confirmed | rejected
-  const [viewing,  setViewing]  = useState(null);  // payment with receipt image open
+  const [filter,   setFilter]   = useState('all');  // 'all' | 'pending' | 'confirmed' | 'rejected'
+  const [busy,     setBusy]     = useState({});      // { paymentId: true } while processing
 
   const load = async () => {
     setLoading(true);
     try {
       const snap = await getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc')));
       setPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { toast('Failed to load payments', 'error'); }
-    finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
-  const filtered = payments.filter(p => filter === 'all' ? true : p.status === filter);
-
-  const confirmPayment = async (p) => {
-    if (!window.confirm(`Confirm payment and grant ${p.plan} access to ${p.userName}?`)) return;
+  /* ── Confirm a manual payment and grant subscription ── */
+  const confirm = async (payment) => {
+    setBusy(b => ({ ...b, [payment.id]: true }));
     try {
+      const batch = writeBatch(db);
+
       // Update payment status
-      await updateDoc(doc(db, 'payments', p.id), { status: 'confirmed', confirmedAt: serverTimestamp() });
-      // Update user subscription
-      const planData = ACCESS_PLANS.find(pl => pl.id === p.plan);
-      const expiry   = new Date();
-      expiry.setDate(expiry.getDate() + (p.plan === 'basic' ? 30 : p.plan === 'standard' ? 90 : 180));
-      await updateDoc(doc(db, 'users', p.userId), {
-        subscribed: true, accessLevel: p.plan, subscriptionPlan: p.plan,
-        subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
+      batch.update(doc(db, 'payments', payment.id), {
+        status:      'confirmed',
+        confirmedAt: serverTimestamp(),
       });
-      // Notify user
-      await addDoc(collection(db, 'notifications'), {
-        userId: p.userId, title: '✅ Payment Confirmed!',
-        body: `Your ${planData?.label || p.plan} subscription has been activated. Enjoy full access!`,
-        type: 'payment', read: false, createdAt: serverTimestamp(),
+
+      // Grant subscription to user
+      const expiresAt = new Date(Date.now() + payment.days * 86400000);
+      batch.update(doc(db, 'users', payment.userId), {
+        subscribed:   true,
+        plan:         payment.plan,
+        subscribedAt: serverTimestamp(),
+        expiresAt,
       });
-      setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: 'confirmed' } : x));
-      toast('Payment confirmed & subscription activated!', 'success');
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
+
+      await batch.commit();
+      setPayments(prev =>
+        prev.map(p => p.id === payment.id ? { ...p, status: 'confirmed' } : p)
+      );
+    } catch (e) {
+      alert('Error confirming payment: ' + e.message);
+    } finally {
+      setBusy(b => ({ ...b, [payment.id]: false }));
+    }
   };
 
-  const rejectPayment = async (p) => {
-    const reason = prompt('Reason for rejection (will be sent to student):');
-    if (reason === null) return;
+  /* ── Reject a manual payment ── */
+  const reject = async (paymentId) => {
+    if (!window.confirm('Reject this payment?')) return;
+    setBusy(b => ({ ...b, [paymentId]: true }));
     try {
-      await updateDoc(doc(db, 'payments', p.id), { status: 'rejected', rejectionReason: reason, updatedAt: serverTimestamp() });
-      await addDoc(collection(db, 'notifications'), {
-        userId: p.userId, title: '❌ Payment Rejected',
-        body: `Your payment was not confirmed. Reason: ${reason || 'Please contact admin.'}`,
-        type: 'payment', read: false, createdAt: serverTimestamp(),
+      await updateDoc(doc(db, 'payments', paymentId), {
+        status:     'rejected',
+        rejectedAt: serverTimestamp(),
       });
-      setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: 'rejected' } : x));
-      toast('Payment rejected & user notified', 'success');
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
+      setPayments(prev =>
+        prev.map(p => p.id === paymentId ? { ...p, status: 'rejected' } : p)
+      );
+    } catch (e) {
+      alert('Error rejecting payment: ' + e.message);
+    } finally {
+      setBusy(b => ({ ...b, [paymentId]: false }));
+    }
   };
 
-  const totals = {
-    pending:   payments.filter(p => p.status === 'pending').length,
-    confirmed: payments.filter(p => p.status === 'confirmed').length,
-    revenue:   payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + (p.amount || 0), 0),
-  };
+  const filtered = filter === 'all' ? payments : payments.filter(p => p.status === filter);
+  const pendingCount = payments.filter(p => p.status === 'pending').length;
 
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>💰 Payments Manager</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>Confirm or reject manual payment receipts</p>
-        </div>
-        <button className="btn btn-ghost btn-sm" onClick={load}>🔄 Refresh</button>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
-        {[
-          { label: 'Pending Review', value: totals.pending,   icon: '⏳', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-          { label: 'Confirmed',      value: totals.confirmed, icon: '✅', color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },
-          { label: 'Total Revenue',  value: `₦${totals.revenue.toLocaleString()}`, icon: '💰', color: '#0D9488', bg: 'rgba(13,148,136,0.12)' },
-        ].map(s => (
-          <div key={s.label} className="stat-card">
-            <div className="stat-icon" style={{ background: s.bg }}>{s.icon}</div>
-            <div>
-              <div className="stat-value" style={{ color: s.color, fontSize: '1.4rem' }}>{s.value}</div>
-              <div className="stat-label">{s.label}</div>
-            </div>
+      {/* Header */}
+      <div style={s.header}>
+        <div style={s.headerGlow} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: 0 }}>
+              💰 Payment Management
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '4px 0 0' }}>
+              Confirm manual transfers · View Paystack payments
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Bank details reminder */}
-      <div className="alert alert-info" style={{ marginBottom: 20, fontSize: 13 }}>
-        <div>
-          <strong>🏦 Bank Account:</strong> {BANK_DETAILS.bank} · {BANK_DETAILS.accountNumber} · {BANK_DETAILS.accountName}
+          {pendingCount > 0 && (
+            <div style={s.pendingBadge}>
+              ⚠️ {pendingCount} pending
+            </div>
+          )}
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, marginBottom: 18, width: 'fit-content' }}>
-        {[['all','All'], ['pending','Pending'], ['confirmed','Confirmed'], ['rejected','Rejected']].map(([v,l]) => (
-          <button key={v} onClick={() => setFilter(v)}
-            style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-              background: filter === v ? 'var(--teal)' : 'transparent', color: filter === v ? '#fff' : 'var(--text-muted)',
-            }}>
-            {l} {v !== 'all' && `(${payments.filter(p => v === 'all' || p.status === v).length})`}
+      <div style={s.tabs}>
+        {['all', 'pending', 'confirmed', 'rejected'].map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              ...s.tab,
+              borderBottomColor: filter === f ? '#0D9488' : 'transparent',
+              color: filter === f ? '#0D9488' : 'rgba(255,255,255,0.45)',
+              fontWeight: filter === f ? 700 : 400,
+            }}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'pending' && pendingCount > 0 && (
+              <span style={s.dot}>{pendingCount}</span>
+            )}
           </button>
         ))}
       </div>
 
+      {/* Table */}
       {loading ? (
-        <div className="flex-center" style={{ padding: 40 }}><div className="spinner" /></div>
+        <p style={{ color: 'rgba(255,255,255,0.4)', padding: 32, textAlign: 'center' }}>Loading payments…</p>
+      ) : filtered.length === 0 ? (
+        <p style={{ color: 'rgba(255,255,255,0.4)', padding: 32, textAlign: 'center' }}>No payments found.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No payments found</div>
-          )}
-          {filtered.map(p => (
-            <div key={p.id} style={{
-              background: 'var(--bg-card)', border: `1.5px solid ${p.status === 'confirmed' ? 'rgba(22,163,74,0.3)' : p.status === 'rejected' ? 'rgba(220,38,38,0.3)' : 'rgba(245,158,11,0.3)'}`,
-              borderRadius: 14, padding: '18px 20px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                {/* User info */}
-                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: '50%',
-                    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 700, color: '#fff', fontSize: 18,
-                  }}>
-                    {(p.userName || 'U')[0]}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{p.userName}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.userEmail}</div>
-                    <div style={{ fontSize: 12, marginTop: 2 }}>
-                      <span style={{ color: 'var(--gold)', fontWeight: 700 }}>₦{(p.amount || 0).toLocaleString()}</span>
-                      {' · '}
-                      <span className={`badge ${p.plan === 'premium' ? 'badge-teal' : 'badge-blue'}`} style={{ fontSize: 10 }}>{p.plan}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status & actions */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                  <span className={`badge ${p.status === 'confirmed' ? 'badge-green' : p.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
-                    {p.status === 'confirmed' ? '✅ Confirmed' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}
-                  </span>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {p.createdAt?.toDate ? new Date(p.createdAt.toDate()).toLocaleString() : 'Just now'}
-                  </div>
-                  {p.status === 'pending' && (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {p.receiptData && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => setViewing(p)}>
-                          🖼️ View Receipt
-                        </button>
+        <div style={s.tableWrap}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Date', 'Status', 'Action'].map(h => (
+                  <th key={h} style={s.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => {
+                const st = STATUS_COLORS[p.status] || STATUS_COLORS.pending;
+                const date = p.createdAt?.toDate?.()?.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) || '—';
+                return (
+                  <tr key={p.id} style={s.tr}>
+                    <td style={s.td}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{p.userName || '—'}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.userEmail || ''}</div>
+                    </td>
+                    <td style={s.td}>
+                      <span style={{ ...s.planChip, background: p.plan === 'premium' ? 'rgba(124,58,237,0.2)' : p.plan === 'standard' ? 'rgba(37,99,235,0.2)' : 'rgba(13,148,136,0.2)', color: p.plan === 'premium' ? '#A78BFA' : p.plan === 'standard' ? '#60A5FA' : '#2DD4BF' }}>
+                        {p.plan}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, fontWeight: 700, color: '#0D9488' }}>
+                      ₦{(p.amount || 0).toLocaleString()}
+                    </td>
+                    <td style={s.td}>
+                      <span style={{ fontSize: 12, color: p.method === 'paystack' ? '#60A5FA' : '#FCD34D' }}>
+                        {p.method === 'paystack' ? '💳 Paystack' : '🏦 Manual'}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, maxWidth: 160 }}>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>
+                        {p.reference || p.proof || '—'}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{date}</td>
+                    <td style={s.td}>
+                      <span style={{ ...s.statusChip, background: st.bg, color: st.color }}>
+                        {st.label}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      {p.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => confirm(p)}
+                            disabled={busy[p.id]}
+                            style={{ ...s.actionBtn, background: 'rgba(22,163,74,0.2)', color: '#16A34A', borderColor: 'rgba(22,163,74,0.4)' }}
+                          >
+                            {busy[p.id] ? '…' : '✅ Confirm'}
+                          </button>
+                          <button
+                            onClick={() => reject(p.id)}
+                            disabled={busy[p.id]}
+                            style={{ ...s.actionBtn, background: 'rgba(239,68,68,0.1)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                          >
+                            ❌
+                          </button>
+                        </div>
                       )}
-                      <button className="btn btn-primary btn-sm" onClick={() => confirmPayment(p)}>
-                        ✅ Confirm
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => rejectPayment(p)}>
-                        ❌ Reject
-                      </button>
-                    </div>
-                  )}
-                  {p.status !== 'pending' && p.receiptData && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setViewing(p)}>🖼️ View Receipt</button>
-                  )}
-                </div>
-              </div>
-              {p.note && (
-                <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  📝 {p.note}
-                </div>
-              )}
-              {p.rejectionReason && (
-                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--red)' }}>
-                  Rejection reason: {p.rejectionReason}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Receipt modal */}
-      {viewing && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 500, padding: 20,
-        }} onClick={() => setViewing(null)}>
-          <div style={{
-            background: 'var(--bg-card)', borderRadius: 16, padding: 24,
-            maxWidth: 540, width: '100%', maxHeight: '90vh', overflowY: 'auto',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>🧾 Payment Receipt</h3>
-              <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setViewing(null)}>×</button>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <strong>{viewing.userName}</strong> · ₦{(viewing.amount || 0).toLocaleString()} · {viewing.plan}
-            </div>
-            {viewing.receiptData?.startsWith('data:image') ? (
-              <img src={viewing.receiptData} alt="Receipt" style={{ width: '100%', borderRadius: 10 }} />
-            ) : (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                📄 Non-image receipt uploaded. Download link not available in preview.
-              </div>
-            )}
-            {viewing.status === 'pending' && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <button className="btn btn-primary btn-full" onClick={() => { confirmPayment(viewing); setViewing(null); }}>✅ Confirm Payment</button>
-                <button className="btn btn-danger" onClick={() => { rejectPayment(viewing); setViewing(null); }}>❌ Reject</button>
-              </div>
-            )}
-          </div>
+                      {p.status !== 'pending' && (
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 }
+
+const s = {
+  header: {
+    background: 'linear-gradient(135deg,#010810,#0F2A4A)',
+    border: '1px solid rgba(13,148,136,0.3)',
+    borderRadius: 20, padding: '24px 28px', marginBottom: 20,
+    position: 'relative', overflow: 'hidden',
+  },
+  headerGlow: {
+    position: 'absolute', inset: 0, pointerEvents: 'none',
+    background: 'radial-gradient(ellipse at 80% 50%, rgba(245,158,11,0.15) 0%, transparent 60%)',
+  },
+  pendingBadge: {
+    background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
+    color: '#F59E0B', fontWeight: 700, fontSize: 13,
+    padding: '6px 14px', borderRadius: 20,
+  },
+  tabs: { display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20 },
+  tab: {
+    background: 'none', border: 'none', borderBottom: '2px solid transparent',
+    padding: '10px 18px', cursor: 'pointer', fontSize: 14,
+    transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6,
+  },
+  dot: {
+    background: '#F59E0B', color: '#000', borderRadius: 20,
+    fontSize: 10, fontWeight: 800, padding: '1px 6px',
+  },
+  tableWrap: { overflowX: 'auto', borderRadius: 14, border: '1px solid rgba(255,255,255,0.07)' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: {
+    padding: '12px 14px', textAlign: 'left',
+    color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 11,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    background: 'rgba(255,255,255,0.03)',
+    borderBottom: '1px solid rgba(255,255,255,0.07)',
+  },
+  tr: { borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' },
+  td: { padding: '12px 14px', verticalAlign: 'middle' },
+  planChip: {
+    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'capitalize',
+  },
+  statusChip: {
+    padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+  },
+  actionBtn: {
+    padding: '5px 10px', border: '1px solid', borderRadius: 8,
+    cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+  },
+};
