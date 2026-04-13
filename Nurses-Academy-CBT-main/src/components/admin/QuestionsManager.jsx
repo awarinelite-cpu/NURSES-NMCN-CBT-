@@ -73,11 +73,12 @@ export default function QuestionsManager() {
   const loadQuestions = async () => {
     setLoading(true);
     try {
-      let q = query(collection(db, 'questions'), orderBy('createdAt', 'desc'));
-      if (filterCat)  q = query(q, where('category', '==', filterCat));
-      if (filterType) q = query(q, where('examType', '==', filterType));
-      if (filterYear) q = query(q, where('year',     '==', filterYear));
-      const snap = await getDocs(q);
+      const constraints = [];
+      if (filterCat)  constraints.push(where('category', '==', filterCat));
+      if (filterType) constraints.push(where('examType', '==', filterType));
+      if (filterYear) constraints.push(where('year',     '==', filterYear));
+      constraints.push(orderBy('createdAt', 'desc'));
+      const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
       let qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (search) qs = qs.filter(q => q.question?.toLowerCase().includes(search.toLowerCase()));
       setQuestions(qs);
@@ -206,15 +207,16 @@ export default function QuestionsManager() {
   // from students' Course Drill / Topic Drill lists immediately.
   const syncExamQuestionCount = async (examId) => {
     try {
+      // Count ALL remaining questions for this exam (not just active ones)
+      // so the exam totalQuestions and active flag stay accurate after deletions
       const snap = await getDocs(query(
         collection(db, 'questions'),
         where('examId', '==', examId),
-        where('active', '==', true),
       ));
       const remaining = snap.size;
       await updateDoc(doc(db, 'exams', examId), {
         totalQuestions: remaining,
-        ...(remaining === 0 ? { active: false } : {}),
+        ...(remaining === 0 ? { active: false } : { active: true }),
       });
     } catch (e) {
       console.warn('syncExamQuestionCount failed for', examId, e);
@@ -241,7 +243,12 @@ export default function QuestionsManager() {
 
   const deleteSelected = async () => {
     if (selected.size === 0) return;
-    if (!window.confirm(`Delete ${selected.size} questions?`)) return;
+    const catLabel  = filterCat  ? (NURSING_CATEGORIES.find(c => c.id === filterCat)?.shortLabel  || filterCat)  : 'All Categories';
+    const typeLabel = filterType ? (ALL_EXAM_TYPES.find(t => t.id === filterType)?.label           || filterType) : 'All Types';
+    const yearLabel = filterYear ? filterYear : 'All Years';
+    if (!window.confirm(
+      `Delete ${selected.size} selected question(s)?\n\nFilter: ${catLabel} / ${typeLabel} / ${yearLabel}\n\nThis cannot be undone.`
+    )) return;
     try {
       // Collect examIds before deletion so we can update counts
       const examIds = new Set(
