@@ -8,9 +8,10 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
@@ -22,6 +23,33 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let profileUnsub = null;
+
+    // ── Handle Google redirect result on page load ──────────────
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        const { uid, displayName, email } = result.user;
+        const userRef = doc(db, 'users', uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          await setDoc(userRef, {
+            uid,
+            name:           displayName || '',
+            email:          email || '',
+            role:           'student',
+            subscribed:     false,
+            accessLevel:    'free',
+            createdAt:      serverTimestamp(),
+            examHistory:    [],
+            totalScore:     0,
+            totalExams:     0,
+            completedExams: [],
+            examScores:     {},
+            bookmarkCount:  0,
+            streak:         0,
+          });
+        }
+      }
+    }).catch(console.error);
 
     const authUnsub = onAuthStateChanged(auth, (firebaseUser) => {
       if (profileUnsub) { profileUnsub(); profileUnsub = null; }
@@ -58,7 +86,7 @@ export function AuthProvider({ children }) {
   const register = async (email, password, name, role = 'student') => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
-    const profileData = {
+    await setDoc(doc(db, 'users', cred.user.uid), {
       uid:          cred.user.uid,
       name,
       email,
@@ -73,39 +101,15 @@ export function AuthProvider({ children }) {
       examScores:   {},
       bookmarkCount: 0,
       streak:       0,
-    };
-    await setDoc(doc(db, 'users', cred.user.uid), profileData);
+    });
     return cred;
   };
 
-  // ── Google Sign-In ────────────────────────────────────────────────
+  // ── Google Sign-In (redirect — works on all hosted domains) ────
   const googleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    const { uid, displayName, email } = cred.user;
-
-    // Create profile doc only if it doesn't already exist
-    const userRef = doc(db, 'users', uid);
-    const snap = await import('firebase/firestore').then(({ getDoc }) => getDoc(userRef));
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        uid,
-        name:           displayName || '',
-        email:          email || '',
-        role:           'student',
-        subscribed:     false,
-        accessLevel:    'free',
-        createdAt:      serverTimestamp(),
-        examHistory:    [],
-        totalScore:     0,
-        totalExams:     0,
-        completedExams: [],
-        examScores:     {},
-        bookmarkCount:  0,
-        streak:         0,
-      });
-    }
-    return cred;
+    await signInWithRedirect(auth, provider);
+    // Page will redirect to Google, then come back — result handled in useEffect above
   };
 
   const logout = () => signOut(auth);
