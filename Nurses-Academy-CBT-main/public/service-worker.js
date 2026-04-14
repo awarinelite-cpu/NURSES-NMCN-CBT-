@@ -1,12 +1,13 @@
 // public/service-worker.js
 // NMCN CBT Platform — Offline-capable PWA Service Worker
 
-const CACHE_NAME = 'nmcn-cbt-v1';
+const CACHE_NAME = 'nmcn-cbt-v2';
+
+// Only cache files that are guaranteed to exist at these exact paths.
+// Vite hashes JS/CSS filenames on every build — never hardcode them here.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/static/js/main.chunk.js',
-  '/static/js/bundle.js',
   '/manifest.json',
 ];
 
@@ -28,15 +29,29 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ── Fetch (network-first for API, cache-first for static) ──────────
+// ── Fetch (cache-first for static assets, network-first for everything else) ──
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Firebase and API: network only
-  if (url.hostname.includes('firebase') || url.hostname.includes('anthropic')) {
+  // Always go network-only for Firebase, Anthropic API, and Paystack
+  if (
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('firestore') ||
+    url.hostname.includes('anthropic') ||
+    url.hostname.includes('paystack')
+  ) {
     return;
   }
 
+  // For navigation requests (HTML pages), use network-first
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // For all other requests (JS, CSS, images): cache-first, update in background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
@@ -45,7 +60,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      });
+      }).catch(() => cached); // fall back to cache if network fails
       return cached || networkFetch;
     })
   );
