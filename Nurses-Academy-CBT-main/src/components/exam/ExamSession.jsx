@@ -72,8 +72,10 @@ export default function ExamSession() {
           } else if (examType === 'course_drill' && course) {
             // Course Drill → all topics under this course
             baseConstraints.push(where('course', '==', course));
+          } else if (examType === 'daily_practice' && category) {
+            // Daily Practice → all questions under the chosen specialty
+            baseConstraints.push(where('category', '==', category));
           }
-          // Daily Practice → no extra filter (all active questions)
 
           const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
           qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -312,6 +314,7 @@ export default function ExamSession() {
           const baseConstraints = [where('active', '==', true)];
           if (examType === 'topic_drill' && topic) baseConstraints.push(where('topic', '==', topic));
           else if (examType === 'course_drill' && course) baseConstraints.push(where('course', '==', course));
+          else if (examType === 'daily_practice' && category) baseConstraints.push(where('category', '==', category));
 
           const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
           const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
