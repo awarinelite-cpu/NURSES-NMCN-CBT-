@@ -37,6 +37,10 @@ export default function ExamSession() {
   // poolMode = false → legacy path: load by examId (scheduled exams, past questions)
   const poolMode    = state?.poolMode   || false;
 
+  // savedSession: set when navigating from the exam history "Review" button.
+  // Contains { questionIds, answers, correct, totalQuestions } from Firestore.
+  const savedSession = state?.savedSession || null;
+
   const [questions,  setQuestions]  = useState([]);
   const [phase,      setPhase]      = useState('loading');
   const [current,    setCurrent]    = useState(0);
@@ -59,40 +63,70 @@ export default function ExamSession() {
       try {
         let qs = [];
 
-        if (poolMode) {
-          // ── UNIFIED POOL MODE ────────────────────────────────────────────────
-          // All 3 drill types pull from the shared questions collection.
-          // The only difference is the filter applied.
+        // ── SAVED SESSION REVIEW MODE ──────────────────────────────────────────
+        // Triggered by the "Review" button on DailyPracticePage / CourseDrillPage.
+        // Loads the exact same questions the student answered, in original order,
+        // and restores their answers so review colours are correct.
+        if (reviewMode && savedSession?.questionIds?.length) {
+          const ids    = savedSession.questionIds;
+          // Firestore "in" queries max 30 per call — batch if needed
+          const chunks = [];
+          for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
 
+          const fetched = await Promise.all(
+            chunks.map(chunk =>
+              getDocs(query(
+                collection(db, 'questions'),
+                where('__name__', 'in', chunk),
+              ))
+            )
+          );
+
+          // Merge docs and preserve original question order
+          const byId = {};
+          fetched.forEach(snap =>
+            snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; })
+          );
+          qs = ids.map(id => byId[id]).filter(Boolean);
+
+          // Restore saved answers so the review page shows correct/wrong colours
+          if (savedSession.answers) {
+            setAnswers(savedSession.answers);
+          }
+
+          setQuestions(qs);
+          setPhase('review');
+          return;
+        }
+
+        // ── POOL MODE (live exam) ──────────────────────────────────────────────
+        if (poolMode) {
           const baseConstraints = [where('active', '==', true)];
 
           if (examType === 'topic_drill' && topic) {
-            // Topic Drill → exact topic match
             baseConstraints.push(where('topic', '==', topic));
           } else if (examType === 'course_drill' && course) {
-            // Course Drill → all topics under this course
             baseConstraints.push(where('course', '==', course));
           } else if (examType === 'daily_practice' && category) {
-            // Daily Practice → all questions under the chosen specialty
             baseConstraints.push(where('category', '==', category));
           }
 
           const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
           qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-          // Seen-questions deduplication
-          const seenIds = profile?.seenQuestions || [];
-          const unseen  = qs.filter(q => !seenIds.includes(q.id));
-
-          // Use unseen pool if it has enough questions; else reset (all questions)
+          const seenIds   = profile?.seenQuestions || [];
+          const unseen    = qs.filter(q => !seenIds.includes(q.id));
           const minViable = examType === 'daily_practice' ? 10 : 5;
-          const pool = unseen.length >= minViable ? unseen : qs;
+          const pool      = unseen.length >= minViable ? unseen : qs;
 
-          // Always shuffle for pool mode
           pool.sort(() => Math.random() - 0.5);
 
-          // Cap daily practice at 250; drills use all available
-          const cap = examType === 'daily_practice' ? DAILY_PRACTICE_LIMIT : pool.length;
+          // Respect the count selected by the student on the hub page.
+          // For daily practice, also enforce the absolute cap.
+          const cap = examType === 'daily_practice'
+            ? Math.min(count, DAILY_PRACTICE_LIMIT)
+            : Math.min(count, pool.length);
+
           qs = pool.slice(0, cap);
 
         } else {
@@ -106,7 +140,6 @@ export default function ExamSession() {
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
 
-          // Fallback for legacy questions tagged by examType+category only
           if (qs.length === 0 && examType && category) {
             const snap = await getDocs(query(
               collection(db, 'questions'),
@@ -117,10 +150,9 @@ export default function ExamSession() {
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
 
-          // Seen-questions deduplication for legacy mode
           const seenIds = profile?.seenQuestions || [];
           const unseen  = qs.filter(q => !seenIds.includes(q.id));
-          const pool = unseen.length >= Math.min(count, 5) ? unseen : qs;
+          const pool    = unseen.length >= Math.min(count, 5) ? unseen : qs;
 
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
