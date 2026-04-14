@@ -1,134 +1,151 @@
 // src/components/exam/DailyPracticePage.jsx
 // Route: /daily-practice
 //
-// FLOW (NEW — Unified Pool):
-//   Step 1 — Student taps "Start Daily Practice"
-//   Step 2 — ExamSession (/exam/session) with poolMode:true
-//            Pulls up to 250 random questions from ALL active questions
-//            across every topic and course, excluding already-seen questions.
-//
-// No category picker needed — daily practice is deliberately cross-specialty.
+// FLOW:
+//   Step 1 — Choose a Nursing Specialty (category grid)
+//   Step 2 — ExamSession (/exam/session) with poolMode:true + category filter
+//            Pulls up to 250 random questions from ALL topics and courses
+//            under the selected specialty, excluding already-seen questions.
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import { NURSING_CATEGORIES } from '../../data/categories';
 
 export default function DailyPracticePage() {
-  const navigate   = useNavigate();
-  const { user, profile } = useAuth();
+  const navigate    = useNavigate();
+  const { profile } = useAuth();
 
-  const [totalQs,  setTotalQs]  = useState(null);
-  const [seenCount, setSeenCount] = useState(0);
-  const [loading,  setLoading]  = useState(true);
+  // Map of categoryId → total question count
+  const [catStats,     setCatStats]     = useState({});
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  // Load quick stats so the student knows what to expect
+  // Load question counts per specialty so each card shows useful info
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchAll = async () => {
+      setStatsLoading(true);
       try {
-        const snap = await getCountFromServer(
-          query(collection(db, 'questions'), where('active', '==', true))
+        const results = await Promise.all(
+          NURSING_CATEGORIES.map(async cat => {
+            try {
+              const snap = await getCountFromServer(
+                query(
+                  collection(db, 'questions'),
+                  where('category', '==', cat.id),
+                  where('active',   '==', true),
+                )
+              );
+              return [cat.id, snap.data().count];
+            } catch {
+              return [cat.id, null];
+            }
+          })
         );
-        setTotalQs(snap.data().count);
-        setSeenCount((profile?.seenQuestions || []).length);
-      } catch {
-        setTotalQs(null);
+        setCatStats(Object.fromEntries(results));
       } finally {
-        setLoading(false);
+        setStatsLoading(false);
       }
     };
-    fetchStats();
-  }, [profile]);
+    fetchAll();
+  }, []);
 
-  const unseen   = totalQs !== null ? Math.max(0, totalQs - seenCount) : null;
-  const poolSize = unseen !== null ? Math.min(unseen > 5 ? unseen : totalQs, 250) : 250;
-
-  const handleStart = () => {
+  const handleStart = (cat) => {
     navigate('/exam/session', {
       state: {
-        poolMode:    true,
-        examType:    'daily_practice',
-        examName:    `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`,
-        doShuffle:   true,
-        timeLimit:   0,   // no timer for daily practice
+        poolMode:  true,
+        examType:  'daily_practice',
+        category:  cat.id,
+        examName:  `${cat.shortLabel} — Daily Practice`,
+        doShuffle: true,
+        timeLimit: 0,
       },
     });
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: 700 }}>
+    <div style={{ padding: '24px', maxWidth: 900 }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 36 }}>⚡</span>
+          <span style={{ fontSize: 32 }}>⚡</span>
           <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
             Daily Practice Quiz
           </h2>
         </div>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
-          Mixed questions pulled randomly from <strong style={{ color: 'var(--text-primary)' }}>all topics and courses</strong> in the question bank.
-          Every session feels fresh — seen questions are automatically skipped until the full pool is exhausted.
+          Choose a nursing specialty. Questions from <strong style={{ color: 'var(--text-primary)' }}>all topics and courses</strong> under
+          that specialty are mixed randomly — up to 250 fresh questions per session.
         </p>
       </div>
 
-      {/* Stats card */}
-      <div style={{
-        background: 'var(--bg-card)', border: '1px solid var(--border)',
-        borderRadius: 16, padding: '20px 24px', marginBottom: 24,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 16 }}>
-          Question Bank Status
-        </div>
+      <StepIndicator step={1} steps={['Choose Specialty', 'Take Exam']} />
 
-        {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 13 }}>
-            <span className="spinner spinner-sm" /> Loading stats…
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-            {[
-              { label: 'Total Questions',   value: totalQs   ?? '—', color: 'var(--teal)',    icon: '📚' },
-              { label: 'Already Seen',      value: seenCount,         color: '#F59E0B',        icon: '✅' },
-              { label: 'Fresh Questions',   value: unseen    ?? '—', color: '#16A34A',        icon: '⚡' },
-            ].map(s => (
-              <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: s.color }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
+      <div style={styles.sectionHead}>🏥 Choose a Nursing Specialty</div>
+
+      <div style={styles.catGrid}>
+        {NURSING_CATEGORIES.map(cat => {
+          const total   = catStats[cat.id];
+          const loading = statsLoading && total === undefined;
+          const noQs    = !loading && total === 0;
+
+          return (
+            <button
+              key={cat.id}
+              onClick={() => !noQs && handleStart(cat)}
+              disabled={noQs}
+              style={{
+                ...styles.catCard,
+                borderColor: `${cat.color}60`,
+                background:  `${cat.color}0D`,
+                opacity:     noQs ? 0.45 : 1,
+                cursor:      noQs ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <div style={{ ...styles.catAccent, background: cat.color }} />
+              <div style={{ ...styles.catIconBox, background: `${cat.color}20` }}>
+                <span style={{ fontSize: 26 }}>{cat.icon}</span>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pool reset notice */}
-        {!loading && unseen !== null && unseen < 10 && totalQs > 0 && (
-          <div style={{
-            marginTop: 16, padding: '10px 14px', borderRadius: 10,
-            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
-            fontSize: 12, color: '#F59E0B', fontWeight: 600,
-          }}>
-            🔄 You've seen most questions — the pool will reset and start fresh for this session.
-          </div>
-        )}
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 3 }}>
+                  {cat.shortLabel}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: noQs ? 'var(--text-muted)' : cat.color }}>
+                  {loading
+                    ? 'Loading…'
+                    : noQs
+                      ? 'No questions yet'
+                      : total === null
+                        ? 'Available'
+                        : `${total} question${total !== 1 ? 's' : ''} available`}
+                </div>
+              </div>
+              {!noQs && (
+                <span style={{ color: cat.color, fontSize: 18, fontWeight: 900 }}>→</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* How it works */}
       <div style={{
+        marginTop: 28,
         background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.2)',
-        borderRadius: 14, padding: '18px 20px', marginBottom: 28,
+        borderRadius: 14, padding: '16px 20px',
       }}>
-        <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 12, fontSize: 13 }}>
+        <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 10, fontSize: 13 }}>
           📋 How Daily Practice Works
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {[
-            ['⚡', 'Questions are picked randomly from ALL topics and courses'],
-            ['🔀', 'Each session is unique — never the same set twice'],
-            ['📈', 'Seen questions are skipped until the full pool is exhausted'],
-            ['🔖', 'Bookmark any question during the session to review later'],
-            ['💡', 'Full explanations shown after every session'],
+            ['⚡', "Questions are picked randomly from ALL topics and courses under your chosen specialty"],
+            ['🔀', "Each session is unique — questions you've already seen are skipped automatically"],
+            ['🔄', "Once you've seen all questions in a specialty, the pool resets and starts fresh"],
+            ['🔖', "Bookmark any question during the session to review it later"],
+            ['💡', "Full explanations shown after every session"],
           ].map(([icon, text]) => (
             <div key={text} style={{ display: 'flex', gap: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
               <span style={{ flexShrink: 0 }}>{icon}</span>
@@ -137,30 +154,42 @@ export default function DailyPracticePage() {
           ))}
         </div>
       </div>
-
-      {/* Session size notice */}
-      {!loading && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, textAlign: 'center' }}>
-          This session will contain up to <strong style={{ color: 'var(--text-primary)' }}>{poolSize} questions</strong>
-          {unseen !== null && unseen > 0 && ` (${Math.min(unseen, 250)} fresh)`}.
-        </div>
-      )}
-
-      {/* Start button */}
-      <button
-        className="btn btn-primary"
-        onClick={handleStart}
-        disabled={loading || totalQs === 0}
-        style={{ width: '100%', padding: '16px', fontSize: 16, fontWeight: 800, borderRadius: 14 }}
-      >
-        {loading ? (
-          <><span className="spinner spinner-sm" style={{ marginRight: 8 }} /> Loading…</>
-        ) : totalQs === 0 ? (
-          '📭 No questions available yet'
-        ) : (
-          '⚡ Start Daily Practice'
-        )}
-      </button>
     </div>
   );
 }
+
+function StepIndicator({ step, steps }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24, flexWrap: 'wrap' }}>
+      {steps.map((label, i) => {
+        const num = i + 1; const done = step > num; const active = step === num;
+        return (
+          <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: done || active ? 'var(--teal)' : 'var(--bg-tertiary)',
+                border: `2px solid ${done || active ? 'var(--teal)' : 'var(--border)'}`,
+                color: done || active ? '#fff' : 'var(--text-muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 900, flexShrink: 0, opacity: done ? 0.65 : 1,
+              }}>{done ? '✓' : num}</div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: active ? 'var(--teal)' : 'var(--text-muted)' }}>{label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ width: 20, height: 2, borderRadius: 2, margin: '0 6px', background: step > num ? 'var(--teal)' : 'var(--border)' }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const styles = {
+  sectionHead: { fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: 0.2 },
+  catGrid:     { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
+  catCard:     { display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: '1.5px solid', fontFamily: 'inherit', transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'var(--bg-card)' },
+  catAccent:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
+  catIconBox:  { width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+};
