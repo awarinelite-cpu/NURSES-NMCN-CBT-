@@ -480,6 +480,63 @@ export default function ExamSession() {
             </div>
           )}
 
+          {/* Performance by Category / Topic */}
+          {(() => {
+            const isCourseDrill = examType === 'course_drill';
+            const categoryStats = {};
+            questions.forEach(q => {
+              const cat = isCourseDrill
+                ? (q.topic || 'General')
+                : (q.courseLabel || q.course || q.category || 'Uncategorized');
+              if (!categoryStats[cat]) categoryStats[cat] = { correct: 0, total: 0 };
+              categoryStats[cat].total += 1;
+              if (answers[q.id] === q.correctIndex) categoryStats[cat].correct += 1;
+            });
+            const cats = Object.entries(categoryStats).sort((a, b) => b[1].total - a[1].total);
+            if (cats.length === 0) return null;
+            const heading    = isCourseDrill ? 'Performance by Topic' : 'Performance by Category';
+            const subheading = isCourseDrill
+              ? 'Topic breakdown for this course drill.'
+              : 'Areas of strength and opportunities for review.';
+            return (
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 16, padding: 20, marginBottom: 20,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  {heading}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  {subheading}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {cats.map(([cat, { correct, total }]) => {
+                    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                    const barColor = pct >= 70 ? 'var(--teal)' : pct >= 50 ? '#F59E0B' : '#EF4444';
+                    return (
+                      <div key={cat}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                          <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{cat}</span>
+                          <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {correct}/{total} ({pct}%)
+                          </span>
+                        </div>
+                        <div style={{ height: 7, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', borderRadius: 4,
+                            background: barColor,
+                            width: `${pct}%`,
+                            transition: 'width 0.5s ease',
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Action buttons */}
           <div style={{
             display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap',
