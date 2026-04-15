@@ -9,6 +9,8 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
@@ -22,6 +24,33 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let profileUnsub = null;
+
+    // Handle redirect result on page load (after signInWithRedirect)
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        const { uid, displayName, email } = result.user;
+        const userRef = doc(db, 'users', uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          await setDoc(userRef, {
+            uid,
+            name:           displayName || '',
+            email:          email || '',
+            role:           'student',
+            subscribed:     false,
+            accessLevel:    'free',
+            createdAt:      serverTimestamp(),
+            examHistory:    [],
+            totalScore:     0,
+            totalExams:     0,
+            completedExams: [],
+            examScores:     {},
+            bookmarkCount:  0,
+            streak:         0,
+          });
+        }
+      }
+    }).catch(err => console.error('Redirect result error:', err));
 
     const authUnsub = onAuthStateChanged(auth, (firebaseUser) => {
       if (profileUnsub) { profileUnsub(); profileUnsub = null; }
@@ -77,10 +106,16 @@ export function AuthProvider({ children }) {
     return cred;
   };
 
-  // ── Google Sign-In (popup) ────────────────────────────────────
-  const googleLogin = async () => {
+  // ── Google Sign-In (popup with redirect fallback) ─────────────
+  const googleLogin = async (useRedirect = false) => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+
+    if (useRedirect) {
+      // Redirect flow — page navigates away and returns after auth
+      return signInWithRedirect(auth, provider);
+    }
+
     const cred = await signInWithPopup(auth, provider);
     const { uid, displayName, email } = cred.user;
 
