@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, getDocs, query, where,
-  getCountFromServer, orderBy,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { db }       from '../../firebase/config';
 import { useAuth }  from '../../context/AuthContext';
@@ -82,6 +82,9 @@ export default function CourseDrillPage() {
   }, [specialty, courses]);
 
   // ── Load saved sessions for selected course ─────────────────────────────────
+  // FIX: Removed orderBy('completedAt', 'desc') which required a Firestore composite
+  // index that didn't exist — causing the query to silently fail and return empty.
+  // Now we fetch without orderBy and sort the results in JavaScript instead.
   useEffect(() => {
     if (!selCourse || !currentUser?.uid) return;
     setSessLoading(true);
@@ -91,11 +94,19 @@ export default function CourseDrillPage() {
         where('userId',   '==', currentUser.uid),
         where('examType', '==', 'course_drill'),
         where('course',   '==', selCourse.id),
-        orderBy('completedAt', 'desc'),
       )
     )
-      .then(snap => setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => setSessions([]))
+      .then(snap => {
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort newest first in JS — no composite index needed
+        results.sort((a, b) => {
+          const ta = a.completedAt?.toDate?.()?.getTime?.() || 0;
+          const tb = b.completedAt?.toDate?.()?.getTime?.() || 0;
+          return tb - ta;
+        });
+        setSessions(results);
+      })
+      .catch(e => { console.error('Sessions load error:', e); setSessions([]); })
       .finally(() => setSessLoading(false));
   }, [selCourse, currentUser]);
 
