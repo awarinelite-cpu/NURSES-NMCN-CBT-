@@ -381,8 +381,8 @@ export const ACCESS_PLANS = [
 ];
 
 export const BANK_DETAILS = {
-  bank: 'First Bank Nigeria',
-  accountNumber: '3012345678',
-  accountName: 'NMCN CBT Platform',
+  bank: 'Moniepoint',
+  accountNumber: '7054641287',
+  accountName: 'Awarin Elite',
   instructions: 'Use your registered email as payment description.',
 };
