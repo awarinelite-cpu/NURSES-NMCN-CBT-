@@ -1,27 +1,91 @@
 // src/components/student/SubscriptionPage.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
 import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
+const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
+
 export default function SubscriptionPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
-  const [selectedPlan, setSelectedPlan] = useState('standard');
-  const [payMode,  setPayMode]          = useState(null); // 'bank' | 'code'
-  const [step,     setStep]             = useState(1);    // 1=plans, 2=pay
-  const [file,     setFile]             = useState(null);
-  const [preview,  setPreview]          = useState(null);
-  const [note,     setNote]             = useState('');
-  const [code,     setCode]             = useState('');
-  const [loading,  setLoading]          = useState(false);
+  const [selectedPlan,   setSelectedPlan]   = useState('standard');
+  const [payMode,        setPayMode]         = useState(null); // 'paystack' | 'bank' | 'code'
+  const [step,           setStep]            = useState(1);    // 1=plans, 2=pay, 3=done
+  const [file,           setFile]            = useState(null);
+  const [preview,        setPreview]         = useState(null);
+  const [note,           setNote]            = useState('');
+  const [code,           setCode]            = useState('');
+  const [loading,        setLoading]         = useState(false);
+  const [paystackReady,  setPaystackReady]   = useState(false);
 
   const plan = ACCESS_PLANS.find(p => p.id === selectedPlan);
 
-  // ── Bank transfer receipt ────────────────────────────────────────
+  /* ── Load Paystack script ── */
+  useEffect(() => {
+    if (window.PaystackPop) { setPaystackReady(true); return; }
+    const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
+    if (existing) { existing.addEventListener('load', () => setPaystackReady(true)); return; }
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.async = true;
+    script.onload = () => setPaystackReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  /* ── Paystack handler ── */
+  const handlePaystack = () => {
+    if (!paystackReady || typeof window.PaystackPop === 'undefined') {
+      toast('Paystack is still loading, please wait a moment.', 'error');
+      return;
+    }
+    const planDays = { basic: 30, standard: 90, premium: 180 };
+    const days = planDays[selectedPlan] || 30;
+    const handler = window.PaystackPop.setup({
+      key:      PAYSTACK_PUBLIC_KEY,
+      email:    user.email,
+      amount:   plan.price * 100,
+      currency: 'NGN',
+      ref:      `NMCN-${Date.now()}`,
+      metadata: { userId: user.uid, plan: selectedPlan },
+      callback: async (response) => {
+        try {
+          await addDoc(collection(db, 'payments'), {
+            userId:    user.uid,
+            userName:  profile?.name || user.displayName,
+            userEmail: user.email,
+            plan:      selectedPlan,
+            amount:    plan.price,
+            days,
+            method:    'paystack',
+            reference: response.reference,
+            status:    'confirmed',
+            createdAt: serverTimestamp(),
+            expiresAt: new Date(Date.now() + days * 86400000),
+          });
+          // Grant subscription immediately
+          const { updateDoc, doc } = await import('firebase/firestore');
+          const expiry = new Date(Date.now() + days * 86400000);
+          await updateDoc(doc(db, 'users', user.uid), {
+            subscribed: true, accessLevel: selectedPlan, subscriptionPlan: selectedPlan,
+            subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
+          });
+          await refreshProfile();
+          toast('🎉 Payment successful! Access activated.', 'success');
+          setStep(3);
+        } catch (e) {
+          toast('Payment received but failed to save. Contact support with ref: ' + response.reference, 'error');
+        }
+      },
+      onClose: () => {},
+    });
+    handler.openIframe();
+  };
+
+  /* ── Bank transfer receipt ── */
   const handleFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -53,6 +117,7 @@ export default function SubscriptionPage() {
         receiptData: fileData,
         receiptName: file.name,
         note,
+        method:      'manual',
         status:      'pending',
         createdAt:   serverTimestamp(),
       });
@@ -67,7 +132,7 @@ export default function SubscriptionPage() {
     finally { setLoading(false); }
   };
 
-  // ── Access code ──────────────────────────────────────────────────
+  /* ── Access code ── */
   const redeemCode = async () => {
     if (!code.trim()) { toast('Enter your access code', 'error'); return; }
     setLoading(true);
@@ -75,14 +140,12 @@ export default function SubscriptionPage() {
       const { getDocs, query, collection: col, where, updateDoc, doc } = await import('firebase/firestore');
       const snap = await getDocs(query(col(db, 'accessCodes'), where('code', '==', code.trim().toUpperCase()), where('used', '==', false)));
       if (snap.empty) { toast('Invalid or already used code', 'error'); setLoading(false); return; }
-      const codeDoc = snap.docs[0];
+      const codeDoc  = snap.docs[0];
       const codeData = codeDoc.data();
       const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
       const expiry   = new Date();
       expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));
-      // Mark code used
       await updateDoc(doc(db, 'accessCodes', codeDoc.id), { used: true, usedBy: user.uid, usedAt: serverTimestamp() });
-      // Grant subscription
       await updateDoc(doc(db, 'users', user.uid), {
         subscribed: true, accessLevel: codeData.plan, subscriptionPlan: codeData.plan,
         subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
@@ -94,6 +157,7 @@ export default function SubscriptionPage() {
     finally { setLoading(false); }
   };
 
+  /* ── Already subscribed screen ── */
   if (profile?.subscribed) {
     const exp = profile.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : '—';
     return (
@@ -126,7 +190,7 @@ export default function SubscriptionPage() {
         </p>
       </div>
 
-      {/* Step 1 — Select plan */}
+      {/* ── Step 1 — Select plan ── */}
       {step === 1 && (
         <>
           <div style={styles.plansGrid}>
@@ -150,9 +214,7 @@ export default function SubscriptionPage() {
                   </div>
                 )}
                 <div style={{ ...styles.planBadge, background: p.color }}>{p.label}</div>
-                <div style={{ ...styles.planPrice, color: p.color }}>
-                  ₦{p.price.toLocaleString()}
-                </div>
+                <div style={{ ...styles.planPrice, color: p.color }}>₦{p.price.toLocaleString()}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{p.duration}</div>
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {p.features.map(f => (
@@ -177,49 +239,79 @@ export default function SubscriptionPage() {
         </>
       )}
 
-      {/* Step 2 — Payment method */}
+      {/* ── Step 2 — Payment method ── */}
       {step === 2 && (
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>← Back</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setStep(1); setPayMode(null); }}>← Back</button>
             <div style={{ fontWeight: 700 }}>
               {plan?.icon} {plan?.label} — ₦{plan?.price?.toLocaleString()}
             </div>
           </div>
 
-          {!payMode ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Method picker */}
+          {!payMode && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
               {[
-                { mode: 'bank', icon: '🏦', title: 'Bank Transfer', desc: 'Transfer to our account and upload receipt' },
-                { mode: 'code', icon: '🔑', title: 'Access Code', desc: 'Enter an access code from admin' },
+                { mode: 'paystack', icon: '💳', title: 'Pay Online',    desc: 'Card, transfer or USSD via Paystack' },
+                { mode: 'bank',     icon: '🏦', title: 'Bank Transfer', desc: 'Transfer & upload receipt for review' },
+                { mode: 'code',     icon: '🔑', title: 'Access Code',   desc: 'Enter a code provided by admin' },
               ].map(m => (
                 <div key={m.mode} onClick={() => setPayMode(m.mode)}
                   style={{ ...styles.payMethodCard, cursor: 'pointer' }}>
-                  <span style={{ fontSize: 36 }}>{m.icon}</span>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{m.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>{m.desc}</div>
+                  <span style={{ fontSize: 32 }}>{m.icon}</span>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4 }}>{m.desc}</div>
                 </div>
               ))}
             </div>
-          ) : payMode === 'bank' ? (
+          )}
+
+          {/* ── Paystack ── */}
+          {payMode === 'paystack' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
-              {/* Bank details */}
+              <div style={{ ...styles.bankBox, borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.7 }}>
+                  🔒 You'll be taken to <strong style={{ color: 'var(--text-primary)' }}>Paystack's secure checkout</strong>. Pay with debit card, bank transfer, or USSD. Access is granted <strong style={{ color: 'var(--text-primary)' }}>instantly</strong> after payment.
+                </p>
+              </div>
+              <button
+                className="btn btn-primary btn-full btn-lg"
+                onClick={handlePaystack}
+                disabled={!paystackReady}
+                style={{ opacity: paystackReady ? 1 : 0.6 }}
+              >
+                {paystackReady
+                  ? `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely`
+                  : '⏳ Loading Paystack…'}
+              </button>
+            </div>
+          )}
+
+          {/* ── Bank Transfer ── */}
+          {payMode === 'bank' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
               <div style={styles.bankBox}>
                 <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 12, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                   🏦 Bank Transfer Details
                 </div>
-                {[['Bank', BANK_DETAILS.bank], ['Account No.', BANK_DETAILS.accountNumber], ['Account Name', BANK_DETAILS.accountName], ['Amount', `₦${plan?.price?.toLocaleString()}`]].map(([k,v]) => (
+                {[
+                  ['Bank',         BANK_DETAILS.bank],
+                  ['Account No.',  BANK_DETAILS.accountNumber],
+                  ['Account Name', BANK_DETAILS.accountName],
+                  ['Amount',       `₦${plan?.price?.toLocaleString()}`],
+                ].map(([k, v]) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
                     <span style={{ color: 'var(--text-muted)' }}>{k}</span>
-                    <span style={{ fontWeight: 700, color: k === 'Amount' ? 'var(--gold)' : 'var(--text-primary)' }}>{v}</span>
+                    <span style={{ fontWeight: 700, color: k === 'Amount' ? 'var(--gold)' : 'var(--text-primary)', letterSpacing: k === 'Account No.' ? 1.5 : 0 }}>{v}</span>
                   </div>
                 ))}
                 <div style={{ marginTop: 10, fontSize: 12, color: 'var(--gold)', fontWeight: 700 }}>
                   ⚠️ Use your registered email as payment description
                 </div>
               </div>
-              {/* Upload receipt */}
               <div className="form-group">
                 <label className="form-label">Upload Receipt (JPG, PNG, or PDF)</label>
                 <label style={styles.fileZone}>
@@ -238,7 +330,10 @@ export default function SubscriptionPage() {
                 {loading ? <><span className="spinner spinner-sm" /> Submitting…</> : '📤 Submit Receipt'}
               </button>
             </div>
-          ) : (
+          )}
+
+          {/* ── Access Code ── */}
+          {payMode === 'code' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
               <div className="form-group">
@@ -256,18 +351,18 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Step 3 — Success */}
+      {/* ── Step 3 — Success ── */}
       {step === 3 && (
         <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
           <div style={styles.successCard}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
             <h3 style={{ fontFamily: "'Playfair Display',serif" }}>
-              {payMode === 'code' ? 'Access Granted!' : 'Receipt Submitted!'}
+              {payMode === 'code' || payMode === 'paystack' ? 'Access Granted!' : 'Receipt Submitted!'}
             </h3>
             <p style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
-              {payMode === 'code'
+              {payMode === 'code' || payMode === 'paystack'
                 ? 'Your subscription has been activated. Enjoy full access!'
-                : 'Your receipt is under review. Admin will confirm your payment within 24 hours. You will receive a notification once confirmed.'}
+                : 'Your receipt is under review. Admin will confirm within 24 hours. You will be notified once confirmed.'}
             </p>
           </div>
         </div>
@@ -290,7 +385,7 @@ const styles = {
   planPrice: { fontFamily: "'Playfair Display',serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },
   payMethodCard: {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-    padding: '28px 20px', background: 'var(--bg-card)', border: '2px solid var(--border)',
+    padding: '24px 16px', background: 'var(--bg-card)', border: '2px solid var(--border)',
     borderRadius: 16, transition: 'all 0.2s',
   },
   bankBox: {
