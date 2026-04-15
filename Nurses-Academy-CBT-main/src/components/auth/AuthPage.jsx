@@ -51,11 +51,15 @@ export default function AuthPage() {
       await googleLogin();
       navigate('/dashboard');
     } catch (err) {
-      let msg = err.message;
+      // Popup was blocked — fall back to redirect (page reloads after auth)
+      if (err.code === 'auth/popup-blocked' || (err.message && err.message.includes('popup-blocked'))) {
+        await googleLogin(true);
+        return;
+      }
+      let msg = err.message || '';
       if (msg.includes('popup-closed')) msg = 'Sign-in cancelled.';
-      if (msg.includes('network')) msg = 'Network error. Check your connection.';
+      else if (msg.includes('network')) msg = 'Network error. Check your connection.';
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
