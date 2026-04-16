@@ -124,16 +124,19 @@ export default function StudentDashboard() {
           <Link to="/mock-exams" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📋</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Mock Exams</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study daily Hospital Final exam</span>
           </Link>
 
           <Link to="/past-questions" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📜</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Past Questions</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study NMCN past questions</span>
           </Link>
 
           <Link to="/bookmarks" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🔖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Bookmarks</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Review your Bookmarked questions</span>
           </Link>
 
         </div>
