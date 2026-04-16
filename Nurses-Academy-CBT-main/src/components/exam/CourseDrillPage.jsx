@@ -184,8 +184,11 @@ export default function CourseDrillPage() {
               Course Drill
             </h2>
           </div>
+          <p style={{ color: 'var(--teal)', fontSize: 13, margin: '0 0 6px 0', fontWeight: 600 }}>
+            Take exam by courses
+          </p>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
-            Pick a course and drill on <strong style={{ color: 'var(--text-primary)' }}>all topics under it</strong> — questions are pulled randomly from the shared question bank.
+            Practice exam questions organized by course. Select a course and answer questions covering all its topics to strengthen your knowledge.
           </p>
         </div>
 

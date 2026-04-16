@@ -144,9 +144,11 @@ export default function DailyPracticePage() {
               Daily Practice Quiz
             </h2>
           </div>
+          <p style={{ color: 'var(--teal)', fontSize: 13, margin: '0 0 6px 0', fontWeight: 600 }}>
+            Take daily exam
+          </p>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
-            Choose a nursing specialty. Questions from <strong style={{ color: 'var(--text-primary)' }}>all topics and courses</strong> under
-            that specialty are mixed randomly.
+            Stay sharp with daily practice! Answer mixed questions from all courses and topics under your chosen specialty to prepare for your exam.
           </p>
         </div>
 

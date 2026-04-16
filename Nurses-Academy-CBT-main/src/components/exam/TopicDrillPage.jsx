@@ -90,8 +90,11 @@ export default function TopicDrillPage() {
               Topic Drill
             </h2>
           </div>
+          <p style={{ color: 'var(--teal)', fontSize: 13, margin: '0 0 6px 0', fontWeight: 600 }}>
+            Take exam by topics
+          </p>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
-            Drill down to a <strong style={{ color: 'var(--text-primary)' }}>specific topic</strong> — questions are pulled from the shared bank, filtered by topic.
+            Focus your practice on a specific topic. Select a specialty, course, and topic to answer targeted questions and master each area.
           </p>
         </div>
 
