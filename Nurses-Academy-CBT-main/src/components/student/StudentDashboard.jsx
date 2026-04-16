@@ -106,16 +106,19 @@ export default function StudentDashboard() {
           <Link to="/daily-practice" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>⚡</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Daily Practice</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take daily exam</span>
           </Link>
 
           <Link to="/course-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Course Drill</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by courses</span>
           </Link>
 
           <Link to="/topic-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🎯</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Topic Drill</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by topics</span>
           </Link>
 
           <Link to="/mock-exams" style={styles.quickCard}>
