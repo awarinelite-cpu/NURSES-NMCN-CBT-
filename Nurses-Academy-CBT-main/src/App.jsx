@@ -15,6 +15,7 @@ import StudentDashboard  from './components/student/StudentDashboard';
 import AnalyticsPage     from './components/student/AnalyticsPage';
 import BookmarksPage     from './components/student/BookmarksPage';
 import SubscriptionPage  from './components/student/SubscriptionPage';
+import QuickActionsPage  from './components/student/QuickActionsPage';
 
 // ── Payment page (Paystack + Manual bank transfer) ──────────────
 import PaymentPage       from './components/payment/PaymentPage';
@@ -76,6 +77,9 @@ export default function App() {
                 <Route path="/dashboard"      element={<StudentDashboard />} />
                 <Route path="/exams"          element={<ExamSetup />} />
                 <Route path="/past-questions" element={<PastQuestionsPage />} />
+
+                {/* ── Quick Actions page ────────────────────────────────── */}
+                <Route path="/quick-actions"  element={<QuickActionsPage />} />
 
                 {/* ── Daily Practice ───────────────────────────────────── */}
                 <Route path="/daily-practice" element={<DailyPracticePage />} />
