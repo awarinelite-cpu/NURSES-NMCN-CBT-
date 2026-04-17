@@ -86,7 +86,7 @@ export default function QuestionsManager() {
       .catch(() => {});
   }, []);
 
-  // ── Load questions ──────────────────────────────────────────────────────
+  // ── Load questions ──────────────────────────────────────────────────────────
   const loadQuestions = async () => {
     setLoading(true);
     try {
@@ -181,7 +181,8 @@ export default function QuestionsManager() {
         examName = `${courseObj?.label || bulkMeta.course}${topicPart} — ${dateStr}, ${timeStr}`;
       } else if (bulkMeta.examType === 'course_drill') {
         const courseObj = firestoreCourses.find(c => c.id === bulkMeta.course);
-        examName = `${courseObj?.label || bulkMeta.course} — ${dateStr}, ${timeStr}`;
+        const topicPart = bulkMeta.topic ? ` › ${bulkMeta.topic}` : '';
+        examName = `${courseObj?.label || bulkMeta.course}${topicPart} — ${dateStr}, ${timeStr}`;
       } else if (bulkMeta.examType === 'topic_drill') {
         const courseObj = firestoreCourses.find(c => c.id === bulkMeta.course);
         examName = `${courseObj?.label || bulkMeta.course} › ${bulkMeta.topic} — ${dateStr}, ${timeStr}`;
@@ -291,8 +292,10 @@ export default function QuestionsManager() {
   // Helper: should we show course/topic fields for the current exam type?
   const showCourseField = (examType) =>
     ['question_bank', 'course_drill', 'topic_drill'].includes(examType);
+
+  // ── PATCHED: course_drill now shows topic field (optional) ──────────────
   const showTopicField = (examType) =>
-    ['question_bank', 'topic_drill'].includes(examType);
+    ['question_bank', 'topic_drill', 'course_drill'].includes(examType);
 
   return (
     <div style={{ padding: 24, maxWidth: 1200 }}>
@@ -430,8 +433,18 @@ export default function QuestionsManager() {
             )}
             {showTopicField(form.examType) && (
               <div className="form-group">
-                <label className="form-label">Topic {form.examType === 'topic_drill' ? '* (required)' : '(recommended)'}</label>
-                <input className="form-input" placeholder="e.g. Fluid & Electrolytes" value={form.topic} onChange={e=>setForm(f=>({...f,topic:e.target.value}))} />
+                <label className="form-label" style={{ color: form.examType === 'topic_drill' ? 'var(--gold)' : 'var(--text-secondary)' }}>
+                  Topic {form.examType === 'topic_drill' ? '* (required)' : '(optional)'}
+                </label>
+                <input
+                  className="form-input"
+                  placeholder={form.examType === 'course_drill' ? 'Optional — leave blank for mixed-topic' : 'e.g. Fluid & Electrolytes'}
+                  value={form.topic}
+                  onChange={e=>setForm(f=>({...f,topic:e.target.value}))}
+                />
+                {form.examType === 'course_drill' && (
+                  <div className="form-hint">Leave blank if this question covers multiple topics.</div>
+                )}
               </div>
             )}
 
@@ -555,12 +568,25 @@ export default function QuestionsManager() {
                 </select>
               </div>
             )}
+
             {showTopicField(bulkMeta.examType) && (
               <div className="form-group">
                 <label className="form-label" style={{ color: bulkMeta.examType === 'topic_drill' ? 'var(--gold)' : 'var(--text-secondary)' }}>
-                  Topic {bulkMeta.examType === 'topic_drill' ? '* (required)' : '(recommended)'}
+                  Topic {bulkMeta.examType === 'topic_drill' ? '* (required)' : '(optional)'}
                 </label>
-                <input className="form-input" placeholder="e.g. Fluid & Electrolytes" value={bulkMeta.topic} onChange={e=>setBulkMeta(m=>({...m,topic:e.target.value}))} />
+                <input
+                  className="form-input"
+                  placeholder={bulkMeta.examType === 'course_drill'
+                    ? 'Optional — leave blank for mixed-topic batch'
+                    : 'e.g. Fluid & Electrolytes'}
+                  value={bulkMeta.topic}
+                  onChange={e=>setBulkMeta(m=>({...m,topic:e.target.value}))}
+                />
+                {bulkMeta.examType === 'course_drill' && (
+                  <div className="form-hint">
+                    Leave blank if this batch covers multiple topics. Fill in only if all questions share one topic.
+                  </div>
+                )}
               </div>
             )}
 
@@ -600,7 +626,8 @@ export default function QuestionsManager() {
                     return `${c?.label || '(select course)'}${topicPart} — ${dateStr}, ${timeStr}`;
                   } else if (bulkMeta.examType === 'course_drill') {
                     const c = firestoreCourses.find(c=>c.id===bulkMeta.course);
-                    return `${c?.label || '(select course)'} — ${dateStr}, ${timeStr}`;
+                    const topicPart = bulkMeta.topic ? ` › ${bulkMeta.topic}` : '';
+                    return `${c?.label || '(select course)'}${topicPart} — ${dateStr}, ${timeStr}`;
                   } else if (bulkMeta.examType === 'topic_drill') {
                     const c = firestoreCourses.find(c=>c.id===bulkMeta.course);
                     return `${c?.label || '(select course)'} › ${bulkMeta.topic || '(enter topic)'} — ${dateStr}, ${timeStr}`;
