@@ -2,7 +2,7 @@
 // Allows admin to view all payments and confirm/reject manual bank transfers
 import { useEffect, useState } from 'react';
 import {
-  collection, query, orderBy, getDocs, doc,
+  collection, query, orderBy, getDocs, doc, addDoc,
   updateDoc, serverTimestamp, writeBatch, increment,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -35,6 +35,9 @@ export default function AdminPayments() {
   const confirm = async (payment) => {
     setBusy(b => ({ ...b, [payment.id]: true }));
     try {
+      const planDays = payment.days || (payment.plan === 'basic' ? 30 : payment.plan === 'standard' ? 90 : 180);
+      const expiresAt = new Date(Date.now() + planDays * 86400000);
+
       const batch = writeBatch(db);
 
       // Update payment status
@@ -44,15 +47,28 @@ export default function AdminPayments() {
       });
 
       // Grant subscription to user
-      const expiresAt = new Date(Date.now() + payment.days * 86400000);
       batch.update(doc(db, 'users', payment.userId), {
-        subscribed:   true,
-        plan:         payment.plan,
-        subscribedAt: serverTimestamp(),
+        subscribed:          true,
+        plan:                payment.plan,
+        accessLevel:         payment.plan,
+        subscriptionPlan:    payment.plan,
+        subscriptionExpiry:  expiresAt.toISOString(),
+        subscribedAt:        serverTimestamp(),
         expiresAt,
       });
 
       await batch.commit();
+
+      // Notify the student
+      await addDoc(collection(db, 'notifications'), {
+        userId:    payment.userId,
+        title:     '🎉 Payment Confirmed!',
+        body:      `Your ${payment.plan} plan has been activated. Enjoy full access for ${planDays} days!`,
+        type:      'payment_confirmed',
+        read:      false,
+        createdAt: serverTimestamp(),
+      });
+
       setPayments(prev =>
         prev.map(p => p.id === payment.id ? { ...p, status: 'confirmed' } : p)
       );
