@@ -26,7 +26,55 @@
 //   A. Sympathy   C. Socialism
 //   B. Criticism  D. Empathy
 //
+// FORMAT F — Multi-section with restarting numbers + ANSWER/EXPLANATION inline:
+//   1. Question spanning
+//      multiple lines?
+//   A) Option that wraps
+//      onto next line
+//   B) Another option
+//   ANSWER: A
+//   EXPLANATION: Text that spans
+//   multiple lines.
+//
 // ─────────────────────────────────────────────────────────────────────
+
+// ── Pre-processor: strip all non-question noise ───────────────────────
+/**
+ * Removes decorative separators, section headers, titles, and any line
+ * that is not part of a question, option, answer, or explanation.
+ * This allows pasting raw documents with headers/footers/dividers.
+ */
+function stripNoise(rawText) {
+  const lines = rawText.replace(/\r/g, '').split('\n');
+  const cleaned = [];
+
+  for (const line of lines) {
+    const t = line.trim();
+
+    // Skip empty lines (will be re-filtered later)
+    if (!t) { cleaned.push(''); continue; }
+
+    // Skip pure separator lines: ===, ---, ___,  ···  (any repeated symbol ≥4)
+    if (/^([=\-_*~#|])\1{3,}\s*$/.test(t)) continue;
+
+    // Skip lines that are ALL uppercase with no digits at the start
+    // (section headers like "SECTION A: HYPERTENSION — 40 Questions")
+    // but KEEP lines starting with a digit (question numbers) or A-E) (options)
+    // and KEEP ANSWER/EXPLANATION lines
+    const isAnswerOrExplanation = /^(answer|ans|explanation|explain|rationale|reason|note|correct|key|solution)[\s.:–\-]/i.test(t);
+    const startsWithDigit      = /^\d/.test(t);
+    const startsWithOption     = /^[A-Ea-e][\.\)\-:]/.test(t) || /^\([A-Ea-e]\)/.test(t);
+    const isAllUpperCase       = t === t.toUpperCase() && /[A-Z]{4,}/.test(t);
+
+    if (isAllUpperCase && !startsWithDigit && !startsWithOption && !isAnswerOrExplanation) {
+      continue; // section header / title / footer — skip
+    }
+
+    cleaned.push(line); // preserve original indentation for continuation detection
+  }
+
+  return cleaned.join('\n');
+}
 
 // ── Shuffle Utilities ─────────────────────────────────────────────────
 
@@ -156,17 +204,21 @@ export function parseRationaleKey(answerText) {
 export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const answerKey    = parseAnswerKey(answerKeyText);
   const rationaleMap = parseRationaleKey(answerKeyText);
-  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // ── Strip noise FIRST before splitting into lines ──────────────────
+  const cleanedText = stripNoise(rawText);
+
+  // Work with original (indented) lines so we can detect continuations,
+  // but also keep trimmed versions for pattern matching.
+  const rawLines     = cleanedText.split('\n');
+  const lines        = rawLines.map(l => l.trim()).filter(Boolean);
+
   const questions = [];
   let current = null;
 
-  // ── FIX: Use a monotonically-increasing sequential counter instead of
-  // relying on the label number in the text.  This means duplicate question
-  // numbers (e.g. multiple questions labelled "84" in the source file) are
-  // treated as distinct questions and none are silently dropped.
-  // _qNumber still stores the *label* number for answer-key look-up; the
-  // deduplication guard has been removed from saveQuestion() so every parsed
-  // block is kept.
+  // Use a monotonically-increasing sequential counter instead of relying
+  // on the label number in the text. Duplicate question numbers across
+  // sections (e.g. three sections each starting at "1.") are all kept.
   let seqCounter = 0;
 
   const optLetters = ['A', 'B', 'C', 'D', 'E'];
@@ -182,6 +234,18 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
   const isExplanationLine = (line) =>
     /^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line);
+
+  // A continuation line is indented (starts with whitespace in the raw source)
+  // and is NOT a new question, option, answer, or explanation.
+  const isContinuationLine = (trimmed, rawLine) => {
+    if (!trimmed) return false;
+    const indented = rawLine !== trimmed; // had leading whitespace
+    return indented
+      && !isQuestionLine(trimmed)
+      && !isOptionLine(trimmed)
+      && !isAnswerLine(trimmed)
+      && !isExplanationLine(trimmed);
+  };
 
   // Extract [image: URL] tag from any line
   const extractImageTag = (text) => {
@@ -271,12 +335,17 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     }
   };
 
+  // We need both the trimmed lines array AND the raw lines for indentation checks.
+  // Rebuild a parallel raw-lines array (non-empty raw lines matching filtered lines).
+  const rawLinesFiltered = rawLines.filter(l => l.trim());
+
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line    = lines[i];
+    const rawLine = rawLinesFiltered[i] ?? line;
 
     if (isQuestionLine(line)) {
       saveQuestion();
-      seqCounter++;                                          // always increment
+      seqCounter++;
       const labelNum = getQuestionNumber(line) || seqCounter;
 
       // Strip question number prefix
@@ -308,6 +377,23 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
     if (!current) continue;
 
+    // ── Continuation lines (indented wrap-around text) ─────────────────
+    // Attach to: question (if no options yet), last option, or explanation.
+    if (isContinuationLine(line, rawLine)) {
+      if (current.explanation) {
+        // Continuation of explanation
+        current.explanation += ' ' + line;
+      } else if (current.options.length > 0) {
+        // Continuation of the last option's text
+        const last = current.options[current.options.length - 1];
+        last.text += ' ' + line;
+      } else {
+        // Continuation of question text
+        current.question += ' ' + line;
+      }
+      continue;
+    }
+
     // Double options on one line (e.g. "A. Sympathy   C. Socialism")
     if (!isAnswerLine(line) && !isExplanationLine(line)) {
       const double = extractDoubleOptions(line);
@@ -337,11 +423,17 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       continue;
     }
 
-    // Explanation line
+    // Explanation line — collect all continuation lines that follow
     if (isExplanationLine(line)) {
       let explText = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
       while (i + 1 < lines.length) {
-        const next = lines[i + 1];
+        const next    = lines[i + 1];
+        const nextRaw = rawLinesFiltered[i + 1] ?? next;
+        // Stop at the next question, option, answer line — OR a non-indented line
+        if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
+        if (!isContinuationLine(next, nextRaw) && isExplanationLine(next)) break;
+        // Accept both indented continuations and plain text on the next line
+        // (explanations often wrap without indentation in plain-text docs)
         if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
         explText += ' ' + next;
         i++;
@@ -352,7 +444,7 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       continue;
     }
 
-    // Continuation of question text (before any options)
+    // Continuation of question text (before any options, non-indented)
     if (current.options.length === 0 && !isOptionLine(line)) {
       current.question += ' ' + line;
     }
