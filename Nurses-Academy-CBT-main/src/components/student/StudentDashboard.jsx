@@ -60,7 +60,8 @@ export default function StudentDashboard() {
           </p>
         </div>
         <div style={styles.bannerActions}>
-          <Link to="/exams" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
+          {/* ── Changed from /exams to /quick-actions ── */}
+          <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
           {!profile?.subscribed && (
             <Link to="/subscription" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
               Upgrade Plan
