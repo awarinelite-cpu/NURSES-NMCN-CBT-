@@ -114,7 +114,7 @@ export default function SubscriptionPage() {
         userEmail:   user.email,
         plan:        selectedPlan,
         amount:      plan.price,
-        days:        plan.days,
+        days:        { basic: 30, standard: 90, premium: 180 }[selectedPlan] || 30,
         receiptData: fileData,
         receiptName: file.name,
         note,
