@@ -114,6 +114,7 @@ export default function SubscriptionPage() {
         userEmail:   user.email,
         plan:        selectedPlan,
         amount:      plan.price,
+        days:        plan.days,
         receiptData: fileData,
         receiptName: file.name,
         note,
