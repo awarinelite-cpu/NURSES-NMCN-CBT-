@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   collection, query, orderBy, getDocs, doc, addDoc,
-  updateDoc, serverTimestamp, writeBatch, increment,
+  updateDoc, serverTimestamp, writeBatch, increment, arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
@@ -98,7 +98,27 @@ export default function AdminPayments() {
     }
   };
 
-  const filtered = filter === 'all' ? payments : payments.filter(p => p.status === filter);
+  /* ── Reset devices for a user ── */
+  const resetDevices = async (payment) => {
+    if (!window.confirm(`Reset all devices for ${payment.userName}? They will be able to log in from new devices.`)) return;
+    setBusy(b => ({ ...b, [payment.id]: true }));
+    try {
+      await updateDoc(doc(db, 'users', payment.userId), { devices: [] });
+      await addDoc(collection(db, 'notifications'), {
+        userId:    payment.userId,
+        title:     '📱 Devices Reset',
+        body:      'Your device access has been reset by admin. You can now log in from new devices.',
+        type:      'device_reset',
+        read:      false,
+        createdAt: serverTimestamp(),
+      });
+      alert(`Devices reset for ${payment.userName}.`);
+    } catch (e) {
+      alert('Error resetting devices: ' + e.message);
+    } finally {
+      setBusy(b => ({ ...b, [payment.id]: false }));
+    }
+  };
   const pendingCount = payments.filter(p => p.status === 'pending').length;
 
   return (
@@ -154,7 +174,7 @@ export default function AdminPayments() {
           <table style={s.table}>
             <thead>
               <tr>
-                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Date', 'Status', 'Action'].map(h => (
+                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Date', 'Status', 'Action', 'Devices'].map(h => (
                   <th key={h} style={s.th}>{h}</th>
                 ))}
               </tr>
@@ -215,6 +235,16 @@ export default function AdminPayments() {
                       {p.status !== 'pending' && (
                         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>—</span>
                       )}
+                    </td>
+                    <td style={s.td}>
+                      <button
+                        onClick={() => resetDevices(p)}
+                        disabled={busy[p.id]}
+                        style={{ ...s.actionBtn, background: 'rgba(99,102,241,0.15)', color: '#818CF8', borderColor: 'rgba(99,102,241,0.4)', fontSize: 11 }}
+                        title="Clear all registered devices for this student"
+                      >
+                        📱 Reset Devices
+                      </button>
                     </td>
                   </tr>
                 );
