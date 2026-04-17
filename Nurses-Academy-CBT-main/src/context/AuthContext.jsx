@@ -146,7 +146,15 @@ export function AuthProvider({ children }) {
 
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
-  const refreshProfile = () => {};
+  const refreshProfile = async () => {
+    if (!user) return;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (snap.exists()) setProfile(snap.data());
+    } catch (err) {
+      console.error('refreshProfile error:', err);
+    }
+  };
 
   return (
     <AuthContext.Provider value={{
