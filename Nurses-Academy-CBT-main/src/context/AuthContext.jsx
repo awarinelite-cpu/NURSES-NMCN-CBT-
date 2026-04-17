@@ -12,15 +12,28 @@ import {
   signInWithRedirect,
   getRedirectResult,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
 
+/* ── Generate / retrieve a unique device ID ── */
+function getDeviceId() {
+  let id = localStorage.getItem('nmcn_device_id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('nmcn_device_id', id);
+  }
+  return id;
+}
+
+const MAX_DEVICES = 2;
+
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user,          setUser]          = useState(null);
+  const [profile,       setProfile]       = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [deviceBlocked, setDeviceBlocked] = useState(false);
 
   useEffect(() => {
     let profileUnsub = null;
@@ -52,11 +65,38 @@ export function AuthProvider({ children }) {
       }
     }).catch(err => console.error('Redirect result error:', err));
 
-    const authUnsub = onAuthStateChanged(auth, (firebaseUser) => {
+    const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (profileUnsub) { profileUnsub(); profileUnsub = null; }
 
       if (firebaseUser) {
         setUser(firebaseUser);
+
+        // ── Device check (only for subscribed students) ──
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          // Only enforce device limit for subscribed non-admin users
+          if (data.subscribed && data.role !== 'admin') {
+            const deviceId = getDeviceId();
+            const registeredDevices = data.devices || [];
+
+            if (!registeredDevices.includes(deviceId)) {
+              if (registeredDevices.length >= MAX_DEVICES) {
+                // Device limit reached — block access
+                setDeviceBlocked(true);
+                setLoading(false);
+                return;
+              }
+              // Register this new device
+              await updateDoc(userRef, {
+                devices: arrayUnion(deviceId),
+              });
+            }
+          }
+          setDeviceBlocked(false);
+        }
+
         profileUnsub = onSnapshot(
           doc(db, 'users', firebaseUser.uid),
           (snap) => {
@@ -71,6 +111,7 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
         setProfile(null);
+        setDeviceBlocked(false);
         setLoading(false);
       }
     });
@@ -158,12 +199,45 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, loading,
+      user, profile, loading, deviceBlocked,
       login, register, logout, resetPassword, refreshProfile, googleLogin,
       isAdmin:      profile?.role === 'admin',
       isSubscribed: profile?.subscribed || profile?.accessLevel === 'full',
     }}>
-      {!loading && children}
+      {!loading && (
+        deviceBlocked ? (
+          <div style={{
+            minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(135deg,#010810,#0A1628)', padding: 24,
+          }}>
+            <div style={{
+              maxWidth: 420, width: '100%', background: 'rgba(239,68,68,0.08)',
+              border: '2px solid rgba(239,68,68,0.4)', borderRadius: 20,
+              padding: '40px 32px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
+              <h2 style={{ color: '#EF4444', fontFamily: "'Playfair Display',serif", margin: '0 0 12px' }}>
+                Device Limit Reached
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, lineHeight: 1.7, margin: '0 0 24px' }}>
+                Your subscription is already active on <strong style={{ color: '#fff' }}>{MAX_DEVICES} devices</strong>.
+                To use this device, contact your admin to reset your device access.
+              </p>
+              <button
+                onClick={() => signOut(auth)}
+                style={{
+                  width: '100%', padding: '12px', border: 'none', borderRadius: 10,
+                  background: 'rgba(239,68,68,0.2)', color: '#EF4444',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                }}
+              >
+                ← Sign Out
+              </button>
+            </div>
+          </div>
+        ) : children
+      )}
     </AuthContext.Provider>
   );
 }
