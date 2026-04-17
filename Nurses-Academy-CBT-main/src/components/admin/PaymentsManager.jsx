@@ -120,6 +120,7 @@ export default function AdminPayments() {
     }
   };
   const pendingCount = payments.filter(p => p.status === 'pending').length;
+  const filtered = filter === 'all' ? payments : payments.filter(p => p.status === filter);
 
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
