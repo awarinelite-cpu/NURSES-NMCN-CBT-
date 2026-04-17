@@ -212,24 +212,38 @@ export default function ExamSession() {
           }
 
         } else {
-          // ── LEGACY EXAM-ID MODE ──────────────────────────────────────────────
-          if (examId) {
-            const snap = await getDocs(query(
-              collection(db, 'questions'),
-              where('examId', '==', examId),
-              where('active', '==', true),
-            ));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          }
+          // ── MOCK EXAM MODE ──────────────────────────────────────────────────────
+          if (examType === 'mock_exam') {
+            const mockId = state?.mockExamId || examId;
+            if (mockId) {
+              const snap = await getDocs(query(
+                collection(db, 'questions'),
+                where('mockExamId', '==', mockId),
+                where('active',     '==', true),
+              ));
+              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
 
-          if (qs.length === 0 && examType && category) {
-            const snap = await getDocs(query(
-              collection(db, 'questions'),
-              where('examType', '==', examType),
-              where('category', '==', category),
-              where('active',   '==', true),
-            ));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // ── LEGACY EXAM-ID MODE ─────────────────────────────────────────────────
+          } else {
+            if (examId) {
+              const snap = await getDocs(query(
+                collection(db, 'questions'),
+                where('examId', '==', examId),
+                where('active', '==', true),
+              ));
+              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+
+            if (qs.length === 0 && examType && category) {
+              const snap = await getDocs(query(
+                collection(db, 'questions'),
+                where('examType', '==', examType),
+                where('category', '==', category),
+                where('active',   '==', true),
+              ));
+              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
           }
 
           const seenIds = profile?.seenQuestions || [];
@@ -306,6 +320,7 @@ export default function ExamSession() {
       await addDoc(collection(db, 'examSessions'), {
         userId:         currentUser.uid,
         examId:         examId || null,
+        mockExamId:     state?.mockExamId || null,
         examName:       sessionName,
         category:       category    || '',
         examType:       examType    || '',
@@ -537,7 +552,9 @@ export default function ExamSession() {
               : examType === 'course_drill'
                 ? `No questions have been uploaded for this course yet.`
                 : `No questions are available in the question pool yet.`
-            : 'No questions are available for this exam yet.'
+            : examType === 'mock_exam'
+              ? `No questions have been uploaded for this mock exam yet.`
+              : 'No questions are available for this exam yet.'
           }
         </p>
         <button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button>
@@ -576,7 +593,9 @@ export default function ExamSession() {
                   ? examType === 'daily_practice' ? '⚡ Daily Practice'
                   : examType === 'course_drill'   ? `📖 Course Drill — ${courseLabel || course}`
                   : `🎯 Topic Drill — ${topic}`
-                  : examName
+                  : examType === 'mock_exam'
+                    ? `🏥 Mock Exam — ${examName}`
+                    : examName
                 }
               </div>
               <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{scorePct}%</div>
@@ -842,7 +861,9 @@ export default function ExamSession() {
                   ? examType === 'daily_practice' ? '⚡ Daily Practice'
                   : examType === 'course_drill'   ? `📖 ${courseLabel || 'Course Drill'}`
                   : `🎯 ${topic || 'Topic Drill'}`
-                  : examName
+                  : examType === 'mock_exam'
+                    ? `🏥 ${examName}`
+                    : examName
                 }
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
