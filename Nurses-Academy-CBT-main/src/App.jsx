@@ -30,7 +30,6 @@ import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
 import DailyPracticePage  from './components/exam/DailyPracticePage';
 import MockExamPage       from './components/exam/MockExamPage';
-import MockReviewStoragePage from './components/exam/MockReviewStoragePage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
@@ -95,9 +94,9 @@ export default function App() {
                 <Route path="/exam/list"      element={<ExamListPage />} />
                 <Route path="/exam/setup"     element={<ExamSetupPage />} />
 
-                {/* ── Mock exams ───────────────────────────────────────── */}
+                {/* ── Mock exams — MockExamPage handles both exam start
+                        and previous attempts list (no separate /mock-reviews) */}
                 <Route path="/mock-exams"     element={<MockExamPage />} />
-                <Route path="/mock-reviews"   element={<MockReviewStoragePage />} />
 
                 {/* ── Analytics / bookmarks / subscription ─────────────── */}
                 <Route path="/results"      element={<AnalyticsPage />} />
