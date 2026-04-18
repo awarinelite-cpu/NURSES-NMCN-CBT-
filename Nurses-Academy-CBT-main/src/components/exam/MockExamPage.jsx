@@ -1,376 +1,515 @@
 // src/components/exam/MockExamPage.jsx
-// Route: /mock-exams
-//
-// SIMPLE FLOW:
-//   - Shows "Hospital Final Mock Exam" card
-//   - Start button launches ExamSession
-//   - Previous attempts listed below the Start button (review-only)
-//
-// FIRESTORE:
-//   mockExams collection — one doc with id = 'hospital_final_mock_exam'
-//   examSessions — saved after each attempt with examType = 'mock_exam'
-//                  and mockExamId = 'hospital_final_mock_exam'
-
-import { useState, useEffect } from 'react';
-import { useNavigate }         from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   collection, query, where, getDocs, orderBy,
-  doc, getDoc,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const EXAM_ID   = 'hospital_final_mock_exam';
-const PASS_MARK = 50;
+// ─── Specialties ──────────────────────────────────────────────────────────────
+// 'id' must match the mockExamId field on questions in Firestore.
+const SPECIALTIES = [
+  {
+    id:          'adult_health',
+    label:       'Adult Health Nursing',
+    icon:        '🏥',
+    description: 'Medical-surgical, critical care & internal medicine',
+    color:       '#0D9488',
+    border:      'rgba(13,148,136,0.35)',
+    glow:        'rgba(13,148,136,0.12)',
+  },
+  {
+    id:          'maternal_child',
+    label:       'Maternal & Child Health',
+    icon:        '👶',
+    description: 'Obstetrics, paediatrics & neonatal care',
+    color:       '#7C3AED',
+    border:      'rgba(124,58,237,0.35)',
+    glow:        'rgba(124,58,237,0.12)',
+  },
+  {
+    id:          'mental_health',
+    label:       'Mental Health Nursing',
+    icon:        '🧠',
+    description: 'Psychiatry, psychology & behavioural health',
+    color:       '#2563EB',
+    border:      'rgba(37,99,235,0.35)',
+    glow:        'rgba(37,99,235,0.12)',
+  },
+  {
+    id:          'community_health',
+    label:       'Community Health Nursing',
+    icon:        '🌍',
+    description: 'Public health, epidemiology & primary care',
+    color:       '#D97706',
+    border:      'rgba(217,119,6,0.35)',
+    glow:        'rgba(217,119,6,0.12)',
+  },
+  {
+    id:          'pharmacology',
+    label:       'Pharmacology',
+    icon:        '💊',
+    description: 'Drug classes, dosage calculations & interactions',
+    color:       '#DC2626',
+    border:      'rgba(220,38,38,0.35)',
+    glow:        'rgba(220,38,38,0.12)',
+  },
+  {
+    id:          'fundamentals',
+    label:       'Nursing Fundamentals',
+    icon:        '📋',
+    description: 'Core concepts, ethics & professional practice',
+    color:       '#059669',
+    border:      'rgba(5,150,105,0.35)',
+    glow:        'rgba(5,150,105,0.12)',
+  },
+];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function fmtTime(secs) {
+  if (!secs) return '—';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function Chip({ children, color }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 12, fontWeight: 600,
+      padding: '4px 11px', borderRadius: 20,
+      background: color ? `${color}18` : 'var(--bg-tertiary)',
+      border: `1px solid ${color ? `${color}44` : 'var(--border)'}`,
+      color: color ?? 'var(--text-secondary)',
+    }}>
+      {children}
+    </span>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function MockExamPage() {
   const navigate    = useNavigate();
-  const { user }    = useAuth();
+  const auth        = useAuth();
+  const currentUser = auth.currentUser || auth.user || null;
 
-  const [exam,        setExam]        = useState(null);
-  const [examLoading, setExamLoading] = useState(true);
-  const [qCount,      setQCount]      = useState(0);   // actual question count in Firestore
-  const [sessions,    setSessions]    = useState([]);
-  const [sessLoading, setSessLoading] = useState(true);
+  const [view,            setView]            = useState('specialty'); // 'specialty' | 'exam'
+  const [selected,        setSelected]        = useState(null);
+  const [questionCount,   setQuestionCount]   = useState(null);
+  const [loadingCount,    setLoadingCount]    = useState(false);
+  const [attempts,        setAttempts]        = useState([]);
+  const [loadingAttempts, setLoadingAttempts] = useState(false);
 
-  // ── Load the exam doc + question count ─────────────────────────────────────
+  // ── When specialty chosen: load question count + past attempts ─────────────
   useEffect(() => {
-    const load = async () => {
-      setExamLoading(true);
-      try {
-        const examSnap = await getDoc(doc(db, 'mockExams', EXAM_ID));
-        if (examSnap.exists()) {
-          setExam({ id: examSnap.id, ...examSnap.data() });
-        } else {
-          // Fallback: exam doc not created yet, still show the page
-          setExam({
-            id:          EXAM_ID,
-            title:       'Hospital Final Mock Exam',
-            description: 'Comprehensive mock exam covering all nursing specialties.',
-            timeLimit:   0,
-            active:      true,
-          });
-        }
+    if (!selected) return;
 
-        // Count active questions linked to this exam
-        const qSnap = await getDocs(query(
-          collection(db, 'questions'),
-          where('mockExamId', '==', EXAM_ID),
-          where('active',     '==', true),
-        ));
-        setQCount(qSnap.size);
-      } catch (e) {
-        console.error('MockExamPage load error:', e);
-      } finally {
-        setExamLoading(false);
-      }
-    };
-    load();
-  }, []);
+    setLoadingCount(true);
+    getDocs(query(
+      collection(db, 'questions'),
+      where('mockExamId', '==', selected.id),
+      where('active',     '==', true),
+    ))
+      .then(snap => setQuestionCount(snap.size))
+      .catch(() => setQuestionCount(0))
+      .finally(() => setLoadingCount(false));
 
-  // ── Load this student's past attempts ──────────────────────────────────────
-  useEffect(() => {
-    if (!user?.uid) return;
-    setSessLoading(true);
+    if (!currentUser?.uid) return;
+    setLoadingAttempts(true);
     getDocs(query(
       collection(db, 'examSessions'),
-      where('userId',     '==', user.uid),
-      where('mockExamId', '==', EXAM_ID),
+      where('userId',     '==', currentUser.uid),
+      where('examType',   '==', 'mock_exam'),
+      where('mockExamId', '==', selected.id),
+      orderBy('completedAt', 'desc'),
     ))
-      .then(snap => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        list.sort((a, b) => {
-          const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
-          const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
-          return tb - ta;
-        });
-        setSessions(list);
-      })
-      .catch(() => setSessions([]))
-      .finally(() => setSessLoading(false));
-  }, [user]);
+      .then(snap => setAttempts(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => setAttempts([]))
+      .finally(() => setLoadingAttempts(false));
+  }, [selected]);
 
-  // ── Start exam ──────────────────────────────────────────────────────────────
-  const handleStart = () => {
+  const startExam = () => {
     navigate('/exam/session', {
       state: {
-        poolMode:   false,
         examType:   'mock_exam',
-        mockExamId: EXAM_ID,
-        examId:     EXAM_ID,
-        examName:   exam?.title || 'Hospital Final Mock Exam',
-        category:   'general_nursing',
-        count:      qCount || 100,
+        mockExamId: selected.id,
+        examName:   selected.label,
+        examId:     '',
+        poolMode:   false,
         doShuffle:  true,
-        timeLimit:  exam?.timeLimit || 0,
+        count:      questionCount || 100,
+        timeLimit:  0,
       },
     });
   };
 
-  // ── Review past attempt ─────────────────────────────────────────────────────
-  const handleReview = (session) => {
+  const reviewAttempt = (attempt) => {
     navigate('/exam/session', {
       state: {
-        reviewMode:   true,
-        poolMode:     false,
         examType:     'mock_exam',
-        examName:     session.examName || 'Hospital Final Mock Exam',
-        category:     session.category || 'general_nursing',
-        mockExamId:   EXAM_ID,
+        examName:     selected.label,
+        reviewMode:   true,
         savedSession: {
-          questionIds:    session.questionIds,
-          answers:        session.answers,
-          correct:        session.correct,
-          totalQuestions: session.totalQuestions,
+          questionIds:    attempt.questionIds || [],
+          answers:        attempt.answers     || {},
+          correct:        attempt.correct,
+          totalQuestions: attempt.totalQuestions,
         },
       },
     });
   };
 
-  if (examLoading) {
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW: SPECIALTY PICKER
+  // ══════════════════════════════════════════════════════════════════════════
+  if (view === 'specialty') {
     return (
-      <div style={S.center}>
-        <div className="spinner" style={{ width: 36, height: 36 }} />
-        <p style={{ color: 'var(--text-muted)', marginTop: 14, fontSize: 14 }}>Loading exam…</p>
+      <div style={{ padding: '24px 16px', maxWidth: 860, margin: '0 auto' }}>
+
+        {/* Header — same style as existing page */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <span style={{ fontSize: 32 }}>🏫</span>
+          <h2 style={{
+            margin: 0,
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 26,
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+          }}>
+            Mock Exam
+          </h2>
+        </div>
+        <p style={{ margin: '0 0 28px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+          Select a nursing specialty to simulate a full hospital final exam.
+        </p>
+
+        {/* Specialty grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: 12,
+        }}>
+          {SPECIALTIES.map(sp => (
+            <SpecialtyCard
+              key={sp.id}
+              sp={sp}
+              onClick={() => {
+                setSelected(sp);
+                setQuestionCount(null);
+                setAttempts([]);
+                setView('exam');
+              }}
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
-  const bestScore = sessions.length
-    ? Math.max(...sessions.map(s => s.scorePercent ?? 0))
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW: EXAM CARD + ATTEMPTS
+  // ══════════════════════════════════════════════════════════════════════════
+  const sp          = selected;
+  const noQuestions = !loadingCount && questionCount === 0;
+  const hasQuestions = !loadingCount && questionCount > 0;
+  const best = attempts.length > 0
+    ? Math.max(...attempts.map(a => a.scorePercent ?? 0))
     : null;
 
   return (
-    <div style={{ padding: '28px 24px', maxWidth: 720, margin: '0 auto' }}>
+    <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
 
-      {/* ── Page Header ── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <span style={{ fontSize: 34 }}>🏥</span>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)', fontSize: 24 }}>
-            Mock Exam
-          </h2>
-        </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
-          Simulate a full hospital final exam. Complete it, then review every question below.
-        </p>
+      {/* Back */}
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={() => { setView('specialty'); setSelected(null); setAttempts([]); }}
+        style={{ marginBottom: 20 }}
+      >
+        ← All Specialties
+      </button>
+
+      {/* Page heading */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+        <span style={{ fontSize: 30 }}>{sp.icon}</span>
+        <h2 style={{
+          margin: 0,
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 22,
+          fontWeight: 800,
+          color: 'var(--text-primary)',
+        }}>
+          {sp.label}
+        </h2>
       </div>
+      <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: 14 }}>
+        Simulate a full hospital final exam. Complete it, then review every question below.
+      </p>
 
-      {/* ── Exam Card ── */}
+      {/* Exam card — dark style matching screenshot */}
       <div style={{
-        background: 'var(--bg-card)',
-        border: '2px solid rgba(13,148,136,0.35)',
+        background:   'var(--bg-card)',
+        border:       `1px solid ${sp.border}`,
         borderRadius: 20,
-        overflow: 'hidden',
-        marginBottom: 32,
-        boxShadow: '0 4px 32px rgba(13,148,136,0.08)',
+        padding:      '22px 20px',
+        marginBottom: 28,
+        position:     'relative',
+        overflow:     'hidden',
       }}>
-        {/* Top accent bar */}
+        {/* Colour accent top bar */}
         <div style={{
-          height: 5,
-          background: 'linear-gradient(90deg, #0D9488, #1E3A8A)',
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, ${sp.color}, transparent)`,
         }} />
 
-        <div style={{ padding: '28px 28px 24px' }}>
-
-          {/* Title row */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 16, flexShrink: 0,
-              background: 'rgba(13,148,136,0.12)',
-              border: '1.5px solid rgba(13,148,136,0.25)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28,
-            }}>📋</div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>
-                {exam?.title || 'Hospital Final Mock Exam'}
-              </h3>
-              {exam?.description && (
-                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  {exam.description}
-                </p>
-              )}
+        {/* Card header row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+            background: sp.glow,
+            border: `1px solid ${sp.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26,
+          }}>
+            📋
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', lineHeight: 1.25 }}>
+              Hospital Final Mock Exam
+            </div>
+            <div style={{ fontSize: 12, color: sp.color, fontWeight: 600, marginTop: 2 }}>
+              {sp.label}
             </div>
           </div>
+        </div>
 
-          {/* Meta pills */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
-            <MetaPill icon="📝" text={qCount > 0 ? `${qCount} questions` : 'Questions loading…'} />
-            <MetaPill icon="⏱"  text={exam?.timeLimit > 0 ? `${exam.timeLimit} min limit` : 'No time limit'} />
-            <MetaPill icon="📊" text={`Pass mark: ${PASS_MARK}%`} />
-            {bestScore !== null && (
-              <MetaPill
-                icon="🏆"
-                text={`Best score: ${bestScore}%`}
-                color={bestScore >= PASS_MARK ? '#16A34A' : '#EF4444'}
-              />
-            )}
-          </div>
-
-          {/* Start button */}
-          {qCount === 0 ? (
-            <div style={{
-              padding: '14px 20px', borderRadius: 12, textAlign: 'center',
-              background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.25)',
-              color: '#EF4444', fontSize: 14, fontWeight: 600,
-            }}>
-              ⚠️ No questions uploaded yet. Admin needs to add questions first.
-            </div>
-          ) : (
-            <button
-              onClick={handleStart}
-              style={{
-                width: '100%', padding: '15px 24px',
-                background: 'linear-gradient(135deg, #0D9488, #0f7a70)',
-                border: 'none', borderRadius: 14, cursor: 'pointer',
-                color: '#fff', fontSize: 16, fontWeight: 800,
-                fontFamily: 'inherit', letterSpacing: 0.3,
-                boxShadow: '0 4px 20px rgba(13,148,136,0.35)',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              🚀 Start Exam — {qCount} Questions
-            </button>
+        {/* Chips */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          <Chip>
+            📝 {loadingCount ? 'Loading…' : questionCount !== null ? `${questionCount} Questions` : '—'}
+          </Chip>
+          <Chip>⏱ No time limit</Chip>
+          <Chip>📊 Pass mark: 50%</Chip>
+          {best !== null && (
+            <Chip color={best >= 70 ? '#16A34A' : best >= 50 ? '#D97706' : '#DC2626'}>
+              🏆 Best: {best}%
+            </Chip>
           )}
         </div>
+
+        {/* No-questions warning */}
+        {noQuestions && (
+          <div style={{
+            background: 'rgba(220,38,38,0.10)',
+            border: '1px solid rgba(220,38,38,0.30)',
+            borderRadius: 10,
+            padding: '12px 16px',
+            color: '#F87171',
+            fontSize: 13,
+            fontWeight: 600,
+            textAlign: 'center',
+            marginBottom: 4,
+          }}>
+            ⚠️ No questions uploaded yet. Admin needs to add questions first.
+          </div>
+        )}
+
+        {/* Start button */}
+        {hasQuestions && (
+          <button
+            className="btn btn-primary"
+            onClick={startExam}
+            style={{
+              background: sp.color,
+              border: 'none',
+              width: '100%',
+              padding: '13px',
+              fontSize: 15,
+              fontWeight: 700,
+              borderRadius: 12,
+            }}
+          >
+            {attempts.length > 0 ? '🔄 Retake Exam' : '🚀 Start Exam'}
+          </button>
+        )}
       </div>
 
-      {/* ── Previous Attempts ── */}
-      <div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          marginBottom: 18,
-        }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
-            📋 Previous Attempts
-          </h3>
-          {sessions.length > 0 && (
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-              background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
-              border: '1px solid var(--border)',
-            }}>
-              {sessions.length}
-            </span>
-          )}
-        </div>
-
-        {sessLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <div className="spinner" style={{ width: 28, height: 28, margin: '0 auto' }} />
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 10 }}>Loading history…</div>
-          </div>
-
-        ) : sessions.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '44px 24px',
-            background: 'var(--bg-card)', borderRadius: 16,
-            border: '1.5px dashed var(--border)',
+      {/* Previous Attempts */}
+      <h3 style={{
+        margin: '0 0 12px',
+        fontSize: 16,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        📋 Previous Attempts
+        {attempts.length > 0 && (
+          <span style={{
+            fontSize: 12, fontWeight: 700,
+            padding: '2px 9px', borderRadius: 20,
+            background: 'var(--bg-tertiary)',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border)',
           }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
-            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4, fontSize: 15 }}>
+            {attempts.length}
+          </span>
+        )}
+      </h3>
+
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        overflow: 'hidden',
+      }}>
+        {loadingAttempts && (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto 10px' }} />
+            Loading attempts…
+          </div>
+        )}
+
+        {!loadingAttempts && attempts.length === 0 && (
+          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📬</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
               No attempts yet
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
               Complete the exam above — your result will appear here for review.
             </div>
           </div>
-
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {sessions.map((session, idx) => {
-              const pct    = session.scorePercent ?? Math.round(((session.correct || 0) / (session.totalQuestions || 1)) * 100);
-              const passed = pct >= PASS_MARK;
-              const date   = session.completedAt?.toDate?.() ?? null;
-              const dateStr = date
-                ? date.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
-                : '—';
-              const timeStr = date
-                ? date.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
-                : '';
-
-              return (
-                <div key={session.id} style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderLeft: `4px solid ${passed ? '#16A34A' : '#EF4444'}`,
-                  borderRadius: 14,
-                  padding: '16px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                  flexWrap: 'wrap',
-                }}>
-                  {/* Attempt number + score */}
-                  <div style={{
-                    width: 58, height: 58, borderRadius: 14, flexShrink: 0,
-                    background: passed ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
-                    border: `2px solid ${passed ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center', gap: 1,
-                  }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: passed ? '#16A34A' : '#EF4444', lineHeight: 1 }}>
-                      {pct}%
-                    </div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: passed ? '#16A34A' : '#EF4444', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      {passed ? 'PASS' : 'FAIL'}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 5 }}>
-                      Attempt #{sessions.length - idx}
-                    </div>
-                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        📅 {dateStr}{timeStr ? ` · ${timeStr}` : ''}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        ✅ {session.correct ?? '?'} / {session.totalQuestions ?? '?'} correct
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Review button */}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => handleReview(session)}
-                    style={{ flexShrink: 0, fontWeight: 700 }}
-                  >
-                    🔍 Review
-                  </button>
-                </div>
-              );
-            })}
-          </div>
         )}
+
+        {!loadingAttempts && attempts.map((attempt, idx) => {
+          const pct      = attempt.scorePercent ?? 0;
+          const scoreClr = pct >= 70 ? '#16A34A' : pct >= 50 ? '#D97706' : '#DC2626';
+          const scoreBg  = pct >= 70 ? 'rgba(22,163,74,0.1)' : pct >= 50 ? 'rgba(245,158,11,0.1)' : 'rgba(220,38,38,0.1)';
+          const scoreBdr = pct >= 70 ? 'rgba(22,163,74,0.3)' : pct >= 50 ? 'rgba(245,158,11,0.3)' : 'rgba(220,38,38,0.3)';
+
+          return (
+            <div key={attempt.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 18px',
+              borderBottom: idx < attempts.length - 1 ? '1px solid var(--border)' : 'none',
+              flexWrap: 'wrap',
+            }}>
+              {/* Attempt number */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', fontSize: 11, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                #{attempts.length - idx}
+              </div>
+
+              {/* Score bubble */}
+              <div style={{
+                width: 50, height: 50, borderRadius: 10, flexShrink: 0,
+                background: scoreBg, border: `1.5px solid ${scoreBdr}`,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{ fontWeight: 900, fontSize: 15, color: scoreClr, lineHeight: 1 }}>{pct}%</div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>score</div>
+              </div>
+
+              {/* Details */}
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', marginBottom: 3 }}>
+                  {attempt.correct ?? '?'} / {attempt.totalQuestions ?? '?'} correct
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span>📅 {fmtDate(attempt.completedAt)}</span>
+                  <span>⏱ {fmtTime(attempt.timeTaken)}</span>
+                </div>
+              </div>
+
+              {/* Pass/fail */}
+              <span style={{
+                fontSize: 11, fontWeight: 700, flexShrink: 0,
+                padding: '4px 10px', borderRadius: 20,
+                background: scoreBg, color: scoreClr,
+                border: `1px solid ${scoreBdr}`,
+              }}>
+                {pct >= 70 ? '✅ Pass' : pct >= 50 ? '⚠️ Borderline' : '❌ Fail'}
+              </span>
+
+              {/* Review */}
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => reviewAttempt(attempt)}
+                style={{ flexShrink: 0, fontSize: 12 }}
+              >
+                📖 Review
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function MetaPill({ icon, text, color }) {
+// ─── Specialty card (extracted for cleanliness) ───────────────────────────────
+function SpecialtyCard({ sp, onClick }) {
+  const [hovered, setHovered] = React.useState(false);
   return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '5px 12px', borderRadius: 20,
-      background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-      fontSize: 12, fontWeight: 600,
-      color: color || 'var(--text-secondary)',
-    }}>
-      <span>{icon}</span> {text}
-    </div>
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background:   hovered ? sp.glow : 'var(--bg-card)',
+        border:       `1px solid ${hovered ? sp.border : 'var(--border)'}`,
+        borderRadius: 16,
+        padding:      '20px 18px',
+        textAlign:    'left',
+        cursor:       'pointer',
+        fontFamily:   'inherit',
+        transition:   'border-color 0.2s, background 0.2s',
+        position:     'relative',
+        overflow:     'hidden',
+      }}
+    >
+      {/* Top colour bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+        background: sp.color,
+        borderRadius: '16px 16px 0 0',
+        opacity: hovered ? 1 : 0.5,
+        transition: 'opacity 0.2s',
+      }} />
+
+      <div style={{ fontSize: 30, marginBottom: 10, marginTop: 6 }}>{sp.icon}</div>
+      <div style={{
+        fontWeight: 700, fontSize: 14,
+        color: 'var(--text-primary)',
+        marginBottom: 6, lineHeight: 1.3,
+      }}>
+        {sp.label}
+      </div>
+      <div style={{
+        fontSize: 12, color: 'var(--text-muted)',
+        lineHeight: 1.55, marginBottom: 14,
+      }}>
+        {sp.description}
+      </div>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        fontSize: 12, fontWeight: 700,
+        color: sp.color,
+        transition: 'gap 0.2s',
+      }}>
+        Select specialty →
+      </div>
+    </button>
   );
 }
-
-const S = {
-  center: {
-    display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    minHeight: '60vh',
-  },
-};
