@@ -9,21 +9,22 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Specialties ───────────────────────────────────────────────────────────────
 // 'id' is written to questions as mockExamId in the admin bulk-upload panel.
-// Icons, colours and labels match the screenshots exactly.
+// Admin reminder: mockExamId must match the id field EXACTLY when uploading questions.
 const SPECIALTIES = [
-  { id: 'orthopaedic',       label: 'Orthopaedic',        icon: '🦴',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
-  { id: 'ophthalmic',        label: 'Ophthalmic',          icon: '👁️',  color: '#2563EB', border: 'rgba(37,99,235,0.40)',   glow: 'rgba(37,99,235,0.12)'   },
-  { id: 'paediatric',        label: 'Paediatric',          icon: '👦',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
-  { id: 'ane_nursing',       label: 'A&E Nursing',         icon: '🚨',  color: '#DC2626', border: 'rgba(220,38,38,0.40)',   glow: 'rgba(220,38,38,0.12)'   },
-  { id: 'icu_critical_care', label: 'ICU/Critical Care',   icon: '💊',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
-  { id: 'anaesthetics',      label: 'Anaesthetics',        icon: '💉',  color: '#0E7490', border: 'rgba(14,116,144,0.40)',  glow: 'rgba(14,116,144,0.12)'  },
-  { id: 'ent_nursing',       label: 'ENT Nursing',         icon: '💡',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
-  { id: 'occupational_health',label:'Occupational Health', icon: '🏭',  color: '#059669', border: 'rgba(5,150,105,0.40)',   glow: 'rgba(5,150,105,0.12)'   },
-  { id: 'burns_plastics',    label: 'Burns & Plastics',    icon: '🩹',  color: '#DB2777', border: 'rgba(219,39,119,0.40)',  glow: 'rgba(219,39,119,0.12)'  },
-  { id: 'cardio_thoracic',   label: 'Cardio-thoracic',     icon: '❤️',  color: '#E11D48', border: 'rgba(225,29,72,0.40)',   glow: 'rgba(225,29,72,0.12)'   },
-  { id: 'nephrology',        label: 'Nephrology',          icon: '🫘',  color: '#1D4ED8', border: 'rgba(29,78,216,0.40)',   glow: 'rgba(29,78,216,0.12)'   },
-  { id: 'oncology',          label: 'Oncology',            icon: '🎗️',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
-  { id: 'community_nursing', label: 'Community Nursing',   icon: '🏘️',  color: '#0D9488', border: 'rgba(13,148,136,0.40)',  glow: 'rgba(13,148,136,0.12)'  },
+  { id: 'general_nursing',   label: 'General Nursing',     icon: '🏥',  color: '#0891B2', border: 'rgba(8,145,178,0.40)',   glow: 'rgba(8,145,178,0.12)'   },
+  { id: 'orthopaedic',       label: 'Orthopaedic',          icon: '🦴',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'ophthalmic',        label: 'Ophthalmic',           icon: '👁️',  color: '#2563EB', border: 'rgba(37,99,235,0.40)',   glow: 'rgba(37,99,235,0.12)'   },
+  { id: 'paediatric',        label: 'Paediatric',           icon: '👦',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'ane_nursing',       label: 'A&E Nursing',          icon: '🚨',  color: '#DC2626', border: 'rgba(220,38,38,0.40)',   glow: 'rgba(220,38,38,0.12)'   },
+  { id: 'icu_critical_care', label: 'ICU/Critical Care',    icon: '💊',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
+  { id: 'anaesthetics',      label: 'Anaesthetics',         icon: '💉',  color: '#0E7490', border: 'rgba(14,116,144,0.40)',  glow: 'rgba(14,116,144,0.12)'  },
+  { id: 'ent_nursing',       label: 'ENT Nursing',          icon: '💡',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'occupational_health',label:'Occupational Health',  icon: '🏭',  color: '#059669', border: 'rgba(5,150,105,0.40)',   glow: 'rgba(5,150,105,0.12)'   },
+  { id: 'burns_plastics',    label: 'Burns & Plastics',     icon: '🩹',  color: '#DB2777', border: 'rgba(219,39,119,0.40)',  glow: 'rgba(219,39,119,0.12)'  },
+  { id: 'cardio_thoracic',   label: 'Cardio-thoracic',      icon: '❤️',  color: '#E11D48', border: 'rgba(225,29,72,0.40)',   glow: 'rgba(225,29,72,0.12)'   },
+  { id: 'nephrology',        label: 'Nephrology',           icon: '🫘',  color: '#1D4ED8', border: 'rgba(29,78,216,0.40)',   glow: 'rgba(29,78,216,0.12)'   },
+  { id: 'oncology',          label: 'Oncology',             icon: '🎗️',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
+  { id: 'community_nursing', label: 'Community Nursing',    icon: '🏘️',  color: '#0D9488', border: 'rgba(13,148,136,0.40)',  glow: 'rgba(13,148,136,0.12)'  },
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ export default function MockExamPage() {
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // VIEW: SPECIALTY PICKER  —  large horizontal cards like screenshot
+  // VIEW: SPECIALTY PICKER  —  large horizontal cards
   // ════════════════════════════════════════════════════════════════════════════
   if (view === 'specialty') {
     return (
@@ -173,7 +174,7 @@ export default function MockExamPage() {
           Select a nursing specialty to simulate a full hospital final exam.
         </p>
 
-        {/* Specialty list — same large horizontal card style as the screenshot */}
+        {/* Specialty list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {SPECIALTIES.map(sp => {
             const qCount = counts[sp.id];
