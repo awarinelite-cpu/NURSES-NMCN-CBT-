@@ -18,6 +18,7 @@ import {
 import { useToast } from '../shared/Toast';
 
 const MOCK_EXAM_SPECIALTIES = [
+  { id: 'general_nursing',     label: '🏥 General Nursing'     },
   { id: 'orthopaedic',         label: '🦴 Orthopaedic'         },
   { id: 'ophthalmic',          label: '👁️ Ophthalmic'          },
   { id: 'paediatric',          label: '👦 Paediatric'          },
