@@ -7,66 +7,26 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-// ─── Specialties ──────────────────────────────────────────────────────────────
-// 'id' must match the mockExamId field on questions in Firestore.
+// ─── Specialties ───────────────────────────────────────────────────────────────
+// 'id' is written to questions as mockExamId in the admin bulk-upload panel.
+// Icons, colours and labels match the screenshots exactly.
 const SPECIALTIES = [
-  {
-    id:          'adult_health',
-    label:       'Adult Health Nursing',
-    icon:        '🏥',
-    description: 'Medical-surgical, critical care & internal medicine',
-    color:       '#0D9488',
-    border:      'rgba(13,148,136,0.35)',
-    glow:        'rgba(13,148,136,0.12)',
-  },
-  {
-    id:          'maternal_child',
-    label:       'Maternal & Child Health',
-    icon:        '👶',
-    description: 'Obstetrics, paediatrics & neonatal care',
-    color:       '#7C3AED',
-    border:      'rgba(124,58,237,0.35)',
-    glow:        'rgba(124,58,237,0.12)',
-  },
-  {
-    id:          'mental_health',
-    label:       'Mental Health Nursing',
-    icon:        '🧠',
-    description: 'Psychiatry, psychology & behavioural health',
-    color:       '#2563EB',
-    border:      'rgba(37,99,235,0.35)',
-    glow:        'rgba(37,99,235,0.12)',
-  },
-  {
-    id:          'community_health',
-    label:       'Community Health Nursing',
-    icon:        '🌍',
-    description: 'Public health, epidemiology & primary care',
-    color:       '#D97706',
-    border:      'rgba(217,119,6,0.35)',
-    glow:        'rgba(217,119,6,0.12)',
-  },
-  {
-    id:          'pharmacology',
-    label:       'Pharmacology',
-    icon:        '💊',
-    description: 'Drug classes, dosage calculations & interactions',
-    color:       '#DC2626',
-    border:      'rgba(220,38,38,0.35)',
-    glow:        'rgba(220,38,38,0.12)',
-  },
-  {
-    id:          'fundamentals',
-    label:       'Nursing Fundamentals',
-    icon:        '📋',
-    description: 'Core concepts, ethics & professional practice',
-    color:       '#059669',
-    border:      'rgba(5,150,105,0.35)',
-    glow:        'rgba(5,150,105,0.12)',
-  },
+  { id: 'orthopaedic',       label: 'Orthopaedic',        icon: '🦴',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'ophthalmic',        label: 'Ophthalmic',          icon: '👁️',  color: '#2563EB', border: 'rgba(37,99,235,0.40)',   glow: 'rgba(37,99,235,0.12)'   },
+  { id: 'paediatric',        label: 'Paediatric',          icon: '👦',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'ane_nursing',       label: 'A&E Nursing',         icon: '🚨',  color: '#DC2626', border: 'rgba(220,38,38,0.40)',   glow: 'rgba(220,38,38,0.12)'   },
+  { id: 'icu_critical_care', label: 'ICU/Critical Care',   icon: '💊',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
+  { id: 'anaesthetics',      label: 'Anaesthetics',        icon: '💉',  color: '#0E7490', border: 'rgba(14,116,144,0.40)',  glow: 'rgba(14,116,144,0.12)'  },
+  { id: 'ent_nursing',       label: 'ENT Nursing',         icon: '💡',  color: '#D97706', border: 'rgba(217,119,6,0.40)',   glow: 'rgba(217,119,6,0.12)'   },
+  { id: 'occupational_health',label:'Occupational Health', icon: '🏭',  color: '#059669', border: 'rgba(5,150,105,0.40)',   glow: 'rgba(5,150,105,0.12)'   },
+  { id: 'burns_plastics',    label: 'Burns & Plastics',    icon: '🩹',  color: '#DB2777', border: 'rgba(219,39,119,0.40)',  glow: 'rgba(219,39,119,0.12)'  },
+  { id: 'cardio_thoracic',   label: 'Cardio-thoracic',     icon: '❤️',  color: '#E11D48', border: 'rgba(225,29,72,0.40)',   glow: 'rgba(225,29,72,0.12)'   },
+  { id: 'nephrology',        label: 'Nephrology',          icon: '🫘',  color: '#1D4ED8', border: 'rgba(29,78,216,0.40)',   glow: 'rgba(29,78,216,0.12)'   },
+  { id: 'oncology',          label: 'Oncology',            icon: '🎗️',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
+  { id: 'community_nursing', label: 'Community Nursing',   icon: '🏘️',  color: '#0D9488', border: 'rgba(13,148,136,0.40)',  glow: 'rgba(13,148,136,0.12)'  },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(ts) {
   if (!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -78,7 +38,6 @@ function fmtTime(secs) {
   const s = secs % 60;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
-
 function Chip({ children, color }) {
   return (
     <span style={{
@@ -94,20 +53,45 @@ function Chip({ children, color }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main ──────────────────────────────────────────────────────────────────────
 export default function MockExamPage() {
   const navigate    = useNavigate();
   const auth        = useAuth();
   const currentUser = auth.currentUser || auth.user || null;
 
-  const [view,            setView]            = useState('specialty'); // 'specialty' | 'exam'
+  const [view,            setView]            = useState('specialty');
   const [selected,        setSelected]        = useState(null);
   const [questionCount,   setQuestionCount]   = useState(null);
   const [loadingCount,    setLoadingCount]    = useState(false);
   const [attempts,        setAttempts]        = useState([]);
   const [loadingAttempts, setLoadingAttempts] = useState(false);
+  // question counts for each specialty shown on the picker
+  const [counts,          setCounts]          = useState({});
 
-  // ── When specialty chosen: load question count + past attempts ─────────────
+  // ── Load all specialty question counts on mount (for the picker badges) ─────
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const results = {};
+      await Promise.all(
+        SPECIALTIES.map(async sp => {
+          try {
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('mockExamId', '==', sp.id),
+              where('active',     '==', true),
+            ));
+            results[sp.id] = snap.size;
+          } catch {
+            results[sp.id] = 0;
+          }
+        })
+      );
+      setCounts(results);
+    };
+    fetchCounts();
+  }, []);
+
+  // ── Load question count + attempts when a specialty is selected ───────────
   useEffect(() => {
     if (!selected) return;
 
@@ -166,58 +150,122 @@ export default function MockExamPage() {
     });
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // VIEW: SPECIALTY PICKER
-  // ══════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
+  // VIEW: SPECIALTY PICKER  —  large horizontal cards like screenshot
+  // ════════════════════════════════════════════════════════════════════════════
   if (view === 'specialty') {
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
 
-        {/* Header — same style as existing page */}
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <span style={{ fontSize: 32 }}>🏫</span>
+          <span style={{ fontSize: 30 }}>🏫</span>
           <h2 style={{
             margin: 0,
             fontFamily: "'Playfair Display', serif",
-            fontSize: 26,
-            fontWeight: 800,
+            fontSize: 26, fontWeight: 800,
             color: 'var(--text-primary)',
           }}>
             Mock Exam
           </h2>
         </div>
-        <p style={{ margin: '0 0 28px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
           Select a nursing specialty to simulate a full hospital final exam.
         </p>
 
-        {/* Specialty grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: 12,
-        }}>
-          {SPECIALTIES.map(sp => (
-            <SpecialtyCard
-              key={sp.id}
-              sp={sp}
-              onClick={() => {
-                setSelected(sp);
-                setQuestionCount(null);
-                setAttempts([]);
-                setView('exam');
-              }}
-            />
-          ))}
+        {/* Specialty list — same large horizontal card style as the screenshot */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {SPECIALTIES.map(sp => {
+            const qCount = counts[sp.id];
+            const hasQs  = qCount > 0;
+
+            return (
+              <button
+                key={sp.id}
+                onClick={() => {
+                  setSelected(sp);
+                  setQuestionCount(null);
+                  setAttempts([]);
+                  setView('exam');
+                }}
+                style={{
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          16,
+                  background:   'var(--bg-card)',
+                  border:       `1px solid ${sp.border}`,
+                  borderRadius: 16,
+                  padding:      '18px 20px',
+                  textAlign:    'left',
+                  cursor:       'pointer',
+                  fontFamily:   'inherit',
+                  width:        '100%',
+                  position:     'relative',
+                  overflow:     'hidden',
+                  transition:   'background 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = sp.glow}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+              >
+                {/* Left colour bar */}
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, bottom: 0, width: 4,
+                  background: sp.color,
+                  borderRadius: '16px 0 0 16px',
+                }} />
+
+                {/* Icon box */}
+                <div style={{
+                  width: 54, height: 54, borderRadius: 14, flexShrink: 0,
+                  background: sp.glow,
+                  border: `1px solid ${sp.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 26,
+                  marginLeft: 8,
+                }}>
+                  {sp.icon}
+                </div>
+
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontWeight: 700, fontSize: 16,
+                    color: 'var(--text-primary)',
+                    marginBottom: 4,
+                  }}>
+                    {sp.label}
+                  </div>
+                  <div style={{
+                    fontSize: 13,
+                    color: hasQs ? sp.color : 'var(--text-muted)',
+                    fontWeight: hasQs ? 600 : 400,
+                  }}>
+                    {qCount === undefined
+                      ? 'Loading…'
+                      : hasQs
+                        ? `${qCount} question${qCount !== 1 ? 's' : ''} available`
+                        : 'No questions yet'
+                    }
+                  </div>
+                </div>
+
+                {/* Arrow */}
+                <div style={{
+                  fontSize: 18, color: sp.color, opacity: 0.7, flexShrink: 0,
+                }}>›</div>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // VIEW: EXAM CARD + ATTEMPTS
-  // ══════════════════════════════════════════════════════════════════════════
-  const sp          = selected;
-  const noQuestions = !loadingCount && questionCount === 0;
+  // ════════════════════════════════════════════════════════════════════════════
+  // VIEW: EXAM CARD + PREVIOUS ATTEMPTS
+  // ════════════════════════════════════════════════════════════════════════════
+  const sp           = selected;
+  const noQuestions  = !loadingCount && questionCount === 0;
   const hasQuestions = !loadingCount && questionCount > 0;
   const best = attempts.length > 0
     ? Math.max(...attempts.map(a => a.scorePercent ?? 0))
@@ -235,14 +283,13 @@ export default function MockExamPage() {
         ← All Specialties
       </button>
 
-      {/* Page heading */}
+      {/* Heading */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 30 }}>{sp.icon}</span>
+        <span style={{ fontSize: 28 }}>{sp.icon}</span>
         <h2 style={{
           margin: 0,
           fontFamily: "'Playfair Display', serif",
-          fontSize: 22,
-          fontWeight: 800,
+          fontSize: 22, fontWeight: 800,
           color: 'var(--text-primary)',
         }}>
           {sp.label}
@@ -252,7 +299,7 @@ export default function MockExamPage() {
         Simulate a full hospital final exam. Complete it, then review every question below.
       </p>
 
-      {/* Exam card — dark style matching screenshot */}
+      {/* Exam card */}
       <div style={{
         background:   'var(--bg-card)',
         border:       `1px solid ${sp.border}`,
@@ -262,18 +309,15 @@ export default function MockExamPage() {
         position:     'relative',
         overflow:     'hidden',
       }}>
-        {/* Colour accent top bar */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 3,
           background: `linear-gradient(90deg, ${sp.color}, transparent)`,
         }} />
 
-        {/* Card header row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-            background: sp.glow,
-            border: `1px solid ${sp.border}`,
+            background: sp.glow, border: `1px solid ${sp.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 26,
           }}>
@@ -289,7 +333,6 @@ export default function MockExamPage() {
           </div>
         </div>
 
-        {/* Chips */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
           <Chip>
             📝 {loadingCount ? 'Loading…' : questionCount !== null ? `${questionCount} Questions` : '—'}
@@ -303,36 +346,26 @@ export default function MockExamPage() {
           )}
         </div>
 
-        {/* No-questions warning */}
         {noQuestions && (
           <div style={{
             background: 'rgba(220,38,38,0.10)',
             border: '1px solid rgba(220,38,38,0.30)',
-            borderRadius: 10,
-            padding: '12px 16px',
-            color: '#F87171',
-            fontSize: 13,
-            fontWeight: 600,
-            textAlign: 'center',
-            marginBottom: 4,
+            borderRadius: 10, padding: '12px 16px',
+            color: '#F87171', fontSize: 13, fontWeight: 600,
+            textAlign: 'center', marginBottom: 4,
           }}>
             ⚠️ No questions uploaded yet. Admin needs to add questions first.
           </div>
         )}
 
-        {/* Start button */}
         {hasQuestions && (
           <button
             className="btn btn-primary"
             onClick={startExam}
             style={{
-              background: sp.color,
-              border: 'none',
-              width: '100%',
-              padding: '13px',
-              fontSize: 15,
-              fontWeight: 700,
-              borderRadius: 12,
+              background: sp.color, border: 'none',
+              width: '100%', padding: '13px',
+              fontSize: 15, fontWeight: 700, borderRadius: 12,
             }}
           >
             {attempts.length > 0 ? '🔄 Retake Exam' : '🚀 Start Exam'}
@@ -342,9 +375,7 @@ export default function MockExamPage() {
 
       {/* Previous Attempts */}
       <h3 style={{
-        margin: '0 0 12px',
-        fontSize: 16,
-        fontWeight: 700,
+        margin: '0 0 12px', fontSize: 16, fontWeight: 700,
         color: 'var(--text-primary)',
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
@@ -365,8 +396,7 @@ export default function MockExamPage() {
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border)',
-        borderRadius: 16,
-        overflow: 'hidden',
+        borderRadius: 16, overflow: 'hidden',
       }}>
         {loadingAttempts && (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -390,8 +420,8 @@ export default function MockExamPage() {
         {!loadingAttempts && attempts.map((attempt, idx) => {
           const pct      = attempt.scorePercent ?? 0;
           const scoreClr = pct >= 70 ? '#16A34A' : pct >= 50 ? '#D97706' : '#DC2626';
-          const scoreBg  = pct >= 70 ? 'rgba(22,163,74,0.1)' : pct >= 50 ? 'rgba(245,158,11,0.1)' : 'rgba(220,38,38,0.1)';
-          const scoreBdr = pct >= 70 ? 'rgba(22,163,74,0.3)' : pct >= 50 ? 'rgba(245,158,11,0.3)' : 'rgba(220,38,38,0.3)';
+          const scoreBg  = pct >= 70 ? 'rgba(22,163,74,0.10)'  : pct >= 50 ? 'rgba(245,158,11,0.10)'  : 'rgba(220,38,38,0.10)';
+          const scoreBdr = pct >= 70 ? 'rgba(22,163,74,0.30)'  : pct >= 50 ? 'rgba(245,158,11,0.30)'  : 'rgba(220,38,38,0.30)';
 
           return (
             <div key={attempt.id} style={{
@@ -400,7 +430,6 @@ export default function MockExamPage() {
               borderBottom: idx < attempts.length - 1 ? '1px solid var(--border)' : 'none',
               flexWrap: 'wrap',
             }}>
-              {/* Attempt number */}
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                 background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
@@ -410,7 +439,6 @@ export default function MockExamPage() {
                 #{attempts.length - idx}
               </div>
 
-              {/* Score bubble */}
               <div style={{
                 width: 50, height: 50, borderRadius: 10, flexShrink: 0,
                 background: scoreBg, border: `1.5px solid ${scoreBdr}`,
@@ -421,7 +449,6 @@ export default function MockExamPage() {
                 <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>score</div>
               </div>
 
-              {/* Details */}
               <div style={{ flex: 1, minWidth: 100 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', marginBottom: 3 }}>
                   {attempt.correct ?? '?'} / {attempt.totalQuestions ?? '?'} correct
@@ -432,7 +459,6 @@ export default function MockExamPage() {
                 </div>
               </div>
 
-              {/* Pass/fail */}
               <span style={{
                 fontSize: 11, fontWeight: 700, flexShrink: 0,
                 padding: '4px 10px', borderRadius: 20,
@@ -442,7 +468,6 @@ export default function MockExamPage() {
                 {pct >= 70 ? '✅ Pass' : pct >= 50 ? '⚠️ Borderline' : '❌ Fail'}
               </span>
 
-              {/* Review */}
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={() => reviewAttempt(attempt)}
@@ -455,61 +480,5 @@ export default function MockExamPage() {
         })}
       </div>
     </div>
-  );
-}
-
-// ─── Specialty card (extracted for cleanliness) ───────────────────────────────
-function SpecialtyCard({ sp, onClick }) {
-  const [hovered, setHovered] = React.useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background:   hovered ? sp.glow : 'var(--bg-card)',
-        border:       `1px solid ${hovered ? sp.border : 'var(--border)'}`,
-        borderRadius: 16,
-        padding:      '20px 18px',
-        textAlign:    'left',
-        cursor:       'pointer',
-        fontFamily:   'inherit',
-        transition:   'border-color 0.2s, background 0.2s',
-        position:     'relative',
-        overflow:     'hidden',
-      }}
-    >
-      {/* Top colour bar */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-        background: sp.color,
-        borderRadius: '16px 16px 0 0',
-        opacity: hovered ? 1 : 0.5,
-        transition: 'opacity 0.2s',
-      }} />
-
-      <div style={{ fontSize: 30, marginBottom: 10, marginTop: 6 }}>{sp.icon}</div>
-      <div style={{
-        fontWeight: 700, fontSize: 14,
-        color: 'var(--text-primary)',
-        marginBottom: 6, lineHeight: 1.3,
-      }}>
-        {sp.label}
-      </div>
-      <div style={{
-        fontSize: 12, color: 'var(--text-muted)',
-        lineHeight: 1.55, marginBottom: 14,
-      }}>
-        {sp.description}
-      </div>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        fontSize: 12, fontWeight: 700,
-        color: sp.color,
-        transition: 'gap 0.2s',
-      }}>
-        Select specialty →
-      </div>
-    </button>
   );
 }
