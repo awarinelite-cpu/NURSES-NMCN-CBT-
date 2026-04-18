@@ -17,7 +17,21 @@ import {
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
 
-const MOCK_EXAM_ID = 'hospital_final_mock_exam';
+const MOCK_EXAM_SPECIALTIES = [
+  { id: 'orthopaedic',         label: '🦴 Orthopaedic'         },
+  { id: 'ophthalmic',          label: '👁️ Ophthalmic'          },
+  { id: 'paediatric',          label: '👦 Paediatric'          },
+  { id: 'ane_nursing',         label: '🚨 A&E Nursing'         },
+  { id: 'icu_critical_care',   label: '💊 ICU/Critical Care'   },
+  { id: 'anaesthetics',        label: '💉 Anaesthetics'        },
+  { id: 'ent_nursing',         label: '💡 ENT Nursing'         },
+  { id: 'occupational_health', label: '🏭 Occupational Health' },
+  { id: 'burns_plastics',      label: '🩹 Burns & Plastics'    },
+  { id: 'cardio_thoracic',     label: '❤️ Cardio-thoracic'     },
+  { id: 'nephrology',          label: '🫘 Nephrology'          },
+  { id: 'oncology',            label: '🎗️ Oncology'            },
+  { id: 'community_nursing',   label: '🏘️ Community Nursing'   },
+];
 
 const EXTENDED_EXAM_TYPES = [
   {
@@ -28,8 +42,8 @@ const EXTENDED_EXAM_TYPES = [
   // ── NEW: Mock Exam type ──────────────────────────────────────────────────
   {
     id:    'mock_exam',
-    label: '🏥 Hospital Final Mock Exam',
-    hint:  'Questions uploaded here appear in the student Mock Exam page.',
+    label: '🏥 Mock Exam (by Specialty)',
+    hint:  'Select the specialty below. Questions appear instantly on the student Mock Exam page.',
   },
   ...ALL_EXAM_TYPES.filter(t => !['topic_drill','course_drill','daily_practice','mock_exam'].includes(t.id)),
   { id: 'topic_drill',    label: 'Topic Drill (Legacy)', hint: '' },
@@ -71,7 +85,7 @@ export default function QuestionsManager() {
   const [bulkMeta,       setBulkMeta]       = useState({
     category: 'general_nursing', examType: 'question_bank',
     year: '2024', subject: '', difficulty: 'medium', source: '',
-    topic: '', course: '', mockExamId: MOCK_EXAM_ID,
+    topic: '', course: '', mockExamId: '',
   });
   const [parsedQs,  setParsedQs]  = useState([]);
   const [parseErr,  setParseErr]  = useState('');
@@ -118,8 +132,8 @@ export default function QuestionsManager() {
     try {
       const data = {
         ...formatQuestionForFirestore(q, q),
-        // Always include mockExamId for mock_exam type
-        ...(form.examType === 'mock_exam' && { mockExamId: MOCK_EXAM_ID }),
+        // Tag with selected specialty id for mock_exam type
+        ...(form.examType === 'mock_exam' && form.mockExamId && { mockExamId: form.mockExamId }),
         active: true,
       };
       if (form.id) {
@@ -157,6 +171,9 @@ export default function QuestionsManager() {
     const isMockExam = bulkMeta.examType === 'mock_exam';
     const isQBank    = bulkMeta.examType === 'question_bank';
 
+    if (isMockExam && !bulkMeta.mockExamId) {
+      toast('⚠️ Please select a Specialty for Mock Exam uploads.', 'error'); return;
+    }
     if (isQBank && !bulkMeta.course) {
       toast('⚠️ Please select a Course for Question Bank uploads.', 'error'); return;
     }
@@ -175,7 +192,8 @@ export default function QuestionsManager() {
 
       let examName = '';
       if (isMockExam) {
-        examName = `Hospital Final Mock Exam — ${dateStr}, ${timeStr}`;
+        const spObj = MOCK_EXAM_SPECIALTIES.find(s => s.id === bulkMeta.mockExamId);
+        examName = `Mock Exam — ${spObj?.label?.replace(/^.{2}/,'').trim() || bulkMeta.mockExamId} — ${dateStr}, ${timeStr}`;
       } else if (isQBank) {
         const courseObj = firestoreCourses.find(c => c.id === bulkMeta.course);
         const topicPart = bulkMeta.topic ? ` › ${bulkMeta.topic}` : '';
@@ -190,6 +208,7 @@ export default function QuestionsManager() {
       const examDoc = await addDoc(collection(db, 'exams'), {
         name:           examName,
         examType:       bulkMeta.examType,
+        mockExamId:     isMockExam ? bulkMeta.mockExamId : null,
         category:       bulkMeta.category  || '',
         course:         bulkMeta.course    || '',
         topic:          bulkMeta.topic     || '',
@@ -213,8 +232,8 @@ export default function QuestionsManager() {
           batch.set(ref, {
             ...data,
             examId,
-            // ── KEY FIX: always tag mock exam questions with mockExamId ──
-            ...(isMockExam && { mockExamId: MOCK_EXAM_ID }),
+            // Tag with the selected specialty id so MockExamPage can query it
+            ...(isMockExam && { mockExamId: bulkMeta.mockExamId }),
             active:    true,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -344,7 +363,8 @@ export default function QuestionsManager() {
                           : q.examType === 'mock_exam'     ? 'badge-gold'
                           : 'badge-grey'}`}>
                             {q.examType === 'question_bank' ? '⭐ Pool'
-                           : q.examType === 'mock_exam'     ? '🏥 Mock'
+                           : q.examType === 'mock_exam'
+                             ? `🏥 ${MOCK_EXAM_SPECIALTIES.find(s => s.id === q.mockExamId)?.label?.replace(/^.{2}/,'').trim() || 'Mock'}`
                            : q.examType}
                           </span>
                         </td>
@@ -388,20 +408,32 @@ export default function QuestionsManager() {
             </div>
             <div className="form-group">
               <label className="form-label">Exam Type</label>
-              <select className="form-input" value={form.examType} onChange={e=>setForm(f=>({...f,examType:e.target.value,course:'',topic:''}))}>
+              <select className="form-input" value={form.examType} onChange={e=>setForm(f=>({...f,examType:e.target.value,course:'',topic:'',mockExamId:''}))}>
                 {EXTENDED_EXAM_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
 
-            {/* Mock Exam banner */}
+            {/* Mock Exam specialty picker */}
             {form.examType === 'mock_exam' && (
-              <div style={{
-                gridColumn: '1/-1',
-                background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
-                borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)',
-              }}>
-                🏥 <strong>Hospital Final Mock Exam</strong> — this question will appear directly in the student Mock Exam page.
-                No additional setup needed.
+              <div style={{ gridColumn: '1/-1' }}>
+                <div style={{
+                  background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
+                  borderRadius: 10, padding: '12px 16px', fontSize: 13,
+                  color: 'var(--text-primary)', marginBottom: 12,
+                }}>
+                  🏥 <strong>Mock Exam</strong> — select the specialty below. This question will appear
+                  instantly on the student Mock Exam page under that specialty.
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ color: 'var(--gold)' }}>Specialty * (required)</label>
+                  <select className="form-input" value={form.mockExamId}
+                    onChange={e => setForm(f => ({ ...f, mockExamId: e.target.value }))} required>
+                    <option value="">— Select Specialty —</option>
+                    {MOCK_EXAM_SPECIALTIES.map(sp => (
+                      <option key={sp.id} value={sp.id}>{sp.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -501,7 +533,7 @@ export default function QuestionsManager() {
 
             <div className="form-group">
               <label className="form-label">Exam Type *</label>
-              <select className="form-input" value={bulkMeta.examType} onChange={e=>setBulkMeta(m=>({...m,examType:e.target.value,course:'',topic:''}))}>
+              <select className="form-input" value={bulkMeta.examType} onChange={e=>setBulkMeta(m=>({...m,examType:e.target.value,course:'',topic:'',mockExamId:''}))}>
                 {EXTENDED_EXAM_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
@@ -515,16 +547,28 @@ export default function QuestionsManager() {
               </div>
             )}
 
-            {/* Mock Exam banner */}
+            {/* Mock Exam specialty picker */}
             {bulkMeta.examType === 'mock_exam' && (
-              <div style={{
-                gridColumn: '1/-1',
-                background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
-                borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)',
-              }}>
-                🏥 <strong>Hospital Final Mock Exam</strong> — questions will be tagged with{' '}
-                <code style={{ background: 'rgba(245,158,11,0.15)', padding:'1px 6px', borderRadius:4 }}>mockExamId = hospital_final_mock_exam</code>{' '}
-                automatically and appear instantly on the student Mock Exam page.
+              <div style={{ gridColumn: '1/-1' }}>
+                <div style={{
+                  background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
+                  borderRadius: 10, padding: '12px 16px', fontSize: 13,
+                  color: 'var(--text-primary)', marginBottom: 12,
+                }}>
+                  🏥 <strong>Mock Exam</strong> — select the specialty below. Questions will be tagged
+                  with the specialty id and appear instantly on the student Mock Exam page under that specialty.
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ color: 'var(--gold)' }}>Specialty * (required)</label>
+                  <select className="form-input"
+                    value={bulkMeta.mockExamId}
+                    onChange={e => setBulkMeta(m => ({ ...m, mockExamId: e.target.value }))}>
+                    <option value="">— Select Specialty —</option>
+                    {MOCK_EXAM_SPECIALTIES.map(sp => (
+                      <option key={sp.id} value={sp.id}>{sp.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
