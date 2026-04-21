@@ -12,12 +12,16 @@ import {
   signInWithRedirect,
   getRedirectResult,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import {
+  doc, onSnapshot, setDoc, getDoc,
+  updateDoc, serverTimestamp, collection,
+  query, where, getDocs,
+} from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
 
-/* ── Generate / retrieve a unique device ID ── */
+/* ── Get or create a stable device ID ── */
 function getDeviceId() {
   let id = localStorage.getItem('nmcn_device_id');
   if (!id) {
@@ -27,13 +31,12 @@ function getDeviceId() {
   return id;
 }
 
-const MAX_DEVICES = 2;
-
 export function AuthProvider({ children }) {
   const [user,          setUser]          = useState(null);
   const [profile,       setProfile]       = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
+  const [blockReason,   setBlockReason]   = useState('');
 
   useEffect(() => {
     let profileUnsub = null;
@@ -71,30 +74,49 @@ export function AuthProvider({ children }) {
       if (firebaseUser) {
         setUser(firebaseUser);
 
-        // ── Device check (only for subscribed students) ──
+        // ── Per-code device lock check ──────────────────────────────
+        // Only enforce for subscribed non-admin users
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const snap = await getDoc(userRef);
+        const snap    = await getDoc(userRef);
+
         if (snap.exists()) {
           const data = snap.data();
-          // Only enforce device limit for subscribed non-admin users
-          if (data.subscribed && data.role !== 'admin') {
-            const deviceId = getDeviceId();
-            const registeredDevices = data.devices || [];
 
-            if (!registeredDevices.includes(deviceId)) {
-              if (registeredDevices.length >= MAX_DEVICES) {
-                // Device limit reached — block access
-                setDeviceBlocked(true);
-                setLoading(false);
-                return;
+          if (data.subscribed && data.role !== 'admin' && data.accessCodeUsed) {
+            const deviceId = getDeviceId();
+            const codeUsed = data.accessCodeUsed;
+
+            try {
+              // Look up the access code document to verify device binding
+              const codeSnap = await getDocs(
+                query(
+                  collection(db, 'accessCodes'),
+                  where('code', '==', codeUsed)
+                )
+              );
+
+              if (!codeSnap.empty) {
+                const codeData = codeSnap.docs[0].data();
+
+                // If code has a bound device that doesn't match this device → block
+                if (
+                  codeData.boundDeviceId &&
+                  codeData.boundDeviceId !== deviceId
+                ) {
+                  setDeviceBlocked(true);
+                  setBlockReason('device_mismatch');
+                  setLoading(false);
+                  return;
+                }
               }
-              // Register this new device
-              await updateDoc(userRef, {
-                devices: arrayUnion(deviceId),
-              });
+            } catch (e) {
+              // If we can't check (e.g. offline), allow access — don't punish connectivity issues
+              console.warn('Device check failed, allowing access:', e);
             }
           }
+
           setDeviceBlocked(false);
+          setBlockReason('');
         }
 
         profileUnsub = onSnapshot(
@@ -112,6 +134,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         setProfile(null);
         setDeviceBlocked(false);
+        setBlockReason('');
         setLoading(false);
       }
     });
@@ -153,7 +176,6 @@ export function AuthProvider({ children }) {
     provider.setCustomParameters({ prompt: 'select_account' });
 
     if (useRedirect) {
-      // Redirect flow — page navigates away and returns after auth
       return signInWithRedirect(auth, provider);
     }
 
@@ -207,28 +229,33 @@ export function AuthProvider({ children }) {
       {!loading && (
         deviceBlocked ? (
           <div style={{
-            minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            minHeight: '100vh', display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
             background: 'linear-gradient(135deg,#010810,#0A1628)', padding: 24,
           }}>
             <div style={{
-              maxWidth: 420, width: '100%', background: 'rgba(239,68,68,0.08)',
-              border: '2px solid rgba(239,68,68,0.4)', borderRadius: 20,
-              padding: '40px 32px', textAlign: 'center',
+              maxWidth: 420, width: '100%',
+              background: 'rgba(239,68,68,0.08)',
+              border: '2px solid rgba(239,68,68,0.4)',
+              borderRadius: 20, padding: '40px 32px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
               <h2 style={{ color: '#EF4444', fontFamily: "'Playfair Display',serif", margin: '0 0 12px' }}>
-                Device Limit Reached
+                Device Not Authorised
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, lineHeight: 1.7, margin: '0 0 24px' }}>
-                Your subscription is already active on <strong style={{ color: '#fff' }}>{MAX_DEVICES} devices</strong>.
-                To use this device, contact your admin to reset your device access.
+              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px' }}>
+                Your access code is <strong style={{ color: '#fff' }}>locked to a different device</strong>.
+              </p>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px' }}>
+                Each access code can only be used on <strong style={{ color: '#fff' }}>one device</strong>.
+                If you lost or changed your device, contact your admin to reset the device lock.
               </p>
               <button
                 onClick={() => signOut(auth)}
                 style={{
-                  width: '100%', padding: '12px', border: 'none', borderRadius: 10,
-                  background: 'rgba(239,68,68,0.2)', color: '#EF4444',
-                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(239,68,68,0.15)', color: '#EF4444',
+                  fontWeight: 700, fontSize: 14,
                   border: '1px solid rgba(239,68,68,0.4)',
                 }}
               >
