@@ -1,272 +1,266 @@
-// src/context/AuthContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-} from 'firebase/auth';
-import {
-  doc, onSnapshot, setDoc, getDoc,
-  updateDoc, serverTimestamp, collection,
-  query, where, getDocs,
-} from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+// src/components/admin/AccessCodesManager.jsx
+import { useState, useEffect } from 'react';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+import { useToast } from '../shared/Toast';
+import { ACCESS_PLANS } from '../../data/categories';
 
-const AuthContext = createContext(null);
-
-/* ── Get or create a stable device ID ── */
-function getDeviceId() {
-  let id = localStorage.getItem('nmcn_device_id');
-  if (!id) {
-    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('nmcn_device_id', id);
-  }
-  return id;
+function generateCode(prefix = 'NMCN') {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = prefix + '-';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  code += '-';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
 }
 
-export function AuthProvider({ children }) {
-  const [user,          setUser]          = useState(null);
-  const [profile,       setProfile]       = useState(null);
-  const [loading,       setLoading]       = useState(true);
-  const [deviceBlocked, setDeviceBlocked] = useState(false);
-  const [blockReason,   setBlockReason]   = useState('');
+export default function AccessCodesManager() {
+  const { toast }        = useToast();
+  const [codes,   setCodes]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [plan,    setPlan]    = useState('standard');
+  const [qty,     setQty]     = useState(1);
+  const [note,    setNote]    = useState('');
+  const [search,  setSearch]  = useState('');
+  const [filter,  setFilter]  = useState('all'); // all | unused | used
 
-  useEffect(() => {
-    let profileUnsub = null;
-
-    // Handle redirect result on page load (after signInWithRedirect)
-    getRedirectResult(auth).then(async (result) => {
-      if (result?.user) {
-        const { uid, displayName, email } = result.user;
-        const userRef = doc(db, 'users', uid);
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
-          await setDoc(userRef, {
-            uid,
-            name:           displayName || '',
-            email:          email || '',
-            role:           'student',
-            subscribed:     false,
-            accessLevel:    'free',
-            createdAt:      serverTimestamp(),
-            examHistory:    [],
-            totalScore:     0,
-            totalExams:     0,
-            completedExams: [],
-            examScores:     {},
-            bookmarkCount:  0,
-            streak:         0,
-          });
-        }
-      }
-    }).catch(err => console.error('Redirect result error:', err));
-
-    const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (profileUnsub) { profileUnsub(); profileUnsub = null; }
-
-      if (firebaseUser) {
-        setUser(firebaseUser);
-
-        // ── Per-code device lock check ──────────────────────────────
-        // Only enforce for subscribed non-admin users
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const snap    = await getDoc(userRef);
-
-        if (snap.exists()) {
-          const data = snap.data();
-
-          if (data.subscribed && data.role !== 'admin' && data.accessCodeUsed) {
-            const deviceId = getDeviceId();
-            const codeUsed = data.accessCodeUsed;
-
-            try {
-              // Look up the access code document to verify device binding
-              const codeSnap = await getDocs(
-                query(
-                  collection(db, 'accessCodes'),
-                  where('code', '==', codeUsed)
-                )
-              );
-
-              if (!codeSnap.empty) {
-                const codeData = codeSnap.docs[0].data();
-
-                // If code has a bound device that doesn't match this device → block
-                if (
-                  codeData.boundDeviceId &&
-                  codeData.boundDeviceId !== deviceId
-                ) {
-                  setDeviceBlocked(true);
-                  setBlockReason('device_mismatch');
-                  setLoading(false);
-                  return;
-                }
-              }
-            } catch (e) {
-              // If we can't check (e.g. offline), allow access — don't punish connectivity issues
-              console.warn('Device check failed, allowing access:', e);
-            }
-          }
-
-          setDeviceBlocked(false);
-          setBlockReason('');
-        }
-
-        profileUnsub = onSnapshot(
-          doc(db, 'users', firebaseUser.uid),
-          (snap) => {
-            if (snap.exists()) setProfile(snap.data());
-            setLoading(false);
-          },
-          (err) => {
-            console.error('Profile snapshot error:', err);
-            setLoading(false);
-          }
-        );
-      } else {
-        setUser(null);
-        setProfile(null);
-        setDeviceBlocked(false);
-        setBlockReason('');
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      authUnsub();
-      if (profileUnsub) profileUnsub();
-    };
-  }, []);
-
-  const login = (email, password) =>
-    signInWithEmailAndPassword(auth, email, password);
-
-  const register = async (email, password, name, role = 'student') => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: name });
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      uid:            cred.user.uid,
-      name,
-      email,
-      role,
-      subscribed:     false,
-      accessLevel:    'free',
-      createdAt:      serverTimestamp(),
-      examHistory:    [],
-      totalScore:     0,
-      totalExams:     0,
-      completedExams: [],
-      examScores:     {},
-      bookmarkCount:  0,
-      streak:         0,
-    });
-    return cred;
-  };
-
-  // ── Google Sign-In (popup with redirect fallback) ─────────────
-  const googleLogin = async (useRedirect = false) => {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    if (useRedirect) {
-      return signInWithRedirect(auth, provider);
-    }
-
-    const cred = await signInWithPopup(auth, provider);
-    const { uid, displayName, email } = cred.user;
-
-    const userRef = doc(db, 'users', uid);
-    const snap = await getDoc(userRef);
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        uid,
-        name:           displayName || '',
-        email:          email || '',
-        role:           'student',
-        subscribed:     false,
-        accessLevel:    'free',
-        createdAt:      serverTimestamp(),
-        examHistory:    [],
-        totalScore:     0,
-        totalExams:     0,
-        completedExams: [],
-        examScores:     {},
-        bookmarkCount:  0,
-        streak:         0,
-      });
-    }
-    return cred;
-  };
-
-  const logout = () => signOut(auth);
-
-  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
-
-  const refreshProfile = async () => {
-    if (!user) return;
+  const load = async () => {
+    setLoading(true);
     try {
-      const snap = await getDoc(doc(db, 'users', user.uid));
-      if (snap.exists()) setProfile(snap.data());
-    } catch (err) {
-      console.error('refreshProfile error:', err);
-    }
+      const snap = await getDocs(query(collection(db, 'accessCodes'), orderBy('createdAt', 'desc')));
+      setCodes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { toast('Load failed', 'error'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generateCodes = async () => {
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      const newCodes = [];
+      for (let i = 0; i < qty; i++) {
+        const code = generateCode();
+        const ref  = doc(collection(db, 'accessCodes'));
+        const data = {
+          code, plan, note,
+          used: false, usedBy: null, usedByName: null,
+          boundDeviceId: null,
+          createdAt: serverTimestamp(),
+        };
+        batch.set(ref, data);
+        newCodes.push({ id: ref.id, ...data });
+      }
+      await batch.commit();
+      setCodes(prev => [...newCodes, ...prev]);
+      toast(`${qty} access code${qty > 1 ? 's' : ''} generated!`, 'success');
+      setNote('');
+    } catch (e) { toast('Generation failed: ' + e.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  const deleteCode = async (id) => {
+    if (!window.confirm('Delete this access code?')) return;
+    try {
+      await deleteDoc(doc(db, 'accessCodes', id));
+      setCodes(prev => prev.filter(c => c.id !== id));
+      toast('Code deleted', 'success');
+    } catch (e) { toast('Delete failed', 'error'); }
+  };
+
+  // ── Reset device binding — allows the code to be used on a new device ──
+  const resetDevice = async (codeItem) => {
+    if (!window.confirm(
+      `Reset device lock for code ${codeItem.code}?\n\nThis will allow it to be redeemed on a NEW device. The student's subscription will NOT be removed — only the device binding is cleared.`
+    )) return;
+    try {
+      await updateDoc(doc(db, 'accessCodes', codeItem.id), {
+        used:          false,
+        usedBy:        null,
+        usedByName:    null,
+        usedAt:        null,
+        boundDeviceId: null,
+        deviceResetAt: serverTimestamp(),
+      });
+      setCodes(prev => prev.map(c =>
+        c.id === codeItem.id
+          ? { ...c, used: false, usedBy: null, usedByName: null, boundDeviceId: null }
+          : c
+      ));
+      toast(`Device lock reset for ${codeItem.code}. Student can now redeem on a new device.`, 'success');
+    } catch (e) { toast('Reset failed: ' + e.message, 'error'); }
+  };
+
+  const filtered = codes.filter(c => {
+    const matchSearch = !search || c.code.includes(search.toUpperCase());
+    const matchFilter = filter === 'all' ? true : filter === 'used' ? c.used : !c.used;
+    return matchSearch && matchFilter;
+  });
+
+  const copyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    toast('Code copied!', 'info');
+  };
+
+  const copyAll = () => {
+    const unused = filtered.filter(c => !c.used).map(c => c.code).join('\n');
+    navigator.clipboard.writeText(unused);
+    toast(`${filtered.filter(c => !c.used).length} codes copied!`, 'success');
   };
 
   return (
-    <AuthContext.Provider value={{
-      user, profile, loading, deviceBlocked,
-      login, register, logout, resetPassword, refreshProfile, googleLogin,
-      isAdmin:      profile?.role === 'admin',
-      isSubscribed: profile?.subscribed || profile?.accessLevel === 'full',
-    }}>
-      {!loading && (
-        deviceBlocked ? (
-          <div style={{
-            minHeight: '100vh', display: 'flex', alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg,#010810,#0A1628)', padding: 24,
-          }}>
-            <div style={{
-              maxWidth: 420, width: '100%',
-              background: 'rgba(239,68,68,0.08)',
-              border: '2px solid rgba(239,68,68,0.4)',
-              borderRadius: 20, padding: '40px 32px', textAlign: 'center',
-            }}>
-              <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
-              <h2 style={{ color: '#EF4444', fontFamily: "'Playfair Display',serif", margin: '0 0 12px' }}>
-                Device Not Authorised
-              </h2>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px' }}>
-                Your access code is <strong style={{ color: '#fff' }}>locked to a different device</strong>.
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px' }}>
-                Each access code can only be used on <strong style={{ color: '#fff' }}>one device</strong>.
-                If you lost or changed your device, contact your admin to reset the device lock.
-              </p>
-              <button
-                onClick={() => signOut(auth)}
-                style={{
-                  width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer',
-                  background: 'rgba(239,68,68,0.15)', color: '#EF4444',
-                  fontWeight: 700, fontSize: 14,
-                  border: '1px solid rgba(239,68,68,0.4)',
-                }}
-              >
-                ← Sign Out
-              </button>
-            </div>
+    <div style={{ padding: 24, maxWidth: 960 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>🔑 Access Codes</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>
+          Each code is locked to one device on first use.&ensp;·&ensp;
+          {codes.filter(c => !c.used).length} unused&ensp;·&ensp;
+          {codes.filter(c => c.used).length} used
+        </p>
+      </div>
+
+      {/* Generator */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>🎲 Generate New Codes</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14, marginBottom: 14 }}>
+          <div className="form-group">
+            <label className="form-label">Subscription Plan</label>
+            <select className="form-input form-select" value={plan} onChange={e => setPlan(e.target.value)}>
+              {ACCESS_PLANS.filter(p => p.id !== 'free').map(p => (
+                <option key={p.id} value={p.id}>{p.label} — {p.duration}</option>
+              ))}
+            </select>
           </div>
-        ) : children
-      )}
-    </AuthContext.Provider>
+          <div className="form-group">
+            <label className="form-label">Quantity</label>
+            <input type="number" className="form-input" min={1} max={100} value={qty}
+              onChange={e => setQty(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Note (optional)</label>
+            <input className="form-input" placeholder="e.g. Batch for March students" value={note}
+              onChange={e => setNote(e.target.value)} />
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={generateCodes} disabled={loading}>
+          {loading ? <><span className="spinner spinner-sm" /> Generating…</> : `🎲 Generate ${qty} Code${qty > 1 ? 's' : ''}`}
+        </button>
+      </div>
+
+      {/* Filters & search */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="form-input" placeholder="🔍 Search code…" value={search}
+          onChange={e => setSearch(e.target.value)} style={{ maxWidth: 200 }} />
+        <div style={{ display: 'flex', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
+          {[['all','All'], ['unused','Unused'], ['used','Used']].map(([v,l]) => (
+            <button key={v} onClick={() => setFilter(v)}
+              style={{
+                padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                background: filter === v ? 'var(--teal)' : 'transparent',
+                color: filter === v ? '#fff' : 'var(--text-muted)',
+              }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {filtered.some(c => !c.used) && (
+          <button className="btn btn-ghost btn-sm" onClick={copyAll}>📋 Copy All Unused</button>
+        )}
+      </div>
+
+      {/* Codes list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filtered.map(c => (
+          <div key={c.id} style={{
+            background: 'var(--bg-card)',
+            border: `1.5px solid ${c.used ? 'rgba(100,116,139,0.2)' : 'rgba(13,148,136,0.2)'}`,
+            borderRadius: 12, padding: '14px 16px',
+            opacity: c.used ? 0.75 : 1,
+          }}>
+            {/* Top row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <code style={{
+                fontFamily: 'monospace', fontSize: 16, fontWeight: 700, letterSpacing: 2,
+                color: c.used ? 'var(--text-muted)' : 'var(--teal)',
+                background: c.used ? 'var(--bg-tertiary)' : 'var(--teal-glow)',
+                padding: '4px 12px', borderRadius: 8,
+                textDecoration: c.used ? 'line-through' : 'none',
+              }}>
+                {c.code}
+              </code>
+
+              <span className={`badge ${ACCESS_PLANS.find(p => p.id === c.plan)?.popular ? 'badge-blue' : 'badge-teal'}`} style={{ fontSize: 10 }}>
+                {c.plan}
+              </span>
+
+              {c.note && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.note}</span>
+              )}
+
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {c.used ? (
+                  <span className="badge badge-red" style={{ fontSize: 10 }}>🔒 Device Locked</span>
+                ) : (
+                  <span className="badge badge-green" style={{ fontSize: 10 }}>✅ Available</span>
+                )}
+                {!c.used && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => copyCode(c.code)}>📋 Copy</button>
+                )}
+                {/* Reset device lock — only shown for used codes */}
+                {c.used && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => resetDevice(c)}
+                    style={{
+                      background: 'rgba(245,158,11,0.12)', color: 'var(--gold)',
+                      border: '1px solid rgba(245,158,11,0.35)', fontSize: 12,
+                    }}
+                  >
+                    🔓 Reset Device
+                  </button>
+                )}
+                <button className="btn btn-danger btn-sm" onClick={() => deleteCode(c.id)}>🗑️</button>
+              </div>
+            </div>
+
+            {/* Device binding info row — only for used codes */}
+            {c.used && (
+              <div style={{
+                marginTop: 10, paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12,
+                color: 'var(--text-muted)',
+              }}>
+                {c.usedByName && (
+                  <span>👤 <strong style={{ color: 'var(--text-primary)' }}>{c.usedByName}</strong></span>
+                )}
+                {c.usedAt && (
+                  <span>📅 Redeemed {
+                    c.usedAt?.toDate
+                      ? new Date(c.usedAt.toDate()).toLocaleDateString()
+                      : 'recently'
+                  }</span>
+                )}
+                {c.boundDeviceId && (
+                  <span title={c.boundDeviceId}>
+                    📱 Device: <code style={{ fontSize: 11, color: 'var(--text-hint)' }}>
+                      {c.boundDeviceId.slice(0, 16)}…
+                    </code>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {filtered.length === 0 && !loading && (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            No codes found. Generate some above!
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
-
-export const useAuth = () => useContext(AuthContext);
