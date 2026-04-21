@@ -47,28 +47,32 @@ import CoursesManager        from './components/admin/CoursesManager';
 
 import './styles/global.css';
 
-// ── Register PWA service worker ──────────────────────────────────
+// ── Register PWA service worker (web only) ───────────────────────
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js').catch(console.error);
   });
 }
 
-// ── PWA Back-Button Handler ───────────────────────────────────────
-// Intercepts the Android / PWA back button on every page.
-// • Non-home pages  → navigate(-1) through the full history stack
-// • Home page (1st press)  → shows "Press back again to exit" toast
-// • Home page (2nd press within 2.5 s) → lets the OS exit the app
-function PwaBackButtonHandler() {
-  const navigate       = useNavigate();
-  const location       = useLocation();
+// ── Detect Capacitor native shell ────────────────────────────────
+const isCapacitor = () =>
+  typeof window !== 'undefined' &&
+  window.Capacitor !== undefined &&
+  window.Capacitor.isNativePlatform?.();
+
+// ── Back Button Handler ──────────────────────────────────────────
+// • Capacitor APK  → uses @capacitor/app backButton event
+// • PWA / browser  → uses window popstate as fallback
+function BackButtonHandler() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const [showExit, setShowExit] = useState(false);
-  const exitTimer      = useRef(null);
-  const exitReady      = useRef(false); // true after first back on home
+  const exitReady = useRef(false);
+  const exitTimer = useRef(null);
 
   const isHome = location.pathname === '/' || location.pathname === '/dashboard';
 
-  // Reset exit-ready flag whenever the user navigates away from home
+  // Reset exit state when user navigates away from home
   useEffect(() => {
     if (!isHome) {
       exitReady.current = false;
@@ -77,73 +81,93 @@ function PwaBackButtonHandler() {
     }
   }, [isHome]);
 
-  useEffect(() => {
-    // Always keep one sentinel entry ahead so popstate fires
-    // instead of the browser / OS exiting the PWA immediately.
-    window.history.pushState({ pwa: true }, '');
+  // Shared logic called by both handlers
+  const handleBack = (exitFn) => {
+    if (isHome) {
+      if (exitReady.current) {
+        exitFn();
+        return;
+      }
+      exitReady.current = true;
+      setShowExit(true);
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+      exitTimer.current = setTimeout(() => {
+        exitReady.current = false;
+        setShowExit(false);
+      }, 2500);
+    } else {
+      navigate(-1);
+    }
+  };
 
-    const onPopState = () => {
-      if (isHome) {
-        if (exitReady.current) {
-          // Second back press on home → exit
-          // Clear the sentinel and let the browser navigate back naturally
-          window.history.go(-1);
-          return;
-        }
-        // First back press on home → warn user
-        exitReady.current = true;
-        setShowExit(true);
-        // Re-push sentinel so we can catch the second press
-        window.history.pushState({ pwa: true }, '');
-        // Auto-hide after 2.5 s and reset
-        if (exitTimer.current) clearTimeout(exitTimer.current);
-        exitTimer.current = setTimeout(() => {
-          exitReady.current = false;
-          setShowExit(false);
-        }, 2500);
-      } else {
-        // Any other page → go back in React Router history
-        navigate(-1);
-        // Re-push sentinel so next back press is also caught
-        window.history.pushState({ pwa: true }, '');
+  // ── Capacitor handler ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isCapacitor()) return;
+
+    let listenerHandle = null;
+
+    const register = async () => {
+      try {
+        const { App: CapApp } = await import('@capacitor/app');
+        listenerHandle = await CapApp.addListener('backButton', () => {
+          handleBack(() => CapApp.exitApp());
+        });
+      } catch (e) {
+        console.warn('Capacitor backButton registration failed:', e);
       }
     };
 
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-    };
-  }, [location.pathname, navigate, isHome]);
+    register();
 
-  // Cleanup timer on unmount
-  useEffect(() => {
     return () => {
-      if (exitTimer.current) clearTimeout(exitTimer.current);
+      if (listenerHandle?.remove) listenerHandle.remove();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isHome]);
+
+  // ── PWA / browser popstate fallback ──────────────────────────
+  useEffect(() => {
+    if (isCapacitor()) return;
+
+    window.history.pushState({ pwa: true }, '');
+
+    const onPopState = () => {
+      handleBack(() => window.history.go(-1));
+      window.history.pushState({ pwa: true }, '');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isHome]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { if (exitTimer.current) clearTimeout(exitTimer.current); };
   }, []);
 
   if (!showExit) return null;
 
   return (
     <div style={{
-      position: 'fixed',
-      bottom: 48,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: 'rgba(2, 11, 24, 0.92)',
-      color: '#fff',
-      padding: '13px 28px',
-      borderRadius: 28,
-      fontSize: 14,
-      fontWeight: 700,
-      zIndex: 99999,
+      position:       'fixed',
+      bottom:         48,
+      left:           '50%',
+      transform:      'translateX(-50%)',
+      background:     'rgba(2,11,24,0.92)',
+      color:          '#fff',
+      padding:        '13px 28px',
+      borderRadius:   28,
+      fontSize:       14,
+      fontWeight:     700,
+      zIndex:         99999,
       backdropFilter: 'blur(10px)',
-      border: '1px solid rgba(13,148,136,0.4)',
-      boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
-      whiteSpace: 'nowrap',
-      letterSpacing: 0.3,
-      animation: 'fadeInUp 0.22s ease',
-      pointerEvents: 'none',
+      border:         '1px solid rgba(13,148,136,0.4)',
+      boxShadow:      '0 4px 32px rgba(0,0,0,0.5)',
+      whiteSpace:     'nowrap',
+      letterSpacing:  0.3,
+      animation:      'fadeInUp 0.22s ease',
+      pointerEvents:  'none',
     }}>
       Press back again to exit
     </div>
@@ -156,8 +180,8 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
-            {/* Handles Android / PWA back button throughout the entire app */}
-            <PwaBackButtonHandler />
+            {/* Handles back button for Capacitor APK and PWA/browser */}
+            <BackButtonHandler />
 
             <Routes>
               {/* Public */}
@@ -168,7 +192,7 @@ export default function App() {
               <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
               <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
 
-              {/* ── Payment page (full-screen, no sidebar) ───────────────── */}
+              {/* Payment page (full-screen, no sidebar) */}
               <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
 
               {/* Authenticated layout */}
@@ -176,35 +200,19 @@ export default function App() {
                 <Route path="/dashboard"      element={<StudentDashboard />} />
                 <Route path="/exams"          element={<ExamSetup />} />
                 <Route path="/past-questions" element={<PastQuestionsPage />} />
-
-                {/* ── Quick Actions page ────────────────────────────────── */}
                 <Route path="/quick-actions"  element={<QuickActionsPage />} />
-
-                {/* ── Daily Practice ───────────────────────────────────── */}
                 <Route path="/daily-practice" element={<DailyPracticePage />} />
-
-                {/* Legacy redirect — keep URL alive, send to new page */}
                 <Route path="/daily-reviews"  element={<DailyPracticePage />} />
-
-                {/* ── Drill types ──────────────────────────────────────── */}
                 <Route path="/course-drill"   element={<CourseDrillPage />} />
                 <Route path="/topic-drill"    element={<TopicDrillPage />} />
-
-                {/* ── Shared exam list + setup ─────────────────────────── */}
                 <Route path="/exam/list"      element={<ExamListPage />} />
                 <Route path="/exam/setup"     element={<ExamSetupPage />} />
-
-                {/* ── Mock exams ───────────────────────────────────────── */}
                 <Route path="/mock-exams"     element={<MockExamPage />} />
-
-                {/* ── Analytics / bookmarks / subscription ─────────────── */}
-                <Route path="/results"      element={<AnalyticsPage />} />
-                <Route path="/bookmarks"    element={<BookmarksPage />} />
-                <Route path="/subscription" element={<SubscriptionPage />} />
-                <Route path="/leaderboard"  element={<LeaderboardPage />} />
-                <Route path="/profile"      element={<ProfilePage />} />
-
-                {/* Quick action flow (for other exam types) */}
+                <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/bookmarks"      element={<BookmarksPage />} />
+                <Route path="/subscription"   element={<SubscriptionPage />} />
+                <Route path="/leaderboard"    element={<LeaderboardPage />} />
+                <Route path="/profile"        element={<ProfilePage />} />
                 <Route path="/exam/categories" element={<CategoryPickerPage />} />
                 <Route path="/exam/config"     element={<ExamConfigPage />} />
 
@@ -263,7 +271,10 @@ function ProfilePage() {
               {profile?.name || user?.displayName || 'Student'}
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
-            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 4, display: 'inline-flex' }}>
+            <span
+              className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`}
+              style={{ marginTop: 4, display: 'inline-flex' }}
+            >
               {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
             </span>
           </div>
@@ -271,10 +282,10 @@ function ProfilePage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[
-            ['Total Exams',  profile?.totalExams || 0],
-            ['Avg Score',    profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
-            ['Plan',         profile?.subscriptionPlan || 'Free'],
-            ['Expires',      profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
+            ['Total Exams', profile?.totalExams || 0],
+            ['Avg Score',   profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
+            ['Plan',        profile?.subscriptionPlan || 'Free'],
+            ['Expires',     profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
           ].map(([k, v]) => (
             <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
