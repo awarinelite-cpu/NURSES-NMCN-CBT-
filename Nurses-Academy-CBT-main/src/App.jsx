@@ -1,5 +1,6 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider }  from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/shared/Toast';
@@ -17,7 +18,7 @@ import BookmarksPage     from './components/student/BookmarksPage';
 import SubscriptionPage  from './components/student/SubscriptionPage';
 import QuickActionsPage  from './components/student/QuickActionsPage';
 
-// ── Payment page (Paystack + Manual bank transfer) ──────────────
+// Payment page
 import PaymentPage       from './components/payment/PaymentPage';
 
 // Exam
@@ -53,12 +54,41 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   });
 }
 
+// ── PWA back-button handler ──────────────────────────────────────
+// Keeps a history stack so the Android back button navigates within
+// the app instead of exiting when running in standalone (PWA) mode.
+function PwaBackButtonHandler() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  useEffect(() => {
+    // Push a duplicate state so there is always something to pop back to.
+    // This prevents the very first back press from exiting the PWA.
+    window.history.pushState({ idx: window.history.length }, '');
+
+    const onPopState = (e) => {
+      // If the browser already moved back, navigate(-1) in React Router
+      navigate(-1);
+      // Re-push so the next back press is also caught
+      window.history.pushState({ idx: window.history.length }, '');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [location.pathname]); // re-register on each route change
+
+  return null;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
+            {/* Handles Android back button in PWA / browser */}
+            <PwaBackButtonHandler />
+
             <Routes>
               {/* Public */}
               <Route path="/" element={<LandingPage />} />
@@ -68,7 +98,7 @@ export default function App() {
               <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
               <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
 
-              {/* ── Payment page (full-screen, no sidebar) ───────────────── */}
+              {/* Payment page (full-screen, no sidebar) */}
               <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
 
               {/* Authenticated layout */}
@@ -76,36 +106,19 @@ export default function App() {
                 <Route path="/dashboard"      element={<StudentDashboard />} />
                 <Route path="/exams"          element={<ExamSetup />} />
                 <Route path="/past-questions" element={<PastQuestionsPage />} />
-
-                {/* ── Quick Actions page ────────────────────────────────── */}
                 <Route path="/quick-actions"  element={<QuickActionsPage />} />
-
-                {/* ── Daily Practice ───────────────────────────────────── */}
                 <Route path="/daily-practice" element={<DailyPracticePage />} />
-
-                {/* Legacy redirect — keep URL alive, send to new page */}
                 <Route path="/daily-reviews"  element={<DailyPracticePage />} />
-
-                {/* ── Drill types ──────────────────────────────────────── */}
                 <Route path="/course-drill"   element={<CourseDrillPage />} />
                 <Route path="/topic-drill"    element={<TopicDrillPage />} />
-
-                {/* ── Shared exam list + setup ─────────────────────────── */}
                 <Route path="/exam/list"      element={<ExamListPage />} />
                 <Route path="/exam/setup"     element={<ExamSetupPage />} />
-
-                {/* ── Mock exams — MockExamPage handles both exam start
-                        and previous attempts list (no separate /mock-reviews) */}
                 <Route path="/mock-exams"     element={<MockExamPage />} />
-
-                {/* ── Analytics / bookmarks / subscription ─────────────── */}
-                <Route path="/results"      element={<AnalyticsPage />} />
-                <Route path="/bookmarks"    element={<BookmarksPage />} />
-                <Route path="/subscription" element={<SubscriptionPage />} />
-                <Route path="/leaderboard"  element={<LeaderboardPage />} />
-                <Route path="/profile"      element={<ProfilePage />} />
-
-                {/* Quick action flow (for other exam types) */}
+                <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/bookmarks"      element={<BookmarksPage />} />
+                <Route path="/subscription"   element={<SubscriptionPage />} />
+                <Route path="/leaderboard"    element={<LeaderboardPage />} />
+                <Route path="/profile"        element={<ProfilePage />} />
                 <Route path="/exam/categories" element={<CategoryPickerPage />} />
                 <Route path="/exam/config"     element={<ExamConfigPage />} />
 
@@ -131,7 +144,7 @@ export default function App() {
   );
 }
 
-// ── Inline simple pages ──────────────────────────────────────────
+// ── Inline simple pages (unchanged) ─────────────────────────────
 
 function LeaderboardPage() {
   return (
