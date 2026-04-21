@@ -1,15 +1,18 @@
 // src/components/exam/ExamSession.jsx
 //
-// FIX: course_drill pool query now fetches by where('course','==',course) + active
-// instead of relying on topicIds from CourseDrillPage (which was never passed).
-// This means all question_bank questions tagged with a course ID are found correctly.
+// NEW FEATURES:
+//   • "Exit & Save" button beside Submit — saves exam state to pausedExams collection
+//     so the student can resume later from the dashboard "Continue Exam" button.
+//   • resumeMode — restores exact questionIds, answers, currentQuestion, and flagged
+//     from the pausedExams document passed via navigation state.
+//   • On resume, deletes the pausedExams document so it doesn't appear twice.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   collection, query, where, getDocs,
   addDoc, serverTimestamp, doc, updateDoc, arrayUnion,
-  deleteDoc, getDoc, increment,
+  deleteDoc, getDoc, increment, setDoc,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +28,67 @@ function fisherYatesShuffle(arr) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+// ─── Exit Confirmation Modal ──────────────────────────────────────────────────
+function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 20, padding: 28, maxWidth: 420, width: '100%',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
+        <h3 style={{ textAlign: 'center', color: 'var(--text-primary)', margin: '0 0 8px', fontSize: 18, fontWeight: 800 }}>
+          Exit Exam?
+        </h3>
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, margin: '0 0 24px', lineHeight: 1.6 }}>
+          Your progress will be saved. You can resume this exam later from the dashboard.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={onSaveExit}
+            disabled={saving}
+            style={{
+              padding: '13px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+              fontWeight: 800, fontSize: 15, border: 'none',
+              background: 'var(--teal)', color: '#fff',
+              opacity: saving ? 0.7 : 1,
+            }}
+          >
+            {saving ? '💾 Saving…' : '💾 Save & Exit'}
+          </button>
+          <button
+            onClick={onAbandon}
+            disabled={saving}
+            style={{
+              padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+              fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)',
+              background: 'transparent', color: '#EF4444',
+            }}
+          >
+            🗑 Exit Without Saving
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={saving}
+            style={{
+              padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+              fontWeight: 600, fontSize: 14, border: '1px solid var(--border)',
+              background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+            }}
+          >
+            ← Keep Taking Exam
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ExamSession() {
@@ -46,29 +110,30 @@ export default function ExamSession() {
   const timeLimit   = Number(state?.timeLimit || 0);
   const doShuffle   = state?.doShuffle  !== false;
   const reviewMode  = state?.reviewMode || false;
-
-  // poolMode = true  → load directly from questions collection by tag filters
-  // poolMode = false → legacy path: load by examId (scheduled exams, past questions)
   const poolMode    = state?.poolMode   || false;
-
-  // savedSession: set when navigating from the exam history "Review" button.
-  // Contains { questionIds, answers, correct, totalQuestions } from Firestore.
   const savedSession = state?.savedSession || null;
 
-  const [questions,  setQuestions]  = useState([]);
-  const [phase,      setPhase]      = useState('loading');
-  const [current,    setCurrent]    = useState(0);
-  const [answers,    setAnswers]    = useState({});
-  const [flagged,    setFlagged]    = useState(new Set());
-  const [showNav,    setShowNav]    = useState(false);
-  const [timeLeft,   setTimeLeft]   = useState(timeLimit * 60);
-  const [aiLoading,  setAiLoading]  = useState(false);
-  const [aiExplain,  setAiExplain]  = useState({});
-  const [submitted,  setSubmitted]  = useState(false);
-  const [bookmarked, setBookmarked] = useState(new Set());
-  const [reportedQs, setReportedQs] = useState(new Set());
-  const [reportText, setReportText] = useState('');
-  const [showReport, setShowReport] = useState(null);
+  // resumeMode — restore from a saved pausedExams document
+  const resumeMode   = state?.resumeMode   || false;
+  const pausedExamId = state?.pausedExamId || null;
+  const resumeData   = state?.resumeData   || null;
+
+  const [questions,   setQuestions]   = useState([]);
+  const [phase,       setPhase]       = useState('loading');
+  const [current,     setCurrent]     = useState(0);
+  const [answers,     setAnswers]     = useState({});
+  const [flagged,     setFlagged]     = useState(new Set());
+  const [showNav,     setShowNav]     = useState(false);
+  const [timeLeft,    setTimeLeft]    = useState(timeLimit * 60);
+  const [aiLoading,   setAiLoading]   = useState(false);
+  const [aiExplain,   setAiExplain]   = useState({});
+  const [submitted,   setSubmitted]   = useState(false);
+  const [bookmarked,  setBookmarked]  = useState(new Set());
+  const [reportedQs,  setReportedQs]  = useState(new Set());
+  const [reportText,  setReportText]  = useState('');
+  const [showReport,  setShowReport]  = useState(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitSaving,    setExitSaving]    = useState(false);
   const startedAt = useRef(null);
 
   // ── Load questions ──────────────────────────────────────────────────────────
@@ -76,6 +141,54 @@ export default function ExamSession() {
     const load = async () => {
       try {
         let qs = [];
+
+        // ── RESUME MODE — restore exact question set from pausedExams ────────────
+        if (resumeMode && resumeData?.questionIds?.length) {
+          const ids    = resumeData.questionIds;
+          const chunks = [];
+          for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+
+          const fetched = await Promise.all(
+            chunks.map(chunk =>
+              getDocs(query(
+                collection(db, 'questions'),
+                where('__name__', 'in', chunk),
+              ))
+            )
+          );
+          const byId = {};
+          fetched.forEach(snap =>
+            snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; })
+          );
+          // Preserve original order
+          qs = ids.map(id => byId[id]).filter(Boolean);
+
+          // Restore answers
+          if (resumeData.answers) {
+            const restored = Object.fromEntries(
+              Object.entries(resumeData.answers).map(([k, v]) => [k.replace(/__/g, '/'), v])
+            );
+            setAnswers(restored);
+          }
+
+          // Restore current question position
+          setCurrent(resumeData.currentQuestion || 0);
+
+          // Restore flagged
+          if (resumeData.flagged?.length) {
+            setFlagged(new Set(resumeData.flagged));
+          }
+
+          setQuestions(qs);
+          setPhase('exam');
+          startedAt.current = Date.now();
+
+          // Delete the pausedExams document — it's now been resumed
+          if (pausedExamId) {
+            deleteDoc(doc(db, 'pausedExams', pausedExamId)).catch(() => {});
+          }
+          return;
+        }
 
         // ── SAVED SESSION REVIEW MODE ──────────────────────────────────────────
         if (reviewMode && savedSession?.questionIds?.length) {
@@ -99,7 +212,6 @@ export default function ExamSession() {
           qs = ids.map(id => byId[id]).filter(Boolean);
 
           if (savedSession.answers) {
-            // answers may have been saved with '/' replaced by '__' — restore keys
             const restored = Object.fromEntries(
               Object.entries(savedSession.answers).map(([k, v]) => [k.replace(/__/g, '/'), v])
             );
@@ -113,14 +225,7 @@ export default function ExamSession() {
 
         // ── POOL MODE (live exam) ──────────────────────────────────────────────
         if (poolMode) {
-
-          // ── COURSE DRILL ──────────────────────────────────────────────────────
-          // FIX: Fetch ALL questions for this course from the question_bank pool.
-          // Questions are tagged with course + active = true regardless of examType.
-          // We do NOT filter by examType on the question documents — the pool feeds
-          // all drill types. Two queries: with topic (any) + without topic (blank).
           if (examType === 'course_drill' && course) {
-            // A) Questions with a topic set (covers question_bank uploads)
             const snapWithTopic = await getDocs(query(
               collection(db, 'questions'),
               where('course', '==', course),
@@ -137,11 +242,9 @@ export default function ExamSession() {
             const seenIds = profile?.seenQuestions || [];
             const unseen  = allForCourse.filter(q => !seenIds.includes(q.id));
             const pool    = unseen.length >= 5 ? unseen : allForCourse;
-
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
 
-          // ── TOPIC DRILL ────────────────────────────────────────────────────────
           } else if (examType === 'topic_drill' && topic) {
             const snap = await getDocs(query(
               collection(db, 'questions'),
@@ -149,16 +252,12 @@ export default function ExamSession() {
               where('active', '==', true),
             ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
             const seenIds = profile?.seenQuestions || [];
             const unseen  = qs.filter(q => !seenIds.includes(q.id));
             const pool    = unseen.length >= 5 ? unseen : qs;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, pool.length));
 
-          // ── DAILY PRACTICE ─────────────────────────────────────────────────────
-          // FIX: Queries by category + active only — no examType filter on docs.
-          // question_bank questions are tagged with category and serve all drills.
           } else if (examType === 'daily_practice' && category) {
             const snap = await getDocs(query(
               collection(db, 'questions'),
@@ -166,14 +265,12 @@ export default function ExamSession() {
               where('active',   '==', true),
             ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
             const seenIds = profile?.seenQuestions || [];
             const unseen  = qs.filter(q => !seenIds.includes(q.id));
             const pool    = unseen.length >= 10 ? unseen : qs;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, DAILY_PRACTICE_LIMIT));
 
-          // ── GENERIC POOL FALLBACK ──────────────────────────────────────────────
           } else {
             const snap = await getDocs(query(
               collection(db, 'questions'),
@@ -208,7 +305,6 @@ export default function ExamSession() {
           const seenIds = profile?.seenQuestions || [];
           const unseen  = qs.filter(q => !seenIds.includes(q.id));
           const pool    = unseen.length >= Math.min(count, 5) ? unseen : qs;
-
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
         }
@@ -252,12 +348,10 @@ export default function ExamSession() {
     const scorePercent = Math.round((correct / questions.length) * 100);
     const questionIds  = questions.map(q => q.id);
 
-    // Serialize answers — replace '/' in keys which Firestore rejects as map keys
     const safeAnswers = Object.fromEntries(
       Object.entries(answers).map(([k, v]) => [k.replace(/\//g, '__'), v])
     );
 
-    // Build session name
     const sessionName = poolMode
       ? examType === 'daily_practice'
         ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -286,7 +380,6 @@ export default function ExamSession() {
         completedAt:    serverTimestamp(),
       });
 
-      // Update user profile stats + mark questions as seen
       const today        = new Date().toDateString();
       const lastPractice = profile?.lastPracticeDate;
       const yesterday    = new Date(Date.now() - 86400000).toDateString();
@@ -311,6 +404,65 @@ export default function ExamSession() {
     }
   }, [submitted, questions, answers, currentUser, examId, examName,
       category, examType, course, courseLabel, topic, profile, poolMode]);
+
+  // ── Exit & Save ─────────────────────────────────────────────────────────────
+  const handleSaveExit = useCallback(async () => {
+    if (!currentUser?.uid || questions.length === 0) {
+      navigate(-1);
+      return;
+    }
+    setExitSaving(true);
+    try {
+      const safeAnswers = Object.fromEntries(
+        Object.entries(answers).map(([k, v]) => [k.replace(/\//g, '__'), v])
+      );
+
+      const sessionName = poolMode
+        ? examType === 'daily_practice'
+          ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
+          : examType === 'course_drill'
+            ? `${courseLabel || course} — Course Drill`
+            : `${topic} — Topic Drill`
+        : examName;
+
+      await addDoc(collection(db, 'pausedExams'), {
+        userId:          currentUser.uid,
+        examName:        sessionName,
+        examType:        examType    || '',
+        examId:          examId      || null,
+        category:        category    || '',
+        course:          course      || '',
+        courseLabel:     courseLabel || '',
+        topic:           topic       || '',
+        poolMode:        poolMode,
+        timeLimit:       timeLimit,
+        questionIds:     questions.map(q => q.id),
+        answers:         safeAnswers,
+        flagged:         [...flagged],
+        currentQuestion: current,
+        answeredCount:   Object.keys(answers).length,
+        totalQuestions:  questions.length,
+        savedAt:         serverTimestamp(),
+      });
+
+      setExitSaving(false);
+      setShowExitModal(false);
+      navigate(-1);
+    } catch (e) {
+      console.error('Save exit failed:', e);
+      setExitSaving(false);
+    }
+  }, [
+    currentUser, questions, answers, flagged, current,
+    poolMode, examType, examId, category, course, courseLabel,
+    topic, examName, timeLimit, navigate,
+  ]);
+
+  // Exit without saving
+  const handleAbandonExit = useCallback(() => {
+    setShowExitModal(false);
+    navigate(-1);
+  }, [navigate]);
 
   // ── AI Explain ──────────────────────────────────────────────────────────────
   const getAiExplain = async (q) => {
@@ -416,8 +568,8 @@ export default function ExamSession() {
 
           } else {
             const baseConstraints = [where('active', '==', true)];
-            if (examType === 'topic_drill' && topic)         baseConstraints.push(where('topic',    '==', topic));
-            else if (examType === 'daily_practice' && category) baseConstraints.push(where('category', '==', category));
+            if (examType === 'topic_drill' && topic)             baseConstraints.push(where('topic',    '==', topic));
+            else if (examType === 'daily_practice' && category)  baseConstraints.push(where('category', '==', category));
 
             const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
             const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -426,7 +578,6 @@ export default function ExamSession() {
             const unseen    = all.filter(q => !seenIds.includes(q.id));
             const minViable = examType === 'daily_practice' ? 10 : 5;
             const pool      = unseen.length >= minViable ? unseen : all;
-
             pool.sort(() => Math.random() - 0.5);
             const cap = examType === 'daily_practice' ? DAILY_PRACTICE_LIMIT : pool.length;
             qs = pool.slice(0, Math.min(count, cap));
@@ -585,10 +736,8 @@ export default function ExamSession() {
                         </div>
                         <div style={{ height: 7, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
                           <div style={{
-                            height: '100%', borderRadius: 4,
-                            background: barColor,
-                            width: `${pct}%`,
-                            transition: 'width 0.5s ease',
+                            height: '100%', borderRadius: 4, background: barColor,
+                            width: `${pct}%`, transition: 'width 0.5s ease',
                           }} />
                         </div>
                       </div>
@@ -675,7 +824,6 @@ export default function ExamSession() {
                     })}
                   </div>
 
-                  {/* Explanation */}
                   {q.explanation && (
                     <div style={{
                       background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
@@ -692,7 +840,6 @@ export default function ExamSession() {
                     </div>
                   )}
 
-                  {/* Action buttons */}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
                     <button className="btn btn-ghost btn-sm"
                       onClick={() => getAiExplain(q)}
@@ -700,7 +847,6 @@ export default function ExamSession() {
                       style={{ fontSize: 12 }}>
                       {aiExplain[q.id] ? '🤖 AI Explained' : aiLoading ? '⏳ Loading…' : '🤖 Ask AI to Explain'}
                     </button>
-
                     <button
                       onClick={() => toggleBookmark(q)}
                       style={{
@@ -714,14 +860,11 @@ export default function ExamSession() {
                     >
                       🔖 {bookmarked.has(q.id) ? 'Bookmarked ✓' : 'Bookmark this Question'}
                     </button>
-
                     {!reportedQs.has(q.id) && (
                       <button
                         onClick={() => setShowReport(showReport === q.id ? null : q.id)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: '5px 8px' }}
-                      >
-                        🚩 Report
-                      </button>
+                      >🚩 Report</button>
                     )}
                     {reportedQs.has(q.id) && (
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>✓ Reported</span>
@@ -772,6 +915,16 @@ export default function ExamSession() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
 
+      {/* Exit modal */}
+      {showExitModal && (
+        <ExitModal
+          onSaveExit={handleSaveExit}
+          onAbandon={handleAbandonExit}
+          onCancel={() => setShowExitModal(false)}
+          saving={exitSaving}
+        />
+      )}
+
       {/* Sticky header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 100,
@@ -791,13 +944,34 @@ export default function ExamSession() {
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {timeLimit > 0 && (
                 <div style={{ fontWeight: 800, fontSize: 22, color: timerColor, fontVariantNumeric: 'tabular-nums' }}>
                   ⏱ {mins}:{secs}
                 </div>
               )}
-              <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm('Submit exam now?')) handleSubmit(); }}>Submit</button>
+              {/* Exit & Save button */}
+              <button
+                onClick={() => setShowExitModal(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 13px', borderRadius: 8, cursor: 'pointer',
+                  background: 'rgba(245,158,11,0.12)',
+                  border: '1.5px solid rgba(245,158,11,0.4)',
+                  color: '#F59E0B', fontWeight: 700, fontSize: 12,
+                  fontFamily: 'inherit', transition: 'all 0.15s',
+                }}
+                title="Save your progress and exit"
+              >
+                🚪 Exit
+              </button>
+              {/* Submit button */}
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => { if (window.confirm('Submit exam now?')) handleSubmit(); }}
+              >
+                Submit
+              </button>
             </div>
           </div>
           <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
@@ -848,10 +1022,13 @@ export default function ExamSession() {
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.7 }}>· {q.course}</span>
               )}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                <button onClick={() => setFlagged(prev => { const s = new Set(prev); s.has(q.id) ? s.delete(q.id) : s.add(q.id); return s; })}
+                <button
+                  onClick={() => setFlagged(prev => { const s = new Set(prev); s.has(q.id) ? s.delete(q.id) : s.add(q.id); return s; })}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: flagged.has(q.id) ? 1 : 0.35 }}
-                  title="Flag for review">🚩</button>
-                <button onClick={() => toggleBookmark(q)}
+                  title="Flag for review"
+                >🚩</button>
+                <button
+                  onClick={() => toggleBookmark(q)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     background: bookmarked.has(q.id) ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)',
