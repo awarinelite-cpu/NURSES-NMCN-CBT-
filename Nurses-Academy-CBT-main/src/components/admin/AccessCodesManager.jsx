@@ -1,6 +1,6 @@
 // src/components/admin/AccessCodesManager.jsx
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
 import { ACCESS_PLANS } from '../../data/categories';
@@ -33,7 +33,7 @@ export default function AccessCodesManager() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateCodes = async () => {
     setLoading(true);
@@ -43,7 +43,12 @@ export default function AccessCodesManager() {
       for (let i = 0; i < qty; i++) {
         const code = generateCode();
         const ref  = doc(collection(db, 'accessCodes'));
-        const data = { code, plan, note, used: false, usedBy: null, createdAt: serverTimestamp() };
+        const data = {
+          code, plan, note,
+          used: false, usedBy: null, usedByName: null,
+          boundDeviceId: null,
+          createdAt: serverTimestamp(),
+        };
         batch.set(ref, data);
         newCodes.push({ id: ref.id, ...data });
       }
@@ -64,6 +69,29 @@ export default function AccessCodesManager() {
     } catch (e) { toast('Delete failed', 'error'); }
   };
 
+  // ── Reset device binding — allows the code to be used on a new device ──
+  const resetDevice = async (codeItem) => {
+    if (!window.confirm(
+      `Reset device lock for code ${codeItem.code}?\n\nThis will allow it to be redeemed on a NEW device. The student's subscription will NOT be removed — only the device binding is cleared.`
+    )) return;
+    try {
+      await updateDoc(doc(db, 'accessCodes', codeItem.id), {
+        used:          false,
+        usedBy:        null,
+        usedByName:    null,
+        usedAt:        null,
+        boundDeviceId: null,
+        deviceResetAt: serverTimestamp(),
+      });
+      setCodes(prev => prev.map(c =>
+        c.id === codeItem.id
+          ? { ...c, used: false, usedBy: null, usedByName: null, boundDeviceId: null }
+          : c
+      ));
+      toast(`Device lock reset for ${codeItem.code}. Student can now redeem on a new device.`, 'success');
+    } catch (e) { toast('Reset failed: ' + e.message, 'error'); }
+  };
+
   const filtered = codes.filter(c => {
     const matchSearch = !search || c.code.includes(search.toUpperCase());
     const matchFilter = filter === 'all' ? true : filter === 'used' ? c.used : !c.used;
@@ -82,11 +110,13 @@ export default function AccessCodesManager() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
+    <div style={{ padding: 24, maxWidth: 960 }}>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>🔑 Access Codes</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>
-          Generate codes to grant manual access — {codes.filter(c => !c.used).length} unused · {codes.filter(c => c.used).length} used
+          Each code is locked to one device on first use.&ensp;·&ensp;
+          {codes.filter(c => !c.used).length} unused&ensp;·&ensp;
+          {codes.filter(c => c.used).length} used
         </p>
       </div>
 
@@ -125,8 +155,11 @@ export default function AccessCodesManager() {
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
           {[['all','All'], ['unused','Unused'], ['used','Used']].map(([v,l]) => (
             <button key={v} onClick={() => setFilter(v)}
-              style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                background: filter === v ? 'var(--teal)' : 'transparent', color: filter === v ? '#fff' : 'var(--text-muted)',
+              style={{
+                padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                background: filter === v ? 'var(--teal)' : 'transparent',
+                color: filter === v ? '#fff' : 'var(--text-muted)',
               }}>
               {l}
             </button>
@@ -141,37 +174,87 @@ export default function AccessCodesManager() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filtered.map(c => (
           <div key={c.id} style={{
-            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-            background: 'var(--bg-card)', border: `1.5px solid ${c.used ? 'rgba(100,116,139,0.2)' : 'rgba(13,148,136,0.2)'}`,
-            borderRadius: 12, padding: '12px 16px',
-            opacity: c.used ? 0.65 : 1,
+            background: 'var(--bg-card)',
+            border: `1.5px solid ${c.used ? 'rgba(100,116,139,0.2)' : 'rgba(13,148,136,0.2)'}`,
+            borderRadius: 12, padding: '14px 16px',
+            opacity: c.used ? 0.75 : 1,
           }}>
-            <code style={{
-              fontFamily: 'monospace', fontSize: 16, fontWeight: 700, letterSpacing: 2,
-              color: c.used ? 'var(--text-muted)' : 'var(--teal)',
-              background: c.used ? 'var(--bg-tertiary)' : 'var(--teal-glow)',
-              padding: '4px 12px', borderRadius: 8,
-              textDecoration: c.used ? 'line-through' : 'none',
-            }}>
-              {c.code}
-            </code>
-            <span className={`badge ${ACCESS_PLANS.find(p => p.id === c.plan)?.popular ? 'badge-blue' : 'badge-teal'}`} style={{ fontSize: 10 }}>
-              {c.plan}
-            </span>
-            {c.note && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.note}</span>}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-              {c.used ? (
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Used by {c.usedBy || 'someone'}</span>
-              ) : (
-                <span className="badge badge-green" style={{ fontSize: 10 }}>✅ Active</span>
+            {/* Top row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <code style={{
+                fontFamily: 'monospace', fontSize: 16, fontWeight: 700, letterSpacing: 2,
+                color: c.used ? 'var(--text-muted)' : 'var(--teal)',
+                background: c.used ? 'var(--bg-tertiary)' : 'var(--teal-glow)',
+                padding: '4px 12px', borderRadius: 8,
+                textDecoration: c.used ? 'line-through' : 'none',
+              }}>
+                {c.code}
+              </code>
+
+              <span className={`badge ${ACCESS_PLANS.find(p => p.id === c.plan)?.popular ? 'badge-blue' : 'badge-teal'}`} style={{ fontSize: 10 }}>
+                {c.plan}
+              </span>
+
+              {c.note && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.note}</span>
               )}
-              {!c.used && (
-                <button className="btn btn-ghost btn-sm" onClick={() => copyCode(c.code)}>📋 Copy</button>
-              )}
-              <button className="btn btn-danger btn-sm" onClick={() => deleteCode(c.id)}>🗑️</button>
+
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {c.used ? (
+                  <span className="badge badge-red" style={{ fontSize: 10 }}>🔒 Device Locked</span>
+                ) : (
+                  <span className="badge badge-green" style={{ fontSize: 10 }}>✅ Available</span>
+                )}
+                {!c.used && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => copyCode(c.code)}>📋 Copy</button>
+                )}
+                {/* Reset device lock — only shown for used codes */}
+                {c.used && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => resetDevice(c)}
+                    style={{
+                      background: 'rgba(245,158,11,0.12)', color: 'var(--gold)',
+                      border: '1px solid rgba(245,158,11,0.35)', fontSize: 12,
+                    }}
+                  >
+                    🔓 Reset Device
+                  </button>
+                )}
+                <button className="btn btn-danger btn-sm" onClick={() => deleteCode(c.id)}>🗑️</button>
+              </div>
             </div>
+
+            {/* Device binding info row — only for used codes */}
+            {c.used && (
+              <div style={{
+                marginTop: 10, paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12,
+                color: 'var(--text-muted)',
+              }}>
+                {c.usedByName && (
+                  <span>👤 <strong style={{ color: 'var(--text-primary)' }}>{c.usedByName}</strong></span>
+                )}
+                {c.usedAt && (
+                  <span>📅 Redeemed {
+                    c.usedAt?.toDate
+                      ? new Date(c.usedAt.toDate()).toLocaleDateString()
+                      : 'recently'
+                  }</span>
+                )}
+                {c.boundDeviceId && (
+                  <span title={c.boundDeviceId}>
+                    📱 Device: <code style={{ fontSize: 11, color: 'var(--text-hint)' }}>
+                      {c.boundDeviceId.slice(0, 16)}…
+                    </code>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
+
         {filtered.length === 0 && !loading && (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
             No codes found. Generate some above!
