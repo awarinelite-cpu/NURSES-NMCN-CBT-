@@ -1,155 +1,198 @@
-// src/components/admin/AdminDashboard.jsx
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+// src/App.jsx
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { AuthProvider }  from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './components/shared/Toast';
+import { useAuth }       from './context/AuthContext';
 
-export default function AdminDashboard() {
-  const [stats,    setStats]    = useState({ questions: 0, users: 0, payments: 0, sessions: 0 });
-  const [recent,   setRecent]   = useState({ payments: [], users: [] });
-  const [loading,  setLoading]  = useState(true);
+import { ProtectedRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+import AppLayout      from './components/shared/AppLayout';
+import LandingPage    from './components/shared/LandingPage';
+import AuthPage       from './components/auth/AuthPage';
+
+// Student pages
+import StudentDashboard  from './components/student/StudentDashboard';
+import AnalyticsPage     from './components/student/AnalyticsPage';
+import BookmarksPage     from './components/student/BookmarksPage';
+import SubscriptionPage  from './components/student/SubscriptionPage';
+import QuickActionsPage  from './components/student/QuickActionsPage';
+
+// Payment page
+import PaymentPage       from './components/payment/PaymentPage';
+
+// Exam
+import ExamSetup          from './components/exam/ExamSetup';
+import ExamSession        from './components/exam/ExamSession';
+import ExamReviewPage     from './components/exam/ExamReviewPage';
+import CategoryPickerPage from './components/exam/CategoryPickerPage';
+import ExamConfigPage     from './components/exam/ExamConfigPage';
+import ExamListPage       from './components/exam/ExamListPage';
+import ExamSetupPage      from './components/exam/ExamSetupPage';
+import DailyPracticePage  from './components/exam/DailyPracticePage';
+import MockExamPage       from './components/exam/MockExamPage';
+import CourseDrillPage    from './components/exam/CourseDrillPage';
+import TopicDrillPage     from './components/exam/TopicDrillPage';
+import PastQuestionsPage  from './components/exam/PastQuestionsPage';
+
+// Admin pages
+import AdminDashboard        from './components/admin/AdminDashboard';
+import QuestionsManager      from './components/admin/QuestionsManager';
+import UsersManager          from './components/admin/UsersManager';
+import PaymentsManager       from './components/admin/PaymentsManager';
+import AccessCodesManager    from './components/admin/AccessCodesManager';
+import AnnouncementsManager  from './components/admin/AnnouncementsManager';
+import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
+import CoursesManager        from './components/admin/CoursesManager';
+
+import './styles/global.css';
+
+// ── Register PWA service worker ──────────────────────────────────
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+  });
+}
+
+// ── PWA back-button handler ──────────────────────────────────────
+// Keeps a history stack so the Android back button navigates within
+// the app instead of exiting when running in standalone (PWA) mode.
+function PwaBackButtonHandler() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [qSnap, uSnap, pSnap, sSnap] = await Promise.all([
-          getCountFromServer(query(collection(db, 'questions'), where('active', '==', true))),
-          getCountFromServer(collection(db, 'users')),
-          getCountFromServer(collection(db, 'payments')),
-          getCountFromServer(collection(db, 'examSessions')),
-        ]);
-        setStats({
-          questions: qSnap.data().count,
-          users:     uSnap.data().count,
-          payments:  pSnap.data().count,
-          sessions:  sSnap.data().count,
-        });
+    // Push a duplicate state so there is always something to pop back to.
+    // This prevents the very first back press from exiting the PWA.
+    window.history.pushState({ idx: window.history.length }, '');
 
-        const [pDocs, uDocs] = await Promise.all([
-          getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5))),
-          getDocs(query(collection(db, 'users'),    orderBy('createdAt', 'desc'), limit(5))),
-        ]);
-        setRecent({
-          payments: pDocs.docs.map(d => ({ id: d.id, ...d.data() })),
-          users:    uDocs.docs.map(d => ({ id: d.id, ...d.data() })),
-        });
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+    const onPopState = (e) => {
+      // If the browser already moved back, navigate(-1) in React Router
+      navigate(-1);
+      // Re-push so the next back press is also caught
+      window.history.pushState({ idx: window.history.length }, '');
     };
-    load();
-  }, []);
 
-  const STAT_CARDS = [
-    { label: 'Total Questions', value: stats.questions, icon: '❓', color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: '/admin/questions' },
-    { label: 'Registered Users', value: stats.users,    icon: '👥', color: '#2563EB', bg: 'rgba(37,99,235,0.12)', to: '/admin/users' },
-    { label: 'Payments',         value: stats.payments, icon: '💰', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: '/admin/payments' },
-    { label: 'Exam Sessions',    value: stats.sessions, icon: '📝', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/admin/analytics' },
-  ];
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [location.pathname]); // re-register on each route change
 
-  const QUICK_ACTIONS = [
-    { label: 'Add Question',      icon: '➕', to: '/admin/questions?action=add',  color: '#0D9488' },
-    { label: 'Bulk Upload',       icon: '📤', to: '/admin/questions?action=bulk', color: '#2563EB' },
-    { label: 'Manage Users',      icon: '👥', to: '/admin/users',                color: '#7C3AED' },
-    { label: 'Access Codes',      icon: '🔑', to: '/admin/access-codes',         color: '#F59E0B' },
-    { label: 'Announcements',     icon: '📢', to: '/admin/announcements',        color: '#EF4444' },
-    { label: 'Confirm Payments',  icon: '✅', to: '/admin/payments',             color: '#16A34A' },
-    { label: 'Manage Courses',    icon: '📖', to: '/admin/courses',              color: '#0891B2' },
-    { label: 'Scheduled Exams',   icon: '📅', to: '/admin/scheduled-exams',     color: '#A855F7' },
-  ];
+  return null;
+}
 
+export default function App() {
   return (
-    <div style={{ padding: 24, maxWidth: 1200 }}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerGlow} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: 0 }}>
-            🛡️ Admin Control Panel
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', margin: '4px 0 0', fontSize: 14 }}>
-            Full control over NMCN CBT platform — questions, users, payments & analytics
-          </p>
-        </div>
-      </div>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            {/* Handles Android back button in PWA / browser */}
+            <PwaBackButtonHandler />
 
-      {/* Stats */}
-      <div style={styles.statsGrid}>
-        {STAT_CARDS.map(s => (
-          <Link key={s.label} to={s.to} style={{ textDecoration: 'none' }}>
-            <div className="stat-card" style={{ cursor: 'pointer' }}>
-              <div className="stat-icon" style={{ background: s.bg }}>
-                <span>{s.icon}</span>
-              </div>
-              <div>
-                <div className="stat-value" style={{ color: s.color }}>
-                  {loading ? '…' : s.value.toLocaleString()}
-                </div>
-                <div className="stat-label">{s.label}</div>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-      {/* Quick actions */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={styles.sectionTitle}>⚡ Quick Actions</h3>
-        <div style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map(a => (
-            <Link key={a.label} to={a.to} style={{ textDecoration: 'none' }}>
-              <div style={{ ...styles.actionCard, borderColor: `${a.color}40`, background: `${a.color}10` }}>
-                <span style={{ fontSize: 28 }}>{a.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: a.color }}>{a.label}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
+              {/* Full-screen exam pages (no sidebar) */}
+              <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
+              <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
 
-      {/* Recent activity */}
-      <div style={styles.twoCol}>
-        {/* Recent payments */}
-        <div className="card">
-          <div style={styles.cardHead}>
-            💰 Recent Payments
-            <Link to="/admin/payments" style={styles.viewAll}>View all →</Link>
+              {/* Payment page (full-screen, no sidebar) */}
+              <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+
+              {/* Authenticated layout */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/dashboard"      element={<StudentDashboard />} />
+                <Route path="/exams"          element={<ExamSetup />} />
+                <Route path="/past-questions" element={<PastQuestionsPage />} />
+                <Route path="/quick-actions"  element={<QuickActionsPage />} />
+                <Route path="/daily-practice" element={<DailyPracticePage />} />
+                <Route path="/daily-reviews"  element={<DailyPracticePage />} />
+                <Route path="/course-drill"   element={<CourseDrillPage />} />
+                <Route path="/topic-drill"    element={<TopicDrillPage />} />
+                <Route path="/exam/list"      element={<ExamListPage />} />
+                <Route path="/exam/setup"     element={<ExamSetupPage />} />
+                <Route path="/mock-exams"     element={<MockExamPage />} />
+                <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/bookmarks"      element={<BookmarksPage />} />
+                <Route path="/subscription"   element={<SubscriptionPage />} />
+                <Route path="/leaderboard"    element={<LeaderboardPage />} />
+                <Route path="/profile"        element={<ProfilePage />} />
+                <Route path="/exam/categories" element={<CategoryPickerPage />} />
+                <Route path="/exam/config"     element={<ExamConfigPage />} />
+
+                {/* Admin */}
+                <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+              </Route>
+
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+// ── Inline simple pages (unchanged) ─────────────────────────────
+
+function LeaderboardPage() {
+  return (
+    <div style={{ padding: 24, maxWidth: 700 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>🏆 Leaderboard</h2>
+      <p style={{ color: 'var(--text-muted)' }}>
+        Top performers coming soon — take more exams to rank!
+      </p>
+    </div>
+  );
+}
+
+function ProfilePage() {
+  const { user, profile } = useAuth();
+  return (
+    <div style={{ padding: 24, maxWidth: 600 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 24 }}>👤 My Profile</h2>
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 900, fontSize: 26, color: '#fff',
+          }}>
+            {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
           </div>
-          {recent.payments.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No payments yet</p>
-          ) : recent.payments.map(p => (
-            <div key={p.id} style={styles.listItem}>
-              <div style={styles.listAvatar}>{(p.userName || 'U')[0]}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{p.userName || 'User'}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  ₦{(p.amount || 0).toLocaleString()} · {p.plan || 'Plan'}
-                </div>
-              </div>
-              <span className={`badge ${p.status === 'confirmed' ? 'badge-green' : p.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
-                {p.status || 'pending'}
-              </span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>
+              {profile?.name || user?.displayName || 'Student'}
             </div>
-          ))}
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
+            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 4, display: 'inline-flex' }}>
+              {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
+            </span>
+          </div>
         </div>
 
-        {/* Recent users */}
-        <div className="card">
-          <div style={styles.cardHead}>
-            👥 Recent Registrations
-            <Link to="/admin/users" style={styles.viewAll}>View all →</Link>
-          </div>
-          {recent.users.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No users yet</p>
-          ) : recent.users.map(u => (
-            <div key={u.id} style={styles.listItem}>
-              <div style={styles.listAvatar}>{(u.name || 'U')[0]}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.email}</div>
-              </div>
-              <span className={`badge ${u.subscribed ? 'badge-teal' : 'badge-grey'}`}>
-                {u.subscribed ? 'Premium' : 'Free'}
-              </span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            ['Total Exams',  profile?.totalExams || 0],
+            ['Avg Score',    profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
+            ['Plan',         profile?.subscriptionPlan || 'Free'],
+            ['Expires',      profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
+          ].map(([k, v]) => (
+            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{v}</div>
             </div>
           ))}
         </div>
@@ -158,44 +201,485 @@ export default function AdminDashboard() {
   );
 }
 
-const styles = {
-  header: {
-    background: 'linear-gradient(135deg,#010810,#0F2A4A)',
-    border: '1px solid rgba(13,148,136,0.3)',
-    borderRadius: 20, padding: '28px 32px', marginBottom: 28,
-    position: 'relative', overflow: 'hidden',
-  },
-  headerGlow: {
-    position: 'absolute', inset: 0, pointerEvents: 'none',
-    background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.2) 0%, transparent 60%)',
-  },
-  statsGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
-    gap: 16, marginBottom: 32,
-  },
-  sectionTitle: {
-    fontFamily: "'Playfair Display',serif", fontSize: '1.1rem',
-    color: 'var(--text-primary)', margin: '0 0 14px',
-  },
-  actionsGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12,
-  },
-  actionCard: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-    padding: '18px 12px', border: '1.5px solid', borderRadius: 14,
-    textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)',
-  },
-  twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 },
-  cardHead: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    fontWeight: 700, fontSize: 15, marginBottom: 16, color: 'var(--text-primary)',
-  },
-  viewAll: { fontSize: 13, color: 'var(--teal)', textDecoration: 'none', fontWeight: 700 },
-  listItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)' },
-  listAvatar: {
-    width: 34, height: 34, borderRadius: '50%',
-    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0,
-  },
-};
+function AdminAnalytics() {
+  return (
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>📈 Platform Analytics</h2>
+      <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', flexDirection: 'column', gap: 16,
+      textAlign: 'center', padding: 24,
+      background: '#020B18', color: '#fff',
+    }}>
+      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
+        404
+      </div>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Page Not Found</h2>
+      <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
+      <a href="/" className="btn btn-primary">← Go Home</a>
+    </div>
+  );
+}// src/App.jsx
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { AuthProvider }  from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './components/shared/Toast';
+import { useAuth }       from './context/AuthContext';
+
+import { ProtectedRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+import AppLayout      from './components/shared/AppLayout';
+import LandingPage    from './components/shared/LandingPage';
+import AuthPage       from './components/auth/AuthPage';
+
+// Student pages
+import StudentDashboard  from './components/student/StudentDashboard';
+import AnalyticsPage     from './components/student/AnalyticsPage';
+import BookmarksPage     from './components/student/BookmarksPage';
+import SubscriptionPage  from './components/student/SubscriptionPage';
+import QuickActionsPage  from './components/student/QuickActionsPage';
+
+// Payment page
+import PaymentPage       from './components/payment/PaymentPage';
+
+// Exam
+import ExamSetup          from './components/exam/ExamSetup';
+import ExamSession        from './components/exam/ExamSession';
+import ExamReviewPage     from './components/exam/ExamReviewPage';
+import CategoryPickerPage from './components/exam/CategoryPickerPage';
+import ExamConfigPage     from './components/exam/ExamConfigPage';
+import ExamListPage       from './components/exam/ExamListPage';
+import ExamSetupPage      from './components/exam/ExamSetupPage';
+import DailyPracticePage  from './components/exam/DailyPracticePage';
+import MockExamPage       from './components/exam/MockExamPage';
+import CourseDrillPage    from './components/exam/CourseDrillPage';
+import TopicDrillPage     from './components/exam/TopicDrillPage';
+import PastQuestionsPage  from './components/exam/PastQuestionsPage';
+
+// Admin pages
+import AdminDashboard        from './components/admin/AdminDashboard';
+import QuestionsManager      from './components/admin/QuestionsManager';
+import UsersManager          from './components/admin/UsersManager';
+import PaymentsManager       from './components/admin/PaymentsManager';
+import AccessCodesManager    from './components/admin/AccessCodesManager';
+import AnnouncementsManager  from './components/admin/AnnouncementsManager';
+import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
+import CoursesManager        from './components/admin/CoursesManager';
+
+import './styles/global.css';
+
+// ── Register PWA service worker ──────────────────────────────────
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+  });
+}
+
+// ── PWA back-button handler ──────────────────────────────────────
+// Keeps a history stack so the Android back button navigates within
+// the app instead of exiting when running in standalone (PWA) mode.
+function PwaBackButtonHandler() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  useEffect(() => {
+    // Push a duplicate state so there is always something to pop back to.
+    // This prevents the very first back press from exiting the PWA.
+    window.history.pushState({ idx: window.history.length }, '');
+
+    const onPopState = (e) => {
+      // If the browser already moved back, navigate(-1) in React Router
+      navigate(-1);
+      // Re-push so the next back press is also caught
+      window.history.pushState({ idx: window.history.length }, '');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [location.pathname]); // re-register on each route change
+
+  return null;
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            {/* Handles Android back button in PWA / browser */}
+            <PwaBackButtonHandler />
+
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
+
+              {/* Full-screen exam pages (no sidebar) */}
+              <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
+              <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
+
+              {/* Payment page (full-screen, no sidebar) */}
+              <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+
+              {/* Authenticated layout */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/dashboard"      element={<StudentDashboard />} />
+                <Route path="/exams"          element={<ExamSetup />} />
+                <Route path="/past-questions" element={<PastQuestionsPage />} />
+                <Route path="/quick-actions"  element={<QuickActionsPage />} />
+                <Route path="/daily-practice" element={<DailyPracticePage />} />
+                <Route path="/daily-reviews"  element={<DailyPracticePage />} />
+                <Route path="/course-drill"   element={<CourseDrillPage />} />
+                <Route path="/topic-drill"    element={<TopicDrillPage />} />
+                <Route path="/exam/list"      element={<ExamListPage />} />
+                <Route path="/exam/setup"     element={<ExamSetupPage />} />
+                <Route path="/mock-exams"     element={<MockExamPage />} />
+                <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/bookmarks"      element={<BookmarksPage />} />
+                <Route path="/subscription"   element={<SubscriptionPage />} />
+                <Route path="/leaderboard"    element={<LeaderboardPage />} />
+                <Route path="/profile"        element={<ProfilePage />} />
+                <Route path="/exam/categories" element={<CategoryPickerPage />} />
+                <Route path="/exam/config"     element={<ExamConfigPage />} />
+
+                {/* Admin */}
+                <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+              </Route>
+
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+// ── Inline simple pages (unchanged) ─────────────────────────────
+
+function LeaderboardPage() {
+  return (
+    <div style={{ padding: 24, maxWidth: 700 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>🏆 Leaderboard</h2>
+      <p style={{ color: 'var(--text-muted)' }}>
+        Top performers coming soon — take more exams to rank!
+      </p>
+    </div>
+  );
+}
+
+function ProfilePage() {
+  const { user, profile } = useAuth();
+  return (
+    <div style={{ padding: 24, maxWidth: 600 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 24 }}>👤 My Profile</h2>
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 900, fontSize: 26, color: '#fff',
+          }}>
+            {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>
+              {profile?.name || user?.displayName || 'Student'}
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
+            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 4, display: 'inline-flex' }}>
+              {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            ['Total Exams',  profile?.totalExams || 0],
+            ['Avg Score',    profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
+            ['Plan',         profile?.subscriptionPlan || 'Free'],
+            ['Expires',      profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
+          ].map(([k, v]) => (
+            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminAnalytics() {
+  return (
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>📈 Platform Analytics</h2>
+      <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', flexDirection: 'column', gap: 16,
+      textAlign: 'center', padding: 24,
+      background: '#020B18', color: '#fff',
+    }}>
+      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
+        404
+      </div>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Page Not Found</h2>
+      <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
+      <a href="/" className="btn btn-primary">← Go Home</a>
+    </div>
+  );
+}// src/App.jsx
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { AuthProvider }  from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './components/shared/Toast';
+import { useAuth }       from './context/AuthContext';
+
+import { ProtectedRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+import AppLayout      from './components/shared/AppLayout';
+import LandingPage    from './components/shared/LandingPage';
+import AuthPage       from './components/auth/AuthPage';
+
+// Student pages
+import StudentDashboard  from './components/student/StudentDashboard';
+import AnalyticsPage     from './components/student/AnalyticsPage';
+import BookmarksPage     from './components/student/BookmarksPage';
+import SubscriptionPage  from './components/student/SubscriptionPage';
+import QuickActionsPage  from './components/student/QuickActionsPage';
+
+// Payment page
+import PaymentPage       from './components/payment/PaymentPage';
+
+// Exam
+import ExamSetup          from './components/exam/ExamSetup';
+import ExamSession        from './components/exam/ExamSession';
+import ExamReviewPage     from './components/exam/ExamReviewPage';
+import CategoryPickerPage from './components/exam/CategoryPickerPage';
+import ExamConfigPage     from './components/exam/ExamConfigPage';
+import ExamListPage       from './components/exam/ExamListPage';
+import ExamSetupPage      from './components/exam/ExamSetupPage';
+import DailyPracticePage  from './components/exam/DailyPracticePage';
+import MockExamPage       from './components/exam/MockExamPage';
+import CourseDrillPage    from './components/exam/CourseDrillPage';
+import TopicDrillPage     from './components/exam/TopicDrillPage';
+import PastQuestionsPage  from './components/exam/PastQuestionsPage';
+
+// Admin pages
+import AdminDashboard        from './components/admin/AdminDashboard';
+import QuestionsManager      from './components/admin/QuestionsManager';
+import UsersManager          from './components/admin/UsersManager';
+import PaymentsManager       from './components/admin/PaymentsManager';
+import AccessCodesManager    from './components/admin/AccessCodesManager';
+import AnnouncementsManager  from './components/admin/AnnouncementsManager';
+import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
+import CoursesManager        from './components/admin/CoursesManager';
+
+import './styles/global.css';
+
+// ── Register PWA service worker ──────────────────────────────────
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+  });
+}
+
+// ── PWA back-button handler ──────────────────────────────────────
+// Keeps a history stack so the Android back button navigates within
+// the app instead of exiting when running in standalone (PWA) mode.
+function PwaBackButtonHandler() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  useEffect(() => {
+    // Push a duplicate state so there is always something to pop back to.
+    // This prevents the very first back press from exiting the PWA.
+    window.history.pushState({ idx: window.history.length }, '');
+
+    const onPopState = (e) => {
+      // If the browser already moved back, navigate(-1) in React Router
+      navigate(-1);
+      // Re-push so the next back press is also caught
+      window.history.pushState({ idx: window.history.length }, '');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [location.pathname]); // re-register on each route change
+
+  return null;
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            {/* Handles Android back button in PWA / browser */}
+            <PwaBackButtonHandler />
+
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
+
+              {/* Full-screen exam pages (no sidebar) */}
+              <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
+              <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
+
+              {/* Payment page (full-screen, no sidebar) */}
+              <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+
+              {/* Authenticated layout */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/dashboard"      element={<StudentDashboard />} />
+                <Route path="/exams"          element={<ExamSetup />} />
+                <Route path="/past-questions" element={<PastQuestionsPage />} />
+                <Route path="/quick-actions"  element={<QuickActionsPage />} />
+                <Route path="/daily-practice" element={<DailyPracticePage />} />
+                <Route path="/daily-reviews"  element={<DailyPracticePage />} />
+                <Route path="/course-drill"   element={<CourseDrillPage />} />
+                <Route path="/topic-drill"    element={<TopicDrillPage />} />
+                <Route path="/exam/list"      element={<ExamListPage />} />
+                <Route path="/exam/setup"     element={<ExamSetupPage />} />
+                <Route path="/mock-exams"     element={<MockExamPage />} />
+                <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/bookmarks"      element={<BookmarksPage />} />
+                <Route path="/subscription"   element={<SubscriptionPage />} />
+                <Route path="/leaderboard"    element={<LeaderboardPage />} />
+                <Route path="/profile"        element={<ProfilePage />} />
+                <Route path="/exam/categories" element={<CategoryPickerPage />} />
+                <Route path="/exam/config"     element={<ExamConfigPage />} />
+
+                {/* Admin */}
+                <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+              </Route>
+
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+// ── Inline simple pages (unchanged) ─────────────────────────────
+
+function LeaderboardPage() {
+  return (
+    <div style={{ padding: 24, maxWidth: 700 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>🏆 Leaderboard</h2>
+      <p style={{ color: 'var(--text-muted)' }}>
+        Top performers coming soon — take more exams to rank!
+      </p>
+    </div>
+  );
+}
+
+function ProfilePage() {
+  const { user, profile } = useAuth();
+  return (
+    <div style={{ padding: 24, maxWidth: 600 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 24 }}>👤 My Profile</h2>
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 900, fontSize: 26, color: '#fff',
+          }}>
+            {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>
+              {profile?.name || user?.displayName || 'Student'}
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
+            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 4, display: 'inline-flex' }}>
+              {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            ['Total Exams',  profile?.totalExams || 0],
+            ['Avg Score',    profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
+            ['Plan',         profile?.subscriptionPlan || 'Free'],
+            ['Expires',      profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
+          ].map(([k, v]) => (
+            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminAnalytics() {
+  return (
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>📈 Platform Analytics</h2>
+      <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', flexDirection: 'column', gap: 16,
+      textAlign: 'center', padding: 24,
+      background: '#020B18', color: '#fff',
+    }}>
+      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
+        404
+      </div>
+      <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Page Not Found</h2>
+      <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
+      <a href="/" className="btn btn-primary">← Go Home</a>
+    </div>
+  );
+}
