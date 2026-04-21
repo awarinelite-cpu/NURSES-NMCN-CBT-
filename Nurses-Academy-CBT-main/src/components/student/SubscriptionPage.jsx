@@ -8,6 +8,16 @@ import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
+/* ── Get or create a stable device ID ── */
+function getDeviceId() {
+  let id = localStorage.getItem('nmcn_device_id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('nmcn_device_id', id);
+  }
+  return id;
+}
+
 export default function SubscriptionPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -66,7 +76,6 @@ export default function SubscriptionPage() {
             createdAt: serverTimestamp(),
             expiresAt: new Date(Date.now() + days * 86400000),
           });
-          // Grant subscription immediately
           const { updateDoc, doc } = await import('firebase/firestore');
           const expiry = new Date(Date.now() + days * 86400000);
           await updateDoc(doc(db, 'users', user.uid), {
@@ -133,29 +142,97 @@ export default function SubscriptionPage() {
     finally { setLoading(false); }
   };
 
-  /* ── Access code ── */
+  /* ── Access code redemption with device binding ── */
   const redeemCode = async () => {
     if (!code.trim()) { toast('Enter your access code', 'error'); return; }
     setLoading(true);
     try {
-      const { getDocs, query, collection: col, where, updateDoc, doc } = await import('firebase/firestore');
-      const snap = await getDocs(query(col(db, 'accessCodes'), where('code', '==', code.trim().toUpperCase()), where('used', '==', false)));
-      if (snap.empty) { toast('Invalid or already used code', 'error'); setLoading(false); return; }
+      const {
+        getDocs, query, collection: col, where,
+        updateDoc, doc, getDoc,
+      } = await import('firebase/firestore');
+
+      const deviceId = getDeviceId();
+
+      // 1. Find the code document
+      const snap = await getDocs(
+        query(
+          col(db, 'accessCodes'),
+          where('code', '==', code.trim().toUpperCase()),
+        )
+      );
+
+      if (snap.empty) {
+        toast('Invalid access code. Please check and try again.', 'error');
+        setLoading(false);
+        return;
+      }
+
       const codeDoc  = snap.docs[0];
       const codeData = codeDoc.data();
+
+      // 2. Already fully used (bound to a different device)
+      if (codeData.used) {
+        // Allow same device to re-authenticate (in case they reinstalled)
+        if (codeData.boundDeviceId && codeData.boundDeviceId !== deviceId) {
+          toast(
+            '❌ This code is already bound to another device. Each code can only be used on one device.',
+            'error'
+          );
+          setLoading(false);
+          return;
+        }
+        // Same device — allow re-activation (e.g. reinstall scenario)
+        if (codeData.boundDeviceId === deviceId) {
+          // Re-grant subscription for this same device
+          const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
+          const expiry   = new Date();
+          expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));
+          await updateDoc(doc(db, 'users', user.uid), {
+            subscribed: true, accessLevel: codeData.plan, subscriptionPlan: codeData.plan,
+            subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
+          });
+          await refreshProfile();
+          toast(`✅ Access restored on this device! ${planData?.label || codeData.plan} plan active.`, 'success');
+          setStep(3);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 3. Code is unused — bind it to this device now
       const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
       const expiry   = new Date();
       expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));
-      await updateDoc(doc(db, 'accessCodes', codeDoc.id), { used: true, usedBy: user.uid, usedAt: serverTimestamp() });
-      await updateDoc(doc(db, 'users', user.uid), {
-        subscribed: true, accessLevel: codeData.plan, subscriptionPlan: codeData.plan,
-        subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
+
+      // Mark code as used AND store the device ID it's bound to
+      await updateDoc(doc(db, 'accessCodes', codeDoc.id), {
+        used:          true,
+        usedBy:        user.uid,
+        usedByName:    profile?.name || user.displayName || user.email,
+        usedAt:        serverTimestamp(),
+        boundDeviceId: deviceId,   // ← device lock
       });
+
+      // Grant subscription to user
+      await updateDoc(doc(db, 'users', user.uid), {
+        subscribed:          true,
+        accessLevel:         codeData.plan,
+        subscriptionPlan:    codeData.plan,
+        subscriptionExpiry:  expiry.toISOString(),
+        accessCodeUsed:      code.trim().toUpperCase(),
+        accessCodeDeviceId:  deviceId,
+        updatedAt:           serverTimestamp(),
+      });
+
       await refreshProfile();
       toast(`🎉 Access code redeemed! ${planData?.label || codeData.plan} plan activated.`, 'success');
       setStep(3);
-    } catch (e) { toast('Redemption failed: ' + e.message, 'error'); }
-    finally { setLoading(false); }
+    } catch (e) {
+      toast('Redemption failed: ' + e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── Already subscribed screen ── */
@@ -339,12 +416,34 @@ export default function SubscriptionPage() {
               <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
               <div className="form-group">
                 <label className="form-label">Enter Access Code</label>
-                <input className="form-input" placeholder="e.g. NMCN-XXXX-XXXX" value={code}
+                <input
+                  className="form-input"
+                  placeholder="e.g. NMCN-XXXX-XXXX"
+                  value={code}
                   onChange={e => setCode(e.target.value.toUpperCase())}
-                  style={{ fontFamily: 'monospace', fontSize: 16, letterSpacing: 2 }} />
-                <div className="form-hint">Access codes are provided by the admin after manual payment.</div>
+                  style={{ fontFamily: 'monospace', fontSize: 16, letterSpacing: 2 }}
+                />
+                <div className="form-hint">
+                  Access codes are provided by the admin. Each code works on <strong>one device only</strong>.
+                </div>
               </div>
-              <button className="btn btn-primary btn-full btn-lg" onClick={redeemCode} disabled={loading || !code.trim()}>
+              {/* Device lock notice */}
+              <div style={{
+                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: 10, padding: '12px 14px', fontSize: 13,
+                color: 'var(--gold)', display: 'flex', gap: 10, alignItems: 'flex-start',
+              }}>
+                <span style={{ flexShrink: 0 }}>📱</span>
+                <span>
+                  This code will be <strong>permanently locked to this device</strong> once redeemed.
+                  It cannot be used on any other device after activation.
+                </span>
+              </div>
+              <button
+                className="btn btn-primary btn-full btn-lg"
+                onClick={redeemCode}
+                disabled={loading || !code.trim()}
+              >
                 {loading ? <><span className="spinner spinner-sm" /> Redeeming…</> : '🔑 Redeem Code'}
               </button>
             </div>
