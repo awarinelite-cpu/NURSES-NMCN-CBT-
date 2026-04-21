@@ -1,6 +1,6 @@
 // src/App.jsx
+import { useEffect, useState, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
 import { AuthProvider }  from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/shared/Toast';
@@ -18,7 +18,7 @@ import BookmarksPage     from './components/student/BookmarksPage';
 import SubscriptionPage  from './components/student/SubscriptionPage';
 import QuickActionsPage  from './components/student/QuickActionsPage';
 
-// Payment page
+// ── Payment page (Paystack + Manual bank transfer) ──────────────
 import PaymentPage       from './components/payment/PaymentPage';
 
 // Exam
@@ -54,30 +54,100 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   });
 }
 
-// ── PWA back-button handler ──────────────────────────────────────
-// Keeps a history stack so the Android back button navigates within
-// the app instead of exiting when running in standalone (PWA) mode.
+// ── PWA Back-Button Handler ───────────────────────────────────────
+// Intercepts the Android / PWA back button on every page.
+// • Non-home pages  → navigate(-1) through the full history stack
+// • Home page (1st press)  → shows "Press back again to exit" toast
+// • Home page (2nd press within 2.5 s) → lets the OS exit the app
 function PwaBackButtonHandler() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate       = useNavigate();
+  const location       = useLocation();
+  const [showExit, setShowExit] = useState(false);
+  const exitTimer      = useRef(null);
+  const exitReady      = useRef(false); // true after first back on home
+
+  const isHome = location.pathname === '/' || location.pathname === '/dashboard';
+
+  // Reset exit-ready flag whenever the user navigates away from home
+  useEffect(() => {
+    if (!isHome) {
+      exitReady.current = false;
+      setShowExit(false);
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+    }
+  }, [isHome]);
 
   useEffect(() => {
-    // Push a duplicate state so there is always something to pop back to.
-    // This prevents the very first back press from exiting the PWA.
-    window.history.pushState({ idx: window.history.length }, '');
+    // Always keep one sentinel entry ahead so popstate fires
+    // instead of the browser / OS exiting the PWA immediately.
+    window.history.pushState({ pwa: true }, '');
 
-    const onPopState = (e) => {
-      // If the browser already moved back, navigate(-1) in React Router
-      navigate(-1);
-      // Re-push so the next back press is also caught
-      window.history.pushState({ idx: window.history.length }, '');
+    const onPopState = () => {
+      if (isHome) {
+        if (exitReady.current) {
+          // Second back press on home → exit
+          // Clear the sentinel and let the browser navigate back naturally
+          window.history.go(-1);
+          return;
+        }
+        // First back press on home → warn user
+        exitReady.current = true;
+        setShowExit(true);
+        // Re-push sentinel so we can catch the second press
+        window.history.pushState({ pwa: true }, '');
+        // Auto-hide after 2.5 s and reset
+        if (exitTimer.current) clearTimeout(exitTimer.current);
+        exitTimer.current = setTimeout(() => {
+          exitReady.current = false;
+          setShowExit(false);
+        }, 2500);
+      } else {
+        // Any other page → go back in React Router history
+        navigate(-1);
+        // Re-push sentinel so next back press is also caught
+        window.history.pushState({ pwa: true }, '');
+      }
     };
 
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [location.pathname]); // re-register on each route change
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [location.pathname, navigate, isHome]);
 
-  return null;
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+    };
+  }, []);
+
+  if (!showExit) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 48,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(2, 11, 24, 0.92)',
+      color: '#fff',
+      padding: '13px 28px',
+      borderRadius: 28,
+      fontSize: 14,
+      fontWeight: 700,
+      zIndex: 99999,
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(13,148,136,0.4)',
+      boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+      whiteSpace: 'nowrap',
+      letterSpacing: 0.3,
+      animation: 'fadeInUp 0.22s ease',
+      pointerEvents: 'none',
+    }}>
+      Press back again to exit
+    </div>
+  );
 }
 
 export default function App() {
@@ -86,7 +156,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
-            {/* Handles Android back button in PWA / browser */}
+            {/* Handles Android / PWA back button throughout the entire app */}
             <PwaBackButtonHandler />
 
             <Routes>
@@ -98,7 +168,7 @@ export default function App() {
               <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
               <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
 
-              {/* Payment page (full-screen, no sidebar) */}
+              {/* ── Payment page (full-screen, no sidebar) ───────────────── */}
               <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
 
               {/* Authenticated layout */}
@@ -106,19 +176,35 @@ export default function App() {
                 <Route path="/dashboard"      element={<StudentDashboard />} />
                 <Route path="/exams"          element={<ExamSetup />} />
                 <Route path="/past-questions" element={<PastQuestionsPage />} />
+
+                {/* ── Quick Actions page ────────────────────────────────── */}
                 <Route path="/quick-actions"  element={<QuickActionsPage />} />
+
+                {/* ── Daily Practice ───────────────────────────────────── */}
                 <Route path="/daily-practice" element={<DailyPracticePage />} />
+
+                {/* Legacy redirect — keep URL alive, send to new page */}
                 <Route path="/daily-reviews"  element={<DailyPracticePage />} />
+
+                {/* ── Drill types ──────────────────────────────────────── */}
                 <Route path="/course-drill"   element={<CourseDrillPage />} />
                 <Route path="/topic-drill"    element={<TopicDrillPage />} />
+
+                {/* ── Shared exam list + setup ─────────────────────────── */}
                 <Route path="/exam/list"      element={<ExamListPage />} />
                 <Route path="/exam/setup"     element={<ExamSetupPage />} />
+
+                {/* ── Mock exams ───────────────────────────────────────── */}
                 <Route path="/mock-exams"     element={<MockExamPage />} />
-                <Route path="/results"        element={<AnalyticsPage />} />
-                <Route path="/bookmarks"      element={<BookmarksPage />} />
-                <Route path="/subscription"   element={<SubscriptionPage />} />
-                <Route path="/leaderboard"    element={<LeaderboardPage />} />
-                <Route path="/profile"        element={<ProfilePage />} />
+
+                {/* ── Analytics / bookmarks / subscription ─────────────── */}
+                <Route path="/results"      element={<AnalyticsPage />} />
+                <Route path="/bookmarks"    element={<BookmarksPage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/leaderboard"  element={<LeaderboardPage />} />
+                <Route path="/profile"      element={<ProfilePage />} />
+
+                {/* Quick action flow (for other exam types) */}
                 <Route path="/exam/categories" element={<CategoryPickerPage />} />
                 <Route path="/exam/config"     element={<ExamConfigPage />} />
 
@@ -144,7 +230,7 @@ export default function App() {
   );
 }
 
-// ── Inline simple pages (unchanged) ─────────────────────────────
+// ── Inline simple pages ──────────────────────────────────────────
 
 function LeaderboardPage() {
   return (
