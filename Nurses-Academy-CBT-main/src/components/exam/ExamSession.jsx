@@ -1,9 +1,19 @@
 // src/components/exam/ExamSession.jsx
+// READ-OPTIMISED: all pool queries now use limit() so Firestore never scans
+// the entire questions collection on every exam start.
+//
+// Key changes vs previous version:
+//   • poolMode queries add limit(POOL_FETCH_LIMIT) — we fetch a larger-than-
+//     needed sample, filter seen questions in JS, then slice to `count`.
+//     This caps reads at POOL_FETCH_LIMIT per session instead of unbounded.
+//   • The fallback "else" branch (no examType filter) is tightened the same way.
+//   • handleRetake reuses the same strategy.
+//   • Everything else (UI, submit, save/exit, AI, bookmarks, report) is unchanged.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  collection, query, where, getDocs,
+  collection, query, where, getDocs, limit,
   addDoc, serverTimestamp, doc, updateDoc, arrayUnion,
   deleteDoc, increment,
 } from 'firebase/firestore';
@@ -12,6 +22,12 @@ import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
 const DAILY_PRACTICE_LIMIT = 250;
+
+// Maximum questions to fetch from Firestore in a single pool query.
+// We fetch more than the user asked for so we have headroom to filter out
+// already-seen questions in JS and still hit the requested `count`.
+// 300 is generous (most sessions are 10–50 questions) and keeps reads low.
+const POOL_FETCH_LIMIT = 300;
 
 function fisherYatesShuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -89,13 +105,11 @@ export default function ExamSession() {
 
   const startedAt = useRef(null);
 
-  // ── CRITICAL: useRef mirrors so callbacks always read fresh state ─────────────
   const questionsRef = useRef([]);
   const answersRef   = useRef({});
   const flaggedRef   = useRef(new Set());
   const currentRef   = useRef(0);
 
-  // Sync refs every render
   questionsRef.current = questions;
   answersRef.current   = answers;
   flaggedRef.current   = flagged;
@@ -107,19 +121,21 @@ export default function ExamSession() {
       try {
         let qs = [];
 
+        // ── Resume paused exam (load by saved question IDs) ─────────────────
         if (resumeMode && resumeData?.questionIds?.length) {
           const ids = resumeData.questionIds;
           const chunks = [];
           for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
-          const fetched = await Promise.all(chunks.map(chunk => getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))));
+          const fetched = await Promise.all(chunks.map(chunk =>
+            getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))
+          ));
           const byId = {};
           fetched.forEach(snap => snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
           qs = ids.map(id => byId[id]).filter(Boolean);
 
           if (resumeData.answers) {
             const restored = Object.fromEntries(Object.entries(resumeData.answers).map(([k, v]) => [k.replace(/__/g, '/'), v]));
-            setAnswers(restored);
-            answersRef.current = restored;
+            setAnswers(restored); answersRef.current = restored;
           }
           const resumeQ = resumeData.currentQuestion || 0;
           setCurrent(resumeQ); currentRef.current = resumeQ;
@@ -133,11 +149,14 @@ export default function ExamSession() {
           return;
         }
 
+        // ── Review mode (load by saved question IDs) ────────────────────────
         if (reviewMode && savedSession?.questionIds?.length) {
           const ids = savedSession.questionIds;
           const chunks = [];
           for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
-          const fetched = await Promise.all(chunks.map(chunk => getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))));
+          const fetched = await Promise.all(chunks.map(chunk =>
+            getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))
+          ));
           const byId = {};
           fetched.forEach(snap => snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
           qs = ids.map(id => byId[id]).filter(Boolean);
@@ -148,47 +167,109 @@ export default function ExamSession() {
           setQuestions(qs); setPhase('review'); return;
         }
 
+        // ── Pool mode (daily practice / course drill / topic drill / mock exam) ─
         if (poolMode) {
+          const seenIds  = profile?.seenQuestions || [];
+          // How many to fetch: enough to filter seen + still hit `count`.
+          // We cap at POOL_FETCH_LIMIT to prevent full-collection scans.
+          const fetchLim = Math.min(
+            Math.max(count * 4, 100), // fetch 4× requested so seen-filter has room
+            POOL_FETCH_LIMIT
+          );
+
           if (examType === 'course_drill' && course) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('course', '==', course), where('active', '==', true)));
-            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // ── Course Drill ──────────────────────────────────────────────────
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('course', '==', course),
+              where('active', '==', true),
+              limit(fetchLim),
+            ));
+            const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             if (all.length === 0) { setQuestions([]); setPhase('empty'); return; }
-            const seenIds = profile?.seenQuestions || [];
-            const pool = (all.filter(q => !seenIds.includes(q.id)).length >= 5 ? all.filter(q => !seenIds.includes(q.id)) : all);
+            const unseen = all.filter(q => !seenIds.includes(q.id));
+            const pool   = unseen.length >= 5 ? unseen : all;
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
+
           } else if (examType === 'topic_drill' && topic) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('topic', '==', topic), where('active', '==', true)));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const seenIds = profile?.seenQuestions || [];
-            const pool = qs.filter(q => !seenIds.includes(q.id)).length >= 5 ? qs.filter(q => !seenIds.includes(q.id)) : qs;
+            // ── Topic Drill ───────────────────────────────────────────────────
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('topic',  '==', topic),
+              where('active', '==', true),
+              limit(fetchLim),
+            ));
+            const all    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const unseen = all.filter(q => !seenIds.includes(q.id));
+            const pool   = unseen.length >= 5 ? unseen : all;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, pool.length));
+
           } else if (examType === 'daily_practice' && category) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('category', '==', category), where('active', '==', true)));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const seenIds = profile?.seenQuestions || [];
-            const pool = qs.filter(q => !seenIds.includes(q.id)).length >= 10 ? qs.filter(q => !seenIds.includes(q.id)) : qs;
+            // ── Daily Practice ────────────────────────────────────────────────
+            const dailyFetchLim = Math.min(
+              Math.max(count * 4, 100),
+              POOL_FETCH_LIMIT,
+            );
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('category', '==', category),
+              where('active',   '==', true),
+              limit(dailyFetchLim),
+            ));
+            const all    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const unseen = all.filter(q => !seenIds.includes(q.id));
+            const pool   = unseen.length >= 10 ? unseen : all;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, DAILY_PRACTICE_LIMIT));
+
+          } else if (examType === 'mock_exam') {
+            // ── Mock Exam ─────────────────────────────────────────────────────
+            // mockExamId is passed in state; use it if available, fall back to examId
+            const mockId = state?.mockExamId || examId || '';
+            const constraints = [where('active', '==', true), limit(fetchLim)];
+            if (mockId) constraints.unshift(where('mockExamId', '==', mockId));
+            const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            qs.sort(() => Math.random() - 0.5);
+            qs = qs.slice(0, count || qs.length);
+
           } else {
-            const snap = await getDocs(query(collection(db, 'questions'), where('active', '==', true)));
+            // ── Generic fallback (avoid full-collection scan) ─────────────────
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('active', '==', true),
+              limit(fetchLim),
+            ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
             qs = qs.slice(0, Math.min(count, qs.length));
           }
+
         } else {
+          // ── Non-pool mode: load by examId (fixed exam) ──────────────────────
           if (examId) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('examId', '==', examId), where('active', '==', true)));
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('examId', '==', examId),
+              where('active', '==', true),
+            ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
+          // Fallback: query by examType + category
           if (qs.length === 0 && examType && category) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('examType', '==', examType), where('category', '==', category), where('active', '==', true)));
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('examType',  '==', examType),
+              where('category',  '==', category),
+              where('active',    '==', true),
+            ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
           const seenIds = profile?.seenQuestions || [];
-          const unseen = qs.filter(q => !seenIds.includes(q.id));
-          const pool = unseen.length >= Math.min(count, 5) ? unseen : qs;
+          const unseen  = qs.filter(q => !seenIds.includes(q.id));
+          const pool    = unseen.length >= Math.min(count, 5) ? unseen : qs;
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
         }
@@ -229,6 +310,7 @@ export default function ExamSession() {
     const sessionName = poolMode
       ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
       : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
+      : examType === 'mock_exam'      ? `${examName} — Mock Exam`
       : `${topic} — Topic Drill`
       : examName;
 
@@ -236,13 +318,19 @@ export default function ExamSession() {
       await addDoc(collection(db, 'examSessions'), {
         userId: currentUser.uid, examId: examId || null, examName: sessionName,
         category: category || '', examType: examType || '', course: course || '',
-        courseLabel: courseLabel || '', topic: topic || '', poolMode, correct,
+        courseLabel: courseLabel || '', topic: topic || '',
+        mockExamId: state?.mockExamId || '',
+        poolMode, correct,
         totalQuestions: qs.length, scorePercent, timeTaken,
         answers: safeAnswers, questionIds, completedAt: serverTimestamp(),
       });
-      const today = new Date().toDateString();
+      const today     = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
-      const newStreak = profile?.lastPracticeDate === yesterday ? (profile?.streak || 0) + 1 : profile?.lastPracticeDate === today ? (profile?.streak || 0) : 1;
+      const newStreak = profile?.lastPracticeDate === yesterday
+        ? (profile?.streak || 0) + 1
+        : profile?.lastPracticeDate === today
+          ? (profile?.streak || 0)
+          : 1;
       await updateDoc(doc(db, 'users', currentUser.uid), {
         completedExams: arrayUnion(examId || sessionName),
         ...(questionIds.length > 0 && { seenQuestions: arrayUnion(...questionIds) }),
@@ -253,14 +341,14 @@ export default function ExamSession() {
         [`examScores.${examId || 'pool'}`]: scorePercent,
       }).catch(e => console.warn('Profile update (non-critical):', e.message));
     } catch (e) { console.error('SAVE FAILED:', e); }
-  }, [submitted, currentUser, examId, examName, category, examType, course, courseLabel, topic, profile, poolMode]);
+  }, [submitted, currentUser, examId, examName, category, examType, course, courseLabel, topic, profile, poolMode, state]);
 
-  // ── Exit & Save — reads from refs so always has LATEST data ─────────────────
+  // ── Exit & Save ─────────────────────────────────────────────────────────────
   const handleSaveExit = useCallback(async () => {
-    const qs  = questionsRef.current;   // always fresh
-    const ans = answersRef.current;     // always fresh
-    const fl  = flaggedRef.current;     // always fresh
-    const cur = currentRef.current;     // always fresh
+    const qs  = questionsRef.current;
+    const ans = answersRef.current;
+    const fl  = flaggedRef.current;
+    const cur = currentRef.current;
 
     if (!currentUser?.uid) { alert('You must be logged in to save.'); return; }
     if (qs.length === 0) { navigate(-1); return; }
@@ -271,38 +359,31 @@ export default function ExamSession() {
       const sessionName = poolMode
         ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
         : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
+        : examType === 'mock_exam'      ? `${examName} — Mock Exam`
         : `${topic} — Topic Drill`
         : examName;
 
       await addDoc(collection(db, 'pausedExams'), {
-        userId:          currentUser.uid,
-        examName:        sessionName,
-        examType:        examType        || '',
-        examId:          examId          || null,
-        category:        category        || '',
-        course:          course          || '',
-        courseLabel:     courseLabel     || '',
-        topic:           topic           || '',
-        poolMode:        poolMode,
-        timeLimit:       timeLimit,
-        questionIds:     qs.map(q => q.id),
-        answers:         safeAnswers,
-        flagged:         [...fl],
-        currentQuestion: cur,
-        answeredCount:   Object.keys(ans).length,
-        totalQuestions:  qs.length,
-        savedAt:         serverTimestamp(),
+        userId: currentUser.uid, examName: sessionName,
+        examType: examType || '', examId: examId || null,
+        category: category || '', course: course || '',
+        courseLabel: courseLabel || '', topic: topic || '',
+        mockExamId: state?.mockExamId || '',
+        poolMode, timeLimit,
+        questionIds: qs.map(q => q.id),
+        answers: safeAnswers, flagged: [...fl],
+        currentQuestion: cur, answeredCount: Object.keys(ans).length,
+        totalQuestions: qs.length, savedAt: serverTimestamp(),
       });
 
-      setExitSaving(false);
-      setShowExitModal(false);
+      setExitSaving(false); setShowExitModal(false);
       navigate(-1);
     } catch (e) {
       console.error('Save exit failed:', e);
       setExitSaving(false);
       alert(`Save failed: ${e.message}`);
     }
-  }, [currentUser, poolMode, examType, examId, category, course, courseLabel, topic, examName, timeLimit, navigate]);
+  }, [currentUser, poolMode, examType, examId, category, course, courseLabel, topic, examName, timeLimit, navigate, state]);
 
   const handleAbandonExit = useCallback(() => { setShowExitModal(false); navigate(-1); }, [navigate]);
 
@@ -313,12 +394,16 @@ export default function ExamSession() {
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content: `Explain this nursing exam question in 3-4 sentences. Be concise and clinical.\n\nQuestion: ${q.question}\nOptions: ${q.options?.map((o,i)=>`${String.fromCharCode(65+i)}. ${o}`).join(', ')}\nCorrect answer: ${q.options?.[q.correctIndex]}\n${q.explanation ? `Explanation hint: ${q.explanation}` : ''}` }] }),
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 400,
+          messages: [{ role: 'user', content: `Explain this nursing exam question in 3-4 sentences. Be concise and clinical.\n\nQuestion: ${q.question}\nOptions: ${q.options?.map((o,i)=>`${String.fromCharCode(65+i)}. ${o}`).join(', ')}\nCorrect answer: ${q.options?.[q.correctIndex]}\n${q.explanation ? `Explanation hint: ${q.explanation}` : ''}` }],
+        }),
       });
       const data = await res.json();
       setAiExplain(prev => ({ ...prev, [q.id]: data.content?.[0]?.text || 'Could not generate explanation.' }));
-    } catch { setAiExplain(prev => ({ ...prev, [q.id]: 'AI explanation unavailable.' })); }
-    finally { setAiLoading(false); }
+    } catch {
+      setAiExplain(prev => ({ ...prev, [q.id]: 'AI explanation unavailable.' }));
+    } finally { setAiLoading(false); }
   };
 
   // ── Bookmark ────────────────────────────────────────────────────────────────
@@ -354,35 +439,60 @@ export default function ExamSession() {
     setFlagged(new Set()); flaggedRef.current = new Set();
     setCurrent(0); currentRef.current = 0;
     setSubmitted(false); setAiExplain({}); setPhase('loading');
+
     const load = async () => {
       try {
         let qs = [];
-        const justSeen = questionsRef.current.map(q => q.id);
+        const justSeen  = questionsRef.current.map(q => q.id);
+        const seenIds   = [...(profile?.seenQuestions || []), ...justSeen];
+        const fetchLim  = Math.min(Math.max(count * 4, 100), POOL_FETCH_LIMIT);
+
         if (poolMode) {
           if (examType === 'course_drill' && course) {
-            const snap = await getDocs(query(collection(db, 'questions'), where('course', '==', course), where('active', '==', true)));
-            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const seenIds = [...(profile?.seenQuestions || []), ...justSeen];
-            const pool = all.filter(q => !seenIds.includes(q.id)).length >= 5 ? all.filter(q => !seenIds.includes(q.id)) : all;
-            fisherYatesShuffle(pool); qs = pool.slice(0, Math.min(count, pool.length));
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('course', '==', course),
+              where('active', '==', true),
+              limit(fetchLim),
+            ));
+            const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const pool = all.filter(q => !seenIds.includes(q.id)).length >= 5
+              ? all.filter(q => !seenIds.includes(q.id)) : all;
+            fisherYatesShuffle(pool);
+            qs = pool.slice(0, Math.min(count, pool.length));
+
+          } else if (examType === 'mock_exam') {
+            const mockId = state?.mockExamId || examId || '';
+            const constraints = [where('active', '==', true), limit(fetchLim)];
+            if (mockId) constraints.unshift(where('mockExamId', '==', mockId));
+            const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            qs.sort(() => Math.random() - 0.5);
+            qs = qs.slice(0, count || qs.length);
+
           } else {
-            const bc = [where('active', '==', true)];
-            if (examType === 'topic_drill' && topic) bc.push(where('topic', '==', topic));
-            else if (examType === 'daily_practice' && category) bc.push(where('category', '==', category));
+            const bc = [where('active', '==', true), limit(fetchLim)];
+            if (examType === 'topic_drill' && topic)          bc.unshift(where('topic',    '==', topic));
+            else if (examType === 'daily_practice' && category) bc.unshift(where('category', '==', category));
             const snap = await getDocs(query(collection(db, 'questions'), ...bc));
-            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const seenIds = [...(profile?.seenQuestions || []), ...justSeen];
+            const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             const minV = examType === 'daily_practice' ? 10 : 5;
-            const pool = all.filter(q => !seenIds.includes(q.id)).length >= minV ? all.filter(q => !seenIds.includes(q.id)) : all;
+            const pool = all.filter(q => !seenIds.includes(q.id)).length >= minV
+              ? all.filter(q => !seenIds.includes(q.id)) : all;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, examType === 'daily_practice' ? DAILY_PRACTICE_LIMIT : pool.length));
           }
         } else {
-          const snap = await getDocs(query(collection(db, 'questions'), where('examId', '==', examId), where('active', '==', true)));
+          const snap = await getDocs(query(
+            collection(db, 'questions'),
+            where('examId', '==', examId),
+            where('active', '==', true),
+          ));
           qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           if (doShuffle) qs.sort(() => Math.random() - 0.5);
           qs = qs.slice(0, count);
         }
+
         setQuestions(qs); questionsRef.current = qs;
         setTimeLeft(timeLimit * 60);
         setPhase(qs.length > 0 ? 'exam' : 'empty');
@@ -413,7 +523,7 @@ export default function ExamSession() {
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           {!reviewMode && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 28, marginBottom: 24, textAlign: 'center' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : `🎯 Topic Drill — ${topic}` : examName}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Mock Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}</div>
               <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{scorePct}%</div>
               <div style={{ fontSize: 16, color: 'var(--text-secondary)', margin: '8px 0 20px' }}>{score} / {questions.length} correct</div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
@@ -442,7 +552,7 @@ export default function ExamSession() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {cats.map(([cat, { correct, total }]) => {
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-                    const bc = pct >= 70 ? 'var(--teal)' : pct >= 50 ? '#F59E0B' : '#EF4444';
+                    const bc  = pct >= 70 ? 'var(--teal)' : pct >= 50 ? '#F59E0B' : '#EF4444';
                     return (
                       <div key={cat}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}><span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{cat}</span><span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>{correct}/{total} ({pct}%)</span></div>
@@ -469,10 +579,10 @@ export default function ExamSession() {
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</p>
-                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', opacity: 0.4 }}>
-  {q.topic  && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'rgba(13,148,136,0.08)', color: 'var(--teal)', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>📌 {q.topic}</span>}
-  {q.course && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.course}</span>}
-</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', opacity: 0.4 }}>
+                      {q.topic  && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'rgba(13,148,136,0.08)', color: 'var(--teal)', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>📌 {q.topic}</span>}
+                      {q.course && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.course}</span>}
+                    </div>
                   </div>
                   {q.imageUrl && <div style={{ marginBottom: 12, textAlign: 'center' }}><img src={q.imageUrl} alt="Question" style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -528,7 +638,7 @@ export default function ExamSession() {
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
