@@ -1,36 +1,260 @@
 // src/components/student/StudentDashboard.jsx
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  collection, query, where, orderBy, limit,
+  getDocs, deleteDoc, doc,
+} from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+// ── helper: human-readable exam type label ────────────────────────────────────
+function examTypeLabel(type) {
+  switch (type) {
+    case 'course_drill':   return '📖 Course Drill';
+    case 'topic_drill':    return '🎯 Topic Drill';
+    case 'daily_practice': return '⚡ Daily Practice';
+    case 'mock_exam':      return '📋 Mock Exam';
+    case 'past_questions': return '📜 Past Questions';
+    default:               return type?.replace(/_/g, ' ') || 'Exam';
+  }
+}
+
+// ── PausedExamsModal ──────────────────────────────────────────────────────────
+function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
+  return (
+    <div style={M.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={M.modal}>
+        <div style={M.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>▶️</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>Continue an Exam</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                {paused.length} paused exam{paused.length !== 1 ? 's' : ''} waiting
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={M.closeBtn}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}>
+          {paused.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+              <div style={{ fontWeight: 700 }}>No paused exams</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>Exit an exam using "Exit &amp; Save" to continue it later.</div>
+            </div>
+          ) : paused.map(p => {
+            const progress = p.totalQuestions > 0
+              ? Math.round(((p.answeredCount || 0) / p.totalQuestions) * 100)
+              : 0;
+            const savedAt = p.savedAt?.toDate
+              ? p.savedAt.toDate()
+              : p.savedAt ? new Date(p.savedAt) : null;
+            const dateStr = savedAt
+              ? savedAt.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
+              : '—';
+            const timeStr = savedAt
+              ? savedAt.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+              : '';
+
+            return (
+              <div key={p.id} style={M.card}>
+                <div style={{ ...M.cardAccent, background: 'var(--teal)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.3 }}>
+                    {p.examName || 'Untitled Exam'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <span style={M.tag}>{examTypeLabel(p.examType)}</span>
+                    {p.courseLabel && (
+                      <span style={{ ...M.tag, background: 'rgba(37,99,235,0.12)', color: '#60A5FA' }}>
+                        📚 {p.courseLabel}
+                      </span>
+                    )}
+                    {p.topic && (
+                      <span style={{ ...M.tag, background: 'rgba(124,58,237,0.12)', color: '#A78BFA' }}>
+                        📌 {p.topic}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        Q{(p.currentQuestion || 0) + 1} of {p.totalQuestions} · {p.answeredCount || 0} answered
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700 }}>{progress}%</span>
+                    </div>
+                    <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 2, background: 'var(--teal)',
+                        width: `${progress}%`, transition: 'width 0.4s',
+                      }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    💾 Saved {dateStr}{timeStr ? ` · ${timeStr}` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                  <button onClick={() => onResume(p)} style={M.resumeBtn}>▶ Resume</button>
+                  <button onClick={() => onDelete(p.id)} style={M.deleteBtn}>🗑 Discard</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const M = {
+  overlay: {
+    position: 'fixed', inset: 0, zIndex: 1000,
+    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+  },
+  modal: {
+    background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+    borderRadius: 20, padding: 24, width: '100%', maxWidth: 560,
+    maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 16,
+    boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+  },
+  header: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingBottom: 16, borderBottom: '1px solid var(--border)',
+  },
+  closeBtn: {
+    background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+    borderRadius: 8, width: 32, height: 32, cursor: 'pointer',
+    color: 'var(--text-muted)', fontSize: 14, fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  card: {
+    display: 'flex', alignItems: 'flex-start', gap: 12,
+    background: 'var(--bg-primary)', border: '1.5px solid var(--border)',
+    borderRadius: 14, padding: '14px 14px 14px 18px',
+    position: 'relative', overflow: 'hidden',
+  },
+  cardAccent: {
+    position: 'absolute', left: 0, top: 0, bottom: 0,
+    width: 4, borderRadius: '4px 0 0 4px',
+  },
+  tag: {
+    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+    background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
+  },
+  resumeBtn: {
+    padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+    background: 'var(--teal)', border: 'none',
+    color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  },
+  deleteBtn: {
+    padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+    background: 'transparent', border: '1px solid rgba(239,68,68,0.4)',
+    color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  },
+};
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
+
   const [recentSessions, setRecentSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [pausedExams,    setPausedExams]    = useState([]);
+  const [showModal,      setShowModal]      = useState(false);
+  const [loading,        setLoading]        = useState(true);
 
   useEffect(() => {
     if (!user) return;
+
     const loadData = async () => {
+      // ── Query 1: Recent exam sessions ──────────────────────────────────────
+      // Isolated in its own try/catch so a Firestore index error here
+      // does NOT prevent the rest of the dashboard from rendering.
       try {
-        const sessQ = query(
+        const sessSnap = await getDocs(query(
           collection(db, 'examSessions'),
           where('userId', '==', user.uid),
           orderBy('completedAt', 'desc'),
-          limit(5)
-        );
-        const snap = await getDocs(sessQ);
-        setRecentSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          limit(5),
+        ));
+        setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+        console.warn('examSessions load failed (non-fatal):', e.message);
+        // Dashboard still renders — Recent Exams section just stays hidden
       }
+
+      // ── Query 2: Paused exams ──────────────────────────────────────────────
+      // Isolated in its own try/catch — collection won't exist until the first
+      // "Exit & Save" is triggered, so failure here is completely expected.
+      try {
+        const pausedSnap = await getDocs(query(
+          collection(db, 'pausedExams'),
+          where('userId', '==', user.uid),
+        ));
+        const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort newest-first client-side (no composite index needed)
+        paused.sort((a, b) => {
+          const ta = a.savedAt?.toDate?.()?.getTime?.() || 0;
+          const tb = b.savedAt?.toDate?.()?.getTime?.() || 0;
+          return tb - ta;
+        });
+        setPausedExams(paused);
+      } catch (e) {
+        console.warn('pausedExams load failed (non-fatal):', e.message);
+        // Fine — no paused exams to show yet
+      }
+
+      setLoading(false);
     };
+
     loadData();
   }, [user]);
+
+  // Resume a paused exam
+  const handleResume = useCallback((paused) => {
+    setShowModal(false);
+    navigate('/exam/session', {
+      state: {
+        resumeMode:     true,
+        pausedExamId:   paused.id,
+        poolMode:       paused.poolMode   ?? true,
+        examType:       paused.examType,
+        examName:       paused.examName,
+        category:       paused.category,
+        course:         paused.course,
+        courseLabel:    paused.courseLabel,
+        topic:          paused.topic,
+        examId:         paused.examId     || '',
+        count:          paused.totalQuestions,
+        doShuffle:      false,
+        timeLimit:      paused.timeLimit  || 0,
+        resumeData: {
+          questionIds:     paused.questionIds,
+          answers:         paused.answers,
+          currentQuestion: paused.currentQuestion || 0,
+          totalQuestions:  paused.totalQuestions,
+          flagged:         paused.flagged || [],
+        },
+      },
+    });
+  }, [navigate]);
+
+  // Discard a paused exam
+  const handleDelete = useCallback(async (id) => {
+    if (!window.confirm('Discard this paused exam? This cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'pausedExams', id));
+      setPausedExams(prev => prev.filter(p => p.id !== id));
+    } catch (e) { console.error('Delete paused exam error:', e); }
+  }, []);
 
   const totalExams = profile?.totalExams || 0;
   const totalScore = profile?.totalScore || 0;
@@ -43,6 +267,17 @@ export default function StudentDashboard() {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
+
+      {/* Paused exams modal */}
+      {showModal && (
+        <PausedExamsModal
+          paused={pausedExams}
+          onResume={handleResume}
+          onDelete={handleDelete}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+
       {/* Greeting banner */}
       <div style={styles.banner}>
         <div style={styles.bannerGlow} />
@@ -59,9 +294,34 @@ export default function StudentDashboard() {
               : '🎯 Free plan — upgrade to unlock all past questions'}
           </p>
         </div>
+
         <div style={styles.bannerActions}>
-          {/* ── Changed from /exams to /quick-actions ── */}
           <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
+
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
+              background: pausedExams.length > 0 ? 'rgba(13,148,136,0.25)' : 'rgba(255,255,255,0.08)',
+              border: `1.5px solid ${pausedExams.length > 0 ? 'rgba(13,148,136,0.6)' : 'rgba(255,255,255,0.25)'}`,
+              color: pausedExams.length > 0 ? '#5EEAD4' : 'rgba(255,255,255,0.6)',
+              fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+              transition: 'all 0.2s',
+            }}
+          >
+            ▶ Continue Exam
+            {pausedExams.length > 0 && (
+              <span style={{
+                background: 'var(--teal)', color: '#fff',
+                borderRadius: 20, fontSize: 10, fontWeight: 900,
+                padding: '1px 7px', minWidth: 18, textAlign: 'center',
+              }}>
+                {pausedExams.length}
+              </span>
+            )}
+          </button>
+
           {!profile?.subscribed && (
             <Link to="/subscription" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
               Upgrade Plan
@@ -99,47 +359,68 @@ export default function StudentDashboard() {
         })}
       </div>
 
+      {/* Paused exams inline banner */}
+      {pausedExams.length > 0 && (
+        <div
+          onClick={() => setShowModal(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
+            borderRadius: 14, padding: '14px 18px', marginBottom: 24,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+          }}>▶️</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
+              You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {pausedExams[0]?.examName || 'Exam'} · click to resume
+            </div>
+          </div>
+          <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 16 }}>→</span>
+        </div>
+      )}
+
       {/* Quick actions */}
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ ...styles.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
         <div style={styles.quickGrid}>
-
           <Link to="/daily-practice" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>⚡</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Daily Practice</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take daily exam</span>
           </Link>
-
           <Link to="/course-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Course Drill</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by courses</span>
           </Link>
-
           <Link to="/topic-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🎯</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Topic Drill</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by topics</span>
           </Link>
-
           <Link to="/mock-exams" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📋</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Mock Exams</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study daily Hospital Final exam</span>
           </Link>
-
           <Link to="/past-questions" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📜</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Past Questions</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study NMCN past questions</span>
           </Link>
-
           <Link to="/bookmarks" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🔖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Bookmarks</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Review your Bookmarked questions</span>
           </Link>
-
         </div>
       </div>
 
@@ -155,9 +436,7 @@ export default function StudentDashboard() {
                 {cat.icon}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                  {cat.shortLabel}
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{cat.shortLabel}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                   {cat.examType === 'basic' ? 'Basic RN' : 'Post Basic'}
                 </div>
@@ -177,9 +456,7 @@ export default function StudentDashboard() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th>
-                </tr>
+                <tr><th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th></tr>
               </thead>
               <tbody>
                 {recentSessions.map(s => {
@@ -237,7 +514,7 @@ const styles = {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'radial-gradient(ellipse at 70% 50%, rgba(245,158,11,0.15) 0%, transparent 60%)',
   },
-  bannerActions: { display: 'flex', gap: 10, flexShrink: 0 },
+  bannerActions: { display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' },
   statsGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: 16, marginBottom: 32,
