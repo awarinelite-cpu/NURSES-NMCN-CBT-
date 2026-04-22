@@ -469,10 +469,10 @@ export default function ExamSession() {
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</p>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                      {q.topic  && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(13,148,136,0.1)', color: 'var(--teal)', fontWeight: 700 }}>📌 {q.topic}</span>}
-                      {q.course && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>{q.course}</span>}
-                    </div>
+                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', opacity: 0.4 }}>
+  {q.topic  && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'rgba(13,148,136,0.08)', color: 'var(--teal)', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>📌 {q.topic}</span>}
+  {q.course && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.course}</span>}
+</div>
                   </div>
                   {q.imageUrl && <div style={{ marginBottom: 12, textAlign: 'center' }}><img src={q.imageUrl} alt="Question" style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
