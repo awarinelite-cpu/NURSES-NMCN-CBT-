@@ -26,6 +26,28 @@
 //   A. Sympathy   C. Socialism
 //   B. Criticism  D. Empathy
 //
+// FORMAT F — Prose paragraph options (each lettered option on its own line,
+//             with a multi-sentence option body), followed by Answer: X and
+//             Explanation: … on subsequent lines:
+//   1. Long question text spanning one or more lines?
+//   A. Long option text here
+//   B. Another option text
+//   C. Another option text
+//   D. Another option text
+//   Answer: B
+//   Explanation: Rationale text here.
+//
+// FORMAT G — JSON object per question (single object or comma-separated list):
+//   { "q": "Question text", "options": ["A. Opt1","B. Opt2","C. Opt3","D. Opt4"],
+//     "answer": "B", "explanation": "..." }
+//
+// FORMAT H — Markdown --- separator blocks, options embedded in prose:
+//   --- (separator)
+//   Question paragraph. Options may appear inline:
+//   A. Option one  B. Option two  C. Option three  D. Option four
+//   Answer: B
+//   Explanation: Rationale text here.
+//
 // ─────────────────────────────────────────────────────────────────────
 
 // ── Shuffle Utilities ─────────────────────────────────────────────────
@@ -151,22 +173,281 @@ export function parseRationaleKey(answerText) {
   return rationaleMap;
 }
 
+// ── FORMAT G: JSON Block Pre-processor ───────────────────────────────
+//
+// Detects JSON objects (Format G) anywhere in rawText, extracts them,
+// parses them, and returns an array of normalised question objects that
+// can be merged with the line-by-line parser output.
+//
+// Handles both single objects and arrays of objects.
+// Tolerates the "q" key as well as "question" for the question text.
+// Options can be:
+//   ["A. text", "B. text", ...]  — letter-prefixed strings
+//   ["text1", "text2", ...]      — plain strings (assigned A, B, C, D…)
+
+function parseJsonBlocks(rawText) {
+  const questions = [];
+  const optLetters = ['A', 'B', 'C', 'D', 'E'];
+
+  // Match JSON objects that look like question objects.
+  // We use a balanced-brace scanner rather than a fragile regex.
+  const segments = [];
+  let depth = 0;
+  let start = -1;
+
+  for (let i = 0; i < rawText.length; i++) {
+    const ch = rawText[i];
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        segments.push(rawText.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+
+  // Also try to parse a top-level JSON array
+  const arrayMatch = rawText.match(/^\s*(\[[\s\S]*\])\s*$/);
+  if (arrayMatch) {
+    try {
+      const arr = JSON.parse(arrayMatch[1]);
+      if (Array.isArray(arr)) arr.forEach(obj => segments.push(JSON.stringify(obj)));
+    } catch (_) { /* ignore */ }
+  }
+
+  for (const seg of segments) {
+    let obj;
+    try { obj = JSON.parse(seg); } catch (_) { continue; }
+
+    // Must look like a question object
+    const qText = obj.question || obj.q || obj.Question || obj.Q || '';
+    if (!qText || typeof qText !== 'string') continue;
+
+    const rawOptions = obj.options || obj.Options || obj.choices || obj.Choices || [];
+    if (!Array.isArray(rawOptions) || rawOptions.length < 2) continue;
+
+    const answerRaw = (obj.answer || obj.Answer || obj.correct || obj.Correct || '').toString().trim();
+    const explanation = (obj.explanation || obj.Explanation || obj.rationale || obj.Rationale || '').toString().trim();
+
+    // Normalise options — strip leading letter prefix if present
+    const parsedOpts = rawOptions.map((o, idx) => {
+      const str = (typeof o === 'string' ? o : JSON.stringify(o)).trim();
+      const prefixMatch = str.match(/^([A-Ea-e])[\.\)\-:]\s*/);
+      if (prefixMatch) {
+        return { letter: prefixMatch[1].toUpperCase(), text: str.slice(prefixMatch[0].length).trim() };
+      }
+      return { letter: optLetters[idx] || String.fromCharCode(65 + idx), text: str };
+    });
+
+    // Sort A→E
+    parsedOpts.sort((a, b) => optLetters.indexOf(a.letter) - optLetters.indexOf(b.letter));
+
+    // Resolve correct answer
+    const answerLetter = answerRaw.match(/^([A-Ea-e])\b/i)?.[1]?.toUpperCase() || null;
+    const correctIdx = answerLetter !== null
+      ? parsedOpts.findIndex(o => o.letter === answerLetter)
+      : -1;
+
+    questions.push({
+      _fromJson: true,
+      question:     qText.trim(),
+      options:      parsedOpts.map(o => o.text),
+      correctIndex: correctIdx >= 0 ? correctIdx : 0,
+      explanation,
+      imageUrl:     '',
+      explanationImageUrl: '',
+      _hasAnswer:   correctIdx >= 0,
+      _sortedLetters: parsedOpts.map(o => o.letter),
+    });
+  }
+
+  return questions;
+}
+
+// ── FORMAT H: Markdown Separator Block Pre-processor ─────────────────
+//
+// Splits text on "---" separators and parses each block independently
+// when the block does NOT start with a numbered question line.
+// Numbered blocks are left for the main line-by-line parser.
+
+function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
+  const optLetters = ['A', 'B', 'C', 'D', 'E'];
+  const questions  = [];
+  let seqCounter   = startSeq - 1;
+
+  // Split on markdown horizontal rules (---, ***, ___ on their own line)
+  const blocks = rawText.split(/^[\-\*\_]{3,}\s*$/m).map(b => b.trim()).filter(Boolean);
+
+  for (const block of blocks) {
+    // Skip blocks that start with a question number — handled by main parser
+    if (/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s])/.test(block)) continue;
+    // Skip pure JSON blocks — handled by parseJsonBlocks
+    if (/^\s*\{/.test(block)) continue;
+
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+
+    seqCounter++;
+
+    let questionLines = [];
+    let optionMap     = {};  // letter → text
+    let answerLetter  = null;
+    let explanationLines = [];
+    let inExplanation = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Answer line
+      if (/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(line)) {
+        const cleaned = line.replace(/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i, '').trim();
+        const m = cleaned.match(/^([A-Ea-e])\b/i);
+        if (m) answerLetter = m[1].toUpperCase();
+        inExplanation = false;
+        continue;
+      }
+
+      // Explanation line
+      if (/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line)) {
+        const rest = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
+        if (rest) explanationLines.push(rest);
+        inExplanation = true;
+        continue;
+      }
+
+      if (inExplanation) {
+        explanationLines.push(line);
+        continue;
+      }
+
+      // Single option line: "A. text" or "A) text"
+      const singleOpt = line.match(/^([A-Ea-e])[\.\)\-:]\s+(.+)$/i);
+      if (singleOpt) {
+        const letter = singleOpt[1].toUpperCase();
+        const text   = singleOpt[2].trim();
+        if (!optionMap[letter]) optionMap[letter] = text;
+        continue;
+      }
+
+      // Inline options on one line: "A. Opt1  B. Opt2  C. Opt3  D. Opt4"
+      // Only attempt if we see two or more letter-dot patterns
+      const inlineCount = (line.match(/\b[A-Da-d][\.\)]\s+/g) || []).length;
+      if (inlineCount >= 2) {
+        const inlineRe = /\b([A-Da-d])[\.\)]\s+(.*?)(?=\s+[A-Da-d][\.\)]|$)/gi;
+        let im;
+        while ((im = inlineRe.exec(line)) !== null) {
+          const letter = im[1].toUpperCase();
+          const text   = im[2].trim();
+          if (text && !optionMap[letter]) optionMap[letter] = text;
+        }
+        // If we successfully extracted options, skip adding to question
+        if (Object.keys(optionMap).length >= 2) continue;
+      }
+
+      // Otherwise this is question text
+      if (Object.keys(optionMap).length === 0) {
+        questionLines.push(line);
+      }
+    }
+
+    const questionText = questionLines.join(' ').trim();
+    if (!questionText || Object.keys(optionMap).length < 2) continue;
+
+    // Sort options A→E
+    const sortedOpts = Object.entries(optionMap)
+      .sort((a, b) => optLetters.indexOf(a[0]) - optLetters.indexOf(b[0]));
+
+    const correctIdx = answerLetter !== null
+      ? sortedOpts.findIndex(([letter]) => letter === answerLetter)
+      : -1;
+
+    questions.push({
+      _fromSeparatorBlock: true,
+      _seq:    seqCounter,
+      _qNumber: seqCounter,
+      question:     questionText,
+      options:      sortedOpts.map(([, text]) => text),
+      correctIndex: correctIdx >= 0 ? correctIdx : 0,
+      explanation:  explanationLines.join(' ').trim(),
+      imageUrl:     '',
+      explanationImageUrl: '',
+      _hasAnswer:   correctIdx >= 0,
+      _sortedLetters: sortedOpts.map(([letter]) => letter),
+    });
+  }
+
+  return questions;
+}
+
 // ── Main Parser ───────────────────────────────────────────────────────
 
 export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const answerKey    = parseAnswerKey(answerKeyText);
   const rationaleMap = parseRationaleKey(answerKeyText);
-  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // ── Pre-pass 1: Extract JSON blocks (Format G) ──────────────────────
+  // Remove JSON objects from rawText so they don't confuse the line parser.
+  let cleanedText = rawText;
+  const jsonQuestions = parseJsonBlocks(rawText);
+
+  if (jsonQuestions.length > 0) {
+    // Strip JSON segments from the text fed to the line parser
+    // Using the same balanced-brace scanner
+    let depth = 0;
+    let start = -1;
+    let stripped = '';
+    let lastEnd = 0;
+    for (let i = 0; i < rawText.length; i++) {
+      const ch = rawText[i];
+      if (ch === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          // Check if the object looks like a question object (has "q" or "question" key)
+          const seg = rawText.slice(start, i + 1);
+          let isQ = false;
+          try {
+            const obj = JSON.parse(seg);
+            if (obj && (obj.q || obj.question || obj.Question || obj.Q)) isQ = true;
+          } catch (_) {}
+          if (isQ) {
+            stripped += rawText.slice(lastEnd, start);
+            lastEnd = i + 1;
+          }
+          start = -1;
+        }
+      }
+    }
+    stripped += rawText.slice(lastEnd);
+    cleanedText = stripped;
+  }
+
+  // ── Pre-pass 2: Extract --- separator blocks (Format H) ─────────────
+  // Only extract blocks that don't begin with a numbered question.
+  const separatorQuestions = parseMarkdownSeparatorBlocks(cleanedText);
+
+  // Remove separator-block content from cleanedText if blocks were found
+  if (separatorQuestions.length > 0) {
+    // Strip non-numbered blocks between --- markers so line parser ignores them
+    cleanedText = cleanedText.replace(
+      /(^|\n)[\-\*\_]{3,}\s*\n([\s\S]*?)(?=([\-\*\_]{3,}|\d+[\.\)]\s|\Z))/gm,
+      (match, prefix, body) => {
+        // Keep numbered blocks intact
+        if (/^\d+[\.\)]\s/.test(body.trim())) return match;
+        return prefix + '\n';
+      }
+    );
+  }
+
+  // ── Line-by-line parser (Formats A–F) ───────────────────────────────
+  const lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
   const questions = [];
   let current = null;
-
-  // ── FIX: Use a monotonically-increasing sequential counter instead of
-  // relying on the label number in the text.  This means duplicate question
-  // numbers (e.g. multiple questions labelled "84" in the source file) are
-  // treated as distinct questions and none are silently dropped.
-  // _qNumber still stores the *label* number for answer-key look-up; the
-  // deduplication guard has been removed from saveQuestion() so every parsed
-  // block is kept.
   let seqCounter = 0;
 
   const optLetters = ['A', 'B', 'C', 'D', 'E'];
@@ -236,15 +517,21 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     return null;
   };
 
+  // ── Format F detection helper ────────────────────────────────────────
+  // Detects a line that contains ONLY a letter+dot option prefix followed
+  // by a long prose body (no trailing letter-dot patterns) — characteristic
+  // of Format F where each option is on its own full line.
+  const isProseParagraphOption = (line) => {
+    return /^[A-Ea-e][\.\)]\s+.{10,}$/i.test(line) && !extractDoubleOptions(line);
+  };
+
   const saveQuestion = () => {
     if (!current) return;
     if (current.question && current.options.length >= 2) {
-      // Always sort options into A→B→C→D order so array index == letter index.
       const sortedOpts = [...current.options].sort(
         (a, b) => optLetters.indexOf(a.letter) - optLetters.indexOf(b.letter)
       );
 
-      // Resolve correct answer — inline answer in text takes priority
       let correctLetter = null;
       if (current.answerLetter) {
         correctLetter = current.answerLetter;
@@ -263,8 +550,8 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
         explanation:    current.explanation || '',
         imageUrl:       current.imageUrl || '',
         explanationImageUrl: current.explanationImageUrl || '',
-        _seq:           current.seq,        // stable sequential position (1-based)
-        _qNumber:       current.qNumber,    // label number from the source text
+        _seq:           current.seq,
+        _qNumber:       current.qNumber,
         _hasAnswer:     correctIdx >= 0,
         _sortedLetters: sortedOpts.map(o => o.letter),
       });
@@ -274,19 +561,19 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // Skip markdown separator lines (--- / *** / ___)
+    if (/^[\-\*\_]{3,}\s*$/.test(line)) continue;
+
     if (isQuestionLine(line)) {
       saveQuestion();
-      seqCounter++;                                          // always increment
+      seqCounter++;
       const labelNum = getQuestionNumber(line) || seqCounter;
 
-      // Strip question number prefix
       let qText = line.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
 
-      // Extract image tag from question line
       const qImg = extractImageTag(qText);
       qText = qImg.text;
 
-      // Check if options are inline on same line
       const inlineOpts = extractInlineOptions(qText);
       if (inlineOpts && inlineOpts.length >= 2) {
         const firstOptPos = qText.search(/\b[A-D]\.\s/);
@@ -321,6 +608,34 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       }
     }
 
+    // ── Format F: prose paragraph options ─────────────────────────────
+    // A single option may span multiple lines. We collect continuation
+    // lines (not starting with another option/answer/explanation) as part
+    // of the same option body.
+    if (isProseParagraphOption(line) && !isAnswerLine(line) && !isExplanationLine(line)) {
+      const letter = extractOptionLetter(line);
+      let text     = extractOptionText(line);
+
+      // Collect continuation lines for this option (Format F multi-line body)
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1];
+        if (
+          isQuestionLine(next) ||
+          isOptionLine(next) ||
+          isAnswerLine(next) ||
+          isExplanationLine(next) ||
+          /^[\-\*\_]{3,}\s*$/.test(next)
+        ) break;
+        text += ' ' + next;
+        i++;
+      }
+
+      if (letter && text && !current.options.find(o => o.letter === letter)) {
+        current.options.push({ letter, text: text.trim() });
+      }
+      continue;
+    }
+
     // Single option line
     if (isOptionLine(line)) {
       const letter = extractOptionLetter(line);
@@ -342,7 +657,7 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       let explText = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
       while (i + 1 < lines.length) {
         const next = lines[i + 1];
-        if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
+        if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next) || /^[\-\*\_]{3,}/.test(next)) break;
         explText += ' ' + next;
         i++;
       }
@@ -360,33 +675,40 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
   saveQuestion();
 
-  // Sort by sequential position (not label number) to preserve original order
-  // even when label numbers repeat or are out of order.
-  questions.sort((a, b) => (a._seq || 0) - (b._seq || 0));
+  // ── Merge all sources ────────────────────────────────────────────────
+  // Assign sequential positions to JSON and separator-block questions
+  // so they sort correctly relative to line-parser questions.
+  let mergedSeq = questions.length;
+  jsonQuestions.forEach(q => {
+    mergedSeq++;
+    q._seq = mergedSeq;
+    q._qNumber = mergedSeq;
+  });
+  separatorQuestions.forEach(q => {
+    mergedSeq++;
+    q._seq = mergedSeq;
+    q._qNumber = mergedSeq;
+  });
 
-  // Apply separate answer key.
-  // Strategy:
-  //   1. Try strict label-number match (answerKey[labelNum] → question with _qNumber === labelNum).
-  //   2. Positional fallback: answer-key position i → questions[i].
-  //      This is the most robust when numbering is non-unique.
+  const allQuestions = [...questions, ...jsonQuestions, ...separatorQuestions];
+
+  // Sort by sequential position
+  allQuestions.sort((a, b) => (a._seq || 0) - (b._seq || 0));
+
+  // ── Apply separate answer key ────────────────────────────────────────
   if (Object.keys(answerKey).length > 0) {
-    // Build a positionally-ordered array of answer letters from the key
     const positionalAnswers = Object.entries(answerKey)
       .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
       .map(([, letter]) => letter);
 
-    questions.forEach((q, posIdx) => {
-      // Apply rationale from answer key when question has no inline explanation
+    allQuestions.forEach((q, posIdx) => {
       if (!q.explanation && rationaleMap[q._qNumber]) {
         q.explanation = rationaleMap[q._qNumber];
       }
 
-      if (q._hasAnswer) return; // inline answer already resolved — keep it
+      if (q._hasAnswer) return;
 
-      // 1. Try strict label-number match
       let letter = answerKey[q._qNumber];
-
-      // 2. Positional fallback
       if (letter === undefined && posIdx < positionalAnswers.length) {
         letter = positionalAnswers[posIdx];
       }
@@ -402,10 +724,10 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       }
     });
   } else {
-    questions.forEach(q => { if (q.correctIndex < 0) q.correctIndex = 0; });
+    allQuestions.forEach(q => { if (q.correctIndex < 0) q.correctIndex = 0; });
   }
 
-  return questions;
+  return allQuestions;
 }
 
 export function validateQuestion(q) {
