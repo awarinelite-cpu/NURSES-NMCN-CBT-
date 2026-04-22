@@ -26,7 +26,6 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
   return (
     <div style={M.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={M.modal}>
-        {/* Header */}
         <div style={M.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>▶️</span>
@@ -40,13 +39,12 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
           <button onClick={onClose} style={M.closeBtn}>✕</button>
         </div>
 
-        {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}>
           {paused.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
               <div style={{ fontWeight: 700 }}>No paused exams</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>Exit an exam using "Exit & Save" to continue it later.</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>Exit an exam using "Exit &amp; Save" to continue it later.</div>
             </div>
           ) : paused.map(p => {
             const progress = p.totalQuestions > 0
@@ -64,16 +62,11 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
 
             return (
               <div key={p.id} style={M.card}>
-                {/* Left accent */}
                 <div style={{ ...M.cardAccent, background: 'var(--teal)' }} />
-
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Title */}
                   <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.3 }}>
                     {p.examName || 'Untitled Exam'}
                   </div>
-
-                  {/* Tags row */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                     <span style={M.tag}>{examTypeLabel(p.examType)}</span>
                     {p.courseLabel && (
@@ -87,8 +80,6 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
                       </span>
                     )}
                   </div>
-
-                  {/* Progress bar */}
                   <div style={{ marginBottom: 6 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -103,27 +94,13 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
                       }} />
                     </div>
                   </div>
-
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     💾 Saved {dateStr}{timeStr ? ` · ${timeStr}` : ''}
                   </div>
                 </div>
-
-                {/* Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                  <button
-                    onClick={() => onResume(p)}
-                    style={M.resumeBtn}
-                  >
-                    ▶ Resume
-                  </button>
-                  <button
-                    onClick={() => onDelete(p.id)}
-                    style={M.deleteBtn}
-                    title="Discard this paused exam"
-                  >
-                    🗑 Discard
-                  </button>
+                  <button onClick={() => onResume(p)} style={M.resumeBtn}>▶ Resume</button>
+                  <button onClick={() => onDelete(p.id)} style={M.deleteBtn}>🗑 Discard</button>
                 </div>
               </div>
             );
@@ -134,13 +111,11 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
   );
 }
 
-// ── Modal styles ──────────────────────────────────────────────────────────────
 const M = {
   overlay: {
     position: 'fixed', inset: 0, zIndex: 1000,
     background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: 16,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
   },
   modal: {
     background: 'var(--bg-card)', border: '1.5px solid var(--border)',
@@ -198,25 +173,34 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (!user) return;
+
     const loadData = async () => {
+      // ── Query 1: Recent exam sessions ──────────────────────────────────────
+      // Isolated in its own try/catch so a Firestore index error here
+      // does NOT prevent the rest of the dashboard from rendering.
       try {
-        const [sessSnap, pausedSnap] = await Promise.all([
-          getDocs(query(
-            collection(db, 'examSessions'),
-            where('userId', '==', user.uid),
-            orderBy('completedAt', 'desc'),
-            limit(5),
-          )),
-          getDocs(query(
-            collection(db, 'pausedExams'),
-            where('userId', '==', user.uid),
-          )),
-        ]);
-
+        const sessSnap = await getDocs(query(
+          collection(db, 'examSessions'),
+          where('userId', '==', user.uid),
+          orderBy('completedAt', 'desc'),
+          limit(5),
+        ));
         setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.warn('examSessions load failed (non-fatal):', e.message);
+        // Dashboard still renders — Recent Exams section just stays hidden
+      }
 
-        // Sort paused by savedAt newest first (client-side — no composite index)
+      // ── Query 2: Paused exams ──────────────────────────────────────────────
+      // Isolated in its own try/catch — collection won't exist until the first
+      // "Exit & Save" is triggered, so failure here is completely expected.
+      try {
+        const pausedSnap = await getDocs(query(
+          collection(db, 'pausedExams'),
+          where('userId', '==', user.uid),
+        ));
         const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort newest-first client-side (no composite index needed)
         paused.sort((a, b) => {
           const ta = a.savedAt?.toDate?.()?.getTime?.() || 0;
           const tb = b.savedAt?.toDate?.()?.getTime?.() || 0;
@@ -224,15 +208,17 @@ export default function StudentDashboard() {
         });
         setPausedExams(paused);
       } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+        console.warn('pausedExams load failed (non-fatal):', e.message);
+        // Fine — no paused exams to show yet
       }
+
+      setLoading(false);
     };
+
     loadData();
   }, [user]);
 
-  // Resume a paused exam — navigate to ExamSession with resumeMode state
+  // Resume a paused exam
   const handleResume = useCallback((paused) => {
     setShowModal(false);
     navigate('/exam/session', {
@@ -250,7 +236,6 @@ export default function StudentDashboard() {
         count:          paused.totalQuestions,
         doShuffle:      false,
         timeLimit:      paused.timeLimit  || 0,
-        // Pass saved state so ExamSession can restore it
         resumeData: {
           questionIds:     paused.questionIds,
           answers:         paused.answers,
@@ -310,11 +295,9 @@ export default function StudentDashboard() {
           </p>
         </div>
 
-        {/* Banner buttons */}
         <div style={styles.bannerActions}>
           <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
 
-          {/* Continue button — only shown if there are paused exams */}
           <button
             onClick={() => setShowModal(true)}
             style={{
@@ -376,7 +359,7 @@ export default function StudentDashboard() {
         })}
       </div>
 
-      {/* Paused exams inline banner (if any) */}
+      {/* Paused exams inline banner */}
       {pausedExams.length > 0 && (
         <div
           onClick={() => setShowModal(true)}
@@ -384,7 +367,7 @@ export default function StudentDashboard() {
             display: 'flex', alignItems: 'center', gap: 14,
             background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
             borderRadius: 14, padding: '14px 18px', marginBottom: 24,
-            cursor: 'pointer', transition: 'border-color 0.2s',
+            cursor: 'pointer',
           }}
         >
           <div style={{
@@ -408,43 +391,36 @@ export default function StudentDashboard() {
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ ...styles.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
         <div style={styles.quickGrid}>
-
           <Link to="/daily-practice" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>⚡</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Daily Practice</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take daily exam</span>
           </Link>
-
           <Link to="/course-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Course Drill</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by courses</span>
           </Link>
-
           <Link to="/topic-drill" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🎯</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Topic Drill</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by topics</span>
           </Link>
-
           <Link to="/mock-exams" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📋</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Mock Exams</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study daily Hospital Final exam</span>
           </Link>
-
           <Link to="/past-questions" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>📜</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Past Questions</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study NMCN past questions</span>
           </Link>
-
           <Link to="/bookmarks" style={styles.quickCard}>
             <span style={{ fontSize: 28 }}>🔖</span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Bookmarks</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Review your Bookmarked questions</span>
           </Link>
-
         </div>
       </div>
 
@@ -460,9 +436,7 @@ export default function StudentDashboard() {
                 {cat.icon}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                  {cat.shortLabel}
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{cat.shortLabel}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                   {cat.examType === 'basic' ? 'Basic RN' : 'Post Basic'}
                 </div>
@@ -482,9 +456,7 @@ export default function StudentDashboard() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th>
-                </tr>
+                <tr><th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th></tr>
               </thead>
               <tbody>
                 {recentSessions.map(s => {
