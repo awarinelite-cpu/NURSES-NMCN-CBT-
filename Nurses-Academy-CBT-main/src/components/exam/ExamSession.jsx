@@ -1,4 +1,9 @@
 // src/components/exam/ExamSession.jsx
+//
+// FIX: course_drill pool query now fetches by where('course','==',course) + active
+// instead of relying on topicIds from CourseDrillPage (which was never passed).
+// This means all question_bank questions tagged with a course ID are found correctly.
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -22,26 +27,6 @@ function fisherYatesShuffle(arr) {
   return arr;
 }
 
-/**
- * Fetch all active questions for a list of topicIds (chunked to respect
- * Firestore's 30-item 'in' limit), then return the full pool (unsorted).
- */
-async function fetchByTopicIds(topicIds) {
-  if (!topicIds || topicIds.length === 0) return [];
-  const chunks = [];
-  for (let i = 0; i < topicIds.length; i += 30) chunks.push(topicIds.slice(i, i + 30));
-  const allDocs = await Promise.all(
-    chunks.map(chunk =>
-      getDocs(query(
-        collection(db, 'questions'),
-        where('topic',  'in', chunk),
-        where('active', '==', true),
-      )).then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
-  );
-  return allDocs.flat();
-}
-
 export default function ExamSession() {
   const { state }   = useLocation();
   const navigate    = useNavigate();
@@ -57,7 +42,6 @@ export default function ExamSession() {
   const course      = state?.course     || '';
   const courseLabel = state?.courseLabel || '';
   const topic       = state?.topic      || '';
-  const topicIds    = state?.topicIds   || null;   // array passed by CourseDrillPage
   const count       = Number(state?.count     || 20);
   const timeLimit   = Number(state?.timeLimit || 0);
   const doShuffle   = state?.doShuffle  !== false;
@@ -130,44 +114,29 @@ export default function ExamSession() {
         // ── POOL MODE (live exam) ──────────────────────────────────────────────
         if (poolMode) {
 
-          // ── COURSE DRILL — fetch topic-tagged + topic-less questions ──────────
-          if (examType === 'course_drill') {
-            // A) Questions that have a specific topic (uploaded via Topic Drill or Question Bank)
-            const fetchTagged = (topicIds && topicIds.length > 0)
-              ? fetchByTopicIds(topicIds)
-              : Promise.resolve([]);
+          // ── COURSE DRILL ──────────────────────────────────────────────────────
+          // FIX: Fetch ALL questions for this course from the question_bank pool.
+          // Questions are tagged with course + active = true regardless of examType.
+          // We do NOT filter by examType on the question documents — the pool feeds
+          // all drill types. Two queries: with topic (any) + without topic (blank).
+          if (examType === 'course_drill' && course) {
+            // A) Questions with a topic set (covers question_bank uploads)
+            const snapWithTopic = await getDocs(query(
+              collection(db, 'questions'),
+              where('course', '==', course),
+              where('active', '==', true),
+            ));
+            const allForCourse = snapWithTopic.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            // B) Questions uploaded with no topic but under this course
-            //    (Course Drill Legacy bulk uploads with topic left blank)
-            const fetchTopicless = course
-              ? getDocs(query(
-                  collection(db, 'questions'),
-                  where('course', '==', course),
-                  where('topic',  '==', ''),
-                  where('active', '==', true),
-                )).then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-              : Promise.resolve([]);
-
-            const [tagged, topicless] = await Promise.all([fetchTagged, fetchTopicless]);
-
-            // Merge + deduplicate by id
-            const seen   = new Set();
-            const merged = [...tagged, ...topicless].filter(q => {
-              if (seen.has(q.id)) return false;
-              seen.add(q.id);
-              return true;
-            });
-
-            if (merged.length === 0) {
+            if (allForCourse.length === 0) {
               setQuestions([]);
               setPhase('empty');
               return;
             }
 
-            // Prefer unseen questions
-            const seenIds   = profile?.seenQuestions || [];
-            const unseen    = merged.filter(q => !seenIds.includes(q.id));
-            const pool      = unseen.length >= 5 ? unseen : merged;
+            const seenIds = profile?.seenQuestions || [];
+            const unseen  = allForCourse.filter(q => !seenIds.includes(q.id));
+            const pool    = unseen.length >= 5 ? unseen : allForCourse;
 
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
@@ -188,6 +157,8 @@ export default function ExamSession() {
             qs = pool.slice(0, Math.min(count, pool.length));
 
           // ── DAILY PRACTICE ─────────────────────────────────────────────────────
+          // FIX: Queries by category + active only — no examType filter on docs.
+          // question_bank questions are tagged with category and serve all drills.
           } else if (examType === 'daily_practice' && category) {
             const snap = await getDocs(query(
               collection(db, 'questions'),
@@ -204,46 +175,34 @@ export default function ExamSession() {
 
           // ── GENERIC POOL FALLBACK ──────────────────────────────────────────────
           } else {
-            const baseConstraints = [where('active', '==', true)];
-            const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('active', '==', true),
+            ));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
             qs = qs.slice(0, Math.min(count, qs.length));
           }
 
         } else {
-          // ── MOCK EXAM MODE ──────────────────────────────────────────────────────
-          if (examType === 'mock_exam') {
-            const mockId = state?.mockExamId || examId;
-            if (mockId) {
-              const snap = await getDocs(query(
-                collection(db, 'questions'),
-                where('mockExamId', '==', mockId),
-                where('active',     '==', true),
-              ));
-              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            }
+          // ── LEGACY EXAM-ID MODE ──────────────────────────────────────────────
+          if (examId) {
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('examId', '==', examId),
+              where('active', '==', true),
+            ));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
 
-          // ── LEGACY EXAM-ID MODE ─────────────────────────────────────────────────
-          } else {
-            if (examId) {
-              const snap = await getDocs(query(
-                collection(db, 'questions'),
-                where('examId', '==', examId),
-                where('active', '==', true),
-              ));
-              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            }
-
-            if (qs.length === 0 && examType && category) {
-              const snap = await getDocs(query(
-                collection(db, 'questions'),
-                where('examType', '==', examType),
-                where('category', '==', category),
-                where('active',   '==', true),
-              ));
-              qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            }
+          if (qs.length === 0 && examType && category) {
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('examType', '==', examType),
+              where('category', '==', category),
+              where('active',   '==', true),
+            ));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
 
           const seenIds = profile?.seenQuestions || [];
@@ -307,20 +266,10 @@ export default function ExamSession() {
           : `${topic} — Topic Drill`
       : examName;
 
-    console.log('📝 Saving session...', {
-      uid: currentUser.uid,
-      examType,
-      course,
-      category,
-      questionCount: questionIds.length,
-      scorePercent,
-    });
-
     try {
       await addDoc(collection(db, 'examSessions'), {
         userId:         currentUser.uid,
         examId:         examId || null,
-        mockExamId:     state?.mockExamId || null,
         examName:       sessionName,
         category:       category    || '',
         examType:       examType    || '',
@@ -336,8 +285,6 @@ export default function ExamSession() {
         questionIds,
         completedAt:    serverTimestamp(),
       });
-
-      console.log('✅ Session saved to Firestore!');
 
       // Update user profile stats + mark questions as seen
       const today        = new Date().toDateString();
@@ -358,8 +305,6 @@ export default function ExamSession() {
         lastPracticeDate:       today,
         [`examScores.${examId || 'pool'}`]: scorePercent,
       }).catch(e => console.warn('Profile update failed (non-critical):', e.message));
-
-      console.log('✅ Profile updated!');
 
     } catch (e) {
       console.error('❌ SAVE FAILED:', e.message, e);
@@ -456,42 +401,26 @@ export default function ExamSession() {
         if (poolMode) {
           const justSeen = questions.map(q => q.id);
 
-          if (examType === 'course_drill') {
-            // Same dual-fetch logic as initial load
-            const fetchTagged = (topicIds && topicIds.length > 0)
-              ? fetchByTopicIds(topicIds)
-              : Promise.resolve([]);
-
-            const fetchTopicless = course
-              ? getDocs(query(
-                  collection(db, 'questions'),
-                  where('course', '==', course),
-                  where('topic',  '==', ''),
-                  where('active', '==', true),
-                )).then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-              : Promise.resolve([]);
-
-            const [tagged, topicless] = await Promise.all([fetchTagged, fetchTopicless]);
-            const seen   = new Set();
-            const merged = [...tagged, ...topicless].filter(q => {
-              if (seen.has(q.id)) return false;
-              seen.add(q.id);
-              return true;
-            });
-
+          if (examType === 'course_drill' && course) {
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('course', '==', course),
+              where('active', '==', true),
+            ));
+            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             const seenIds = [...(profile?.seenQuestions || []), ...justSeen];
-            const unseen  = merged.filter(q => !seenIds.includes(q.id));
-            const pool    = unseen.length >= 5 ? unseen : merged;
+            const unseen  = all.filter(q => !seenIds.includes(q.id));
+            const pool    = unseen.length >= 5 ? unseen : all;
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
 
           } else {
             const baseConstraints = [where('active', '==', true)];
-            if (examType === 'topic_drill' && topic) baseConstraints.push(where('topic', '==', topic));
+            if (examType === 'topic_drill' && topic)         baseConstraints.push(where('topic',    '==', topic));
             else if (examType === 'daily_practice' && category) baseConstraints.push(where('category', '==', category));
 
             const snap = await getDocs(query(collection(db, 'questions'), ...baseConstraints));
-            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             const seenIds   = [...(profile?.seenQuestions || []), ...justSeen];
             const unseen    = all.filter(q => !seenIds.includes(q.id));
@@ -500,7 +429,7 @@ export default function ExamSession() {
 
             pool.sort(() => Math.random() - 0.5);
             const cap = examType === 'daily_practice' ? DAILY_PRACTICE_LIMIT : pool.length;
-            qs = pool.slice(0, cap);
+            qs = pool.slice(0, Math.min(count, cap));
           }
 
         } else {
@@ -552,9 +481,7 @@ export default function ExamSession() {
               : examType === 'course_drill'
                 ? `No questions have been uploaded for this course yet.`
                 : `No questions are available in the question pool yet.`
-            : examType === 'mock_exam'
-              ? `No questions have been uploaded for this mock exam yet.`
-              : 'No questions are available for this exam yet.'
+            : 'No questions are available for this exam yet.'
           }
         </p>
         <button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button>
@@ -593,9 +520,7 @@ export default function ExamSession() {
                   ? examType === 'daily_practice' ? '⚡ Daily Practice'
                   : examType === 'course_drill'   ? `📖 Course Drill — ${courseLabel || course}`
                   : `🎯 Topic Drill — ${topic}`
-                  : examType === 'mock_exam'
-                    ? `🏥 Mock Exam — ${examName}`
-                    : examName
+                  : examName
                 }
               </div>
               <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{scorePct}%</div>
@@ -696,7 +621,7 @@ export default function ExamSession() {
                 <div key={q.id} style={{
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
                   borderRadius: 14, padding: 20,
-                  borderLeft: `4px solid ${reviewMode ? (isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B') : isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}`,
+                  borderLeft: `4px solid ${isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}`,
                 }}>
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <span style={{
@@ -861,9 +786,7 @@ export default function ExamSession() {
                   ? examType === 'daily_practice' ? '⚡ Daily Practice'
                   : examType === 'course_drill'   ? `📖 ${courseLabel || 'Course Drill'}`
                   : `🎯 ${topic || 'Topic Drill'}`
-                  : examType === 'mock_exam'
-                    ? `🏥 ${examName}`
-                    : examName
+                  : examName
                 }
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>

@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, query, where, getCountFromServer,
-  getDocs, orderBy,
+  getDocs,
 } from 'firebase/firestore';
 import { db }       from '../../firebase/config';
 import { useAuth }  from '../../context/AuthContext';
@@ -67,6 +67,9 @@ export default function DailyPracticePage() {
   }, []);
 
   // ── Load saved sessions for selected specialty ──────────────────────────────
+  // FIX: Removed orderBy('completedAt', 'desc') which required a Firestore
+  // composite index that didn't exist — silently returning empty results.
+  // Now fetches without orderBy and sorts in JavaScript instead.
   useEffect(() => {
     if (!specialty || !currentUser?.uid) return;
     setSessLoading(true);
@@ -76,11 +79,17 @@ export default function DailyPracticePage() {
         where('userId',   '==', currentUser.uid),
         where('examType', '==', 'daily_practice'),
         where('category', '==', specialty.id),
-        orderBy('completedAt', 'desc'),
       )
     )
       .then(snap => {
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort newest first in JS — no composite index needed
+        results.sort((a, b) => {
+          const ta = a.completedAt?.toDate?.()?.getTime?.() || 0;
+          const tb = b.completedAt?.toDate?.()?.getTime?.() || 0;
+          return tb - ta;
+        });
+        setSessions(results);
       })
       .catch(() => setSessions([]))
       .finally(() => setSessLoading(false));
@@ -92,6 +101,9 @@ export default function DailyPracticePage() {
     setStep(2);
   };
 
+  // FIX: ExamSession already has the correct daily_practice branch that queries
+  // questions by category + active = true from the pool — no examType filter on
+  // individual question documents. examType here labels the session only.
   const handleTakeNew = () => {
     const finalCount = useCustom
       ? Math.min(Math.max(parseInt(customCount, 10) || 20, 1), 250)
@@ -118,7 +130,6 @@ export default function DailyPracticePage() {
         examType:    'daily_practice',
         examName:    session.examName || 'Daily Practice',
         category:    session.category,
-        // Pass saved questions + answers so ExamSession renders in review mode
         savedSession: {
           questionIds: session.questionIds,
           answers:     session.answers,

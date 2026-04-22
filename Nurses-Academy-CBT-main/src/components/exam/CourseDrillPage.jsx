@@ -56,6 +56,7 @@ export default function CourseDrillPage() {
   }, []);
 
   // ── Load question counts per course when specialty chosen ───────────────────
+  // FIX: Query questions collection directly (question_bank pool) instead of exams
   useEffect(() => {
     if (!specialty) return;
     const inSpec = courses.filter(c => c.category === specialty.id && c.active !== false);
@@ -65,7 +66,11 @@ export default function CourseDrillPage() {
       inSpec.map(async c => {
         try {
           const snap = await getCountFromServer(
-            query(collection(db, 'questions'), where('course', '==', c.id), where('active', '==', true))
+            query(
+              collection(db, 'questions'),
+              where('course', '==', c.id),
+              where('active', '==', true),
+            )
           );
           return [c.id, snap.data().count];
         } catch {
@@ -82,9 +87,8 @@ export default function CourseDrillPage() {
   }, [specialty, courses]);
 
   // ── Load saved sessions for selected course ─────────────────────────────────
-  // FIX: Removed orderBy('completedAt', 'desc') which required a Firestore composite
-  // index that didn't exist — causing the query to silently fail and return empty.
-  // Now we fetch without orderBy and sort the results in JavaScript instead.
+  // FIX: Removed orderBy('completedAt', 'desc') — sorts in JS instead to avoid
+  // requiring a Firestore composite index that silently breaks the query.
   useEffect(() => {
     if (!selCourse || !currentUser?.uid) return;
     setSessLoading(true);
@@ -133,6 +137,10 @@ export default function CourseDrillPage() {
     setUseCustom(false);
   };
 
+  // FIX: ExamSession fetches questions by course + active = true from the
+  // question_bank pool. examType is still saved as 'course_drill' for session
+  // history, but the load path in ExamSession uses 'course_drill' + course filter
+  // which queries the questions collection directly — no examType filter on docs.
   const handleTakeNew = () => {
     navigate('/exam/session', {
       state: {
