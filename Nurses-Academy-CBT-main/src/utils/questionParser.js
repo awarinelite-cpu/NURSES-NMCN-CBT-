@@ -272,6 +272,34 @@ function parseJsonBlocks(rawText) {
 // Splits text on "---" separators and parses each block independently
 // when the block does NOT start with a numbered question line.
 // Numbered blocks are left for the main line-by-line parser.
+//
+// KEY FIX: options on a single line like
+//   "A. Long text with periods. B. Another long option C. Short D. Short"
+// are split by scanning for (?:^|\s)X. positions rather than a lookahead
+// regex, because lookaheads break when option bodies contain sentences.
+
+function _splitInlineOptions(line) {
+  // Find every position where a stand-alone "X." occurs (X = A-E).
+  // "Stand-alone" means the letter is at the start of the string or
+  // preceded by whitespace — this prevents matching mid-word periods.
+  const positions = [];
+  const re = /(?:^|\s)([A-Ea-e])[\.]\s+/g;
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    // m.index points to the space before the letter (or 0 at start)
+    positions.push({
+      letter: m[1].toUpperCase(),
+      index:  m.index === 0 ? 0 : m.index + 1,
+    });
+  }
+  if (positions.length < 2) return null;
+
+  return positions.map((p, i) => {
+    const end  = i + 1 < positions.length ? positions[i + 1].index : line.length;
+    const text = line.slice(p.index, end).trim().replace(/^[A-Ea-e]\.\s*/i, '').trim();
+    return { letter: p.letter, text };
+  });
+}
 
 function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
   const optLetters = ['A', 'B', 'C', 'D', 'E'];
@@ -323,6 +351,15 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
         continue;
       }
 
+      // ── Try inline multi-option split first ───────────────────────────
+      // Handles: "A. Long text B. More text C. Short D. Also short"
+      // even when option bodies contain sentences with periods.
+      const inlineOpts = _splitInlineOptions(line);
+      if (inlineOpts && inlineOpts.length >= 2) {
+        inlineOpts.forEach(o => { if (!optionMap[o.letter]) optionMap[o.letter] = o.text; });
+        continue;
+      }
+
       // Single option line: "A. text" or "A) text"
       const singleOpt = line.match(/^([A-Ea-e])[\.\)\-:]\s+(.+)$/i);
       if (singleOpt) {
@@ -332,22 +369,7 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
         continue;
       }
 
-      // Inline options on one line: "A. Opt1  B. Opt2  C. Opt3  D. Opt4"
-      // Only attempt if we see two or more letter-dot patterns
-      const inlineCount = (line.match(/\b[A-Da-d][\.\)]\s+/g) || []).length;
-      if (inlineCount >= 2) {
-        const inlineRe = /\b([A-Da-d])[\.\)]\s+(.*?)(?=\s+[A-Da-d][\.\)]|$)/gi;
-        let im;
-        while ((im = inlineRe.exec(line)) !== null) {
-          const letter = im[1].toUpperCase();
-          const text   = im[2].trim();
-          if (text && !optionMap[letter]) optionMap[letter] = text;
-        }
-        // If we successfully extracted options, skip adding to question
-        if (Object.keys(optionMap).length >= 2) continue;
-      }
-
-      // Otherwise this is question text
+      // Otherwise this is question text (collected before any options appear)
       if (Object.keys(optionMap).length === 0) {
         questionLines.push(line);
       }
