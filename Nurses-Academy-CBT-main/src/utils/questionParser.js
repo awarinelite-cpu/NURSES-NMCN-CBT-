@@ -26,56 +26,90 @@
 //   A. Sympathy   C. Socialism
 //   B. Criticism  D. Empathy
 //
-// FORMAT F — Python dict / JSON array (NEW):
+// FORMAT F — Python dict / JSON array:
 //   {"q": "Question?", "options": ["A. Opt1", ...], "answer": "B", "explanation": "..."}
-//   Also handles: "question", "correctIndex", "ans", "correct_answer" field names
+//   Handles messy AI-generated Python with syntax errors, duplicate blocks,
+//   print() statements, comments, variable assignments — all ignored.
 //
 // ─────────────────────────────────────────────────────────────────────
 
-// ── Pre-processor: converts Python dict / JSON array / any structured
-//    format into the plain-text format the main parser already handles ──────
+
+// ── Pre-processor ─────────────────────────────────────────────────────
+// Aggressively strips Python boilerplate and extracts only the question
+// data from dict-format blocks, converting to plain text for the main parser.
 
 function preprocessStructuredFormat(rawText) {
   const text = rawText.trim();
 
-  // Detect Python dict / JSON-like array of question objects
-  // Handles both Python dicts (with "q"/"options"/"answer"/"explanation")
-  // and JSON objects (with "question"/"options"/"correctIndex"/"answer")
+  // Quick check: does this look like Python/JSON dict format?
   const hasDictPattern =
     /["\']?\b(q|question)\b["\']?\s*:\s*["\']/.test(text) &&
     /["\']?\boptions\b["\']?\s*:\s*\[/.test(text);
 
-  if (!hasDictPattern) return rawText; // not a structured format — pass through as-is
+  if (!hasDictPattern) return rawText;
 
+  // ── Step 1: Strip Python boilerplate lines ──────────────────────────
+  const cleaned = text.split('\n').filter(line => {
+    const t = line.trim();
+    if (!t) return false;
+    if (t.startsWith('#')) return false;
+    if (/^print\s*\(/.test(t)) return false;
+    if (/^[a-z_]+\s*=\s*[\[\{]/.test(t)) return false;
+    if (/^[a-z_]+\s*\.(extend|append)\s*\(/.test(t)) return false;
+    if (/^ResponseUnit/.test(t)) return false;
+    if (/^Unit\s+(I|II|III|IV|V)\b/.test(t)) return false;
+    return true;
+  }).join('\n');
+
+  // ── Step 2: Extract balanced {...} blocks ───────────────────────────
+  // Tolerates broken/unclosed Python syntax by scanning char-by-char.
+  const blocks = [];
+  let depth = 0;
+  let start = -1;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (cleaned[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        blocks.push(cleaned.slice(start + 1, i));
+        start = -1;
+      }
+    }
+  }
+
+  if (blocks.length === 0) return rawText;
+
+  // ── Step 3: Parse each block ────────────────────────────────────────
   const output = [];
   let qNum = 1;
+  const seen = new Set(); // deduplicate by first 60 chars of question
 
-  // Extract each {...} block (handles one level of nesting)
-  const blockRegex = /\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/gs;
-  let match;
+  for (const block of blocks) {
 
-  while ((match = blockRegex.exec(text)) !== null) {
-    const block = match[1];
-
-    // ── Extract question text ──────────────────────────────────────────
-    // Handles "q": "...", "question": "..."
+    // Extract question text — "q": "..." or "question": "..."
     const qMatch = block.match(
-      /["\']?\b(?:q|question)\b["\']?\s*:\s*(?:f?["\'])([\s\S]*?)(?:["\'])\s*,/
+      /["\']?\b(?:q|question)\b["\']?\s*:\s*(["'])([\s\S]*?)\1\s*,/
     );
     if (!qMatch) continue;
-    let questionText = qMatch[1]
-      .replace(/\\n/g, ' ')
-      .replace(/\\t/g, ' ')
-      .replace(/\\'/g, "'")
-      .replace(/\\"/g, '"')
-      .replace(/\s+/g, ' ')
-      .trim();
 
-    // Strip leading number if present (e.g. "1. What is...")
+    let questionText = qMatch[2]
+      .replace(/\\n/g, ' ').replace(/\\t/g, ' ')
+      .replace(/\\'/g, "'").replace(/\\"/g, '"')
+      .replace(/\s+/g, ' ').trim();
+
+    // Strip leading question number if present
     questionText = questionText.replace(/^\d+[\.\)]\s*/, '').trim();
-    if (!questionText) continue;
+    if (!questionText || questionText.length < 5) continue;
 
-    // ── Extract options array ──────────────────────────────────────────
+    // Deduplicate
+    const dedupeKey = questionText.slice(0, 60).toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    // Extract options array
     const optsMatch = block.match(/["\']?\boptions\b["\']?\s*:\s*\[([\s\S]*?)\]/);
     if (!optsMatch) continue;
     const optsRaw = optsMatch[1];
@@ -83,17 +117,14 @@ function preprocessStructuredFormat(rawText) {
     const optLines = [];
     const letters = ['A', 'B', 'C', 'D', 'E'];
     let optIdx = 0;
-    // Match each quoted string inside the options array
-    const optRegex = /["\']([^"\']+)["\']/g;
+    const optRegex = /(["'])((?:(?!\1).)+)\1/g;
     let om;
     while ((om = optRegex.exec(optsRaw)) !== null && optIdx < 5) {
-      let optText = om[1].trim();
+      let optText = om[2].trim();
       if (!optText) continue;
-      // If option already starts with a letter prefix, normalise it
       if (/^[A-Ea-e][\.\)\-]\s*/.test(optText)) {
         optText = optText.replace(/^([A-Ea-e])[\.\)\-]\s*/, (_, l) => l.toUpperCase() + '. ');
       } else {
-        // Add letter prefix
         optText = letters[optIdx] + '. ' + optText;
       }
       optLines.push(optText);
@@ -101,63 +132,48 @@ function preprocessStructuredFormat(rawText) {
     }
     if (optLines.length < 2) continue;
 
-    // ── Extract answer ─────────────────────────────────────────────────
-    // Handles: "answer": "B"  OR  "answer": "B. text"  OR  "correct_answer": "B"
-    // OR  "ans": "B"  OR  "correctIndex": 1 (0-based index)
+    // Extract answer letter
+    // Handles: "answer":"B"  "answer":"B. text"  "ans":"B"  "correctIndex":1
     let ansLetter = '';
-    const ansLetterMatch = block.match(
+    const ansMatch = block.match(
       /["\']?\b(?:answer|ans|correct_answer|correct)\b["\']?\s*:\s*["\']?\s*([A-Ea-e])/i
     );
-    if (ansLetterMatch) {
-      ansLetter = ansLetterMatch[1].toUpperCase();
+    if (ansMatch) {
+      ansLetter = ansMatch[1].toUpperCase();
     } else {
-      // Try correctIndex (0-based number)
-      const ansIdxMatch = block.match(/["\']?\bcorrectIndex\b["\']?\s*:\s*(\d)/);
-      if (ansIdxMatch) {
-        const idx = parseInt(ansIdxMatch[1], 10);
-        ansLetter = letters[idx] || 'A';
-      }
+      const idxMatch = block.match(/["\']?\bcorrectIndex\b["\']?\s*:\s*(\d)/);
+      if (idxMatch) ansLetter = letters[parseInt(idxMatch[1], 10)] || '';
     }
 
-    // ── Extract explanation ────────────────────────────────────────────
-    // Handles: "explanation": "...", "rationale": "...", "reason": "..."
+    // Extract explanation / rationale
     let explanation = '';
     const explMatch = block.match(
-      /["\']?\b(?:explanation|explain|rationale|reason|note)\b["\']?\s*:\s*["\']([^"\'\\]*(?:\\.[^"\'\\]*)*)["\'](?:\s*[,\}])?/i
+      /["\']?\b(?:explanation|explain|rationale|reason|note)\b["\']?\s*:\s*(["'])([\s\S]*?)\1(?:\s*[,\}]|$)/i
     );
     if (explMatch) {
-      explanation = explMatch[1]
-        .replace(/\\n/g, ' ')
-        .replace(/\\t/g, ' ')
-        .replace(/\\'/g, "'")
-        .replace(/\\"/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim();
+      explanation = explMatch[2]
+        .replace(/\\n/g, ' ').replace(/\\t/g, ' ')
+        .replace(/\\'/g, "'").replace(/\\"/g, '"')
+        .replace(/\s+/g, ' ').trim();
     }
 
-    // ── Assemble plain-text block ──────────────────────────────────────
-    let blockOut = `${qNum}. ${questionText}\n`;
-    optLines.forEach(o => { blockOut += o + '\n'; });
-    if (ansLetter) blockOut += `Answer: ${ansLetter}\n`;
-    if (explanation) blockOut += `Explanation: ${explanation}\n`;
-    blockOut += '\n';
+    // Assemble plain-text block for the main parser
+    let out = `${qNum}. ${questionText}\n`;
+    optLines.forEach(o => { out += o + '\n'; });
+    if (ansLetter) out += `Answer: ${ansLetter}\n`;
+    if (explanation) out += `Explanation: ${explanation}\n`;
+    out += '\n';
 
-    output.push(blockOut);
+    output.push(out);
     qNum++;
   }
 
-  // If we successfully extracted questions, return the converted text
-  if (output.length > 0) return output.join('');
-
-  // Fallback: return original text for the main parser to handle
-  return rawText;
+  return output.length > 0 ? output.join('') : rawText;
 }
+
 
 // ── Shuffle Utilities ─────────────────────────────────────────────────
 
-/**
- * Fisher-Yates shuffle — returns a NEW array, does not mutate original.
- */
 function shuffleArray(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -167,25 +183,14 @@ function shuffleArray(arr) {
   return a;
 }
 
-/**
- * Shuffles the options of a single parsed question and
- * updates correctIndex to point to wherever the correct
- * answer landed after the shuffle.
- *
- * Expects question shape:
- *   { options: string[], correctIndex: number, ... }
- */
 export function shuffleQuestionOptions(question) {
   const options = question.options.map(o =>
     typeof o === 'string' ? o : (o.text || '')
   );
-
   if (options.length < 2) return question;
-
   const correctText = options[question.correctIndex] ?? options[0];
   const shuffled    = shuffleArray(options);
   const newIndex    = shuffled.indexOf(correctText);
-
   return {
     ...question,
     options:      shuffled,
@@ -193,13 +198,10 @@ export function shuffleQuestionOptions(question) {
   };
 }
 
-/**
- * Shuffles options for every question in an array.
- * Call this on the parsed result before uploading to Firestore.
- */
 export function shuffleAllQuestionsOptions(questions) {
   return questions.map(shuffleQuestionOptions);
 }
+
 
 // ── Answer Key Parser ─────────────────────────────────────────────────
 
@@ -211,16 +213,12 @@ export function parseAnswerKey(answerText) {
     .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
 
   const map = {};
-
-  // Universal pattern — handles: "1. B", "1) B", "1: B", "1 B", "1.B",
-  //   "Q1: B", "Q1. B", "Q1. Answer: B" and packed "Q1: B    Q2: A" on one line.
   const pattern = /Q?(\d+)\s*[.):–\-]?\s*(?:Answer\s*:\s*)?([A-Ea-e])\b/gi;
   let m;
   while ((m = pattern.exec(normalized)) !== null) {
     map[parseInt(m[1], 10)] = m[2].toUpperCase();
   }
 
-  // Fallback: letter-only lines with implied sequence (e.g. "B\nA\nC\nD")
   if (Object.keys(map).length === 0) {
     const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
     lines.forEach((line, i) => {
@@ -232,7 +230,6 @@ export function parseAnswerKey(answerText) {
   return map;
 }
 
-// Parses rationales from answer key textarea (e.g. "Q1. Answer: B\nRationale: ...")
 export function parseRationaleKey(answerText) {
   if (!answerText?.trim()) return {};
 
@@ -243,8 +240,6 @@ export function parseRationaleKey(answerText) {
 
   for (const line of lines) {
     const trimmed = line.trim();
-
-    // Detect Q1. Answer: B or Q1. B lines
     const qLine = trimmed.match(/^Q?(\d+)\s*[.):–\-]?\s*(?:Answer\s*:\s*)?[A-Ea-e]\b/i);
     if (qLine) {
       if (currentNum !== null && currentRationale) {
@@ -254,32 +249,26 @@ export function parseRationaleKey(answerText) {
       currentRationale = '';
       continue;
     }
-
-    // Detect Rationale: / Explanation: lines
     const ratLine = trimmed.match(/^(rationale|explanation|explain|reason|note)[\s\.\:\-]*/i);
     if (ratLine && currentNum !== null) {
       currentRationale = trimmed.replace(/^(rationale|explanation|explain|reason|note)[\s\.\:\-]*/i, '').trim();
       continue;
     }
-
-    // Continuation of rationale text
     if (currentNum !== null && currentRationale && trimmed) {
       currentRationale += ' ' + trimmed;
     }
   }
-
-  // Save last one
   if (currentNum !== null && currentRationale) {
     rationaleMap[currentNum] = currentRationale.trim();
   }
-
   return rationaleMap;
 }
+
 
 // ── Main Parser ───────────────────────────────────────────────────────
 
 export function parseQuestionsFromText(rawText, answerKeyText = '') {
-  // ── Pre-process structured formats (Python dicts, JSON arrays) first ─
+  // Pre-process structured / Python dict formats first
   const processedText = preprocessStructuredFormat(rawText);
 
   const answerKey    = parseAnswerKey(answerKeyText);
@@ -287,14 +276,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const lines = processedText.split('\n').map(l => l.trim()).filter(Boolean);
   const questions = [];
   let current = null;
-
-  // ── FIX: Use a monotonically-increasing sequential counter instead of
-  // relying on the label number in the text.  This means duplicate question
-  // numbers (e.g. multiple questions labelled "84" in the source file) are
-  // treated as distinct questions and none are silently dropped.
-  // _qNumber still stores the *label* number for answer-key look-up; the
-  // deduplication guard has been removed from saveQuestion() so every parsed
-  // block is kept.
   let seqCounter = 0;
 
   const optLetters = ['A', 'B', 'C', 'D', 'E'];
@@ -311,7 +292,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const isExplanationLine = (line) =>
     /^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line);
 
-  // Extract [image: URL] tag from any line
   const extractImageTag = (text) => {
     const m = text.match(/\[image:\s*(https?:\/\/[^\]]+)\]/i);
     return m ? { url: m[1].trim(), text: text.replace(m[0], '').trim() } : { url: '', text };
@@ -337,8 +317,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     return m ? m[1].toUpperCase() : null;
   };
 
-  // Try to detect inline options on same line as question
-  // e.g. "1. Question text? A. Opt1 B. Opt2 C. Opt3 D. Opt4"
   const extractInlineOptions = (line) => {
     const optPattern = /\b([A-D])\.\s*([^A-D\.]{2,}?)(?=\s+[A-D]\.|$)/g;
     const opts = [];
@@ -349,8 +327,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     return opts.length >= 2 ? opts : null;
   };
 
-  // Detect two options on same line (short format):
-  // "A. Sympathy   C. Socialism"
   const extractDoubleOptions = (line) => {
     const m = line.match(
       /^([A-Ea-e])[\.\)]\s*(.+?)\s{2,}([A-Ea-e])[\.\)]\s*(.+)$/i
@@ -367,34 +343,30 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const saveQuestion = () => {
     if (!current) return;
     if (current.question && current.options.length >= 2) {
-      // Always sort options into A→B→C→D order so array index == letter index.
       const sortedOpts = [...current.options].sort(
         (a, b) => optLetters.indexOf(a.letter) - optLetters.indexOf(b.letter)
       );
-
-      // Resolve correct answer — inline answer in text takes priority
       let correctLetter = null;
       if (current.answerLetter) {
         correctLetter = current.answerLetter;
       } else if (answerKey[current.qNumber] !== undefined) {
         correctLetter = answerKey[current.qNumber];
       }
-
       const correctIdx = correctLetter !== null
         ? sortedOpts.findIndex(o => o.letter === correctLetter)
         : -1;
 
       questions.push({
-        question:       current.question.trim(),
-        options:        sortedOpts.map(o => o.text),
-        correctIndex:   correctIdx >= 0 ? correctIdx : -1,
-        explanation:    current.explanation || '',
-        imageUrl:       current.imageUrl || '',
+        question:            current.question.trim(),
+        options:             sortedOpts.map(o => o.text),
+        correctIndex:        correctIdx >= 0 ? correctIdx : -1,
+        explanation:         current.explanation || '',
+        imageUrl:            current.imageUrl || '',
         explanationImageUrl: current.explanationImageUrl || '',
-        _seq:           current.seq,
-        _qNumber:       current.qNumber,
-        _hasAnswer:     correctIdx >= 0,
-        _sortedLetters: sortedOpts.map(o => o.letter),
+        _seq:                current.seq,
+        _qNumber:            current.qNumber,
+        _hasAnswer:          correctIdx >= 0,
+        _sortedLetters:      sortedOpts.map(o => o.letter),
       });
     }
   };
@@ -407,14 +379,10 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       seqCounter++;
       const labelNum = getQuestionNumber(line) || seqCounter;
 
-      // Strip question number prefix
       let qText = line.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
-
-      // Extract image tag from question line
       const qImg = extractImageTag(qText);
       qText = qImg.text;
 
-      // Check if options are inline on same line
       const inlineOpts = extractInlineOptions(qText);
       if (inlineOpts && inlineOpts.length >= 2) {
         const firstOptPos = qText.search(/\b[A-D]\.\s/);
@@ -436,7 +404,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
     if (!current) continue;
 
-    // Double options on one line (e.g. "A. Sympathy   C. Socialism")
     if (!isAnswerLine(line) && !isExplanationLine(line)) {
       const double = extractDoubleOptions(line);
       if (double) {
@@ -449,7 +416,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       }
     }
 
-    // Single option line
     if (isOptionLine(line)) {
       const letter = extractOptionLetter(line);
       const text   = extractOptionText(line);
@@ -459,13 +425,11 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       continue;
     }
 
-    // Answer line
     if (isAnswerLine(line)) {
       current.answerLetter = extractAnswerLetter(line);
       continue;
     }
 
-    // Explanation line
     if (isExplanationLine(line)) {
       let explText = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
       while (i + 1 < lines.length) {
@@ -480,7 +444,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       continue;
     }
 
-    // Continuation of question text (before any options)
     if (current.options.length === 0 && !isOptionLine(line)) {
       current.question += ' ' + line;
     }
@@ -488,10 +451,8 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
   saveQuestion();
 
-  // Sort by sequential position (not label number) to preserve original order
   questions.sort((a, b) => (a._seq || 0) - (b._seq || 0));
 
-  // Apply separate answer key.
   if (Object.keys(answerKey).length > 0) {
     const positionalAnswers = Object.entries(answerKey)
       .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
@@ -501,15 +462,12 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       if (!q.explanation && rationaleMap[q._qNumber]) {
         q.explanation = rationaleMap[q._qNumber];
       }
-
       if (q._hasAnswer) return;
 
       let letter = answerKey[q._qNumber];
-
       if (letter === undefined && posIdx < positionalAnswers.length) {
         letter = positionalAnswers[posIdx];
       }
-
       if (letter !== undefined) {
         const idx = q._sortedLetters
           ? q._sortedLetters.indexOf(letter)
@@ -527,6 +485,9 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   return questions;
 }
 
+
+// ── Validation & Firestore formatting ────────────────────────────────
+
 export function validateQuestion(q) {
   const errors = [];
   if (!q.question || q.question.trim().length < 5) errors.push('Question text too short.');
@@ -541,22 +502,22 @@ export function formatQuestionForFirestore(q, meta = {}) {
     ? q.options.map(o => (typeof o === 'string' ? o : o.text || '').trim())
     : [];
   return {
-    question:     q.question.trim(),
+    question:            q.question.trim(),
     options,
-    correctIndex: (q.correctIndex !== undefined && q.correctIndex >= 0) ? q.correctIndex : 0,
-    explanation:  q.explanation?.trim() || '',
-    imageUrl:     q.imageUrl || '',
+    correctIndex:        (q.correctIndex !== undefined && q.correctIndex >= 0) ? q.correctIndex : 0,
+    explanation:         q.explanation?.trim() || '',
+    imageUrl:            q.imageUrl || '',
     explanationImageUrl: q.explanationImageUrl || '',
-    category:     meta.category     || 'general_nursing',
-    examType:     meta.examType     || 'past_questions',
-    year:         meta.year         || '2024',
-    subject:      meta.subject      || '',
-    difficulty:   meta.difficulty   || 'medium',
-    tags:         meta.tags         || [],
-    source:       meta.source       || '',
-    course:       meta.course       || '',
-    topic:        meta.topic        || '',
-    active:       true,
-    createdAt:    new Date().toISOString(),
+    category:            meta.category   || 'general_nursing',
+    examType:            meta.examType   || 'past_questions',
+    year:                meta.year       || '2024',
+    subject:             meta.subject    || '',
+    difficulty:          meta.difficulty || 'medium',
+    tags:                meta.tags       || [],
+    source:              meta.source     || '',
+    course:              meta.course     || '',
+    topic:               meta.topic      || '',
+    active:              true,
+    createdAt:           new Date().toISOString(),
   };
 }
