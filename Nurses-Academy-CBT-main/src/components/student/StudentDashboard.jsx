@@ -195,6 +195,46 @@ const M = {
   deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', whiteSpace: 'nowrap' },
 };
 
+// ── Quick actions data (single source of truth) ───────────────────────────────
+const QUICK_ACTIONS = [
+  {
+    to: '/daily-practice', icon: '⚡', label: 'Daily Practice',
+    sub: 'Take daily exam',
+    desc: 'Get a fresh set of random questions every day. Builds your exam stamina and keeps your knowledge sharp across all nursing topics.',
+    color: '#F59E0B',
+  },
+  {
+    to: '/course-drill', icon: '📖', label: 'Course Drill',
+    sub: 'Take exam by courses',
+    desc: 'Pick any nursing course and drill questions specifically from that course. Perfect for targeted revision before a test.',
+    color: '#0D9488',
+  },
+  {
+    to: '/topic-drill', icon: '🎯', label: 'Topic Drill',
+    sub: 'Take exam by topics',
+    desc: 'Narrow down to a specific topic within a course and focus your practice exactly where you need improvement.',
+    color: '#2563EB',
+  },
+  {
+    to: '/mock-exams', icon: '📋', label: 'Mock Exams',
+    sub: 'Study daily Hospital Final exam',
+    desc: 'Simulate a real hospital final exam under timed conditions. Tests your full readiness before the actual NMCN exam.',
+    color: '#7C3AED',
+  },
+  {
+    to: '/past-questions', icon: '📜', label: 'Past Questions',
+    sub: 'Study NMCN past questions',
+    desc: 'Practice with real NMCN past questions. Understand exam patterns, common topics, and boost your confidence.',
+    color: '#EF4444',
+  },
+  {
+    to: '/bookmarks', icon: '🔖', label: 'Bookmarks',
+    sub: 'Review your Bookmarked questions',
+    desc: 'Review questions you saved during past exams. Great for revisiting difficult questions you want to master.',
+    color: '#A855F7',
+  },
+];
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -205,6 +245,20 @@ export default function StudentDashboard() {
   const [showModal,      setShowModal]      = useState(false);
   const [loading,        setLoading]        = useState(true);
   const [bannerVis,      setBannerVis]      = useState(false);
+  const [featureIdx,     setFeatureIdx]     = useState(0);
+  const [featureFade,    setFeatureFade]    = useState(true);
+
+  // ── Rotating feature card ────────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFeatureFade(false);
+      setTimeout(() => {
+        setFeatureIdx(prev => (prev + 1) % QUICK_ACTIONS.length);
+        setFeatureFade(true);
+      }, 350);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
@@ -302,21 +356,77 @@ export default function StudentDashboard() {
         transition: 'opacity .6s ease, transform .6s ease',
       }}>
         <div style={S.bannerGlow} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+
+        {/* Left — greeting text */}
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
             🏥 NMCN CBT Platform
           </div>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.3rem,3vw,1.8rem)', margin: 0 }}>
+          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,3vw,1.6rem)', margin: 0 }}>
             {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, margin: '6px 0 0' }}>
+          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: '6px 0 16px' }}>
             {profile?.subscribed
               ? '🌟 Premium subscriber — all content unlocked'
               : '🎯 Free plan — upgrade to unlock all past questions'}
           </p>
+
+          {/* ── Rotating feature card ── */}
+          <Link
+            to={QUICK_ACTIONS[featureIdx].to}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 12,
+              background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)',
+              border: `1.5px solid ${QUICK_ACTIONS[featureIdx].color}55`,
+              borderLeft: `4px solid ${QUICK_ACTIONS[featureIdx].color}`,
+              borderRadius: 12, padding: '12px 16px',
+              textDecoration: 'none', maxWidth: 420,
+              opacity: featureFade ? 1 : 0,
+              transform: featureFade ? 'translateY(0)' : 'translateY(6px)',
+              transition: 'opacity .35s ease, transform .35s ease, border-color .35s ease',
+            }}
+          >
+            {/* Icon */}
+            <div style={{
+              width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+              background: `${QUICK_ACTIONS[featureIdx].color}22`,
+              border: `1.5px solid ${QUICK_ACTIONS[featureIdx].color}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+            }}>
+              {QUICK_ACTIONS[featureIdx].icon}
+            </div>
+            {/* Text */}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 3 }}>
+                {QUICK_ACTIONS[featureIdx].label}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>
+                {QUICK_ACTIONS[featureIdx].desc}
+              </div>
+            </div>
+            {/* Arrow */}
+            <div style={{ color: QUICK_ACTIONS[featureIdx].color, fontWeight: 900, fontSize: 16, flexShrink: 0, marginLeft: 4 }}>→</div>
+          </Link>
+
+          {/* Dot indicators */}
+          <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
+            {QUICK_ACTIONS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setFeatureFade(false); setTimeout(() => { setFeatureIdx(i); setFeatureFade(true); }, 350); }}
+                style={{
+                  width: i === featureIdx ? 18 : 6, height: 6,
+                  borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                  background: i === featureIdx ? QUICK_ACTIONS[featureIdx].color : 'rgba(255,255,255,0.25)',
+                  transition: 'width .3s ease, background .3s ease',
+                }}
+              />
+            ))}
+          </div>
         </div>
 
-        <div style={S.bannerActions}>
+        {/* Right — action buttons */}
+        <div style={{ ...S.bannerActions, position: 'relative', zIndex: 1 }}>
           <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
           <button
             onClick={() => setShowModal(true)}
@@ -396,14 +506,7 @@ export default function StudentDashboard() {
       <ACard delay={750} style={{ marginBottom: 32 }}>
         <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
         <div style={S.quickGrid}>
-          {[
-            { to: '/daily-practice', icon: '⚡', label: 'Daily Practice',  sub: 'Take daily exam' },
-            { to: '/course-drill',   icon: '📖', label: 'Course Drill',    sub: 'Take exam by courses' },
-            { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill',     sub: 'Take exam by topics' },
-            { to: '/mock-exams',     icon: '📋', label: 'Mock Exams',      sub: 'Study daily Hospital Final exam' },
-            { to: '/past-questions', icon: '📜', label: 'Past Questions',  sub: 'Study NMCN past questions' },
-            { to: '/bookmarks',      icon: '🔖', label: 'Bookmarks',       sub: 'Review your Bookmarked questions' },
-          ].map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
+          {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
         </div>
       </ACard>
 
