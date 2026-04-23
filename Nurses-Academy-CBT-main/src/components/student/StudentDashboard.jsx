@@ -9,7 +9,75 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-// ── helper: human-readable exam type label ────────────────────────────────────
+// ── Animated counter ──────────────────────────────────────────────────────────
+function useCounter(target, duration = 1600, delay = 0) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!target) return;
+    const to = setTimeout(() => {
+      let n = 0;
+      const step = target / (duration / 16);
+      const t = setInterval(() => {
+        n += step;
+        if (n >= target) { setVal(target); clearInterval(t); }
+        else setVal(Math.floor(n));
+      }, 16);
+      return () => clearInterval(t);
+    }, delay);
+    return () => clearTimeout(to);
+  }, [target, duration, delay]);
+  return val;
+}
+
+// ── Animated card fade-up ─────────────────────────────────────────────────────
+function ACard({ children, delay = 0, style: s = {} }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div style={{
+      opacity: vis ? 1 : 0,
+      transform: vis ? 'translateY(0)' : 'translateY(16px)',
+      transition: 'opacity .55s ease, transform .55s ease',
+      ...s,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Animated score ring ───────────────────────────────────────────────────────
+function ScoreRing({ percent, color = '#0D9488', size = 72 }) {
+  const r = 28, circ = 2 * Math.PI * r;
+  const [dash, setDash] = useState(0);
+  useEffect(() => { const t = setTimeout(() => setDash((percent / 100) * circ), 500); return () => clearTimeout(t); }, [percent, circ]);
+  return (
+    <svg width={size} height={size} viewBox="0 0 72 72">
+      <circle cx="36" cy="36" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
+      <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
+        strokeDasharray={circ} strokeDashoffset={circ - dash} strokeLinecap="round"
+        transform="rotate(-90 36 36)"
+        style={{ transition: 'stroke-dashoffset 1.3s cubic-bezier(.4,0,.2,1)' }}
+      />
+      <text x="36" y="41" textAnchor="middle" fill={color} fontSize="13" fontWeight="800">{percent}%</text>
+    </svg>
+  );
+}
+
+// ── Skeleton loader ───────────────────────────────────────────────────────────
+function Skeleton({ w = '100%', h = 14, r = 6 }) {
+  return (
+    <>
+      <style>{`@keyframes sdShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
+      <div style={{
+        width: w, height: h, borderRadius: r,
+        background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)',
+        backgroundSize: '200% 100%', animation: 'sdShimmer 1.4s infinite',
+      }} />
+    </>
+  );
+}
+
+// ── Exam type label ───────────────────────────────────────────────────────────
 function examTypeLabel(type) {
   switch (type) {
     case 'course_drill':   return '📖 Course Drill';
@@ -21,11 +89,18 @@ function examTypeLabel(type) {
   }
 }
 
-// ── PausedExamsModal ──────────────────────────────────────────────────────────
+// ── Paused Exams Modal (unchanged logic, animated entrance) ───────────────────
 function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setVis(true)); }, []);
   return (
     <div style={M.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={M.modal}>
+      <div style={{
+        ...M.modal,
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'scale(1) translateY(0)' : 'scale(.96) translateY(20px)',
+        transition: 'opacity .35s ease, transform .35s ease',
+      }}>
         <div style={M.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>▶️</span>
@@ -46,63 +121,19 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
               <div style={{ fontWeight: 700 }}>No paused exams</div>
               <div style={{ fontSize: 13, marginTop: 4 }}>Exit an exam using "Exit &amp; Save" to continue it later.</div>
             </div>
-          ) : paused.map(p => {
+          ) : paused.map((p, idx) => {
             const progress = p.totalQuestions > 0
-              ? Math.round(((p.answeredCount || 0) / p.totalQuestions) * 100)
-              : 0;
-            const savedAt = p.savedAt?.toDate
-              ? p.savedAt.toDate()
-              : p.savedAt ? new Date(p.savedAt) : null;
-            const dateStr = savedAt
-              ? savedAt.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
-              : '—';
-            const timeStr = savedAt
-              ? savedAt.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
-              : '';
-
+              ? Math.round(((p.answeredCount || 0) / p.totalQuestions) * 100) : 0;
+            const savedAt = p.savedAt?.toDate ? p.savedAt.toDate() : p.savedAt ? new Date(p.savedAt) : null;
+            const dateStr = savedAt ? savedAt.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const timeStr = savedAt ? savedAt.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }) : '';
             return (
-              <div key={p.id} style={M.card}>
-                <div style={{ ...M.cardAccent, background: 'var(--teal)' }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.3 }}>
-                    {p.examName || 'Untitled Exam'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                    <span style={M.tag}>{examTypeLabel(p.examType)}</span>
-                    {p.courseLabel && (
-                      <span style={{ ...M.tag, background: 'rgba(37,99,235,0.12)', color: '#60A5FA' }}>
-                        📚 {p.courseLabel}
-                      </span>
-                    )}
-                    {p.topic && (
-                      <span style={{ ...M.tag, background: 'rgba(124,58,237,0.12)', color: '#A78BFA' }}>
-                        📌 {p.topic}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ marginBottom: 6 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        Q{(p.currentQuestion || 0) + 1} of {p.totalQuestions} · {p.answeredCount || 0} answered
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700 }}>{progress}%</span>
-                    </div>
-                    <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2, background: 'var(--teal)',
-                        width: `${progress}%`, transition: 'width 0.4s',
-                      }} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    💾 Saved {dateStr}{timeStr ? ` · ${timeStr}` : ''}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                  <button onClick={() => onResume(p)} style={M.resumeBtn}>▶ Resume</button>
-                  <button onClick={() => onDelete(p.id)} style={M.deleteBtn}>🗑 Discard</button>
-                </div>
-              </div>
+              <PausedCard
+                key={p.id} p={p} progress={progress}
+                dateStr={dateStr} timeStr={timeStr}
+                onResume={onResume} onDelete={onDelete}
+                delay={idx * 80}
+              />
             );
           })}
         </div>
@@ -111,54 +142,57 @@ function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
   );
 }
 
+function PausedCard({ p, progress, dateStr, timeStr, onResume, onDelete, delay }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div style={{
+      ...M.card,
+      opacity: vis ? 1 : 0,
+      transform: vis ? 'translateX(0)' : 'translateX(-16px)',
+      transition: 'opacity .4s ease, transform .4s ease',
+    }}>
+      <div style={{ ...M.cardAccent, background: 'var(--teal)' }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.3 }}>
+          {p.examName || 'Untitled Exam'}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+          <span style={M.tag}>{examTypeLabel(p.examType)}</span>
+          {p.courseLabel && <span style={{ ...M.tag, background: 'rgba(37,99,235,0.12)', color: '#60A5FA' }}>📚 {p.courseLabel}</span>}
+          {p.topic && <span style={{ ...M.tag, background: 'rgba(124,58,237,0.12)', color: '#A78BFA' }}>📌 {p.topic}</span>}
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Q{(p.currentQuestion || 0) + 1} of {p.totalQuestions} · {p.answeredCount || 0} answered
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700 }}>{progress}%</span>
+          </div>
+          <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 2, background: 'var(--teal)', width: `${progress}%`, transition: 'width .6s ease' }} />
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>💾 Saved {dateStr}{timeStr ? ` · ${timeStr}` : ''}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+        <button onClick={() => onResume(p)} style={M.resumeBtn}>▶ Resume</button>
+        <button onClick={() => onDelete(p.id)} style={M.deleteBtn}>🗑 Discard</button>
+      </div>
+    </div>
+  );
+}
+
 const M = {
-  overlay: {
-    position: 'fixed', inset: 0, zIndex: 1000,
-    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-  },
-  modal: {
-    background: 'var(--bg-card)', border: '1.5px solid var(--border)',
-    borderRadius: 20, padding: 24, width: '100%', maxWidth: 560,
-    maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 16,
-    boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-  },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingBottom: 16, borderBottom: '1px solid var(--border)',
-  },
-  closeBtn: {
-    background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-    borderRadius: 8, width: 32, height: 32, cursor: 'pointer',
-    color: 'var(--text-muted)', fontSize: 14, fontWeight: 700,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  card: {
-    display: 'flex', alignItems: 'flex-start', gap: 12,
-    background: 'var(--bg-primary)', border: '1.5px solid var(--border)',
-    borderRadius: 14, padding: '14px 14px 14px 18px',
-    position: 'relative', overflow: 'hidden',
-  },
-  cardAccent: {
-    position: 'absolute', left: 0, top: 0, bottom: 0,
-    width: 4, borderRadius: '4px 0 0 4px',
-  },
-  tag: {
-    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-    background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
-  },
-  resumeBtn: {
-    padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-    background: 'var(--teal)', border: 'none',
-    color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: 'inherit',
-    whiteSpace: 'nowrap',
-  },
-  deleteBtn: {
-    padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
-    background: 'transparent', border: '1px solid rgba(239,68,68,0.4)',
-    color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit',
-    whiteSpace: 'nowrap',
-  },
+  overlay: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modal: { background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 24px 64px rgba(0,0,0,0.5)' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottom: '1px solid var(--border)' },
+  closeBtn: { background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  card: { display: 'flex', alignItems: 'flex-start', gap: 12, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 14px 14px 18px', position: 'relative', overflow: 'hidden' },
+  cardAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
+  tag: { fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(13,148,136,0.12)', color: 'var(--teal)' },
+  resumeBtn: { padding: '7px 14px', borderRadius: 8, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', whiteSpace: 'nowrap' },
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -170,14 +204,12 @@ export default function StudentDashboard() {
   const [pausedExams,    setPausedExams]    = useState([]);
   const [showModal,      setShowModal]      = useState(false);
   const [loading,        setLoading]        = useState(true);
+  const [bannerVis,      setBannerVis]      = useState(false);
 
   useEffect(() => {
+    setTimeout(() => setBannerVis(true), 80);
     if (!user) return;
-
     const loadData = async () => {
-      // ── Query 1: Recent exam sessions ──────────────────────────────────────
-      // Isolated in its own try/catch so a Firestore index error here
-      // does NOT prevent the rest of the dashboard from rendering.
       try {
         const sessSnap = await getDocs(query(
           collection(db, 'examSessions'),
@@ -186,68 +218,47 @@ export default function StudentDashboard() {
           limit(5),
         ));
         setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.warn('examSessions load failed (non-fatal):', e.message);
-        // Dashboard still renders — Recent Exams section just stays hidden
-      }
+      } catch (e) { console.warn('examSessions load failed (non-fatal):', e.message); }
 
-      // ── Query 2: Paused exams ──────────────────────────────────────────────
-      // Isolated in its own try/catch — collection won't exist until the first
-      // "Exit & Save" is triggered, so failure here is completely expected.
       try {
         const pausedSnap = await getDocs(query(
           collection(db, 'pausedExams'),
           where('userId', '==', user.uid),
         ));
         const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // Sort newest-first client-side (no composite index needed)
         paused.sort((a, b) => {
           const ta = a.savedAt?.toDate?.()?.getTime?.() || 0;
           const tb = b.savedAt?.toDate?.()?.getTime?.() || 0;
           return tb - ta;
         });
         setPausedExams(paused);
-      } catch (e) {
-        console.warn('pausedExams load failed (non-fatal):', e.message);
-        // Fine — no paused exams to show yet
-      }
+      } catch (e) { console.warn('pausedExams load failed (non-fatal):', e.message); }
 
       setLoading(false);
     };
-
     loadData();
   }, [user]);
 
-  // Resume a paused exam
   const handleResume = useCallback((paused) => {
     setShowModal(false);
     navigate('/exam/session', {
       state: {
-        resumeMode:     true,
-        pausedExamId:   paused.id,
-        poolMode:       paused.poolMode   ?? true,
-        examType:       paused.examType,
-        examName:       paused.examName,
-        category:       paused.category,
-        course:         paused.course,
-        courseLabel:    paused.courseLabel,
-        topic:          paused.topic,
-        examId:         paused.examId     || '',
-        count:          paused.totalQuestions,
-        doShuffle:      false,
-        timeLimit:      paused.timeLimit  || 0,
+        resumeMode: true, pausedExamId: paused.id,
+        poolMode: paused.poolMode ?? true, examType: paused.examType,
+        examName: paused.examName, category: paused.category,
+        course: paused.course, courseLabel: paused.courseLabel,
+        topic: paused.topic, examId: paused.examId || '',
+        count: paused.totalQuestions, doShuffle: false,
+        timeLimit: paused.timeLimit || 0,
         resumeData: {
-          questionIds:     paused.questionIds,
-          answers:         paused.answers,
+          questionIds: paused.questionIds, answers: paused.answers,
           currentQuestion: paused.currentQuestion || 0,
-          totalQuestions:  paused.totalQuestions,
-          flagged:         paused.flagged || [],
+          totalQuestions: paused.totalQuestions, flagged: paused.flagged || [],
         },
       },
     });
   }, [navigate]);
 
-  // Discard a paused exam
   const handleDelete = useCallback(async (id) => {
     if (!window.confirm('Discard this paused exam? This cannot be undone.')) return;
     try {
@@ -265,6 +276,11 @@ export default function StudentDashboard() {
   const hour  = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
+  // Animated stat values
+  const animExams = useCounter(totalExams, 1600, 400);
+  const animStreak = useCounter(streak,    1400, 550);
+  const animBookmarks = useCounter(bookmarks, 1400, 700);
+
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
 
@@ -278,9 +294,14 @@ export default function StudentDashboard() {
         />
       )}
 
-      {/* Greeting banner */}
-      <div style={styles.banner}>
-        <div style={styles.bannerGlow} />
+      {/* ── Greeting banner ── */}
+      <div style={{
+        ...S.banner,
+        opacity: bannerVis ? 1 : 0,
+        transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
+        transition: 'opacity .6s ease, transform .6s ease',
+      }}>
+        <div style={S.bannerGlow} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
             🏥 NMCN CBT Platform
@@ -295,9 +316,8 @@ export default function StudentDashboard() {
           </p>
         </div>
 
-        <div style={styles.bannerActions}>
+        <div style={S.bannerActions}>
           <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
-
           <button
             onClick={() => setShowModal(true)}
             style={{
@@ -306,22 +326,16 @@ export default function StudentDashboard() {
               background: pausedExams.length > 0 ? 'rgba(13,148,136,0.25)' : 'rgba(255,255,255,0.08)',
               border: `1.5px solid ${pausedExams.length > 0 ? 'rgba(13,148,136,0.6)' : 'rgba(255,255,255,0.25)'}`,
               color: pausedExams.length > 0 ? '#5EEAD4' : 'rgba(255,255,255,0.6)',
-              fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-              transition: 'all 0.2s',
+              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all 0.2s',
             }}
           >
             ▶ Continue Exam
             {pausedExams.length > 0 && (
-              <span style={{
-                background: 'var(--teal)', color: '#fff',
-                borderRadius: 20, fontSize: 10, fontWeight: 900,
-                padding: '1px 7px', minWidth: 18, textAlign: 'center',
-              }}>
+              <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>
                 {pausedExams.length}
               </span>
             )}
           </button>
-
           {!profile?.subscribed && (
             <Link to="/subscription" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
               Upgrade Plan
@@ -330,127 +344,86 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div style={styles.statsGrid}>
+      {/* ── Stats row ── */}
+      <div style={S.statsGrid}>
         {[
-          { icon: '📝', label: 'Exams Taken', value: totalExams,     color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: null },
-          { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: null },
-          { icon: '🔥', label: 'Day Streak',  value: streak,         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: null },
-          { icon: '🔖', label: 'Bookmarked',  value: bookmarks,      color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/bookmarks' },
-        ].map(s => {
-          const inner = (
-            <>
-              <div className="stat-icon" style={{ background: s.bg }}>
-                <span>{s.icon}</span>
+          { icon: '📝', label: 'Exams Taken', value: animExams,    raw: totalExams,  color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: null,          delay: 200 },
+          { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, raw: null,      color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: null,          delay: 320, ring: avgScore },
+          { icon: '🔥', label: 'Day Streak',  value: animStreak,  raw: streak,       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: null,          delay: 440 },
+          { icon: '🔖', label: 'Bookmarked',  value: animBookmarks, raw: bookmarks,  color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/bookmarks',  delay: 560 },
+        ].map(s => (
+          <ACard key={s.label} delay={s.delay}>
+            {s.to ? (
+              <Link to={s.to} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <StatInner {...s} />
+              </Link>
+            ) : (
+              <div className="stat-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <StatInner {...s} />
               </div>
-              <div>
-                <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
-                <div className="stat-label">{s.label}</div>
-              </div>
-            </>
-          );
-          return s.to ? (
-            <Link key={s.label} to={s.to} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>
-              {inner}
-            </Link>
-          ) : (
-            <div key={s.label} className="stat-card">{inner}</div>
-          );
-        })}
+            )}
+          </ACard>
+        ))}
       </div>
 
-      {/* Paused exams inline banner */}
+      {/* ── Paused inline banner ── */}
       {pausedExams.length > 0 && (
-        <div
-          onClick={() => setShowModal(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
-            borderRadius: 14, padding: '14px 18px', marginBottom: 24,
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-          }}>▶️</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
-              You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
+        <ACard delay={700} style={{ marginBottom: 24 }}>
+          <div
+            onClick={() => setShowModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
+              borderRadius: 14, padding: '14px 18px', cursor: 'pointer',
+              transition: 'background .2s',
+            }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
+                You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {pausedExams[0]?.examName || 'Exam'} · click to resume
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {pausedExams[0]?.examName || 'Exam'} · click to resume
-            </div>
+            <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 16 }}>→</span>
           </div>
-          <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 16 }}>→</span>
-        </div>
+        </ACard>
       )}
 
-      {/* Quick actions */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ ...styles.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
-        <div style={styles.quickGrid}>
-          <Link to="/daily-practice" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>⚡</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Daily Practice</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take daily exam</span>
-          </Link>
-          <Link to="/course-drill" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>📖</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Course Drill</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by courses</span>
-          </Link>
-          <Link to="/topic-drill" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>🎯</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Topic Drill</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Take exam by topics</span>
-          </Link>
-          <Link to="/mock-exams" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>📋</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Mock Exams</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study daily Hospital Final exam</span>
-          </Link>
-          <Link to="/past-questions" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>📜</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Past Questions</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Study NMCN past questions</span>
-          </Link>
-          <Link to="/bookmarks" style={styles.quickCard}>
-            <span style={{ fontSize: 28 }}>🔖</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Bookmarks</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>Review your Bookmarked questions</span>
-          </Link>
+      {/* ── Quick actions ── */}
+      <ACard delay={750} style={{ marginBottom: 32 }}>
+        <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
+        <div style={S.quickGrid}>
+          {[
+            { to: '/daily-practice', icon: '⚡', label: 'Daily Practice',  sub: 'Take daily exam' },
+            { to: '/course-drill',   icon: '📖', label: 'Course Drill',    sub: 'Take exam by courses' },
+            { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill',     sub: 'Take exam by topics' },
+            { to: '/mock-exams',     icon: '📋', label: 'Mock Exams',      sub: 'Study daily Hospital Final exam' },
+            { to: '/past-questions', icon: '📜', label: 'Past Questions',  sub: 'Study NMCN past questions' },
+            { to: '/bookmarks',      icon: '🔖', label: 'Bookmarks',       sub: 'Review your Bookmarked questions' },
+          ].map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
         </div>
-      </div>
+      </ACard>
 
-      {/* Categories */}
-      <div style={{ marginBottom: 32 }}>
+      {/* ── Categories ── */}
+      <ACard delay={1100} style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={styles.sectionTitle}>🏥 Exam Categories</h3>
+          <h3 style={S.sectionTitle}>🏥 Exam Categories</h3>
         </div>
-        <div style={styles.categoriesGrid}>
-          {NURSING_CATEGORIES.slice(0, 8).map(cat => (
-            <div key={cat.id} style={styles.catCard}>
-              <div style={{ ...styles.catIcon, background: `${cat.color}22` }}>
-                {cat.icon}
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{cat.shortLabel}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {cat.examType === 'basic' ? 'Basic RN' : 'Post Basic'}
-                </div>
-              </div>
-            </div>
+        <div style={S.categoriesGrid}>
+          {NURSING_CATEGORIES.slice(0, 8).map((cat, i) => (
+            <CatCard key={cat.id} cat={cat} delay={1150 + i * 60} />
           ))}
         </div>
-      </div>
+      </ACard>
 
-      {/* Recent sessions */}
+      {/* ── Recent sessions ── */}
       {recentSessions.length > 0 && (
-        <div>
+        <ACard delay={1400}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h3 style={styles.sectionTitle}>🕓 Recent Exams</h3>
+            <h3 style={S.sectionTitle}>🕓 Recent Exams</h3>
             <Link to="/results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
           </div>
           <div className="table-wrap">
@@ -459,51 +432,130 @@ export default function StudentDashboard() {
                 <tr><th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th></tr>
               </thead>
               <tbody>
-                {recentSessions.map(s => {
+                {recentSessions.map((s, i) => {
                   const cat = NURSING_CATEGORIES.find(c => c.id === s.category);
                   return (
-                    <tr key={s.id}>
-                      <td>{cat?.icon} {cat?.shortLabel || s.category}</td>
-                      <td><span className="badge badge-teal">{s.examType}</span></td>
-                      <td>
-                        <span style={{
-                          fontWeight: 700, color:
-                            s.scorePercent >= 70 ? 'var(--green)' :
-                            s.scorePercent >= 50 ? 'var(--gold)'  : 'var(--red)',
-                        }}>
-                          {s.scorePercent || 0}%
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {s.completedAt?.toDate
-                          ? new Date(s.completedAt.toDate()).toLocaleDateString()
-                          : 'Recently'}
-                      </td>
-                      <td>
-                        <Link
-                          to={`/exam/review?resultId=${s.id}&category=${s.category}&examType=${s.examType}`}
-                          className="btn btn-ghost btn-sm"
-                        >Review</Link>
-                      </td>
-                    </tr>
+                    <SessionRow key={s.id} s={s} cat={cat} delay={1450 + i * 80} />
                   );
                 })}
               </tbody>
             </table>
           </div>
-        </div>
+        </ACard>
       )}
 
       {loading && (
-        <div className="flex-center" style={{ padding: 40 }}>
-          <div className="spinner" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '20px 0' }}>
+          {[1,2,3].map(k => <Skeleton key={k} h={48} r={12} />)}
         </div>
       )}
     </div>
   );
 }
 
-const styles = {
+// ── Stat card inner ───────────────────────────────────────────────────────────
+function StatInner({ icon, label, value, color, bg, ring }) {
+  return (
+    <>
+      <div className="stat-icon" style={{ background: bg }}><span>{icon}</span></div>
+      <div style={{ flex: 1 }}>
+        <div className="stat-value" style={{ color }}>{value}</div>
+        <div className="stat-label">{label}</div>
+      </div>
+      {ring !== undefined && <ScoreRing percent={ring} color={color} />}
+    </>
+  );
+}
+
+// ── Quick action card ─────────────────────────────────────────────────────────
+function QuickCard({ to, icon, label, sub, delay }) {
+  const [vis, setVis] = useState(false);
+  const [hov, setHov] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <Link
+      to={to}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        ...S.quickCard,
+        opacity: vis ? 1 : 0,
+        transform: vis ? (hov ? 'translateY(-4px)' : 'translateY(0)') : 'translateY(14px)',
+        boxShadow: hov ? '0 8px 24px rgba(13,148,136,0.15)' : 'none',
+        borderColor: hov ? 'var(--teal)' : 'var(--border)',
+        transition: 'opacity .4s ease, transform .3s ease, box-shadow .25s, border-color .25s',
+      }}
+    >
+      <span style={{ fontSize: 28 }}>{icon}</span>
+      <span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>{sub}</span>
+    </Link>
+  );
+}
+
+// ── Category card ─────────────────────────────────────────────────────────────
+function CatCard({ cat, delay }) {
+  const [vis, setVis] = useState(false);
+  const [hov, setHov] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        ...S.catCard,
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'translateY(0)' : 'translateY(12px)',
+        boxShadow: hov ? `0 4px 16px ${cat.color}22` : 'none',
+        borderColor: hov ? `${cat.color}55` : 'var(--border)',
+        transition: 'opacity .4s ease, transform .4s ease, box-shadow .2s, border-color .2s',
+      }}
+    >
+      <div style={{ ...S.catIcon, background: `${cat.color}22` }}>{cat.icon}</div>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{cat.shortLabel}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+          {cat.examType === 'basic' ? 'Basic RN' : 'Post Basic'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Recent session row ────────────────────────────────────────────────────────
+function SessionRow({ s, cat, delay }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <tr style={{
+      opacity: vis ? 1 : 0,
+      transform: vis ? 'translateX(0)' : 'translateX(-10px)',
+      transition: 'opacity .4s ease, transform .4s ease',
+    }}>
+      <td>{cat?.icon} {cat?.shortLabel || s.category}</td>
+      <td><span className="badge badge-teal">{s.examType}</span></td>
+      <td>
+        <span style={{
+          fontWeight: 700,
+          color: s.scorePercent >= 70 ? 'var(--green)' : s.scorePercent >= 50 ? 'var(--gold)' : 'var(--red)',
+        }}>
+          {s.scorePercent || 0}%
+        </span>
+      </td>
+      <td style={{ fontSize: 12 }}>
+        {s.completedAt?.toDate ? new Date(s.completedAt.toDate()).toLocaleDateString() : 'Recently'}
+      </td>
+      <td>
+        <Link to={`/exam/review?resultId=${s.id}&category=${s.category}&examType=${s.examType}`} className="btn btn-ghost btn-sm">
+          Review
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+const S = {
   banner: {
     background: 'linear-gradient(135deg, #1E3A8A 0%, #0D9488 100%)',
     borderRadius: 20, padding: '28px 32px', marginBottom: 28,
@@ -532,17 +584,15 @@ const styles = {
     padding: '20px 16px', background: 'var(--bg-card)',
     border: '1.5px solid var(--border)', borderRadius: 14,
     textDecoration: 'none', color: 'var(--text-primary)',
-    transition: 'var(--transition)', textAlign: 'center',
-    cursor: 'pointer', position: 'relative',
+    textAlign: 'center', cursor: 'pointer',
   },
   categoriesGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-    gap: 12,
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12,
   },
   catCard: {
     display: 'flex', alignItems: 'center', gap: 12,
     padding: '14px 16px', background: 'var(--bg-card)',
-    border: '1.5px solid var(--border)', borderRadius: 12,
+    border: '1.5px solid var(--border)', borderRadius: 12, cursor: 'default',
   },
   catIcon: {
     width: 40, height: 40, borderRadius: 10,
