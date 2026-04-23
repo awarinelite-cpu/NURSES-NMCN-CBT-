@@ -1,5 +1,5 @@
 // src/components/student/StudentDashboard.jsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   collection, query, where, orderBy, limit,
@@ -244,21 +244,67 @@ export default function StudentDashboard() {
   const [pausedExams,    setPausedExams]    = useState([]);
   const [showModal,      setShowModal]      = useState(false);
   const [loading,        setLoading]        = useState(true);
-  const [bannerVis,      setBannerVis]      = useState(false);
-  const [featureIdx,     setFeatureIdx]     = useState(0);
-  const [featureFade,    setFeatureFade]    = useState(true);
+  const [bannerVis,   setBannerVis]   = useState(false);
+  const [slideIdx,    setSlideIdx]    = useState(0);
+  const [slideFade,   setSlideFade]   = useState(true);
 
-  // ── Rotating feature card ────────────────────────────────────────────────────
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFeatureFade(false);
-      setTimeout(() => {
-        setFeatureIdx(prev => (prev + 1) % QUICK_ACTIONS.length);
-        setFeatureFade(true);
-      }, 350);
-    }, 4000);
-    return () => clearInterval(timer);
+  // swipe tracking
+  const swipeStartX  = useRef(null);
+  const swipeStartY  = useRef(null);
+  const isDragging   = useRef(false);
+
+  // ── go to a slide with fade transition ───────────────────────────────────────
+  const goToSlide = useCallback((idx) => {
+    setSlideFade(false);
+    setTimeout(() => {
+      setSlideIdx((idx + QUICK_ACTIONS.length) % QUICK_ACTIONS.length);
+      setSlideFade(true);
+    }, 320);
   }, []);
+
+  // ── Auto-advance every 4 s ────────────────────────────────────────────────────
+  const autoTimer = useRef(null);
+  const resetAuto = useCallback(() => {
+    clearInterval(autoTimer.current);
+    autoTimer.current = setInterval(() => goToSlide(slideIdx + 1), 4000);
+  }, [slideIdx, goToSlide]);
+
+  useEffect(() => {
+    autoTimer.current = setInterval(() => {
+      setSlideIdx(prev => {
+        const next = (prev + 1) % QUICK_ACTIONS.length;
+        setSlideFade(false);
+        setTimeout(() => setSlideFade(true), 320);
+        return next;          // update after fade via timeout below
+      });
+    }, 4000);
+    return () => clearInterval(autoTimer.current);
+  }, []);
+
+  // keep the setSlideIdx in sync with fade
+  useEffect(() => {
+    const tid = setInterval(() => {}, 0); // dummy — real advance is above
+    return () => clearInterval(tid);
+  }, []);
+
+  // ── Swipe / drag handlers ─────────────────────────────────────────────────────
+  const handlePointerDown = (e) => {
+    swipeStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
+    swipeStartY.current = e.touches ? e.touches[0].clientY : e.clientY;
+    isDragging.current  = true;
+  };
+  const handlePointerUp = (e) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    const dx = endX - swipeStartX.current;
+    const dy = Math.abs(endY - swipeStartY.current);
+    if (Math.abs(dx) > 40 && Math.abs(dx) > dy) {
+      clearInterval(autoTimer.current);
+      goToSlide(dx < 0 ? slideIdx + 1 : slideIdx - 1);
+    }
+  };
 
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
@@ -348,110 +394,142 @@ export default function StudentDashboard() {
         />
       )}
 
-      {/* ── Greeting banner ── */}
-      <div style={{
-        ...S.banner,
-        opacity: bannerVis ? 1 : 0,
-        transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
-        transition: 'opacity .6s ease, transform .6s ease',
-      }}>
-        <div style={S.bannerGlow} />
-
-        {/* Left — greeting text */}
-        <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-            🏥 NMCN CBT Platform
-          </div>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,3vw,1.6rem)', margin: 0 }}>
-            {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: '6px 0 16px' }}>
-            {profile?.subscribed
-              ? '🌟 Premium subscriber — all content unlocked'
-              : '🎯 Free plan — upgrade to unlock all past questions'}
-          </p>
-
-          {/* ── Rotating feature card ── */}
-          <Link
-            to={QUICK_ACTIONS[featureIdx].to}
+      {/* ── Full-width carousel banner ── */}
+      <div
+        style={{
+          ...S.banner,
+          opacity: bannerVis ? 1 : 0,
+          transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
+          transition: 'opacity .6s ease, transform .6s ease',
+          padding: 0, overflow: 'hidden', userSelect: 'none',
+        }}
+        onMouseDown={handlePointerDown}
+        onMouseUp={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchEnd={handlePointerUp}
+      >
+        {/* Each slide is the FULL banner */}
+        {QUICK_ACTIONS.map((action, i) => (
+          <div
+            key={action.label}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 12,
-              background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)',
-              border: `1.5px solid ${QUICK_ACTIONS[featureIdx].color}55`,
-              borderLeft: `4px solid ${QUICK_ACTIONS[featureIdx].color}`,
-              borderRadius: 12, padding: '12px 16px',
-              textDecoration: 'none', maxWidth: 420,
-              opacity: featureFade ? 1 : 0,
-              transform: featureFade ? 'translateY(0)' : 'translateY(6px)',
-              transition: 'opacity .35s ease, transform .35s ease, border-color .35s ease',
+              position: i === slideIdx ? 'relative' : 'absolute',
+              inset: 0,
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16,
+              padding: '28px 32px',
+              opacity: i === slideIdx ? (slideFade ? 1 : 0) : 0,
+              pointerEvents: i === slideIdx ? 'auto' : 'none',
+              transition: 'opacity .38s ease',
+              background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
+              borderRadius: 20,
             }}
           >
-            {/* Icon */}
+            {/* Glow overlay */}
             <div style={{
-              width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-              background: `${QUICK_ACTIONS[featureIdx].color}22`,
-              border: `1.5px solid ${QUICK_ACTIONS[featureIdx].color}44`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-            }}>
-              {QUICK_ACTIONS[featureIdx].icon}
-            </div>
-            {/* Text */}
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 3 }}>
-                {QUICK_ACTIONS[featureIdx].label}
-              </div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>
-                {QUICK_ACTIONS[featureIdx].desc}
-              </div>
-            </div>
-            {/* Arrow */}
-            <div style={{ color: QUICK_ACTIONS[featureIdx].color, fontWeight: 900, fontSize: 16, flexShrink: 0, marginLeft: 4 }}>→</div>
-          </Link>
+              position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20,
+              background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)`,
+            }} />
 
-          {/* Dot indicators */}
-          <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
-            {QUICK_ACTIONS.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setFeatureFade(false); setTimeout(() => { setFeatureIdx(i); setFeatureFade(true); }, 350); }}
+            {/* LEFT — greeting + action info */}
+            <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0 }}>
+              {/* Platform label */}
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                🏥 NMCN CBT Platform
+              </div>
+
+              {/* Greeting */}
+              <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,3vw,1.6rem)', margin: 0 }}>
+                {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: '6px 0 18px' }}>
+                {profile?.subscribed
+                  ? '🌟 Premium subscriber — all content unlocked'
+                  : '🎯 Free plan — upgrade to unlock all past questions'}
+              </p>
+
+              {/* Feature pill */}
+              <Link
+                to={action.to}
+                onClick={e => e.stopPropagation()}
                 style={{
-                  width: i === featureIdx ? 18 : 6, height: 6,
-                  borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                  background: i === featureIdx ? QUICK_ACTIONS[featureIdx].color : 'rgba(255,255,255,0.25)',
-                  transition: 'width .3s ease, background .3s ease',
+                  display: 'inline-flex', alignItems: 'center', gap: 12,
+                  background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
+                  border: `1.5px solid ${action.color}66`,
+                  borderLeft: `4px solid ${action.color}`,
+                  borderRadius: 12, padding: '12px 18px',
+                  textDecoration: 'none', maxWidth: 460,
                 }}
-              />
-            ))}
-          </div>
-        </div>
+              >
+                <div style={{
+                  width: 46, height: 46, borderRadius: 10, flexShrink: 0,
+                  background: `${action.color}2a`,
+                  border: `1.5px solid ${action.color}55`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
+                }}>
+                  {action.icon}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', marginBottom: 3 }}>
+                    {action.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 1.45, maxWidth: 320 }}>
+                    {action.desc}
+                  </div>
+                </div>
+                <div style={{ color: action.color, fontWeight: 900, fontSize: 18, flexShrink: 0, marginLeft: 6 }}>→</div>
+              </Link>
 
-        {/* Right — action buttons */}
-        <div style={{ ...S.bannerActions, position: 'relative', zIndex: 1 }}>
-          <Link to="/quick-actions" className="btn btn-gold btn-sm">⚡ Start Exam</Link>
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-              background: pausedExams.length > 0 ? 'rgba(13,148,136,0.25)' : 'rgba(255,255,255,0.08)',
-              border: `1.5px solid ${pausedExams.length > 0 ? 'rgba(13,148,136,0.6)' : 'rgba(255,255,255,0.25)'}`,
-              color: pausedExams.length > 0 ? '#5EEAD4' : 'rgba(255,255,255,0.6)',
-              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all 0.2s',
-            }}
-          >
-            ▶ Continue Exam
-            {pausedExams.length > 0 && (
-              <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>
-                {pausedExams.length}
-              </span>
-            )}
-          </button>
-          {!profile?.subscribed && (
-            <Link to="/subscription" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
-              Upgrade Plan
-            </Link>
-          )}
-        </div>
+              {/* Dot indicators */}
+              <div style={{ display: 'flex', gap: 5, marginTop: 12 }}>
+                {QUICK_ACTIONS.map((a, di) => (
+                  <button
+                    key={di}
+                    onClick={e => { e.stopPropagation(); goToSlide(di); }}
+                    style={{
+                      width: di === slideIdx ? 20 : 6, height: 6,
+                      borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                      background: di === slideIdx ? action.color : 'rgba(255,255,255,0.28)',
+                      transition: 'width .3s ease, background .3s ease',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT — action buttons */}
+            <div style={{ ...S.bannerActions, position: 'relative', zIndex: 1 }}>
+              <Link to="/quick-actions" className="btn btn-gold btn-sm" onClick={e => e.stopPropagation()}>⚡ Start Exam</Link>
+              <button
+                onClick={e => { e.stopPropagation(); setShowModal(true); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
+                  background: pausedExams.length > 0 ? 'rgba(13,148,136,0.25)' : 'rgba(255,255,255,0.08)',
+                  border: `1.5px solid ${pausedExams.length > 0 ? 'rgba(13,148,136,0.6)' : 'rgba(255,255,255,0.25)'}`,
+                  color: pausedExams.length > 0 ? '#5EEAD4' : 'rgba(255,255,255,0.6)',
+                  fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all 0.2s',
+                }}
+              >
+                ▶ Continue Exam
+                {pausedExams.length > 0 && (
+                  <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>
+                    {pausedExams.length}
+                  </span>
+                )}
+              </button>
+              {!profile?.subscribed && (
+                <Link to="/subscription" className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
+                  Upgrade Plan
+                </Link>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* ── Stats row ── */}
