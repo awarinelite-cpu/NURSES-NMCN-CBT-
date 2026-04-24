@@ -20,7 +20,7 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
-import QuestionReader        from '../shared/QuestionReader';
+import VoiceExamMode         from '../shared/VoiceExamMode';
 
 const DAILY_PRACTICE_LIMIT = 250;
 
@@ -686,13 +686,14 @@ export default function ExamSession() {
               </div>
             </div>
             <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>
-            <div style={{ marginBottom: 16 }}>
-              <QuestionReader
-                text={q.question}
-                options={q.options?.map(o => typeof o === 'string' ? o : o.text)}
-                showOptions={true}
-                rate={0.95}
-                label="Read Question"
+            <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+              <VoiceExamMode
+                question={q.question}
+                options={q.options || []}
+                questionId={q.id}
+                onAnswer={(idx) => setAnswers(prev => ({ ...prev, [q.id]: idx }))}
+                onNext={() => setCurrent(c => Math.min(c + 1, questions.length - 1))}
+                hasNext={current < questions.length - 1}
               />
             </div>
             {q.imageUrl && <div style={{ marginBottom: 16, textAlign: 'center' }}><img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
@@ -700,7 +701,7 @@ export default function ExamSession() {
               {q.options?.map((opt, i) => {
                 const selected = answers[q.id] === i;
                 return (
-                  <button key={i} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: i }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
+                  <button key={i} id={`vem-opt-${i}`} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: i }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
                     {typeof opt === 'string' ? opt : opt.text}
                   </button>
