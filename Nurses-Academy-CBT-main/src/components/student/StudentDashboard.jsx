@@ -378,6 +378,11 @@ export default function StudentDashboard() {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
+      <style>{`
+        @media (max-width: 520px) {
+          .banner-actions { display: none !important; }
+        }
+      `}</style>
 
       {/* Paused exams modal */}
       {showModal && (
@@ -413,16 +418,17 @@ export default function StudentDashboard() {
               inset: 0,
               width: '100%',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: 16,
-              padding: '28px 32px',
+              gap: 12,
+              padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
               opacity: i === slideIdx ? (slideFade ? 1 : 0) : 0,
               pointerEvents: i === slideIdx ? 'auto' : 'none',
               transition: 'opacity .38s ease',
               background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
               borderRadius: 20,
+              boxSizing: 'border-box',
             }}
           >
             {/* Glow overlay */}
@@ -432,17 +438,17 @@ export default function StudentDashboard() {
             }} />
 
             {/* LEFT — greeting + action info */}
-            <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0 }}>
+            <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
               {/* Platform label */}
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
                 🏥 NMCN CBT Platform
               </div>
 
               {/* Greeting */}
-              <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,3vw,1.6rem)', margin: 0 }}>
+              <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
                 {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: '6px 0 18px' }}>
+              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
                 {profile?.subscribed
                   ? '🌟 Premium subscriber — all content unlocked'
                   : '🎯 Free plan — upgrade to unlock all past questions'}
@@ -453,35 +459,37 @@ export default function StudentDashboard() {
                 to={action.to}
                 onClick={e => e.stopPropagation()}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 12,
+                  display: 'flex', alignItems: 'center', gap: 10,
                   background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
                   border: `1.5px solid ${action.color}66`,
                   borderLeft: `4px solid ${action.color}`,
-                  borderRadius: 12, padding: '12px 18px',
-                  textDecoration: 'none', maxWidth: 460,
+                  borderRadius: 12, padding: '10px 14px',
+                  textDecoration: 'none', width: '100%', boxSizing: 'border-box',
                 }}
               >
                 <div style={{
-                  width: 46, height: 46, borderRadius: 10, flexShrink: 0,
+                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
                   background: `${action.color}2a`,
                   border: `1.5px solid ${action.color}55`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                 }}>
                   {action.icon}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', marginBottom: 3 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 2 }}>
                     {action.label}
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 1.45, maxWidth: 320 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4,
+                    overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  }}>
                     {action.desc}
                   </div>
                 </div>
-                <div style={{ color: action.color, fontWeight: 900, fontSize: 18, flexShrink: 0, marginLeft: 6 }}>→</div>
+                <div style={{ color: action.color, fontWeight: 900, fontSize: 16, flexShrink: 0 }}>→</div>
               </Link>
 
               {/* Dot indicators */}
-              <div style={{ display: 'flex', gap: 5, marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
                 {QUICK_ACTIONS.map((a, di) => (
                   <button
                     key={di}
@@ -497,30 +505,35 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            {/* RIGHT — action buttons */}
-            <div style={{ ...S.bannerActions, position: 'relative', zIndex: 1 }}>
-              <Link to="/quick-actions" className="btn btn-gold btn-sm" onClick={e => e.stopPropagation()}>⚡ Start Exam</Link>
-              <button
-                onClick={e => { e.stopPropagation(); setShowModal(true); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-                  background: pausedExams.length > 0 ? 'rgba(13,148,136,0.25)' : 'rgba(255,255,255,0.08)',
-                  border: `1.5px solid ${pausedExams.length > 0 ? 'rgba(13,148,136,0.6)' : 'rgba(255,255,255,0.25)'}`,
-                  color: pausedExams.length > 0 ? '#5EEAD4' : 'rgba(255,255,255,0.6)',
-                  fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all 0.2s',
-                }}
-              >
-                ▶ Continue Exam
-                {pausedExams.length > 0 && (
+            {/* RIGHT — action buttons (hidden on small screens via flex shrink) */}
+            <div className="banner-actions" style={{
+              ...S.bannerActions,
+              position: 'relative', zIndex: 1,
+              flexShrink: 0, flexDirection: 'column', alignItems: 'stretch',
+            }}>
+              <Link to="/quick-actions" className="btn btn-gold btn-sm" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>⚡ Start Exam</Link>
+              {pausedExams.length > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setShowModal(true); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                    background: 'rgba(13,148,136,0.25)',
+                    border: '1.5px solid rgba(13,148,136,0.6)',
+                    color: '#5EEAD4',
+                    fontWeight: 700, fontSize: 12, fontFamily: 'inherit', transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  ▶ Continue
                   <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>
                     {pausedExams.length}
                   </span>
-                )}
-              </button>
+                </button>
+              )}
               {!profile?.subscribed && (
-                <Link to="/subscription" className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>
-                  Upgrade Plan
+                <Link to="/subscription" className="btn btn-outline btn-sm" onClick={e => e.stopPropagation()} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                  Upgrade
                 </Link>
               )}
             </div>
@@ -742,7 +755,9 @@ const S = {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'radial-gradient(ellipse at 70% 50%, rgba(245,158,11,0.15) 0%, transparent 60%)',
   },
-  bannerActions: { display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' },
+  bannerActions: {
+    display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center',
+  },
   statsGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: 16, marginBottom: 32,
