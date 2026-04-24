@@ -20,6 +20,7 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import QuestionReader        from '../shared/QuestionReader';
 
 const DAILY_PRACTICE_LIMIT = 250;
 
@@ -579,7 +580,14 @@ export default function ExamSession() {
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</p>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', opacity: 0.4 }}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', alignItems: 'center' }}>
+                      <QuestionReader
+                        text={q.question}
+                        options={q.options?.map(o => typeof o === 'string' ? o : o.text)}
+                        showOptions={false}
+                        rate={0.95}
+                        label="Read"
+                      />
                       {q.topic  && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'rgba(13,148,136,0.08)', color: 'var(--teal)', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>📌 {q.topic}</span>}
                       {q.course && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.course}</span>}
                     </div>
@@ -677,7 +685,16 @@ export default function ExamSession() {
                 <button onClick={() => toggleBookmark(q)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: bookmarked.has(q.id) ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${bookmarked.has(q.id) ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: bookmarked.has(q.id) ? '#F59E0B' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>🔖 {bookmarked.has(q.id) ? 'Bookmarked' : 'Bookmark'}</button>
               </div>
             </div>
-            <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 20px' }}>{q.question}</p>
+            <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>
+            <div style={{ marginBottom: 16 }}>
+              <QuestionReader
+                text={q.question}
+                options={q.options?.map(o => typeof o === 'string' ? o : o.text)}
+                showOptions={true}
+                rate={0.95}
+                label="Read Question"
+              />
+            </div>
             {q.imageUrl && <div style={{ marginBottom: 16, textAlign: 'center' }}><img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {q.options?.map((opt, i) => {
