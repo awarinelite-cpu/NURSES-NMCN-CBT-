@@ -104,7 +104,12 @@ export default function ExamSession() {
   const course      = state?.course     || '';
   const courseLabel = state?.courseLabel || '';
   const topic       = state?.topic      || '';
-  const count       = Number(state?.count     || 20);
+  const rawCount    = Number(state?.count     || 20);
+  // Cap at 10 questions for free (unsubscribed) users
+  const now        = new Date();
+  const expiry     = profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry) : null;
+  const isSub      = (profile?.subscribed === true || profile?.accessLevel === 'full') && expiry && expiry > now;
+  const count      = isSub ? rawCount : Math.min(rawCount, 10);
   const timeLimit   = Number(state?.timeLimit || 0);
   const doShuffle   = state?.doShuffle  !== false;
   const reviewMode  = state?.reviewMode || false;
