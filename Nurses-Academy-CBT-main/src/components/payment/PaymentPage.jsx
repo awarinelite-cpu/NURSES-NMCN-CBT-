@@ -1,7 +1,8 @@
 // src/components/payment/PaymentPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+// CHANGE 3: added doc, updateDoc to imports
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,23 +25,18 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
   const navigate = useNavigate();
 
   const [plan,           setPlan]           = useState(initialPlan || PLANS[1]);
-  const [method,         setMethod]         = useState(null);   // 'paystack' | 'manual'
+  const [method,         setMethod]         = useState(null);
   const [proof,          setProof]          = useState('');
   const [uploading,      setUploading]      = useState(false);
   const [done,           setDone]           = useState(false);
   const [error,          setError]          = useState('');
   const [paystackReady,  setPaystackReady]  = useState(false);
 
-  /* ── Load Paystack script reliably via useEffect ── */
+  /* ── Load Paystack script ── */
   useEffect(() => {
     if (window.PaystackPop) { setPaystackReady(true); return; }
-
     const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-    if (existing) {
-      existing.addEventListener('load', () => setPaystackReady(true));
-      return;
-    }
-
+    if (existing) { existing.addEventListener('load', () => setPaystackReady(true)); return; }
     const script = document.createElement('script');
     script.src = 'https://js.paystack.co/v1/inline.js';
     script.async = true;
@@ -59,12 +55,15 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PUBLIC_KEY,
       email:    currentUser.email,
-      amount:   plan.price * 100,       // kobo
+      amount:   plan.price * 100,
       currency: 'NGN',
       ref:      `NMCN-${Date.now()}`,
       metadata: { userId: currentUser.uid, plan: plan.id },
       callback: async (response) => {
         try {
+          const expiresAt = new Date(Date.now() + plan.days * 86400000);
+
+          // Save payment record
           await addDoc(collection(db, 'payments'), {
             userId:    currentUser.uid,
             userName:  currentUser.displayName || currentUser.email,
@@ -76,8 +75,18 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
             reference: response.reference,
             status:    'confirmed',
             createdAt: serverTimestamp(),
-            expiresAt: new Date(Date.now() + plan.days * 86400000),
+            expiresAt,
           });
+
+          // CHANGE 3: Activate subscription on the user's profile immediately
+          await updateDoc(doc(db, 'users', currentUser.uid), {
+            subscribed:         true,
+            accessLevel:        'full',
+            subscriptionPlan:   plan.id,
+            subscriptionExpiry: expiresAt.toISOString(),
+            subscribedAt:       serverTimestamp(),
+          });
+
           setDone(true);
           setTimeout(() => navigate('/dashboard'), 2500);
         } catch (e) {
@@ -129,7 +138,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
           <p style={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', fontSize: 14, padding: '0 24px 32px' }}>
             {method === 'paystack'
               ? 'Your subscription is now active. Redirecting to dashboard…'
-              : "Your payment proof has been received. Admin will confirm within a few hours and activate your access."}
+              : 'Your payment proof has been received. Admin will confirm within a few hours and activate your access.'}
           </p>
         </div>
       </div>
@@ -321,148 +330,82 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
 
 const s = {
   page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
+    minHeight: '100vh', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', padding: 16,
     background: 'linear-gradient(135deg,#010810,#0A1628)',
   },
   card: {
-    width: '100%',
-    maxWidth: 480,
+    width: '100%', maxWidth: 480,
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    overflow: 'hidden',
-    backdropFilter: 'blur(12px)',
+    borderRadius: 20, overflow: 'hidden', backdropFilter: 'blur(12px)',
   },
   headerBand: {
     background: 'linear-gradient(135deg,#010810,#0F2A4A)',
     borderBottom: '1px solid rgba(13,148,136,0.3)',
-    padding: '22px 20px',
-    position: 'relative',
-    overflow: 'hidden',
+    padding: '22px 20px', position: 'relative', overflow: 'hidden',
   },
   headerGlow: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.2) 0%, transparent 60%)',
   },
   heading: {
-    color: '#fff',
-    fontFamily: "'Playfair Display', serif",
-    fontSize: '1.3rem',
-    margin: 0,
-    marginBottom: 4,
+    color: '#fff', fontFamily: "'Playfair Display', serif",
+    fontSize: '1.3rem', margin: 0, marginBottom: 4,
   },
   label: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-    marginTop: 0,
+    color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700,
+    letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10, marginTop: 0,
   },
   planRow: { display: 'flex', gap: 8, marginBottom: 16 },
   planBtn: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 3,
-    padding: '12px 6px',
-    border: '1.5px solid',
-    borderRadius: 12,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
+    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: 3, padding: '12px 6px', border: '1.5px solid', borderRadius: 12,
+    cursor: 'pointer', transition: 'all 0.2s',
   },
   summary: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    margin: '0 20px 16px',
-    padding: '14px 16px',
-    background: 'rgba(13,148,136,0.08)',
-    borderRadius: 10,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    margin: '0 20px 16px', padding: '14px 16px',
+    background: 'rgba(13,148,136,0.08)', borderRadius: 10,
     border: '1px solid rgba(13,148,136,0.2)',
   },
   methodRow: { display: 'flex', gap: 10, marginBottom: 4 },
   methodBtn: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 5,
-    padding: '16px 8px',
-    border: '1.5px solid',
-    borderRadius: 12,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
+    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: 5, padding: '16px 8px', border: '1.5px solid', borderRadius: 12,
+    cursor: 'pointer', transition: 'all 0.2s',
   },
   section: { padding: '16px 20px 20px' },
   infoBox: {
-    background: 'rgba(13,148,136,0.08)',
-    border: '1px solid rgba(13,148,136,0.2)',
-    borderRadius: 10,
-    padding: '12px 14px',
-    marginBottom: 14,
+    background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+    borderRadius: 10, padding: '12px 14px', marginBottom: 14,
   },
   bankBox: {
-    background: 'rgba(245,158,11,0.07)',
-    border: '1px solid rgba(245,158,11,0.25)',
-    borderRadius: 12,
-    padding: '14px 16px',
-    marginBottom: 12,
+    background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)',
+    borderRadius: 12, padding: '14px 16px', marginBottom: 12,
   },
   bankTitle: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 10,
-    marginTop: 0,
-    fontWeight: 700,
+    color: 'rgba(255,255,255,0.45)', fontSize: 11, textTransform: 'uppercase',
+    letterSpacing: 1, marginBottom: 10, marginTop: 0, fontWeight: 700,
   },
   bankRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '7px 0',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
-    fontSize: 13,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
   },
   input: {
-    width: '100%',
-    padding: '11px 14px',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    color: '#fff',
-    fontSize: 14,
-    outline: 'none',
-    boxSizing: 'border-box',
-    marginBottom: 12,
+    width: '100%', padding: '11px 14px',
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: 10, color: '#fff', fontSize: 14, outline: 'none',
+    boxSizing: 'border-box', marginBottom: 12,
   },
   primaryBtn: {
-    width: '100%',
-    padding: '14px',
-    border: 'none',
-    borderRadius: 12,
-    color: '#fff',
-    fontWeight: 800,
-    fontSize: 15,
-    letterSpacing: 0.5,
+    width: '100%', padding: '14px', border: 'none', borderRadius: 12,
+    color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
     transition: 'opacity 0.2s',
   },
   error: {
-    color: '#EF4444',
-    fontSize: 13,
-    margin: '0 0 12px',
-    padding: '9px 12px',
-    background: 'rgba(239,68,68,0.1)',
-    borderRadius: 8,
-    border: '1px solid rgba(239,68,68,0.2)',
-    lineHeight: 1.5,
+    color: '#EF4444', fontSize: 13, margin: '0 0 12px', padding: '9px 12px',
+    background: 'rgba(239,68,68,0.1)', borderRadius: 8,
+    border: '1px solid rgba(239,68,68,0.2)', lineHeight: 1.5,
   },
 };
