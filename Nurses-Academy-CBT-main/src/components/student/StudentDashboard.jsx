@@ -253,38 +253,33 @@ export default function StudentDashboard() {
   const swipeStartY  = useRef(null);
   const isDragging   = useRef(false);
 
-  // ── go to a slide with fade transition ───────────────────────────────────────
+  // ── slide ref keeps auto-advance in sync without stale closures ─────────────
+  const slideIdxRef = useRef(0);
+  const autoTimer   = useRef(null);
+
+  // ── go to a specific slide with fade ─────────────────────────────────────────
   const goToSlide = useCallback((idx) => {
+    const next = ((idx % QUICK_ACTIONS.length) + QUICK_ACTIONS.length) % QUICK_ACTIONS.length;
     setSlideFade(false);
     setTimeout(() => {
-      setSlideIdx((idx + QUICK_ACTIONS.length) % QUICK_ACTIONS.length);
+      slideIdxRef.current = next;
+      setSlideIdx(next);
       setSlideFade(true);
-    }, 320);
+    }, 300);
   }, []);
 
-  // ── Auto-advance every 4 s ────────────────────────────────────────────────────
-  const autoTimer = useRef(null);
-  const resetAuto = useCallback(() => {
+  // ── start / restart the 4-second auto-advance ────────────────────────────────
+  const startAuto = useCallback(() => {
     clearInterval(autoTimer.current);
-    autoTimer.current = setInterval(() => goToSlide(slideIdx + 1), 4000);
-  }, [slideIdx, goToSlide]);
-
-  useEffect(() => {
     autoTimer.current = setInterval(() => {
-      setSlideIdx(prev => {
-        const next = (prev + 1) % QUICK_ACTIONS.length;
-        setSlideFade(false);
-        setTimeout(() => setSlideFade(true), 320);
-        return next;          // update after fade via timeout below
-      });
+      goToSlide(slideIdxRef.current + 1);
     }, 4000);
-    return () => clearInterval(autoTimer.current);
-  }, []);
+  }, [goToSlide]);
 
-  // keep the setSlideIdx in sync with fade
   useEffect(() => {
-    const tid = setInterval(() => {}, 0); // dummy — real advance is above
-    return () => clearInterval(tid);
+    startAuto();
+    return () => clearInterval(autoTimer.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Swipe / drag handlers ─────────────────────────────────────────────────────
@@ -298,17 +293,17 @@ export default function StudentDashboard() {
     isDragging.current = false;
     const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
     const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-    const dx = endX - swipeStartX.current;
-    const dy = Math.abs(endY - swipeStartY.current);
+    const dx   = endX - swipeStartX.current;
+    const dy   = Math.abs(endY - swipeStartY.current);
     if (Math.abs(dx) > 40 && Math.abs(dx) > dy) {
-      clearInterval(autoTimer.current);
-      goToSlide(dx < 0 ? slideIdx + 1 : slideIdx - 1);
+      goToSlide(slideIdxRef.current + (dx < 0 ? 1 : -1));
+      startAuto(); // restart timer after manual swipe
     }
   };
 
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     const loadData = async () => {
       try {
         const sessSnap = await getDocs(query(
@@ -402,6 +397,7 @@ export default function StudentDashboard() {
           transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
           transition: 'opacity .6s ease, transform .6s ease',
           padding: 0, overflow: 'hidden', userSelect: 'none',
+          minHeight: 200,
         }}
         onMouseDown={handlePointerDown}
         onMouseUp={handlePointerUp}
@@ -489,7 +485,7 @@ export default function StudentDashboard() {
                 {QUICK_ACTIONS.map((a, di) => (
                   <button
                     key={di}
-                    onClick={e => { e.stopPropagation(); goToSlide(di); }}
+                    onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
                     style={{
                       width: di === slideIdx ? 20 : 6, height: 6,
                       borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
@@ -739,9 +735,8 @@ function SessionRow({ s, cat, delay }) {
 const S = {
   banner: {
     background: 'linear-gradient(135deg, #1E3A8A 0%, #0D9488 100%)',
-    borderRadius: 20, padding: '28px 32px', marginBottom: 28,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    flexWrap: 'wrap', gap: 16, position: 'relative', overflow: 'hidden',
+    borderRadius: 20, marginBottom: 28,
+    position: 'relative', overflow: 'hidden',
   },
   bannerGlow: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
