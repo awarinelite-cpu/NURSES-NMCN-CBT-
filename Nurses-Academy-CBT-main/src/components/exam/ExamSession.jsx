@@ -63,6 +63,33 @@ function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
   );
 }
 
+/* ── Simple read-aloud button used in the review panel ──────────────── */
+function ReviewReadButton({ text = '' }) {
+  const [speaking, setSpeaking] = React.useState(false);
+  const toggle = () => {
+    if (speaking) { window.speechSynthesis?.cancel(); setSpeaking(false); return; }
+    if (!text.trim() || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95; u.lang = 'en-US';
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(u);
+  };
+  return (
+    <button onClick={toggle} title={speaking ? 'Stop reading' : 'Read question aloud'} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+      border: `1px solid ${speaking ? 'rgba(13,148,136,.5)' : 'rgba(13,148,136,.25)'}`,
+      background: speaking ? 'rgba(13,148,136,.12)' : 'transparent',
+      color: speaking ? '#14B8A6' : '#0D9488', transition: 'all .15s',
+    }}>
+      {speaking ? '■' : '🔊'} {speaking ? 'Stop' : 'Read'}
+    </button>
+  );
+}
+
 export default function ExamSession() {
   const { state }   = useLocation();
   const navigate    = useNavigate();
@@ -581,13 +608,7 @@ export default function ExamSession() {
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</p>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', alignItems: 'center' }}>
-                      <QuestionReader
-                        text={q.question}
-                        options={q.options?.map(o => typeof o === 'string' ? o : o.text)}
-                        showOptions={false}
-                        rate={0.95}
-                        label="Read"
-                      />
+                      <ReviewReadButton text={q.question} />
                       {q.topic  && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'rgba(13,148,136,0.08)', color: 'var(--teal)', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>📌 {q.topic}</span>}
                       {q.course && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.course}</span>}
                     </div>
