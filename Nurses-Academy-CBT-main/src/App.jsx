@@ -12,11 +12,12 @@ import LandingPage    from './components/shared/LandingPage';
 import AuthPage       from './components/auth/AuthPage';
 
 // Student pages
-import StudentDashboard  from './components/student/StudentDashboard';
-import AnalyticsPage     from './components/student/AnalyticsPage';
-import BookmarksPage     from './components/student/BookmarksPage';
-import SubscriptionPage  from './components/student/SubscriptionPage';
-import QuickActionsPage  from './components/student/QuickActionsPage';
+import StudentDashboard      from './components/student/StudentDashboard';
+import AnalyticsPage         from './components/student/AnalyticsPage';
+import BookmarksPage         from './components/student/BookmarksPage';
+import SubscriptionPage      from './components/student/SubscriptionPage';
+import QuickActionsPage      from './components/student/QuickActionsPage';
+import PerformanceMonitorPage from './components/student/PerformanceMonitorPage';
 
 // ── Payment page (Paystack + Manual bank transfer) ──────────────
 import PaymentPage       from './components/payment/PaymentPage';
@@ -209,6 +210,7 @@ export default function App() {
                 <Route path="/exam/setup"     element={<ExamSetupPage />} />
                 <Route path="/mock-exams"     element={<MockExamPage />} />
                 <Route path="/results"        element={<AnalyticsPage />} />
+                <Route path="/performance"    element={<PerformanceMonitorPage />} />
                 <Route path="/bookmarks"      element={<BookmarksPage />} />
                 <Route path="/subscription"   element={<SubscriptionPage />} />
                 <Route path="/leaderboard"    element={<LeaderboardPage />} />
