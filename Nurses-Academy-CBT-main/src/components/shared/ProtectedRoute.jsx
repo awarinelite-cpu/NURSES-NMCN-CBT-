@@ -55,6 +55,23 @@ export function SubscribedRoute({ children }) {
   return children;
 }
 
+/* ── FreeTrialRoute — subscribed users pass through freely.
+     Free users pass through ONCE per exam mode (10 Qs cap enforced
+     inside each page via useFreeTrialGate). If a free user has already
+     used their trial for every mode they try to access, they are sent
+     to /subscription.
+     This wrapper just ensures the user is logged in and the profile is
+     loaded. The per-mode gate lives in useFreeTrialGate.js.           ── */
+export function FreeTrialRoute({ children }) {
+  const { user, profile, loading } = useAuth();
+
+  if (loading)  return <LoadingScreen />;
+  if (!user)    return <Navigate to="/auth" replace />;
+  if (!profile) return <LoadingScreen />;
+
+  return children;
+}
+
 /* ── AdminRoute — must be logged in AND have admin role ── */
 export function AdminRoute({ children }) {
   const { user, profile, loading } = useAuth();
