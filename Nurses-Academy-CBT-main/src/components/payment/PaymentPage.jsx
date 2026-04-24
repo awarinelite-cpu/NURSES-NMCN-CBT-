@@ -1,5 +1,5 @@
 // src/components/payment/PaymentPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -23,25 +23,61 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const [plan,           setPlan]           = useState(initialPlan || PLANS[1]);
-  const [method,         setMethod]         = useState(null);
-  const [proof,          setProof]          = useState('');
-  const [uploading,      setUploading]      = useState(false);
-  const [done,           setDone]           = useState(false);
-  const [error,          setError]          = useState('');
-  const [paystackReady,  setPaystackReady]  = useState(false);
+  const [plan,          setPlan]          = useState(initialPlan || PLANS[1]);
+  const [method,        setMethod]        = useState(null);
+  const [proof,         setProof]         = useState('');
+  const [uploading,     setUploading]     = useState(false);
+  const [done,          setDone]          = useState(false);
+  const [doneMethod,    setDoneMethod]    = useState(null); // FIX: track method at time of success
+  const [error,         setError]         = useState('');
+  const [paystackReady, setPaystackReady] = useState(false);
+  const scriptListenerRef = useRef(null);
 
   /* ── Load Paystack script ── */
   useEffect(() => {
-    if (window.PaystackPop) { setPaystackReady(true); return; }
+    // Already loaded
+    if (window.PaystackPop) {
+      setPaystackReady(true);
+      return;
+    }
+
     const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-    if (existing) { existing.addEventListener('load', () => setPaystackReady(true)); return; }
+
+    if (existing) {
+      // Script tag exists but may not have fired onload yet
+      // FIX: check again after a tick in case it just loaded
+      const onLoad = () => {
+        if (window.PaystackPop) setPaystackReady(true);
+      };
+      existing.addEventListener('load', onLoad);
+      scriptListenerRef.current = { el: existing, fn: onLoad };
+      // Also poll once immediately in case it already finished
+      if (existing.readyState === 'complete' || existing.dataset.loaded === '1') {
+        setPaystackReady(true);
+      }
+      return;
+    }
+
+    // Inject fresh script
     const script = document.createElement('script');
     script.src = 'https://js.paystack.co/v1/inline.js';
     script.async = true;
-    script.onload = () => setPaystackReady(true);
-    script.onerror = () => setError('Could not load Paystack. Check your internet connection.');
+    script.onload = () => {
+      script.dataset.loaded = '1';
+      setPaystackReady(true);
+    };
+    script.onerror = () => {
+      setError('Could not load Paystack. Check your internet connection.');
+    };
     document.head.appendChild(script);
+
+    return () => {
+      // Cleanup listener if we attached one to an existing script
+      if (scriptListenerRef.current) {
+        const { el, fn } = scriptListenerRef.current;
+        el.removeEventListener('load', fn);
+      }
+    };
   }, []);
 
   /* ── Paystack inline handler ── */
@@ -62,8 +98,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       ref:      `NMCN-${Date.now()}`,
       metadata: { userId: currentUser.uid, plan: plan.id },
       callback: (response) => {
-        // Activate subscription directly in Firestore after confirmed payment
-        const expiresAt = new Date(Date.now() + plan.days * 86400000);
+        const expiresAt   = new Date(Date.now() + plan.days * 86400000);
         const paymentsRef = collection(db, 'payments');
         const userRef     = doc(db, 'users', currentUser.uid);
 
@@ -88,18 +123,18 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
           subscribedAt:       serverTimestamp(),
         }))
         .then(() => {
+          setDoneMethod('paystack'); // FIX: capture method before clearing state
           setDone(true);
           setTimeout(() => navigate('/dashboard'), 2500);
         })
         .catch(() => {
-          setError('Payment successful! But failed to activate. Send ref to support: ' + response.reference);
+          setError('Payment received! But activation failed. Send this ref to support: ' + response.reference);
         });
       },
       onClose: () => {},
     });
 
-    // Called synchronously — no await, no delay
-    handler.openIframe();
+    handler.openIframe(); // synchronous — no await, no delay
   };
 
   /* ── Manual payment submit ── */
@@ -120,6 +155,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         status:    'pending',
         createdAt: serverTimestamp(),
       });
+      setDoneMethod('manual'); // FIX: capture method
       setDone(true);
     } catch (e) {
       setError('Failed to submit. Please try again.');
@@ -134,13 +170,13 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       <div style={s.page}>
         <div style={s.card}>
           <div style={{ fontSize: 64, textAlign: 'center', padding: '32px 20px 8px' }}>
-            {method === 'paystack' ? '🎉' : '⏳'}
+            {doneMethod === 'paystack' ? '🎉' : '⏳'}
           </div>
           <h2 style={{ ...s.heading, textAlign: 'center', marginTop: 12, padding: '0 20px' }}>
-            {method === 'paystack' ? 'Access Granted!' : 'Submitted for Review!'}
+            {doneMethod === 'paystack' ? 'Access Granted!' : 'Submitted for Review!'}
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', fontSize: 14, padding: '0 24px 32px' }}>
-            {method === 'paystack'
+            {doneMethod === 'paystack'
               ? 'Your subscription is now active. Redirecting to dashboard…'
               : 'Your payment proof has been received. Admin will confirm within a few hours and activate your access.'}
           </p>
