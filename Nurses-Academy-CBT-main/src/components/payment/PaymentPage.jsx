@@ -1,7 +1,7 @@
 // src/components/payment/PaymentPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
@@ -61,25 +61,39 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       callback: async (response) => {
         try {
           setError('');
-          // Verify payment server-side before activating subscription
-          const res = await fetch('/api/paystack/verify', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              reference: response.reference,
-              userId:    currentUser.uid,
-              planId:    plan.id,
-            }),
+          setUploading(true);
+          const expiresAt = new Date(Date.now() + plan.days * 86400000);
+
+          // Save payment record
+          await addDoc(collection(db, 'payments'), {
+            userId:    currentUser.uid,
+            userName:  currentUser.displayName || currentUser.email,
+            userEmail: currentUser.email,
+            plan:      plan.id,
+            amount:    plan.price,
+            days:      plan.days,
+            method:    'paystack',
+            reference: response.reference,
+            status:    'confirmed',
+            createdAt: serverTimestamp(),
+            expiresAt,
           });
-          const data = await res.json();
-          if (!data.success) {
-            setError('Verification failed: ' + (data.message || 'Please contact support with ref: ' + response.reference));
-            return;
-          }
+
+          // Activate subscription on user profile
+          await updateDoc(doc(db, 'users', currentUser.uid), {
+            subscribed:         true,
+            accessLevel:        'full',
+            subscriptionPlan:   plan.id,
+            subscriptionExpiry: expiresAt.toISOString(),
+            subscribedAt:       serverTimestamp(),
+          });
+
           setDone(true);
           setTimeout(() => navigate('/dashboard'), 2500);
         } catch (e) {
-          setError('Payment received but verification failed. Contact support with ref: ' + response.reference);
+          setError('Payment successful but failed to save. Contact support with ref: ' + response.reference);
+        } finally {
+          setUploading(false);
         }
       },
       onClose: () => {},
