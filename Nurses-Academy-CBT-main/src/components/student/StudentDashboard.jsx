@@ -235,98 +235,40 @@ const QUICK_ACTIONS = [
   },
 ];
 
-// ── Banner Button Strip (horizontal slideable action buttons) ─────────────────
+// ── Banner Action Buttons (slideable strip at bottom of banner) ───────────────
 function BannerButtonStrip({ pausedExams, profile, onContinue }) {
-  const trackRef   = useRef(null);
-  const stripStart = useRef(null);
-  const isDrag     = useRef(false);
-  const autoRef    = useRef(null);
-  const SCROLL_STEP = 120;
+  const trackRef    = useRef(null);
+  const dragStartX  = useRef(null);
+  const scrollStart = useRef(null);
+  const isDragging  = useRef(false);
 
-  // Build the button list dynamically
-  const buildButtons = () => {
-    const btns = [];
-    btns.push({ id: 'start', type: 'link', to: '/quick-actions', label: '⚡ Start Exam', style: 'gold' });
-    if (pausedExams.length > 0) {
-      btns.push({ id: 'continue', type: 'action', label: `▶ Continue (${pausedExams.length})`, style: 'teal' });
-    }
-    if (!profile?.subscribed) {
-      btns.push({ id: 'upgrade', type: 'link', to: '/subscription', label: '🌟 Upgrade', style: 'outline' });
-    }
-    // Always add all quick-action nav buttons
-    QUICK_ACTIONS.forEach(a => {
-      btns.push({ id: a.to, type: 'link', to: a.to, label: `${a.icon} ${a.label}`, style: 'ghost', color: a.color });
-    });
-    return btns;
+  const btnBase = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+    padding: '10px 22px', borderRadius: 10, cursor: 'pointer',
+    fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+    whiteSpace: 'nowrap', textDecoration: 'none', flexShrink: 0,
+    transition: 'opacity .2s, transform .15s', userSelect: 'none',
   };
 
-  // Auto-scroll the strip every 3.5 s
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    autoRef.current = setInterval(() => {
-      const maxScroll = track.scrollWidth - track.clientWidth;
-      if (track.scrollLeft >= maxScroll - 4) {
-        track.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        track.scrollBy({ left: SCROLL_STEP, behavior: 'smooth' });
-      }
-    }, 3500);
-    return () => clearInterval(autoRef.current);
-  }, [pausedExams.length, profile?.subscribed]);
-
-  const pauseAuto = () => {
-    clearInterval(autoRef.current);
-    // resume after 6 s of inactivity
-    autoRef.current = setTimeout(() => {
-      autoRef.current = setInterval(() => {
-        const track = trackRef.current;
-        if (!track) return;
-        const max = track.scrollWidth - track.clientWidth;
-        if (track.scrollLeft >= max - 4) track.scrollTo({ left: 0, behavior: 'smooth' });
-        else track.scrollBy({ left: SCROLL_STEP, behavior: 'smooth' });
-      }, 3500);
-    }, 6000);
+  // ── drag / swipe handlers ────────────────────────────────────────────────────
+  const onDown = (e) => {
+    dragStartX.current  = e.touches ? e.touches[0].clientX : e.clientX;
+    scrollStart.current = trackRef.current?.scrollLeft || 0;
+    isDragging.current  = true;
   };
-
-  // Touch/mouse drag on the strip
-  const onStripDown = (e) => {
-    stripStart.current = e.touches ? e.touches[0].clientX : e.clientX;
-    isDrag.current = true;
-    pauseAuto();
+  const onMove = (e) => {
+    if (!isDragging.current || !trackRef.current) return;
+    const x  = e.touches ? e.touches[0].clientX : e.clientX;
+    const dx = dragStartX.current - x;
+    trackRef.current.scrollLeft = scrollStart.current + dx;
   };
-  const onStripMove = (e) => {
-    if (!isDrag.current || stripStart.current === null) return;
-    const x   = e.touches ? e.touches[0].clientX : e.clientX;
-    const dx  = stripStart.current - x;
-    if (trackRef.current) trackRef.current.scrollLeft += dx * 0.6;
-    stripStart.current = x;
-  };
-  const onStripUp = () => { isDrag.current = false; };
-
-  const btnStyle = (type, color) => {
-    const base = {
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '9px 18px', borderRadius: 10, cursor: 'pointer',
-      fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-      whiteSpace: 'nowrap', flexShrink: 0, textDecoration: 'none',
-      transition: 'opacity .2s, transform .15s',
-      userSelect: 'none',
-    };
-    if (type === 'gold')    return { ...base, background: '#F59E0B', color: '#1a1a1a', border: 'none' };
-    if (type === 'teal')    return { ...base, background: 'rgba(13,148,136,0.3)', border: '1.5px solid rgba(13,148,136,0.7)', color: '#5EEAD4' };
-    if (type === 'outline') return { ...base, background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.45)', color: '#fff' };
-    // ghost / quick-action
-    return { ...base, background: color ? `${color}22` : 'rgba(255,255,255,0.1)', border: `1.5px solid ${color ? color + '55' : 'rgba(255,255,255,0.25)'}`, color: color || '#fff' };
-  };
-
-  const buttons = buildButtons();
+  const onUp = () => { isDragging.current = false; };
 
   return (
     <div
       style={{
         borderTop: '1px solid rgba(255,255,255,0.12)',
-        padding: '10px 16px',
+        padding: '12px 0',
         position: 'relative', zIndex: 2,
         background: 'rgba(0,0,0,0.18)',
         borderRadius: '0 0 20px 20px',
@@ -334,50 +276,84 @@ function BannerButtonStrip({ pausedExams, profile, onContinue }) {
       onMouseDown={e => e.stopPropagation()}
       onTouchStart={e => e.stopPropagation()}
     >
-      {/* Fade edges */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, borderRadius: '0 0 0 20px', background: 'linear-gradient(to right, rgba(0,0,0,0.22), transparent)', pointerEvents: 'none', zIndex: 3 }} />
-      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, borderRadius: '0 0 20px 0', background: 'linear-gradient(to left, rgba(0,0,0,0.22), transparent)', pointerEvents: 'none', zIndex: 3 }} />
+      {/* Left fade hint */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 28, zIndex: 3,
+        background: 'linear-gradient(to right, rgba(0,0,0,0.30), transparent)',
+        borderRadius: '0 0 0 20px', pointerEvents: 'none',
+      }} />
+      {/* Right fade hint */}
+      <div style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 28, zIndex: 3,
+        background: 'linear-gradient(to left, rgba(0,0,0,0.30), transparent)',
+        borderRadius: '0 0 20px 0', pointerEvents: 'none',
+      }} />
 
+      {/* Scrollable track */}
       <div
         ref={trackRef}
         className="btn-strip-track"
         style={{
-          display: 'flex', gap: 8, overflowX: 'auto',
-          cursor: 'grab', WebkitOverflowScrolling: 'touch',
+          display: 'flex', gap: 10, overflowX: 'auto',
+          padding: '0 20px', cursor: 'grab',
+          WebkitOverflowScrolling: 'touch',
         }}
-        onMouseDown={onStripDown}
-        onMouseMove={onStripMove}
-        onMouseUp={onStripUp}
-        onMouseLeave={onStripUp}
-        onTouchStart={onStripDown}
-        onTouchMove={onStripMove}
-        onTouchEnd={onStripUp}
+        onMouseDown={onDown}
+        onMouseMove={onMove}
+        onMouseUp={onUp}
+        onMouseLeave={onUp}
+        onTouchStart={onDown}
+        onTouchMove={onMove}
+        onTouchEnd={onUp}
       >
-        {buttons.map(btn => {
-          if (btn.type === 'action') {
-            return (
-              <button
-                key={btn.id}
-                onClick={e => { e.stopPropagation(); onContinue(); }}
-                style={btnStyle(btn.style)}
-              >
-                {btn.label}
-              </button>
-            );
-          }
-          return (
-            <Link
-              key={btn.id}
-              to={btn.to}
-              onClick={e => e.stopPropagation()}
-              style={btnStyle(btn.style, btn.color)}
-            >
-              {btn.label}
-            </Link>
-          );
-        })}
-        {/* Spacer so last item isn't flush against edge fade */}
-        <div style={{ flexShrink: 0, width: 8 }} />
+        {/* ⚡ Start Exam — always shown */}
+        <Link
+          to="/quick-actions"
+          onClick={e => e.stopPropagation()}
+          style={{ ...btnBase, background: '#F59E0B', color: '#1a1a1a', border: 'none' }}
+        >
+          ⚡ Start Exam
+        </Link>
+
+        {/* ▶ Continue — only when paused exams exist */}
+        {pausedExams.length > 0 && (
+          <button
+            onClick={e => { e.stopPropagation(); onContinue(); }}
+            style={{
+              ...btnBase,
+              background: 'rgba(13,148,136,0.25)',
+              border: '1.5px solid rgba(13,148,136,0.65)',
+              color: '#5EEAD4',
+            }}
+          >
+            ▶ Continue
+            <span style={{
+              background: '#0D9488', color: '#fff', borderRadius: 20,
+              fontSize: 10, fontWeight: 900, padding: '1px 7px', lineHeight: '16px',
+            }}>
+              {pausedExams.length}
+            </span>
+          </button>
+        )}
+
+        {/* 👑 Upgrade — only for non-subscribers */}
+        {!profile?.subscribed && (
+          <Link
+            to="/subscription"
+            onClick={e => e.stopPropagation()}
+            style={{
+              ...btnBase,
+              background: 'rgba(255,255,255,0.1)',
+              border: '1.5px solid rgba(255,255,255,0.4)',
+              color: '#fff',
+            }}
+          >
+            👑 Upgrade
+          </Link>
+        )}
+
+        {/* Trailing spacer so last button clears the right fade */}
+        <div style={{ flexShrink: 0, width: 12 }} />
       </div>
     </div>
   );
@@ -527,8 +503,6 @@ export default function StudentDashboard() {
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
       <style>{`
-        .banner-btn-strip::-webkit-scrollbar { display: none; }
-        .banner-btn-strip { -ms-overflow-style: none; scrollbar-width: none; }
         .btn-strip-track::-webkit-scrollbar { display: none; }
         .btn-strip-track { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
