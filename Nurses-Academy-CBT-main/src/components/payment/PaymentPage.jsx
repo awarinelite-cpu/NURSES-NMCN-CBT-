@@ -1,8 +1,7 @@
 // src/components/payment/PaymentPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// CHANGE 3: added doc, updateDoc to imports
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
@@ -61,36 +60,26 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       metadata: { userId: currentUser.uid, plan: plan.id },
       callback: async (response) => {
         try {
-          const expiresAt = new Date(Date.now() + plan.days * 86400000);
-
-          // Save payment record
-          await addDoc(collection(db, 'payments'), {
-            userId:    currentUser.uid,
-            userName:  currentUser.displayName || currentUser.email,
-            userEmail: currentUser.email,
-            plan:      plan.id,
-            amount:    plan.price,
-            days:      plan.days,
-            method:    'paystack',
-            reference: response.reference,
-            status:    'confirmed',
-            createdAt: serverTimestamp(),
-            expiresAt,
+          setError('');
+          // Verify payment server-side before activating subscription
+          const res = await fetch('/api/paystack/verify', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reference: response.reference,
+              userId:    currentUser.uid,
+              planId:    plan.id,
+            }),
           });
-
-          // CHANGE 3: Activate subscription on the user's profile immediately
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            subscribed:         true,
-            accessLevel:        'full',
-            subscriptionPlan:   plan.id,
-            subscriptionExpiry: expiresAt.toISOString(),
-            subscribedAt:       serverTimestamp(),
-          });
-
+          const data = await res.json();
+          if (!data.success) {
+            setError('Verification failed: ' + (data.message || 'Please contact support with ref: ' + response.reference));
+            return;
+          }
           setDone(true);
           setTimeout(() => navigate('/dashboard'), 2500);
         } catch (e) {
-          setError('Payment successful but failed to save. Contact support with ref: ' + response.reference);
+          setError('Payment received but verification failed. Contact support with ref: ' + response.reference);
         }
       },
       onClose: () => {},
