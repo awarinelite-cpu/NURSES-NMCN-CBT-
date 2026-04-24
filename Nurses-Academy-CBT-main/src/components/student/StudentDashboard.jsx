@@ -235,8 +235,98 @@ const QUICK_ACTIONS = [
   },
 ];
 
+// ── Start Exam Modal ──────────────────────────────────────────────────────────
+function StartExamModal({ onClose }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setVis(true)); }, []);
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 20, padding: 24, width: '100%', maxWidth: 480,
+        maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 16,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'scale(1) translateY(0)' : 'scale(.96) translateY(20px)',
+        transition: 'opacity .35s ease, transform .35s ease',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>⚡</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>Start an Exam</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Choose how you want to practice</div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >✕</button>
+        </div>
+
+        {/* Action list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+          {QUICK_ACTIONS.map((a, idx) => (
+            <StartExamCard key={a.to} action={a} delay={idx * 60} onClose={onClose} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StartExamCard({ action, delay, onClose }) {
+  const [vis, setVis] = useState(false);
+  const [hov, setHov] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <Link
+      to={action.to}
+      onClick={onClose}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        background: hov ? `${action.color}14` : 'var(--bg-primary)',
+        border: `1.5px solid ${hov ? action.color + '55' : 'var(--border)'}`,
+        borderRadius: 14, padding: '14px 16px', textDecoration: 'none',
+        position: 'relative', overflow: 'hidden', cursor: 'pointer',
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'translateX(0)' : 'translateX(-16px)',
+        transition: 'opacity .4s ease, transform .4s ease, background .2s, border-color .2s',
+      }}
+    >
+      {/* Accent bar */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: action.color, borderRadius: '4px 0 0 4px' }} />
+      {/* Icon */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+        background: `${action.color}22`, border: `1.5px solid ${action.color}44`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+      }}>
+        {action.icon}
+      </div>
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 3 }}>{action.label}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{action.desc}</div>
+      </div>
+      {/* Arrow */}
+      <div style={{ color: action.color, fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
+    </Link>
+  );
+}
+
 // ── Banner Action Buttons (slideable strip at bottom of banner) ───────────────
-function BannerButtonStrip({ pausedExams, profile, onContinue }) {
+function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
   const trackRef    = useRef(null);
   const dragStartX  = useRef(null);
   const scrollStart = useRef(null);
@@ -306,14 +396,13 @@ function BannerButtonStrip({ pausedExams, profile, onContinue }) {
         onTouchMove={onMove}
         onTouchEnd={onUp}
       >
-        {/* ⚡ Start Exam — always shown */}
-        <Link
-          to="/quick-actions"
-          onClick={e => e.stopPropagation()}
+        {/* ⚡ Start Exam — opens modal */}
+        <button
+          onClick={e => { e.stopPropagation(); onStartExam(); }}
           style={{ ...btnBase, background: '#F59E0B', color: '#1a1a1a', border: 'none' }}
         >
           ⚡ Start Exam
-        </Link>
+        </button>
 
         {/* ▶ Continue — only when paused exams exist */}
         {pausedExams.length > 0 && (
@@ -367,6 +456,7 @@ export default function StudentDashboard() {
   const [recentSessions, setRecentSessions] = useState([]);
   const [pausedExams,    setPausedExams]    = useState([]);
   const [showModal,      setShowModal]      = useState(false);
+  const [showStartModal, setShowStartModal] = useState(false);
   const [loading,        setLoading]        = useState(true);
   const [bannerVis,   setBannerVis]   = useState(false);
   const [slideIdx,    setSlideIdx]    = useState(0);
@@ -517,6 +607,11 @@ export default function StudentDashboard() {
         />
       )}
 
+      {/* Start exam modal */}
+      {showStartModal && (
+        <StartExamModal onClose={() => setShowStartModal(false)} />
+      )}
+
       {/* ── Full-width carousel banner ── */}
       <div
         style={{
@@ -637,6 +732,7 @@ export default function StudentDashboard() {
           pausedExams={pausedExams}
           profile={profile}
           onContinue={() => setShowModal(true)}
+          onStartExam={() => setShowStartModal(true)}
         />
       </div>{/* end banner */}
 
