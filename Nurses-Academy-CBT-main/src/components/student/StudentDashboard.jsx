@@ -551,15 +551,15 @@ export default function StudentDashboard() {
           transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
           transition: 'opacity .6s ease, transform .6s ease',
           padding: 0, overflow: 'hidden', userSelect: 'none',
-          minHeight: 200, display: 'flex', flexDirection: 'column',
+          minHeight: 260, display: 'flex', flexDirection: 'column',
         }}
         onMouseDown={handlePointerDown}
         onMouseUp={handlePointerUp}
         onTouchStart={handlePointerDown}
         onTouchEnd={handlePointerUp}
       >
-        {/* Each slide is the FULL banner */}
-        <div style={{ position: 'relative', flex: 1, minHeight: 180, overflow: 'hidden' }}>
+        {/* Slides wrapper — flex:1 so it fills the space above the button strip */}
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {QUICK_ACTIONS.map((action, i) => (
           <div
             key={action.label}
@@ -654,18 +654,17 @@ export default function StudentDashboard() {
                 ))}
               </div>
             </div>
-
-
           </div>
         ))}
+        </div>{/* end slides wrapper */}
 
-        {/* ── Bottom action button strip — always visible, horizontally slidable ── */}
+        {/* ── Action buttons — fixed at the bottom of the banner, always visible ── */}
         <BannerButtonStrip
           pausedExams={pausedExams}
           profile={profile}
           onContinue={() => setShowModal(true)}
         />
-      </div>
+      </div>{/* end banner */}
 
       {/* ── Stats row ── */}
       <div style={S.statsGrid}>
@@ -687,14 +686,6 @@ export default function StudentDashboard() {
             )}
           </ACard>
         ))}
-        </div>{/* end slides wrapper */}
-
-        {/* ── Horizontally slideable action buttons at the bottom of the banner ── */}
-        <BannerButtonStrip
-          pausedExams={pausedExams}
-          profile={profile}
-          onContinue={() => setShowModal(true)}
-        />
       </div>
 
       {/* ── Paused inline banner ── */}
