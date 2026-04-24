@@ -6,7 +6,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/shared/Toast';
 import { useAuth }       from './context/AuthContext';
 
-import { ProtectedRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+// ── CHANGE 1: added SubscribedRoute to import ──
+import { ProtectedRoute, SubscribedRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
 import AppLayout      from './components/shared/AppLayout';
 import LandingPage    from './components/shared/LandingPage';
 import AuthPage       from './components/auth/AuthPage';
@@ -62,8 +63,6 @@ const isCapacitor = () =>
   window.Capacitor.isNativePlatform?.();
 
 // ── Back Button Handler ──────────────────────────────────────────
-// • Capacitor APK  → uses @capacitor/app backButton event
-// • PWA / browser  → uses window popstate as fallback
 function BackButtonHandler() {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -73,7 +72,6 @@ function BackButtonHandler() {
 
   const isHome = location.pathname === '/' || location.pathname === '/dashboard';
 
-  // Reset exit state when user navigates away from home
   useEffect(() => {
     if (!isHome) {
       exitReady.current = false;
@@ -82,13 +80,9 @@ function BackButtonHandler() {
     }
   }, [isHome]);
 
-  // Shared logic called by both handlers
   const handleBack = (exitFn) => {
     if (isHome) {
-      if (exitReady.current) {
-        exitFn();
-        return;
-      }
+      if (exitReady.current) { exitFn(); return; }
       exitReady.current = true;
       setShowExit(true);
       if (exitTimer.current) clearTimeout(exitTimer.current);
@@ -101,12 +95,9 @@ function BackButtonHandler() {
     }
   };
 
-  // ── Capacitor handler ─────────────────────────────────────────
   useEffect(() => {
     if (!isCapacitor()) return;
-
     let listenerHandle = null;
-
     const register = async () => {
       try {
         const { App: CapApp } = await import('@capacitor/app');
@@ -117,32 +108,23 @@ function BackButtonHandler() {
         console.warn('Capacitor backButton registration failed:', e);
       }
     };
-
     register();
-
-    return () => {
-      if (listenerHandle?.remove) listenerHandle.remove();
-    };
+    return () => { if (listenerHandle?.remove) listenerHandle.remove(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isHome]);
 
-  // ── PWA / browser popstate fallback ──────────────────────────
   useEffect(() => {
     if (isCapacitor()) return;
-
     window.history.pushState({ pwa: true }, '');
-
     const onPopState = () => {
       handleBack(() => window.history.go(-1));
       window.history.pushState({ pwa: true }, '');
     };
-
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isHome]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => { if (exitTimer.current) clearTimeout(exitTimer.current); };
   }, []);
@@ -151,24 +133,12 @@ function BackButtonHandler() {
 
   return (
     <div style={{
-      position:       'fixed',
-      bottom:         48,
-      left:           '50%',
-      transform:      'translateX(-50%)',
-      background:     'rgba(2,11,24,0.92)',
-      color:          '#fff',
-      padding:        '13px 28px',
-      borderRadius:   28,
-      fontSize:       14,
-      fontWeight:     700,
-      zIndex:         99999,
-      backdropFilter: 'blur(10px)',
-      border:         '1px solid rgba(13,148,136,0.4)',
-      boxShadow:      '0 4px 32px rgba(0,0,0,0.5)',
-      whiteSpace:     'nowrap',
-      letterSpacing:  0.3,
-      animation:      'fadeInUp 0.22s ease',
-      pointerEvents:  'none',
+      position: 'fixed', bottom: 48, left: '50%', transform: 'translateX(-50%)',
+      background: 'rgba(2,11,24,0.92)', color: '#fff', padding: '13px 28px',
+      borderRadius: 28, fontSize: 14, fontWeight: 700, zIndex: 99999,
+      backdropFilter: 'blur(10px)', border: '1px solid rgba(13,148,136,0.4)',
+      boxShadow: '0 4px 32px rgba(0,0,0,0.5)', whiteSpace: 'nowrap',
+      letterSpacing: 0.3, animation: 'fadeInUp 0.22s ease', pointerEvents: 'none',
     }}>
       Press back again to exit
     </div>
@@ -181,7 +151,6 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
-            {/* Handles back button for Capacitor APK and PWA/browser */}
             <BackButtonHandler />
 
             <Routes>
@@ -189,34 +158,39 @@ export default function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-              {/* Full-screen exam pages (no sidebar) */}
-              <Route path="/exam/session" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
-              <Route path="/exam/review"  element={<ProtectedRoute><ExamReviewPage /></ProtectedRoute>} />
+              {/* Full-screen exam pages — SUBSCRIBED users only */}
+              {/* CHANGE 2: ProtectedRoute → SubscribedRoute */}
+              <Route path="/exam/session" element={<SubscribedRoute><ExamSession /></SubscribedRoute>} />
+              <Route path="/exam/review"  element={<SubscribedRoute><ExamReviewPage /></SubscribedRoute>} />
 
-              {/* Payment page (full-screen, no sidebar) */}
+              {/* Payment page — any logged-in user (free users need this to upgrade) */}
               <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
 
               {/* Authenticated layout */}
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                <Route path="/dashboard"      element={<StudentDashboard />} />
-                <Route path="/exams"          element={<ExamSetup />} />
-                <Route path="/past-questions" element={<PastQuestionsPage />} />
-                <Route path="/quick-actions"  element={<QuickActionsPage />} />
-                <Route path="/daily-practice" element={<DailyPracticePage />} />
-                <Route path="/daily-reviews"  element={<DailyPracticePage />} />
-                <Route path="/course-drill"   element={<CourseDrillPage />} />
-                <Route path="/topic-drill"    element={<TopicDrillPage />} />
-                <Route path="/exam/list"      element={<ExamListPage />} />
-                <Route path="/exam/setup"     element={<ExamSetupPage />} />
-                <Route path="/mock-exams"     element={<MockExamPage />} />
-                <Route path="/results"        element={<AnalyticsPage />} />
-                <Route path="/performance"    element={<PerformanceMonitorPage />} />
-                <Route path="/bookmarks"      element={<BookmarksPage />} />
-                <Route path="/subscription"   element={<SubscriptionPage />} />
-                <Route path="/leaderboard"    element={<LeaderboardPage />} />
-                <Route path="/profile"        element={<ProfilePage />} />
-                <Route path="/exam/categories" element={<CategoryPickerPage />} />
-                <Route path="/exam/config"     element={<ExamConfigPage />} />
+
+                {/* Free users can see dashboard, profile, subscription, results */}
+                <Route path="/dashboard"   element={<StudentDashboard />} />
+                <Route path="/results"     element={<AnalyticsPage />} />
+                <Route path="/performance" element={<PerformanceMonitorPage />} />
+                <Route path="/bookmarks"   element={<BookmarksPage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/profile"     element={<ProfilePage />} />
+
+                {/* CHANGE 2: All exam/content routes require active subscription */}
+                <Route path="/exams"          element={<SubscribedRoute><ExamSetup /></SubscribedRoute>} />
+                <Route path="/past-questions" element={<SubscribedRoute><PastQuestionsPage /></SubscribedRoute>} />
+                <Route path="/quick-actions"  element={<SubscribedRoute><QuickActionsPage /></SubscribedRoute>} />
+                <Route path="/daily-practice" element={<SubscribedRoute><DailyPracticePage /></SubscribedRoute>} />
+                <Route path="/daily-reviews"  element={<SubscribedRoute><DailyPracticePage /></SubscribedRoute>} />
+                <Route path="/course-drill"   element={<SubscribedRoute><CourseDrillPage /></SubscribedRoute>} />
+                <Route path="/topic-drill"    element={<SubscribedRoute><TopicDrillPage /></SubscribedRoute>} />
+                <Route path="/exam/list"      element={<SubscribedRoute><ExamListPage /></SubscribedRoute>} />
+                <Route path="/exam/setup"     element={<SubscribedRoute><ExamSetupPage /></SubscribedRoute>} />
+                <Route path="/mock-exams"     element={<SubscribedRoute><MockExamPage /></SubscribedRoute>} />
+                <Route path="/exam/categories" element={<SubscribedRoute><CategoryPickerPage /></SubscribedRoute>} />
+                <Route path="/exam/config"     element={<SubscribedRoute><ExamConfigPage /></SubscribedRoute>} />
 
                 {/* Admin */}
                 <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
