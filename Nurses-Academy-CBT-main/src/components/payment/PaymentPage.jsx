@@ -51,6 +51,9 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       return;
     }
     setError('');
+
+    // NOTE: openIframe() must be called synchronously inside the click handler
+    // to avoid mobile browser popup blockers. Async work happens only in callback.
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PUBLIC_KEY,
       email:    currentUser.email,
@@ -58,46 +61,44 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       currency: 'NGN',
       ref:      `NMCN-${Date.now()}`,
       metadata: { userId: currentUser.uid, plan: plan.id },
-      callback: async (response) => {
-        try {
-          setError('');
-          setUploading(true);
-          const expiresAt = new Date(Date.now() + plan.days * 86400000);
+      callback: (response) => {
+        // Activate subscription directly in Firestore after confirmed payment
+        const expiresAt = new Date(Date.now() + plan.days * 86400000);
+        const paymentsRef = collection(db, 'payments');
+        const userRef     = doc(db, 'users', currentUser.uid);
 
-          // Save payment record
-          await addDoc(collection(db, 'payments'), {
-            userId:    currentUser.uid,
-            userName:  currentUser.displayName || currentUser.email,
-            userEmail: currentUser.email,
-            plan:      plan.id,
-            amount:    plan.price,
-            days:      plan.days,
-            method:    'paystack',
-            reference: response.reference,
-            status:    'confirmed',
-            createdAt: serverTimestamp(),
-            expiresAt,
-          });
-
-          // Activate subscription on user profile
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            subscribed:         true,
-            accessLevel:        'full',
-            subscriptionPlan:   plan.id,
-            subscriptionExpiry: expiresAt.toISOString(),
-            subscribedAt:       serverTimestamp(),
-          });
-
+        addDoc(paymentsRef, {
+          userId:    currentUser.uid,
+          userName:  currentUser.displayName || currentUser.email,
+          userEmail: currentUser.email,
+          plan:      plan.id,
+          amount:    plan.price,
+          days:      plan.days,
+          method:    'paystack',
+          reference: response.reference,
+          status:    'confirmed',
+          createdAt: serverTimestamp(),
+          expiresAt,
+        })
+        .then(() => updateDoc(userRef, {
+          subscribed:         true,
+          accessLevel:        'full',
+          subscriptionPlan:   plan.id,
+          subscriptionExpiry: expiresAt.toISOString(),
+          subscribedAt:       serverTimestamp(),
+        }))
+        .then(() => {
           setDone(true);
           setTimeout(() => navigate('/dashboard'), 2500);
-        } catch (e) {
-          setError('Payment successful but failed to save. Contact support with ref: ' + response.reference);
-        } finally {
-          setUploading(false);
-        }
+        })
+        .catch(() => {
+          setError('Payment successful! But failed to activate. Send ref to support: ' + response.reference);
+        });
       },
       onClose: () => {},
     });
+
+    // Called synchronously — no await, no delay
     handler.openIframe();
   };
 
