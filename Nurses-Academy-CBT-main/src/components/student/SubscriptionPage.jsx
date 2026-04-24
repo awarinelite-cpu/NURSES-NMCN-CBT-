@@ -1,6 +1,6 @@
 // src/components/student/SubscriptionPage.jsx
 import { useState, useEffect } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
@@ -22,27 +22,43 @@ export default function SubscriptionPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
-  const [selectedPlan,   setSelectedPlan]   = useState('standard');
-  const [payMode,        setPayMode]         = useState(null); // 'paystack' | 'bank' | 'code'
-  const [step,           setStep]            = useState(1);    // 1=plans, 2=pay, 3=done
-  const [file,           setFile]            = useState(null);
-  const [preview,        setPreview]         = useState(null);
-  const [note,           setNote]            = useState('');
-  const [code,           setCode]            = useState('');
-  const [loading,        setLoading]         = useState(false);
-  const [paystackReady,  setPaystackReady]   = useState(false);
+  const [selectedPlan,  setSelectedPlan]  = useState('standard');
+  const [payMode,       setPayMode]       = useState(null); // 'paystack' | 'bank' | 'code'
+  const [step,          setStep]          = useState(1);    // 1=plans, 2=pay, 3=done
+  const [file,          setFile]          = useState(null);
+  const [preview,       setPreview]       = useState(null);
+  const [note,          setNote]          = useState('');
+  const [code,          setCode]          = useState('');
+  const [loading,       setLoading]       = useState(false);
+  const [paystackReady, setPaystackReady] = useState(false);
 
   const plan = ACCESS_PLANS.find(p => p.id === selectedPlan);
 
   /* ── Load Paystack script ── */
   useEffect(() => {
-    if (window.PaystackPop) { setPaystackReady(true); return; }
+    // Already loaded
+    if (window.PaystackPop) {
+      setPaystackReady(true);
+      return;
+    }
+
     const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-    if (existing) { existing.addEventListener('load', () => setPaystackReady(true)); return; }
+    if (existing) {
+      // May have already loaded between renders — check immediately
+      const onLoad = () => setPaystackReady(true);
+      existing.addEventListener('load', onLoad);
+      if (existing.dataset.loaded === '1') setPaystackReady(true);
+      return () => existing.removeEventListener('load', onLoad);
+    }
+
     const script = document.createElement('script');
-    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.src   = 'https://js.paystack.co/v1/inline.js';
     script.async = true;
-    script.onload = () => setPaystackReady(true);
+    script.onload = () => {
+      script.dataset.loaded = '1';
+      setPaystackReady(true);
+    };
+    script.onerror = () => toast('Could not load Paystack. Check your internet.', 'error');
     document.head.appendChild(script);
   }, []);
 
@@ -52,8 +68,13 @@ export default function SubscriptionPage() {
       toast('Paystack is still loading, please wait a moment.', 'error');
       return;
     }
+
     const planDays = { basic: 30, standard: 90, premium: 180 };
-    const days = planDays[selectedPlan] || 30;
+    const days     = planDays[selectedPlan] || 30;
+    const expiry   = new Date(Date.now() + days * 86400000);
+
+    // FIX: callback must be synchronous — no async/await inside.
+    // All Firestore writes are fire-and-forget (.then chains), NOT awaited.
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PUBLIC_KEY,
       email:    user.email,
@@ -61,37 +82,47 @@ export default function SubscriptionPage() {
       currency: 'NGN',
       ref:      `NMCN-${Date.now()}`,
       metadata: { userId: user.uid, plan: selectedPlan },
-      callback: async (response) => {
-        try {
-          await addDoc(collection(db, 'payments'), {
-            userId:    user.uid,
-            userName:  profile?.name || user.displayName,
-            userEmail: user.email,
-            plan:      selectedPlan,
-            amount:    plan.price,
-            days,
-            method:    'paystack',
-            reference: response.reference,
-            status:    'confirmed',
-            createdAt: serverTimestamp(),
-            expiresAt: new Date(Date.now() + days * 86400000),
-          });
-          const { updateDoc, doc } = await import('firebase/firestore');
-          const expiry = new Date(Date.now() + days * 86400000);
-          await updateDoc(doc(db, 'users', user.uid), {
-            subscribed: true, accessLevel: selectedPlan, subscriptionPlan: selectedPlan,
-            subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
-          });
-          await refreshProfile();
+
+      // FIX: NOT async — Paystack callback must be synchronous on mobile
+      callback: (response) => {
+        // updateDoc and doc are now top-level imports — no dynamic import()
+        addDoc(collection(db, 'payments'), {
+          userId:    user.uid,
+          userName:  profile?.name || user.displayName,
+          userEmail: user.email,
+          plan:      selectedPlan,
+          amount:    plan.price,
+          days,
+          method:    'paystack',
+          reference: response.reference,
+          status:    'confirmed',
+          createdAt: serverTimestamp(),
+          expiresAt: expiry,
+        })
+        .then(() => updateDoc(doc(db, 'users', user.uid), {
+          subscribed:         true,
+          accessLevel:        selectedPlan,
+          subscriptionPlan:   selectedPlan,
+          subscriptionExpiry: expiry.toISOString(),
+          updatedAt:          serverTimestamp(),
+        }))
+        .then(() => refreshProfile())
+        .then(() => {
           toast('🎉 Payment successful! Access activated.', 'success');
           setStep(3);
-        } catch (e) {
-          toast('Payment received but failed to save. Contact support with ref: ' + response.reference, 'error');
-        }
+        })
+        .catch(() => {
+          toast(
+            'Payment received but failed to save. Contact support with ref: ' + response.reference,
+            'error'
+          );
+        });
       },
+
       onClose: () => {},
     });
-    handler.openIframe();
+
+    handler.openIframe(); // synchronous — must not be delayed
   };
 
   /* ── Bank transfer receipt ── */
@@ -149,17 +180,13 @@ export default function SubscriptionPage() {
     try {
       const {
         getDocs, query, collection: col, where,
-        updateDoc, doc, getDoc,
+        updateDoc: _updateDoc, doc: _doc, getDoc,
       } = await import('firebase/firestore');
 
       const deviceId = getDeviceId();
 
-      // 1. Find the code document
       const snap = await getDocs(
-        query(
-          col(db, 'accessCodes'),
-          where('code', '==', code.trim().toUpperCase()),
-        )
+        query(col(db, 'accessCodes'), where('code', '==', code.trim().toUpperCase()))
       );
 
       if (snap.empty) {
@@ -171,23 +198,17 @@ export default function SubscriptionPage() {
       const codeDoc  = snap.docs[0];
       const codeData = codeDoc.data();
 
-      // 2. Already fully used (bound to a different device)
       if (codeData.used) {
-        // Allow same device to re-authenticate (in case they reinstalled)
         if (codeData.boundDeviceId && codeData.boundDeviceId !== deviceId) {
-          toast(
-            '❌ This code is already bound to another device. Each code can only be used on one device.',
-            'error'
-          );
+          toast('❌ This code is already bound to another device. Each code can only be used on one device.', 'error');
           setLoading(false);
           return;
         }
-        // Same device — allow re-activation (e.g. reinstall scenario)
         if (codeData.boundDeviceId === deviceId) {
           const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
           const expiry   = new Date();
           expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));
-          await updateDoc(doc(db, 'users', user.uid), {
+          await _updateDoc(_doc(db, 'users', user.uid), {
             subscribed: true, accessLevel: codeData.plan, subscriptionPlan: codeData.plan,
             subscriptionExpiry: expiry.toISOString(), updatedAt: serverTimestamp(),
           });
@@ -199,27 +220,25 @@ export default function SubscriptionPage() {
         }
       }
 
-      // 3. Code is unused — bind it to this device now
       const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
       const expiry   = new Date();
       expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));
 
-      await updateDoc(doc(db, 'accessCodes', codeDoc.id), {
-        used:          true,
-        usedBy:        user.uid,
+      await _updateDoc(_doc(db, 'accessCodes', codeDoc.id), {
+        used: true, usedBy: user.uid,
         usedByName:    profile?.name || user.displayName || user.email,
         usedAt:        serverTimestamp(),
         boundDeviceId: deviceId,
       });
 
-      await updateDoc(doc(db, 'users', user.uid), {
-        subscribed:          true,
-        accessLevel:         codeData.plan,
-        subscriptionPlan:    codeData.plan,
-        subscriptionExpiry:  expiry.toISOString(),
-        accessCodeUsed:      code.trim().toUpperCase(),
-        accessCodeDeviceId:  deviceId,
-        updatedAt:           serverTimestamp(),
+      await _updateDoc(_doc(db, 'users', user.uid), {
+        subscribed:         true,
+        accessLevel:        codeData.plan,
+        subscriptionPlan:   codeData.plan,
+        subscriptionExpiry: expiry.toISOString(),
+        accessCodeUsed:     code.trim().toUpperCase(),
+        accessCodeDeviceId: deviceId,
+        updatedAt:          serverTimestamp(),
       });
 
       await refreshProfile();
