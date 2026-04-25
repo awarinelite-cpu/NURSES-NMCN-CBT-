@@ -1,10 +1,11 @@
 // src/App.jsx
 import { useEffect, useState, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { AuthProvider }  from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { ToastProvider } from './components/shared/Toast';
-import { useAuth }       from './context/AuthContext';
+import { AuthProvider }          from './context/AuthContext';
+import { ThemeProvider }         from './context/ThemeContext';
+import { ToastProvider }         from './components/shared/Toast';
+import { AccessibilityProvider } from './context/AccessibilityContext';
+import { useAuth }               from './context/AuthContext';
 
 import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
 import AppLayout      from './components/shared/AppLayout';
@@ -60,6 +61,28 @@ const isCapacitor = () =>
   typeof window !== 'undefined' &&
   window.Capacitor !== undefined &&
   window.Capacitor.isNativePlatform?.();
+
+// ── SW Navigation Handler ────────────────────────────────────────
+// Listens for NAVIGATE messages posted by the service worker when
+// the user taps a push notification while the app is already open.
+function SwNavigationHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handler = (event) => {
+      if (event.data?.type === 'NAVIGATE' && event.data.url) {
+        navigate(event.data.url);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, [navigate]);
+
+  return null;
+}
 
 // ── Back Button Handler ──────────────────────────────────────────
 function BackButtonHandler() {
@@ -147,67 +170,70 @@ function BackButtonHandler() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <BrowserRouter>
-            <BackButtonHandler />
+      <AccessibilityProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <BrowserRouter>
+              <BackButtonHandler />
+              <SwNavigationHandler />
 
-            <Routes>
-              {/* Public */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
+              <Routes>
+                {/* Public */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-              {/* Full-screen exam session — free trial users allowed (10Q cap enforced in ExamSession) */}
-              <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
-              <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
+                {/* Full-screen exam session — free trial users allowed (10Q cap enforced in ExamSession) */}
+                <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
+                <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
 
-              {/* Payment page — any logged-in user (free users need this to upgrade) */}
-              <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+                {/* Payment page — any logged-in user (free users need this to upgrade) */}
+                <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
 
-              {/* Authenticated layout */}
-              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                {/* Authenticated layout */}
+                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
 
-                {/* Free users can see dashboard, profile, subscription, results */}
-                <Route path="/dashboard"   element={<StudentDashboard />} />
-                <Route path="/results"     element={<AnalyticsPage />} />
-                <Route path="/performance" element={<PerformanceMonitorPage />} />
-                <Route path="/bookmarks"   element={<BookmarksPage />} />
-                <Route path="/subscription" element={<SubscriptionPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/profile"     element={<ProfilePage />} />
+                  {/* Free users can see dashboard, profile, subscription, results */}
+                  <Route path="/dashboard"    element={<StudentDashboard />} />
+                  <Route path="/results"      element={<AnalyticsPage />} />
+                  <Route path="/performance"  element={<PerformanceMonitorPage />} />
+                  <Route path="/bookmarks"    element={<BookmarksPage />} />
+                  <Route path="/subscription" element={<SubscriptionPage />} />
+                  <Route path="/leaderboard"  element={<LeaderboardPage />} />
+                  <Route path="/profile"      element={<ProfilePage />} />
 
-                {/* Exam modes — free trial users get 10 questions once per mode */}
-                <Route path="/exams"          element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
-                <Route path="/past-questions" element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
-                <Route path="/quick-actions"  element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
-                <Route path="/daily-practice" element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                <Route path="/daily-reviews"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                <Route path="/course-drill"   element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
-                <Route path="/topic-drill"    element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
-                <Route path="/exam/list"      element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
-                <Route path="/exam/setup"     element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
-                <Route path="/mock-exams"     element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
-                <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
-                <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
+                  {/* Exam modes — free trial users get 10 questions once per mode */}
+                  <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
+                  <Route path="/past-questions"  element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
+                  <Route path="/quick-actions"   element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
+                  <Route path="/daily-practice"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
+                  <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
+                  <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
+                  <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
+                  <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
+                  <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
+                  <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
+                  <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
+                  <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
-                {/* Admin */}
-                <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
-                <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
-                <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
-                <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
-                <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
-                <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
-              </Route>
+                  {/* Admin */}
+                  <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                  <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                  <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                  <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                  <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                  <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                  <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                  <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+                </Route>
 
-              {/* 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </ToastProvider>
-      </AuthProvider>
+                {/* 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
+        </AuthProvider>
+      </AccessibilityProvider>
     </ThemeProvider>
   );
 }
@@ -267,6 +293,9 @@ function ProfilePage() {
             </div>
           ))}
         </div>
+
+        {/* Notification Settings */}
+        <NotificationSettings />
       </div>
     </div>
   );
