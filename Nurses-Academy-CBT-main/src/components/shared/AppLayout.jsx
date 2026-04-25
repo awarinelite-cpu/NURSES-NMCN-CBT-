@@ -1,8 +1,9 @@
 // src/components/shared/AppLayout.jsx
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import Navbar  from './Navbar';
-import Sidebar from './Sidebar';
+import Navbar               from './Navbar';
+import Sidebar              from './Sidebar';
+import AccessibilityToolbar from './AccessibilityToolbar';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,6 +17,9 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Accessibility FAB — visible on every page */}
+      <AccessibilityToolbar />
     </div>
   );
 }
