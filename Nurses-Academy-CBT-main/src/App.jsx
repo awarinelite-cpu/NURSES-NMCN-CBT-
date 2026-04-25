@@ -18,7 +18,8 @@ import AnalyticsPage         from './components/student/AnalyticsPage';
 import BookmarksPage         from './components/student/BookmarksPage';
 import SubscriptionPage      from './components/student/SubscriptionPage';
 import QuickActionsPage      from './components/student/QuickActionsPage';
-import PerformanceMonitorPage from './components/student/PerformanceMonitorPage';
+import PerformanceMonitorPage  from './components/student/PerformanceMonitorPage';
+import NotificationSettings   from './components/student/NotificationSettings';
 
 // ── Payment page (Paystack + Manual bank transfer) ──────────────
 import PaymentPage       from './components/payment/PaymentPage';
