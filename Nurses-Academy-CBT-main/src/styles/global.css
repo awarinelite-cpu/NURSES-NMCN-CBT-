@@ -94,6 +94,62 @@
   --selected:       rgba(13,148,136,0.20);
 }
 
+/* ── High Contrast Mode ───────────────────────────────────────────── */
+[data-contrast="high"] {
+  --bg-primary:     #000000;
+  --bg-secondary:   #0a0a0a;
+  --bg-tertiary:    #111111;
+  --bg-card:        #0d0d0d;
+  --bg-overlay:     rgba(0,0,0,0.98);
+
+  --text-primary:   #FFFFFF;
+  --text-secondary: #FFFFFF;
+  --text-muted:     #E0E0E0;
+  --text-hint:      #CCCCCC;
+
+  --border:         #FFFFFF;
+  --border-focus:   #FFD700;
+
+  --teal:           #00FFD1;
+  --teal-light:     #00FFD1;
+  --teal-dark:      #00CCB0;
+  --teal-glow:      rgba(0,255,209,0.2);
+
+  --gold:           #FFD700;
+  --gold-light:     #FFE55C;
+  --gold-dark:      #E6C200;
+  --gold-glow:      rgba(255,215,0,0.2);
+
+  --green:          #00FF88;
+  --red:            #FF4444;
+
+  --nav-bg:         #000000;
+  --nav-text:       #FFFFFF;
+
+  --selected:       rgba(0,255,209,0.25);
+  --correct:        #00FF88;
+  --wrong:          #FF4444;
+
+  --shadow-sm:      0 1px 3px rgba(255,255,255,0.1);
+  --shadow-md:      0 4px 16px rgba(255,255,255,0.1);
+  --shadow-lg:      0 10px 40px rgba(255,255,255,0.1);
+  --shadow-teal:    0 4px 20px rgba(0,255,209,0.4);
+}
+
+[data-contrast="high"] .option-card  { border-width: 3px; }
+[data-contrast="high"] .btn          { border: 2px solid currentColor; }
+[data-contrast="high"] .card         { border-width: 2px; border-color: rgba(255,255,255,0.4); }
+[data-contrast="high"] .form-input   { border-width: 3px; border-color: #FFFFFF; }
+[data-contrast="high"] .form-input:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(255,215,0,0.35); }
+
+/* High contrast + dark mode combo */
+[data-contrast="high"][data-theme="dark"] {
+  --bg-primary:   #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary:  #111111;
+  --bg-card:      #0d0d0d;
+}
+
 /* ── Reset ────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -400,4 +456,35 @@ tr:hover td { background: var(--bg-secondary); }
   .card { padding: 16px; }
   h1 { font-size: 1.6rem; }
   .btn-lg { padding: 12px 22px; font-size: 15px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+════════════════════════════════════════════════════════════════════ */
+
+/* ── Font Size Scale ──────────────────────────────────────────────── */
+/* Controlled by AccessibilityContext setting font-size on <html>     */
+/* All rem values scale automatically. Clamp overrides for headings:  */
+html[style*="font-size: 18"] h1 { font-size: clamp(1.9rem, 4vw, 3.2rem); }
+html[style*="font-size: 18"] h2 { font-size: clamp(1.5rem, 3vw, 2.4rem); }
+html[style*="font-size: 18"] h3 { font-size: clamp(1.2rem, 2vw, 1.7rem); }
+html[style*="font-size: 14"] h1 { font-size: clamp(1.5rem, 3.5vw, 2.6rem); }
+html[style*="font-size: 14"] h2 { font-size: clamp(1.2rem, 2.5vw, 1.9rem); }
+html[style*="font-size: 14"] h3 { font-size: clamp(1.0rem, 1.8vw, 1.3rem); }
+
+/* ── Focus Visible (keyboard navigation) ─────────────────────────── */
+:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Reduce Motion (system preference) ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
