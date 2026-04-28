@@ -1,514 +1,298 @@
-// src/components/entrance/EntranceExamDailyMock.jsx
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+// src/components/admin/EntranceExamManager.jsx
+// Route: /admin/entrance-exam
+// Tabs: Manage Schools | Add Questions (Single) | Bulk Upload | Question Bank | Daily Mock
+
+import { useState, useEffect } from 'react';
 import {
-  collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, orderBy, limit, serverTimestamp
+  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
+  query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { useToast } from '../shared/Toast';
 
-// ── Deterministic seeded shuffle (date-based) ────────────────────
-function seededShuffle(arr, seed) {
-  const a = [...arr];
-  let s = seed;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+const ENTRANCE_YEARS = ['2018','2019','2020','2021','2022','2023','2024','2025'];
+const SUBJECTS = ['English Language','Biology','Chemistry','Physics','Mathematics','General Studies','Nursing Aptitude','Current Affairs'];
 
-function getTodaySeed() {
-  const d = new Date();
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-}
+// ── Parse a block of text into entrance exam questions ────────────────────────
+function parseEntranceQuestions(text) {
+  const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+  const results = [], errors = [];
 
-function getTodayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+  blocks.forEach((block, idx) => {
+    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
 
-function msToNextMidnight() {
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  return midnight - now;
-}
+    let cursor = 0;
+    let diagramUrl = '';
 
-function formatCountdown(ms) {
-  if (ms <= 0) return '00:00:00';
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
-}
+    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
 
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-// ── Shuffle options keeping track of correct answer ──────────────
-function shuffleOptions(question, seed, idx) {
-  const opts = ['A', 'B', 'C', 'D'];
-  const optionMap = {};
-  opts.forEach(k => { optionMap[k] = question[`option${k}`]; });
-  const correct = question.answer; // e.g. 'A'
-  const correctText = optionMap[correct];
-
-  const shuffled = seededShuffle(opts, seed + idx);
-  const newMap = {};
-  shuffled.forEach((origKey, newIdx) => {
-    newMap[opts[newIdx]] = optionMap[origKey];
-  });
-  // find new key for correct answer
-  const newCorrectKey = opts.find(k => newMap[k] === correctText);
-  return { options: newMap, answer: newCorrectKey };
-}
-
-export default function EntranceExamDailyMock() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  // ── State ──────────────────────────────────────────────────────
-  const [phase, setPhase] = useState('loading'); // loading | intro | exam | review | done | already-done
-  const [questions, setQuestions] = useState([]);
-  const [processedQ, setProcessedQ] = useState([]); // with shuffled options
-  const [config, setConfig] = useState({ count: 30, timeLimit: 30 }); // timeLimit in minutes, 0 = untimed
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [flagged, setFlagged] = useState({});
-  const [timeLeft, setTimeLeft] = useState(null);
-  const [countdown, setCountdown] = useState(msToNextMidnight());
-  const [todayResult, setTodayResult] = useState(null);
-  const [pastAttempts, setPastAttempts] = useState([]);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [reviewMode, setReviewMode] = useState(false);
-  const [reviewIdx, setReviewIdx] = useState(0);
-
-  const timerRef = useRef(null);
-  const countdownRef = useRef(null);
-  const startTimeRef = useRef(null);
-
-  // ── Countdown to next mock ─────────────────────────────────────
-  useEffect(() => {
-    countdownRef.current = setInterval(() => {
-      setCountdown(msToNextMidnight());
-    }, 1000);
-    return () => clearInterval(countdownRef.current);
-  }, []);
-
-  // ── Load config + questions + check today's attempt ───────────
-  useEffect(() => {
-    if (!user) return;
-    load();
-  }, [user]);
-
-  async function load() {
-    try {
-      // 1. Load admin config
-      const cfgDoc = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
-      if (cfgDoc.exists()) {
-        const d = cfgDoc.data();
-        setConfig({ count: d.questionCount || 30, timeLimit: d.timeLimit ?? 30 });
-      }
-
-      // 2. Check if already attempted today
-      const todayKey = getTodayKey();
-      const attRef = doc(db, 'users', user.uid, 'entranceDailyMock', todayKey);
-      const attSnap = await getDoc(attRef);
-      if (attSnap.exists()) {
-        setTodayResult(attSnap.data());
-        setPhase('already-done');
-        await loadPastAttempts();
-        return;
-      }
-
-      // 3. Load questions from entranceExamQuestions
-      const qSnap = await getDocs(collection(db, 'entranceExamDailyMockBank'));
-      const allQ = [];
-      qSnap.forEach(d => allQ.push({ id: d.id, ...d.data() }));
-
-      if (allQ.length === 0) {
-        setError('No questions available yet. Please check back later.');
-        setPhase('error');
-        return;
-      }
-
-      // 4. Deterministically select today's questions
-      const seed = getTodaySeed();
-      const shuffledAll = seededShuffle(allQ, seed);
-      const cfgCount = cfgDoc.exists() ? (cfgDoc.data().questionCount || 30) : 30;
-      const selected = shuffledAll.slice(0, Math.min(cfgCount, shuffledAll.length));
-
-      setQuestions(selected);
-
-      // 5. Shuffle each question's options (deterministically)
-      const processed = selected.map((q, i) => {
-        const { options, answer } = shuffleOptions(q, seed, i);
-        return { ...q, optionA: options.A, optionB: options.B, optionC: options.C, optionD: options.D, answer };
-      });
-      setProcessedQ(processed);
-
-      await loadPastAttempts();
-      setPhase('intro');
-    } catch (e) {
-      console.error(e);
-      setError('Failed to load daily mock. Please try again.');
-      setPhase('error');
+    const questionText = lines[cursor]; cursor++;
+    const options = {};
+    while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
+      const letter = lines[cursor][0].toUpperCase();
+      options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
+      cursor++;
     }
-  }
 
-  async function loadPastAttempts() {
+    if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
+
+    let correctAnswer = '', explanation = '';
+    while (cursor < lines.length) {
+      const l = lines[cursor];
+      const starMatch    = /^\*([A-D])$/i.exec(l.trim());
+      const answerMatch  = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
+      const parenMatch   = /^\(([A-D])\)$/i.exec(l.trim());
+      if      (starMatch)   { correctAnswer = starMatch[1].toUpperCase(); }
+      else if (answerMatch) { correctAnswer = answerMatch[1].toUpperCase(); }
+      else if (parenMatch)  { correctAnswer = parenMatch[1].toUpperCase(); }
+      else if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
+      cursor++;
+    }
+
+    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
+
+    results.push({
+      questionText,
+      options,
+      correctAnswer,
+      explanation,
+      diagramUrl,
+      questionType: diagramUrl ? 'diagram' : 'text',
+    });
+  });
+
+  return { results, errors };
+}
+
+export default function EntranceExamManager() {
+  const { toast } = useToast();
+  const [tab, setTab] = useState('schools');
+
+  const [schools,      setSchools]      = useState([]);
+  const [schoolsReady, setSchoolsReady] = useState(false);
+
+  const reloadSchools = async () => {
     try {
       const snap = await getDocs(
-        query(
-          collection(db, 'users', user.uid, 'entranceDailyMock'),
-          orderBy('date', 'desc'),
-          limit(7)
-        )
+        query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc'))
       );
-      const past = [];
-      snap.forEach(d => past.push({ id: d.id, ...d.data() }));
-      setPastAttempts(past);
-    } catch (e) { /* silent */ }
-  }
+      setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error('reloadSchools:', e); }
+    finally { setSchoolsReady(true); }
+  };
 
-  // ── Start exam ─────────────────────────────────────────────────
-  function startExam() {
-    startTimeRef.current = Date.now();
-    const cfgTime = config.timeLimit;
-    if (cfgTime > 0) {
-      setTimeLeft(cfgTime * 60);
-    }
-    setPhase('exam');
-  }
+  useEffect(() => { reloadSchools(); }, []);
 
-  // ── Timer ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== 'exam' || timeLeft === null) return;
-    if (timeLeft <= 0) { handleSubmit(true); return; }
-    timerRef.current = setTimeout(() => setTimeLeft(t => t - 1), 1000);
-    return () => clearTimeout(timerRef.current);
-  }, [phase, timeLeft]);
+  return (
+    <div style={{ padding: 24, maxWidth: 1100 }}>
+      {/* Header */}
+      <div style={{
+        background: 'linear-gradient(135deg,#0F2A4A,#065F46)',
+        borderRadius: 16, padding: '24px 28px', marginBottom: 28,
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.25) 0%, transparent 60%)' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: '0 0 4px' }}>
+            🏫 Entrance Exam Manager
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.65)', margin: 0, fontSize: 14 }}>
+            Manage nursing schools, upload questions, and configure the entrance exam hub
+          </p>
+        </div>
+      </div>
 
-  // ── Answer / flag ──────────────────────────────────────────────
-  function selectAnswer(qIdx, option) {
-    setAnswers(prev => ({ ...prev, [qIdx]: option }));
-  }
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+        {[
+          { id: 'schools',    label: '🏫 Manage Schools'    },
+          { id: 'add_single', label: '➕ Add Single Question' },
+          { id: 'bulk',       label: '📤 Bulk Upload'        },
+          { id: 'bank',       label: '📋 Question Bank'      },
+          { id: 'daily_mock', label: '📅 Daily Mock'         },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            padding: '10px 18px', borderRadius: 10, border: '1.5px solid',
+            cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+            transition: 'all .2s',
+            borderColor: tab === t.id ? 'var(--teal)' : 'var(--border)',
+            background:  tab === t.id ? 'rgba(13,148,136,0.15)' : 'var(--bg-card)',
+            color:       tab === t.id ? 'var(--teal)' : 'var(--text-secondary)',
+          }}>{t.label}</button>
+        ))}
+      </div>
 
-  function toggleFlag(qIdx) {
-    setFlagged(prev => ({ ...prev, [qIdx]: !prev[qIdx] }));
-  }
+      {tab === 'schools'    && <SchoolsTab    toast={toast} onSchoolsChanged={reloadSchools} />}
+      {tab === 'add_single' && <AddSingleTab  toast={toast} schools={schools} schoolsReady={schoolsReady} />}
+      {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
+      {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
+      {tab === 'daily_mock' && <DailyMockSettingsTab toast={toast} />}
+    </div>
+  );
+}
 
-  // ── Submit ─────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async (auto = false) => {
-    if (submitting) return;
-    setSubmitting(true);
-    clearTimeout(timerRef.current);
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 1 — Manage Schools
+// ══════════════════════════════════════════════════════════════════════════════
+function SchoolsTab({ toast, onSchoolsChanged }) {
+  const [schools,  setSchools]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [showModal, setModal]   = useState(false);
+  const [editing,  setEditing]  = useState(null);
+  const [form, setForm] = useState({ name: '', shortName: '', state: '', isActive: true });
+  const [saving, setSaving] = useState(false);
 
-    const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
-    let correct = 0;
-    const breakdown = processedQ.map((q, i) => {
-      const chosen = answers[i] || null;
-      const isCorrect = chosen === q.answer;
-      if (isCorrect) correct++;
-      return {
-        question: q.question,
-        chosen,
-        correct: q.answer,
-        isCorrect,
-        explanation: q.explanation || '',
-        subject: q.subject || q.specialty || '',
-        school: q.school || '',
-      };
-    });
-
-    const score = Math.round((correct / processedQ.length) * 100);
-    const todayKey = getTodayKey();
-
-    const result = {
-      date: todayKey,
-      score,
-      correct,
-      total: processedQ.length,
-      timeTaken,
-      breakdown,
-      submittedAt: new Date().toISOString(),
-    };
-
+  const load = async () => {
+    setLoading(true);
     try {
-      await setDoc(doc(db, 'users', user.uid, 'entranceDailyMock', todayKey), result);
-    } catch (e) { console.error('Failed to save result', e); }
+      const snap = await getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name','asc')));
+      const list = await Promise.all(snap.docs.map(async d => {
+        const data = { id: d.id, ...d.data() };
+        try {
+          const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', d.id)));
+          data.questionCount = qSnap.data().count;
+        } catch { data.questionCount = data.questionCount || 0; }
+        return data;
+      }));
+      setSchools(list);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
 
-    setTodayResult(result);
-    setPhase('done');
-    setSubmitting(false);
-  }, [submitting, processedQ, answers, user]);
+  useEffect(() => { load(); }, []);
 
-  // ── Answered count ─────────────────────────────────────────────
-  const answeredCount = Object.keys(answers).length;
-  const flaggedCount = Object.values(flagged).filter(Boolean).length;
+  const openAdd  = () => { setEditing(null); setForm({ name: '', shortName: '', state: '', isActive: true }); setModal(true); };
+  const openEdit = (s) => { setEditing(s); setForm({ name: s.name, shortName: s.shortName || '', state: s.state || '', isActive: s.isActive !== false }); setModal(true); };
 
-  // ── Render ─────────────────────────────────────────────────────
-  if (phase === 'loading') return <LoadingScreen />;
-  if (phase === 'error') return <ErrorScreen message={error} onBack={() => navigate('/entrance-exam')} />;
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast('School name is required', 'error'); return; }
+    setSaving(true);
+    try {
+      const data = {
+        name:      form.name.trim(),
+        shortName: form.shortName.trim() || form.name.trim().split(' ').slice(-2).join(' '),
+        state:     form.state.trim(),
+        isActive:  form.isActive,
+        updatedAt: serverTimestamp(),
+      };
+      if (editing) {
+        await updateDoc(doc(db, 'entranceExamSchools', editing.id), data);
+        toast('School updated ✅', 'success');
+      } else {
+        await addDoc(collection(db, 'entranceExamSchools'), { ...data, questionCount: 0, createdAt: serverTimestamp() });
+        toast('School added ✅', 'success');
+      }
+      setModal(false);
+      load();
+      onSchoolsChanged();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setSaving(false); }
+  };
 
-  if (phase === 'intro') return (
-    <IntroScreen
-      config={config}
-      questionCount={processedQ.length}
-      pastAttempts={pastAttempts}
-      countdown={countdown}
-      onStart={startExam}
-      onBack={() => navigate('/entrance-exam')}
-    />
-  );
-
-  if (phase === 'already-done') return (
-    <AlreadyDoneScreen
-      result={todayResult}
-      pastAttempts={pastAttempts}
-      countdown={countdown}
-      onBack={() => navigate('/entrance-exam')}
-      onReview={() => {
-        // can't review unless we have questions loaded — reload them
-        navigate('/entrance-exam');
-      }}
-    />
-  );
-
-  if (phase === 'done' || phase === 'review') return (
-    <ResultScreen
-      result={todayResult}
-      pastAttempts={pastAttempts}
-      countdown={countdown}
-      onBack={() => navigate('/entrance-exam')}
-    />
-  );
-
-  // ── Exam phase ─────────────────────────────────────────────────
-  const q = processedQ[current];
-  const progress = ((current + 1) / processedQ.length) * 100;
+  const handleDelete = async (s) => {
+    if (!window.confirm(`Delete "${s.name}"? This will NOT delete its questions.`)) return;
+    try {
+      await deleteDoc(doc(db, 'entranceExamSchools', s.id));
+      toast('School deleted', 'success');
+      load();
+      onSchoolsChanged();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  };
 
   return (
-    <div style={styles.examWrap}>
-      {/* Top bar */}
-      <div style={styles.topBar}>
-        <div style={styles.topLeft}>
-          <button onClick={() => navigate('/entrance-exam')} style={styles.backBtn}>← Exit</button>
-          <span style={styles.mockLabel}>📅 Daily Mock — {getTodayKey()}</span>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{schools.length} school{schools.length !== 1 ? 's' : ''}</div>
+        <button className="btn btn-primary" onClick={openAdd}>➕ Add New School</button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          <div className="spinner" style={{ margin: '0 auto 12px' }} />Loading…
         </div>
-        <div style={styles.topRight}>
-          {config.timeLimit > 0 && timeLeft !== null && (
-            <div style={{ ...styles.timer, color: timeLeft < 120 ? '#EF4444' : '#10B981' }}>
-              ⏱ {formatTime(timeLeft)}
+      ) : schools.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          No schools yet. Add one to get started!
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>School Name</th><th>Short Name</th><th>State</th><th>Questions</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {schools.map((s, i) => (
+                <tr key={s.id}>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{i + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  <td style={{ fontSize: 12 }}>{s.shortName || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{s.state || '—'}</td>
+                  <td><span className="badge badge-teal">{s.questionCount || 0}</span></td>
+                  <td>
+                    <span className={`badge ${s.isActive !== false ? 'badge-green' : 'badge-grey'}`}>
+                      {s.isActive !== false ? 'Active' : 'Hidden'}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>✏️</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(s)} style={{ color: '#EF4444' }}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 480, boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)' }}>
+                {editing ? '✏️ Edit School' : '➕ Add New School'}
+              </h3>
+              <button onClick={() => setModal(false)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700 }}>✕</button>
             </div>
-          )}
-          <span style={styles.progress}>{answeredCount}/{processedQ.length} answered</span>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div style={styles.progressBarWrap}>
-        <div style={{ ...styles.progressBar, width: `${progress}%` }} />
-      </div>
-
-      {/* Question grid nav */}
-      <div style={styles.gridNav}>
-        <div style={styles.gridNavInner}>
-          {processedQ.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrent(i)}
-              style={{
-                ...styles.gridBtn,
-                background: i === current ? '#0D9488' :
-                  answers[i] ? (flagged[i] ? '#F59E0B' : '#1E3A8A') : 'rgba(255,255,255,0.06)',
-                border: i === current ? '2px solid #0D9488' : '2px solid transparent',
-                color: answers[i] || i === current ? '#fff' : 'rgba(255,255,255,0.4)',
-              }}
-            >
-              {i + 1}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Question card */}
-      <div style={styles.qCard}>
-        <div style={styles.qMeta}>
-          <span style={styles.qNum}>Q{current + 1} of {processedQ.length}</span>
-          {q.subject && <span style={styles.qSubject}>{q.subject}</span>}
-          {q.school && <span style={styles.qSchool}>🏫 {q.school}</span>}
-          <button
-            onClick={() => toggleFlag(current)}
-            style={{ ...styles.flagBtn, color: flagged[current] ? '#F59E0B' : 'rgba(255,255,255,0.3)' }}
-          >
-            {flagged[current] ? '🚩 Flagged' : '🏳 Flag'}
-          </button>
-        </div>
-
-        <div style={styles.qText}>{q.question}</div>
-
-        <div style={styles.optionsGrid}>
-          {['A', 'B', 'C', 'D'].map(opt => {
-            const text = q[`option${opt}`];
-            if (!text) return null;
-            const selected = answers[current] === opt;
-            return (
-              <button
-                key={opt}
-                onClick={() => selectAnswer(current, opt)}
-                style={{
-                  ...styles.optBtn,
-                  background: selected
-                    ? 'linear-gradient(135deg,#0D9488,#0f766e)'
-                    : 'rgba(255,255,255,0.04)',
-                  border: selected ? '2px solid #0D9488' : '2px solid rgba(255,255,255,0.08)',
-                  transform: selected ? 'scale(1.01)' : 'scale(1)',
-                }}
-              >
-                <span style={styles.optLabel}>{opt}</span>
-                <span style={styles.optText}>{text}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Nav buttons */}
-        <div style={styles.navRow}>
-          <button
-            onClick={() => setCurrent(c => Math.max(0, c - 1))}
-            disabled={current === 0}
-            style={{ ...styles.navBtn, opacity: current === 0 ? 0.3 : 1 }}
-          >
-            ← Prev
-          </button>
-
-          {current < processedQ.length - 1 ? (
-            <button onClick={() => setCurrent(c => c + 1)} style={styles.navBtnPrimary}>
-              Next →
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                const unanswered = processedQ.length - answeredCount;
-                if (unanswered > 0) {
-                  if (!window.confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) return;
-                }
-                handleSubmit();
-              }}
-              disabled={submitting}
-              style={styles.submitBtn}
-            >
-              {submitting ? 'Submitting…' : '✅ Submit Mock'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Summary bar */}
-      <div style={styles.summaryBar}>
-        <span>✅ {answeredCount} answered</span>
-        <span>⬜ {processedQ.length - answeredCount} unanswered</span>
-        {flaggedCount > 0 && <span>🚩 {flaggedCount} flagged</span>}
-        {answeredCount === processedQ.length && (
-          <button
-            onClick={() => handleSubmit()}
-            disabled={submitting}
-            style={styles.quickSubmit}
-          >
-            Submit Now
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function LoadingScreen() {
-  return (
-    <div style={styles.centered}>
-      <div style={styles.spinner} />
-      <p style={{ color: 'var(--text-muted)', marginTop: 16 }}>Loading today's mock…</p>
-    </div>
-  );
-}
-
-function ErrorScreen({ message, onBack }) {
-  return (
-    <div style={styles.centered}>
-      <div style={{ fontSize: 48 }}>⚠️</div>
-      <p style={{ color: '#EF4444', margin: '12px 0' }}>{message}</p>
-      <button onClick={onBack} style={styles.navBtnPrimary}>← Go Back</button>
-    </div>
-  );
-}
-
-function IntroScreen({ config, questionCount, pastAttempts, countdown, onStart, onBack }) {
-  return (
-    <div style={styles.introWrap}>
-      <button onClick={onBack} style={styles.backLink}>← Back to Hub</button>
-
-      <div style={styles.introCard}>
-        <div style={styles.introIcon}>📅</div>
-        <h1 style={styles.introTitle}>Daily Mock Exam</h1>
-        <p style={styles.introSub}>
-          Today's mock is freshly generated and the same for every student.
-          Give it your best shot!
-        </p>
-
-        <div style={styles.infoGrid}>
-          <InfoTile icon="❓" label="Questions" value={questionCount} />
-          <InfoTile icon="⏱" label="Time Limit" value={config.timeLimit > 0 ? `${config.timeLimit} min` : 'Untimed'} />
-          <InfoTile icon="📆" label="Date" value={getTodayKey()} />
-          <InfoTile icon="🔄" label="Resets In" value={formatCountdown(countdown)} mono />
-        </div>
-
-        <div style={styles.rules}>
-          <div style={styles.ruleItem}>📌 Questions are date-seeded — same for all students today</div>
-          <div style={styles.ruleItem}>🚩 Flag questions to revisit before submitting</div>
-          <div style={styles.ruleItem}>📊 Results saved to your profile automatically</div>
-          {config.timeLimit > 0 && <div style={styles.ruleItem}>⏰ Auto-submits when time runs out</div>}
-          <div style={styles.ruleItem}>⚠️ You can only attempt this mock once per day</div>
-        </div>
-
-        <button onClick={onStart} style={styles.startBtn}>
-          🚀 Start Today's Mock
-        </button>
-      </div>
-
-      {pastAttempts.length > 0 && (
-        <div style={styles.pastWrap}>
-          <h3 style={styles.pastTitle}>Recent Attempts</h3>
-          <div style={styles.pastList}>
-            {pastAttempts.map(a => (
-              <div key={a.id} style={styles.pastItem}>
-                <span style={styles.pastDate}>{a.date}</span>
-                <div style={styles.pastScore}>
-                  <div
-                    style={{
-                      ...styles.pastBar,
-                      width: `${a.score}%`,
-                      background: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                    }}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[
+                { label: 'School Full Name *', key: 'name',      placeholder: 'e.g. Lagos University Teaching Hospital School of Nursing' },
+                { label: 'Short Name',         key: 'shortName', placeholder: 'e.g. LASUTH SoN' },
+                { label: 'State',              key: 'state',     placeholder: 'e.g. Lagos' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>{f.label}</label>
+                  <input
+                    className="form-input"
+                    placeholder={f.placeholder}
+                    value={form[f.key]}
+                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
-                <span style={{
-                  ...styles.pastPct,
-                  color: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                }}>
-                  {a.score}%
-                </span>
-                <span style={styles.pastDetail}>{a.correct}/{a.total}</span>
+              ))}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Status</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {[{ v: true, l: '✅ Active' }, { v: false, l: '🙈 Hidden' }].map(o => (
+                    <button key={String(o.v)} onClick={() => setForm(p => ({ ...p, isActive: o.v }))} style={{
+                      padding: '8px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer',
+                      fontFamily: 'inherit', fontWeight: 700, fontSize: 13, transition: 'all .2s',
+                      borderColor: form.isActive === o.v ? 'var(--teal)' : 'var(--border)',
+                      background:  form.isActive === o.v ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                      color:       form.isActive === o.v ? 'var(--teal)' : 'var(--text-secondary)',
+                    }}>{o.l}</button>
+                  ))}
+                </div>
               </div>
-            ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1 }}>
+                {saving ? '💾 Saving…' : '💾 Save School'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
@@ -516,186 +300,165 @@ function IntroScreen({ config, questionCount, pastAttempts, countdown, onStart, 
   );
 }
 
-function AlreadyDoneScreen({ result, pastAttempts, countdown, onBack }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 2 — Add Single Question
+// ══════════════════════════════════════════════════════════════════════════════
+function AddSingleTab({ toast, schools, schoolsReady }) {
+  const [schoolId, setSchoolId] = useState('');
+  const [year,     setYear]     = useState('2024');
+  const [subject,  setSubject]  = useState('Biology');
+  const [rawText,  setRawText]  = useState('');
+  const [parsed,   setParsed]   = useState(null);
+  const [parseErr, setParseErr] = useState('');
+  const [saving,   setSaving]   = useState(false);
+
+  const handleParse = () => {
+    setParseErr('');
+    const { results, errors } = parseEntranceQuestions(rawText);
+    if (errors.length) { setParseErr(errors.join('\n')); setParsed(null); return; }
+    if (results.length === 0) { setParseErr('No question detected. Check your formatting.'); return; }
+    setParsed(results[0]);
+  };
+
+  const handleSave = async () => {
+    if (!parsed) return;
+    if (!schoolId) { toast('Please select a school', 'error'); return; }
+    setSaving(true);
+    try {
+      const school = schools.find(s => s.id === schoolId);
+      await addDoc(collection(db, 'entranceExamQuestions'), {
+        schoolId, schoolName: school?.name || '',
+        year, subject,
+        questionType: parsed.questionType,
+        diagramUrl:   parsed.diagramUrl || '',
+        questionText: parsed.questionText,
+        options:      parsed.options,
+        correctAnswer: parsed.correctAnswer,
+        explanation:  parsed.explanation || '',
+        active: true,
+        createdAt: serverTimestamp(),
+      });
+      try {
+        const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
+        await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: qSnap.data().count });
+      } catch {}
+      toast('Question saved ✅', 'success');
+      setRawText(''); setParsed(null);
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
   return (
-    <div style={styles.introWrap}>
-      <button onClick={onBack} style={styles.backLink}>← Back to Hub</button>
-
-      <div style={styles.introCard}>
-        <div style={{ fontSize: 52, marginBottom: 8 }}>
-          {result.score >= 60 ? '🏆' : result.score >= 40 ? '📊' : '💪'}
+    <div style={{ maxWidth: 720 }}>
+      {/* Meta */}
+      <div className="card" style={{ padding: '18px 16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Question Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
+            <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
+              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
+              {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>📅 Year</label>
+            <select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>
+              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>📚 Subject</label>
+            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
-        <h1 style={styles.introTitle}>Today's Mock Complete!</h1>
-        <p style={styles.introSub}>You've already attempted today's daily mock.</p>
-
-        <div style={styles.bigScore}>
-          <span style={{
-            ...styles.bigScoreNum,
-            color: result.score >= 60 ? '#10B981' : result.score >= 40 ? '#F59E0B' : '#EF4444',
-          }}>
-            {result.score}%
-          </span>
-          <span style={styles.bigScoreSub}>{result.correct} / {result.total} correct</span>
-        </div>
-
-        <div style={styles.nextMock}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Next mock available in</span>
-          <span style={styles.countdownBig}>{formatCountdown(countdown)}</span>
-        </div>
-
-        <button onClick={onBack} style={styles.navBtnPrimary}>← Back to Hub</button>
       </div>
 
-      {pastAttempts.length > 0 && (
-        <div style={styles.pastWrap}>
-          <h3 style={styles.pastTitle}>Your History (Last 7 Days)</h3>
-          <div style={styles.pastList}>
-            {pastAttempts.map(a => (
-              <div key={a.id} style={styles.pastItem}>
-                <span style={styles.pastDate}>{a.date}</span>
-                <div style={styles.pastScore}>
-                  <div style={{
-                    ...styles.pastBar,
-                    width: `${a.score}%`,
-                    background: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                  }} />
-                </div>
-                <span style={{
-                  ...styles.pastPct,
-                  color: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                }}>{a.score}%</span>
-                <span style={styles.pastDetail}>{a.correct}/{a.total}</span>
-              </div>
-            ))}
-          </div>
+      {/* Format guide */}
+      <div className="card" style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA', marginBottom: 8 }}>📋 Format Guide</div>
+        <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`TEXT QUESTION:
+The functional unit of the kidney is ___
+A. Nephron
+B. Neuron
+C. Nodule
+D. Nucleus
+*A
+Explanation: The nephron filters blood...
+
+DIAGRAM QUESTION (URL on first line):
+https://i.imgur.com/abc123.png
+In the kidney diagram, the part labeled A is ___
+A. Bowman capsule
+B. Nephron
+C. Pyramid
+D. Calyx
+*C
+Explanation: The pyramid is in renal medulla...`}</pre>
+      </div>
+
+      {/* Text area */}
+      <div className="card" style={{ padding: '18px 16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📝 Paste Question</div>
+        <textarea
+          className="form-input"
+          rows={12}
+          placeholder="Paste your question here using the format above…"
+          value={rawText}
+          onChange={e => { setRawText(e.target.value); setParsed(null); setParseErr(''); }}
+          style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }}
+        />
+        <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button>
+      </div>
+
+      {/* Parse error */}
+      {parseErr && (
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 4 }}>❌ Parse Error</div>
+          <pre style={{ margin: 0, fontSize: 12, color: '#EF4444', whiteSpace: 'pre-wrap' }}>{parseErr}</pre>
         </div>
       )}
-    </div>
-  );
-}
 
-function ResultScreen({ result, pastAttempts, countdown, onBack }) {
-  const [showBreakdown, setShowBreakdown] = useState(false);
+      {/* Preview */}
+      {parsed && (
+        <div className="card" style={{ padding: '18px 16px', border: '1.5px solid rgba(13,148,136,0.4)' }}>
+          <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 12 }}>✅ Parsed Successfully — {parsed.questionType === 'diagram' ? '🖼️ Diagram Question' : '📝 Text Question'}</div>
 
-  // Subject breakdown
-  const subjectMap = {};
-  (result.breakdown || []).forEach(item => {
-    const s = item.subject || 'General';
-    if (!subjectMap[s]) subjectMap[s] = { correct: 0, total: 0 };
-    subjectMap[s].total++;
-    if (item.isCorrect) subjectMap[s].correct++;
-  });
-  const subjects = Object.entries(subjectMap).sort((a, b) => b[1].total - a[1].total);
+          {parsed.diagramUrl && (
+            <div style={{ marginBottom: 12 }}>
+              <img src={parsed.diagramUrl} alt="Diagram preview" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }}
+                onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
+              <div style={{ display: 'none', color: '#EF4444', fontSize: 12 }}>⚠️ Image failed to load — check URL</div>
+            </div>
+          )}
 
-  return (
-    <div style={styles.introWrap}>
-      <button onClick={onBack} style={styles.backLink}>← Back to Hub</button>
-
-      <div style={styles.introCard}>
-        <div style={{ fontSize: 52, marginBottom: 8 }}>
-          {result.score >= 60 ? '🏆' : result.score >= 40 ? '📊' : '💪'}
-        </div>
-        <h1 style={styles.introTitle}>Mock Complete!</h1>
-
-        <div style={styles.bigScore}>
-          <span style={{
-            ...styles.bigScoreNum,
-            color: result.score >= 60 ? '#10B981' : result.score >= 40 ? '#F59E0B' : '#EF4444',
-          }}>
-            {result.score}%
-          </span>
-          <span style={styles.bigScoreSub}>
-            {result.correct} / {result.total} correct
-            {result.timeTaken && ` · ${formatTime(result.timeTaken)}`}
-          </span>
-        </div>
-
-        {/* Subject breakdown */}
-        {subjects.length > 1 && (
-          <div style={styles.subjectBreakdown}>
-            <h4 style={styles.breakdownTitle}>Performance by Subject</h4>
-            {subjects.map(([name, { correct, total }]) => {
-              const pct = Math.round((correct / total) * 100);
-              return (
-                <div key={name} style={styles.subjectRow}>
-                  <span style={styles.subjectName}>{name}</span>
-                  <div style={styles.subjectBarWrap}>
-                    <div style={{
-                      ...styles.subjectBar,
-                      width: `${pct}%`,
-                      background: pct >= 60 ? '#10B981' : pct >= 40 ? '#F59E0B' : '#EF4444',
-                    }} />
-                  </div>
-                  <span style={styles.subjectPct}>{pct}%</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div style={styles.nextMock}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Next mock available in</span>
-          <span style={styles.countdownBig}>{formatCountdown(countdown)}</span>
-        </div>
-
-        {/* Q&A review toggle */}
-        <button
-          onClick={() => setShowBreakdown(b => !b)}
-          style={{ ...styles.navBtnPrimary, marginBottom: 12 }}
-        >
-          {showBreakdown ? 'Hide Review' : '📋 Review Answers'}
-        </button>
-
-        {showBreakdown && (
-          <div style={styles.reviewList}>
-            {(result.breakdown || []).map((item, i) => (
-              <div key={i} style={{
-                ...styles.reviewItem,
-                borderLeft: `4px solid ${item.isCorrect ? '#10B981' : '#EF4444'}`,
+          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>{parsed.questionText}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            {Object.entries(parsed.options).map(([letter, text]) => (
+              <div key={letter} style={{
+                padding: '8px 12px', borderRadius: 8, fontSize: 13,
+                background: parsed.correctAnswer === letter ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)',
+                border: `1.5px solid ${parsed.correctAnswer === letter ? 'rgba(22,163,74,0.4)' : 'var(--border)'}`,
+                color: parsed.correctAnswer === letter ? 'var(--green)' : 'var(--text-secondary)',
+                fontWeight: parsed.correctAnswer === letter ? 700 : 400,
               }}>
-                <div style={styles.reviewQ}><strong>Q{i + 1}:</strong> {item.question}</div>
-                <div style={{ fontSize: 13, marginTop: 6 }}>
-                  <span style={{ color: item.isCorrect ? '#10B981' : '#EF4444' }}>
-                    {item.isCorrect ? '✅' : '❌'} Your answer: {item.chosen || 'Not answered'}
-                  </span>
-                  {!item.isCorrect && (
-                    <span style={{ color: '#10B981', marginLeft: 12 }}>
-                      Correct: {item.correct}
-                    </span>
-                  )}
-                </div>
-                {item.explanation && (
-                  <div style={styles.explanation}>{item.explanation}</div>
-                )}
+                {letter}. {text} {parsed.correctAnswer === letter && '✅ Correct'}
               </div>
             ))}
           </div>
-        )}
+          {parsed.explanation && (
+            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
+              💡 <strong>Explanation:</strong> {parsed.explanation}
+            </div>
+          )}
 
-        <button onClick={onBack} style={styles.navBtn}>← Back to Hub</button>
-      </div>
-
-      {pastAttempts.length > 0 && (
-        <div style={styles.pastWrap}>
-          <h3 style={styles.pastTitle}>Your History (Last 7 Days)</h3>
-          <div style={styles.pastList}>
-            {pastAttempts.map(a => (
-              <div key={a.id} style={styles.pastItem}>
-                <span style={styles.pastDate}>{a.date}</span>
-                <div style={styles.pastScore}>
-                  <div style={{
-                    ...styles.pastBar,
-                    width: `${a.score}%`,
-                    background: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                  }} />
-                </div>
-                <span style={{
-                  ...styles.pastPct,
-                  color: a.score >= 60 ? '#10B981' : a.score >= 40 ? '#F59E0B' : '#EF4444',
-                }}>{a.score}%</span>
-                <span style={styles.pastDetail}>{a.correct}/{a.total}</span>
-              </div>
-            ))}
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? '💾 Saving…' : '💾 Save Question'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => { setParsed(null); setRawText(''); }}>🗑️ Discard</button>
           </div>
         </div>
       )}
@@ -703,460 +466,867 @@ function ResultScreen({ result, pastAttempts, countdown, onBack }) {
   );
 }
 
-function InfoTile({ icon, label, value, mono }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 3 — Bulk Upload
+// ══════════════════════════════════════════════════════════════════════════════
+function BulkUploadTab({ toast, schools, schoolsReady }) {
+  const [schoolId,   setSchoolId]   = useState('');
+  const [year,       setYear]       = useState('2024');
+  const [subject,    setSubject]    = useState('Biology');
+  const [rawText,    setRawText]    = useState('');
+  const [parsed,     setParsed]     = useState([]);
+  const [errors,     setErrors]     = useState([]);
+  const [importing,  setImporting]  = useState(false);
+  const [imported,   setImported]   = useState(null);
+
+  const handleParse = () => {
+    const { results, errors: errs } = parseEntranceQuestions(rawText);
+    setParsed(results);
+    setErrors(errs);
+    setImported(null);
+  };
+
+  const handleImport = async () => {
+    if (!schoolId) { toast('Please select a school', 'error'); return; }
+    if (parsed.length === 0) { toast('Nothing to import', 'error'); return; }
+    setImporting(true);
+    try {
+      const school = schools.find(s => s.id === schoolId);
+      const batch = writeBatch(db);
+      parsed.forEach(q => {
+        const ref = doc(collection(db, 'entranceExamQuestions'));
+        batch.set(ref, {
+          schoolId, schoolName: school?.name || '',
+          year, subject,
+          questionType: q.questionType,
+          diagramUrl:   q.diagramUrl || '',
+          questionText: q.questionText,
+          options:      q.options,
+          correctAnswer: q.correctAnswer,
+          explanation:  q.explanation || '',
+          active: true,
+          createdAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+
+      try {
+        const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
+        await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: qSnap.data().count });
+      } catch {}
+
+      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length });
+      setParsed([]); setRawText('');
+      toast(`Imported ${parsed.length} questions ✅`, 'success');
+    } catch (e) { toast('Import failed: ' + e.message, 'error'); }
+    finally { setImporting(false); }
+  };
+
+  const diagrams = parsed.filter(q => q.questionType === 'diagram').length;
+  const texts    = parsed.filter(q => q.questionType === 'text').length;
+
   return (
-    <div style={styles.infoTile}>
-      <span style={styles.infoIcon}>{icon}</span>
-      <span style={styles.infoLabel}>{label}</span>
-      <span style={{ ...styles.infoValue, fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
+    <div style={{ maxWidth: 900 }}>
+      {/* Meta */}
+      <div className="card" style={{ padding: '18px 16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Batch Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
+            <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
+              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
+              {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>📅 Year (default)</label>
+            <select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>
+              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>📚 Subject (default)</label>
+            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Format guide */}
+      <div className="card" style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA', marginBottom: 6 }}>📋 Format — separate each question with a blank line</div>
+        <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`The functional unit of the kidney is ___
+A. Nephron
+B. Neuron
+C. Nodule
+D. Nucleus
+*A
+Explanation: Optional explanation...
+
+https://i.imgur.com/abc123.png
+In the diagram, part A is ___
+A. Bowman capsule
+B. Nephron
+C. Pyramid
+D. Calyx
+*C`}</pre>
+      </div>
+
+      {/* Text area */}
+      <div className="card" style={{ padding: '18px 16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>
+          📝 Paste All Questions
+        </div>
+        <textarea
+          className="form-input"
+          rows={16}
+          placeholder="Paste all your questions here, separated by blank lines…"
+          value={rawText}
+          onChange={e => { setRawText(e.target.value); setParsed([]); setErrors([]); setImported(null); }}
+          style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+        />
+        <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview All</button>
+      </div>
+
+      {/* Parse errors */}
+      {errors.length > 0 && (
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>⚠️ {errors.length} parse error{errors.length !== 1 ? 's' : ''}</div>
+          {errors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#EF4444' }}>{e}</div>)}
+        </div>
+      )}
+
+      {/* Preview table */}
+      {parsed.length > 0 && (
+        <div className="card" style={{ padding: '18px 16px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>✅ Parsed: {parsed.length} questions</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                📝 {texts} text · 🖼️ {diagrams} diagram
+                {errors.length > 0 && ` · ❌ ${errors.length} error${errors.length !== 1 ? 's' : ''}`}
+              </div>
+            </div>
+            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>
+              {importing ? '⬆️ Importing…' : `✅ Import All (${parsed.length})`}
+            </button>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Question Preview</th><th>Ans</th><th>Type</th></tr></thead>
+              <tbody>
+                {parsed.slice(0, 20).map((q, i) => (
+                  <tr key={i}>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
+                    <td style={{ fontSize: 12 }}>{q.questionText.slice(0, 60)}{q.questionText.length > 60 ? '…' : ''}</td>
+                    <td><span className="badge badge-teal">{q.correctAnswer}</span></td>
+                    <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
+                  </tr>
+                ))}
+                {parsed.length > 20 && (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 20} more</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Import success */}
+      {imported && (
+        <div style={{ background: 'rgba(22,163,74,0.08)', border: '1.5px solid rgba(22,163,74,0.3)', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--green)', marginBottom: 4 }}>Import Complete!</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            Imported {imported.count} questions · {imported.diagrams} with diagrams · {imported.count - imported.diagrams} text only
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
-const styles = {
-  examWrap: {
-    minHeight: '100vh',
-    background: 'var(--bg-primary, #020B18)',
-    color: 'var(--text-primary, #fff)',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: "'Inter', sans-serif",
-  },
-  topBar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 20px',
-    background: 'rgba(0,0,0,0.4)',
-    borderBottom: '1px solid rgba(255,255,255,0.07)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    backdropFilter: 'blur(12px)',
-  },
-  topLeft: { display: 'flex', alignItems: 'center', gap: 12 },
-  topRight: { display: 'flex', alignItems: 'center', gap: 16 },
-  backBtn: {
-    background: 'rgba(255,255,255,0.07)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    color: '#fff',
-    padding: '6px 14px',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  mockLabel: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 600 },
-  timer: {
-    fontFamily: 'monospace',
-    fontSize: 18,
-    fontWeight: 700,
-    background: 'rgba(0,0,0,0.3)',
-    padding: '4px 12px',
-    borderRadius: 8,
-    border: '1px solid rgba(255,255,255,0.1)',
-  },
-  progress: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  progressBarWrap: {
-    height: 3,
-    background: 'rgba(255,255,255,0.06)',
-    position: 'sticky',
-    top: 53,
-    zIndex: 99,
-  },
-  progressBar: {
-    height: '100%',
-    background: 'linear-gradient(90deg,#0D9488,#1E3A8A)',
-    transition: 'width 0.3s ease',
-  },
-  gridNav: {
-    padding: '12px 20px',
-    background: 'rgba(255,255,255,0.02)',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
-    overflowX: 'auto',
-  },
-  gridNavInner: {
-    display: 'flex',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  gridBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    cursor: 'pointer',
-    fontSize: 12,
-    fontWeight: 700,
-    transition: 'all 0.15s',
-  },
-  qCard: {
-    flex: 1,
-    maxWidth: 760,
-    width: '100%',
-    margin: '0 auto',
-    padding: '24px 20px',
-  },
-  qMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-    flexWrap: 'wrap',
-  },
-  qNum: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: '#0D9488',
-    background: 'rgba(13,148,136,0.12)',
-    padding: '3px 10px',
-    borderRadius: 20,
-  },
-  qSubject: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    background: 'rgba(255,255,255,0.06)',
-    padding: '3px 10px',
-    borderRadius: 20,
-  },
-  qSchool: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-  },
-  flagBtn: {
-    marginLeft: 'auto',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
-    transition: 'color 0.15s',
-  },
-  qText: {
-    fontSize: 17,
-    lineHeight: 1.65,
-    fontWeight: 500,
-    marginBottom: 24,
-    padding: '16px 20px',
-    background: 'rgba(255,255,255,0.04)',
-    borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.07)',
-  },
-  optionsGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-    marginBottom: 24,
-  },
-  optBtn: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: '14px 16px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    textAlign: 'left',
-    transition: 'all 0.15s',
-    color: '#fff',
-  },
-  optLabel: {
-    width: 28,
-    height: 28,
-    borderRadius: '50%',
-    background: 'rgba(255,255,255,0.1)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: 13,
-    flexShrink: 0,
-  },
-  optText: { fontSize: 15, lineHeight: 1.5, paddingTop: 2 },
-  navRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  navBtn: {
-    background: 'rgba(255,255,255,0.07)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    color: '#fff',
-    padding: '10px 22px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  navBtnPrimary: {
-    background: 'linear-gradient(135deg,#0D9488,#0f766e)',
-    border: 'none',
-    color: '#fff',
-    padding: '10px 22px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 700,
-  },
-  submitBtn: {
-    background: 'linear-gradient(135deg,#10B981,#059669)',
-    border: 'none',
-    color: '#fff',
-    padding: '10px 24px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 700,
-  },
-  summaryBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 20,
-    padding: '10px 20px',
-    background: 'rgba(0,0,0,0.4)',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    position: 'sticky',
-    bottom: 0,
-    backdropFilter: 'blur(12px)',
-  },
-  quickSubmit: {
-    marginLeft: 'auto',
-    background: 'linear-gradient(135deg,#10B981,#059669)',
-    border: 'none',
-    color: '#fff',
-    padding: '6px 16px',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 700,
-  },
-  centered: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '60vh',
-    gap: 12,
-    padding: 24,
-  },
-  spinner: {
-    width: 40,
-    height: 40,
-    border: '3px solid rgba(13,148,136,0.2)',
-    borderTop: '3px solid #0D9488',
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-  },
-  introWrap: {
-    maxWidth: 700,
-    margin: '0 auto',
-    padding: '24px 16px 48px',
-    color: 'var(--text-primary, #fff)',
-  },
-  backLink: {
-    background: 'none',
-    border: 'none',
-    color: '#0D9488',
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 600,
-    padding: '0 0 16px',
-    display: 'block',
-  },
-  introCard: {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    padding: '32px 28px',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  introIcon: { fontSize: 52, marginBottom: 8 },
-  introTitle: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 28,
-    fontWeight: 700,
-    margin: '0 0 8px',
-  },
-  introSub: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-    marginBottom: 28,
-    lineHeight: 1.5,
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 12,
-    marginBottom: 24,
-  },
-  infoTile: {
-    background: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: '14px 12px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-  },
-  infoIcon: { fontSize: 22 },
-  infoLabel: { fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoValue: { fontSize: 18, fontWeight: 700 },
-  rules: {
-    textAlign: 'left',
-    background: 'rgba(13,148,136,0.06)',
-    border: '1px solid rgba(13,148,136,0.15)',
-    borderRadius: 12,
-    padding: '16px 18px',
-    marginBottom: 24,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  ruleItem: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 },
-  startBtn: {
-    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-    border: 'none',
-    color: '#fff',
-    padding: '14px 36px',
-    borderRadius: 12,
-    cursor: 'pointer',
-    fontSize: 16,
-    fontWeight: 700,
-    letterSpacing: 0.3,
-  },
-  bigScore: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    margin: '20px 0',
-  },
-  bigScoreNum: {
-    fontSize: 64,
-    fontWeight: 900,
-    lineHeight: 1,
-    fontFamily: "'Playfair Display', serif",
-  },
-  bigScoreSub: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.5)',
-  },
-  nextMock: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    margin: '16px 0 24px',
-    padding: '14px',
-    background: 'rgba(255,255,255,0.04)',
-    borderRadius: 12,
-  },
-  countdownBig: {
-    fontFamily: 'monospace',
-    fontSize: 28,
-    fontWeight: 700,
-    color: '#0D9488',
-  },
-  subjectBreakdown: {
-    textAlign: 'left',
-    marginBottom: 20,
-    width: '100%',
-  },
-  breakdownTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    marginBottom: 12,
-    color: 'rgba(255,255,255,0.7)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  subjectRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
-  },
-  subjectName: {
-    width: 130,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
-    flexShrink: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  subjectBarWrap: {
-    flex: 1,
-    height: 8,
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  subjectBar: {
-    height: '100%',
-    borderRadius: 4,
-    transition: 'width 0.5s ease',
-  },
-  subjectPct: {
-    width: 38,
-    fontSize: 13,
-    fontWeight: 700,
-    textAlign: 'right',
-  },
-  reviewList: {
-    textAlign: 'left',
-    maxHeight: 400,
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    marginBottom: 16,
-    padding: '4px 0',
-  },
-  reviewItem: {
-    background: 'rgba(255,255,255,0.04)',
-    borderRadius: 10,
-    padding: '12px 16px',
-  },
-  reviewQ: { fontSize: 14, lineHeight: 1.5 },
-  explanation: {
-    marginTop: 8,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    fontStyle: 'italic',
-    lineHeight: 1.5,
-  },
-  pastWrap: {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.07)',
-    borderRadius: 16,
-    padding: '20px 24px',
-  },
-  pastTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    marginBottom: 14,
-    color: 'rgba(255,255,255,0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pastList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  pastItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  pastDate: { width: 90, fontSize: 13, color: 'rgba(255,255,255,0.5)', flexShrink: 0 },
-  pastScore: {
-    flex: 1,
-    height: 8,
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  pastBar: { height: '100%', borderRadius: 4, transition: 'width 0.4s ease' },
-  pastPct: { width: 40, fontSize: 13, fontWeight: 700, textAlign: 'right' },
-  pastDetail: { width: 50, fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'right' },
-};
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 4 — Question Bank
+// ══════════════════════════════════════════════════════════════════════════════
+function QuestionBankTab({ toast, schools, schoolsReady }) {
+  const [questions, setQuestions] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filterSchool, setFilterSchool] = useState('');
+  const [filterYear,   setFilterYear]   = useState('');
+  const [filterType,   setFilterType]   = useState('');
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const constraints = [];
+      if (filterSchool) constraints.push(where('schoolId', '==', filterSchool));
+      if (filterYear)   constraints.push(where('year',     '==', filterYear));
+      if (filterType)   constraints.push(where('questionType', '==', filterType));
+      constraints.push(orderBy('createdAt', 'desc'));
+      const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+      let qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (search) qs = qs.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase()));
+      setQuestions(qs);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [filterSchool, filterYear, filterType]);
+
+  const handleDelete = async (q) => {
+    if (!window.confirm('Delete this question?')) return;
+    try {
+      await deleteDoc(doc(db, 'entranceExamQuestions', q.id));
+      toast('Deleted ✅', 'success');
+      load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  };
+
+  const filtered = search ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase())) : questions;
+
+  return (
+    <div>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <select className="form-input form-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)} style={{ maxWidth: 220 }}>
+          <option value="">All Schools</option>
+          {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+        </select>
+        <select className="form-input form-select" value={filterYear} onChange={e => setFilterYear(e.target.value)} style={{ maxWidth: 120 }}>
+          <option value="">All Years</option>
+          {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select className="form-input form-select" value={filterType} onChange={e => setFilterType(e.target.value)} style={{ maxWidth: 140 }}>
+          <option value="">All Types</option>
+          <option value="text">📝 Text</option>
+          <option value="diagram">🖼️ Diagram</option>
+        </select>
+        <div style={{ flex: 1, position: 'relative', minWidth: 180 }}>
+          <input className="form-input" placeholder="🔍 Search questions…" value={search}
+            onChange={e => setSearch(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+        </div>
+        <button className="btn btn-ghost" onClick={load}>🔄 Refresh</button>
+      </div>
+
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+        {filtered.length} question{filtered.length !== 1 ? 's' : ''} found
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          <div className="spinner" style={{ margin: '0 auto 12px' }} />Loading…
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Question</th><th>School</th><th>Year</th><th>Subject</th><th>Type</th><th>Actions</th></tr></thead>
+            <tbody>
+              {filtered.slice(0, 50).map((q, i) => (
+                <tr key={q.id}>
+                  <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
+                  <td style={{ fontSize: 12, maxWidth: 280 }}>{q.questionText?.slice(0, 60)}…</td>
+                  <td style={{ fontSize: 11 }}>{q.schoolName?.split(' ').slice(-2).join(' ') || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{q.year || '—'}</td>
+                  <td style={{ fontSize: 11 }}>{q.subject || '—'}</td>
+                  <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(q)} style={{ color: '#EF4444' }}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length > 50 && (
+                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 12 }}>
+                  Showing first 50 of {filtered.length} — use filters to narrow down
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <EditQuestionModal
+          question={editing}
+          schools={schools}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }}
+          toast={toast}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Edit question modal ────────────────────────────────────────────────────────
+function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
+  const [form, setForm] = useState({
+    schoolId:     question.schoolId || '',
+    year:         question.year     || '2024',
+    subject:      question.subject  || 'Biology',
+    questionText: question.questionText || '',
+    options:      question.options  || { A: '', B: '', C: '', D: '' },
+    correctAnswer: question.correctAnswer || 'A',
+    explanation:  question.explanation || '',
+    diagramUrl:   question.diagramUrl   || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const school = schools.find(s => s.id === form.schoolId);
+      await updateDoc(doc(db, 'entranceExamQuestions', question.id), {
+        schoolId:     form.schoolId,
+        schoolName:   school?.name || question.schoolName,
+        year:         form.year,
+        subject:      form.subject,
+        questionText: form.questionText,
+        options:      form.options,
+        correctAnswer: form.correctAnswer,
+        explanation:  form.explanation,
+        diagramUrl:   form.diagramUrl,
+        questionType: form.diagramUrl ? 'diagram' : 'text',
+        updatedAt:    serverTimestamp(),
+      });
+      onSaved();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)' }}>✏️ Edit Question</h3>
+          <button onClick={onClose} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700 }}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            {[
+              { label: '🏫 School', key: 'schoolId', type: 'select', options: schools.map(s => ({ value: s.id, label: s.shortName || s.name })) },
+              { label: '📅 Year',   key: 'year',     type: 'select', options: ENTRANCE_YEARS.map(y => ({ value: y, label: y })) },
+              { label: '📚 Subject',key: 'subject',  type: 'select', options: SUBJECTS.map(s => ({ value: s, label: s })) },
+            ].map(f => (
+              <div key={f.key}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>{f.label}</label>
+                <select className="form-input form-select" value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%' }}>
+                  {f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>🖼️ Diagram URL (optional)</label>
+            <input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>📝 Question Text</label>
+            <textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+          </div>
+          {['A','B','C','D'].map(letter => (
+            <div key={letter} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                background: form.correctAnswer === letter ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)',
+                border: `2px solid ${form.correctAnswer === letter ? 'var(--green)' : 'var(--border)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 12, color: form.correctAnswer === letter ? 'var(--green)' : 'var(--text-muted)',
+                cursor: 'pointer', flexShrink: 0,
+              }} onClick={() => setForm(p => ({ ...p, correctAnswer: letter }))}>
+                {letter}
+              </div>
+              <input className="form-input" value={form.options[letter] || ''} onChange={e => setForm(p => ({ ...p, options: { ...p.options, [letter]: e.target.value } }))} style={{ flex: 1 }} />
+              {form.correctAnswer === letter && <span style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>✅ Correct</span>}
+            </div>
+          ))}
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>👆 Click the letter button to set correct answer</p>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>💡 Explanation (optional)</label>
+            <textarea className="form-input" rows={2} value={form.explanation} onChange={e => setForm(p => ({ ...p, explanation: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1 }}>
+            {saving ? '💾 Saving…' : '💾 Save Changes'}
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 5 — Daily Mock (Upload + Settings)
+// ══════════════════════════════════════════════════════════════════════════════
+function DailyMockSettingsTab({ toast }) {
+  const [activeSection, setActiveSection] = useState('upload'); // 'upload' | 'settings'
+  const [config,   setConfig]  = useState({ questionCount: 30, timeLimit: 30 });
+  const [saving,   setSaving]  = useState(false);
+  const [saved,    setSaved]   = useState(false);
+  const [loading,  setLoading] = useState(true);
+  const [bankStats, setBankStats] = useState({ total: 0, today: 0 });
+
+  // Upload state
+  const [bulkText,   setBulkText]   = useState('');
+  const [subject,    setSubject]    = useState('Biology');
+  const [mockDate,   setMockDate]   = useState(() => new Date().toISOString().split('T')[0]);
+  const [uploading,  setUploading]  = useState(false);
+  const [preview,    setPreview]    = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [bankQuestions, setBankQuestions] = useState([]);
+  const [loadingBank, setLoadingBank] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
+        if (snap.exists()) setConfig(snap.data());
+
+        // Count daily mock bank questions
+        const bankSnap = await getDocs(collection(db, 'entranceExamDailyMockBank'));
+        const today = new Date().toISOString().split('T')[0];
+        const todayCount = bankSnap.docs.filter(d => d.data().date === today).length;
+        setBankStats({ total: bankSnap.size, today: todayCount });
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    })();
+  }, []);
+
+  // Parse questions from bulk text
+  function parseBulk(text) {
+    const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+    const results = [], errors = [];
+    blocks.forEach((block, idx) => {
+      const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+      let cursor = 0;
+      let diagramUrl = '';
+      // Support optional image URL on first line
+      if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+      const questionText = lines[cursor]; cursor++;
+      const options = {};
+      while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
+        const letter = lines[cursor][0].toUpperCase();
+        options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
+        cursor++;
+      }
+      if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
+      let answer = '', explanation = '';
+      while (cursor < lines.length) {
+        const l = lines[cursor];
+        const starMatch   = /^\*([A-D])$/i.exec(l.trim());
+        const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
+        const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
+        if      (starMatch)   answer = starMatch[1].toUpperCase();
+        else if (answerMatch) answer = answerMatch[1].toUpperCase();
+        else if (parenMatch)  answer = parenMatch[1].toUpperCase();
+        else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
+        cursor++;
+      }
+      if (!answer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
+      results.push({
+        question: questionText,
+        optionA: options.A, optionB: options.B, optionC: options.C, optionD: options.D,
+        answer,
+        explanation,
+        diagramUrl,
+        subject,
+        date: mockDate,
+        type: 'daily_mock',
+      });
+    });
+    return { results, errors };
+  }
+
+  const handlePreview = () => {
+    const { results, errors } = parseBulk(bulkText);
+    setPreview(results);
+    setShowPreview(true);
+    if (errors.length) toast(`⚠️ ${errors.length} block(s) had errors`, 'warning');
+  };
+
+  const handleUpload = async () => {
+    const { results, errors } = parseBulk(bulkText);
+    if (results.length === 0) { toast('No valid questions to upload', 'error'); return; }
+    setUploading(true);
+    try {
+      const batch = writeBatch(db);
+      results.forEach(q => {
+        const ref = doc(collection(db, 'entranceExamDailyMockBank'));
+        batch.set(ref, { ...q, uploadedAt: serverTimestamp() });
+      });
+      await batch.commit();
+      toast(`✅ ${results.length} questions uploaded to Daily Mock Bank`, 'success');
+      setBulkText('');
+      setShowPreview(false);
+      setBankStats(prev => ({ ...prev, total: prev.total + results.length, today: prev.today + results.filter(q => q.date === new Date().toISOString().split('T')[0]).length }));
+    } catch (e) {
+      toast('Upload failed: ' + e.message, 'error');
+    }
+    setUploading(false);
+  };
+
+  const loadBank = async () => {
+    setLoadingBank(true);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'entranceExamDailyMockBank'),
+        orderBy('uploadedAt', 'desc'),
+        limit(50)
+      ));
+      setBankQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { toast('Failed to load bank', 'error'); }
+    setLoadingBank(false);
+  };
+
+  const deleteQuestion = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'entranceExamDailyMockBank', id));
+      setBankQuestions(prev => prev.filter(q => q.id !== id));
+      setBankStats(prev => ({ ...prev, total: prev.total - 1 }));
+      toast('Question deleted', 'success');
+    } catch (e) { toast('Delete failed', 'error'); }
+  };
+
+  const saveSettings = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), {
+        questionCount: Number(config.questionCount),
+        timeLimit: Number(config.timeLimit),
+        updatedAt: new Date().toISOString(),
+      });
+      setSaved(true);
+      toast('Settings saved ✅', 'success');
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) { toast('Save failed: ' + e.message, 'error'); }
+    setSaving(false);
+  };
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading…</div>;
+
+  const sectionBtn = (id, label) => (
+    <button onClick={() => setActiveSection(id)} style={{
+      padding: '9px 22px', borderRadius: 20, border: 'none', cursor: 'pointer',
+      fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all .15s',
+      background: activeSection === id ? 'var(--teal)' : 'var(--bg-tertiary)',
+      color: activeSection === id ? '#fff' : 'var(--text-muted)',
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ maxWidth: 680 }}>
+      {/* Stats bar */}
+      <div style={{
+        display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap',
+      }}>
+        {[
+          { icon: '📦', label: 'Total in Bank', value: bankStats.total },
+          { icon: '📅', label: "Today's Questions", value: bankStats.today },
+          { icon: '⏱', label: 'Time Limit', value: config.timeLimit === 0 ? 'Untimed' : `${config.timeLimit} min` },
+          { icon: '❓', label: 'Per Mock', value: config.questionCount },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '12px 18px', flex: 1, minWidth: 120,
+          }}>
+            <div style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--teal)' }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Section tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        {sectionBtn('upload', '📤 Upload Questions')}
+        {sectionBtn('bank', '📦 View Bank')}
+        {sectionBtn('settings', '⚙️ Settings')}
+      </div>
+
+      {/* ── UPLOAD SECTION ── */}
+      {activeSection === 'upload' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{
+            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+            borderRadius: 12, padding: '14px 18px',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
+              📅 Daily Mock Question Upload
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Questions uploaded here go into a <strong>separate Daily Mock Bank</strong> — they do NOT mix with School Past Questions.
+              The daily mock uses a date seed to pick questions, so the same set appears for all students on the same day.
+            </div>
+          </div>
+
+          {/* Date + Subject */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                📅 Mock Date (tag questions for this date)
+              </label>
+              <input
+                type="date"
+                value={mockDate}
+                onChange={e => setMockDate(e.target.value)}
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                📚 Subject (default for this batch)
+              </label>
+              <select value={subject} onChange={e => setSubject(e.target.value)} className="form-input form-select" style={{ width: '100%' }}>
+                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Format guide */}
+          <div style={{
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '12px 16px', fontSize: 12, color: 'var(--text-muted)',
+            fontFamily: 'monospace', lineHeight: 1.8,
+          }}>
+            <div style={{ fontFamily: 'inherit', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              📋 Format — separate questions with a blank line:
+            </div>
+            Question text here<br/>
+            A. Option A<br/>
+            B. Option B<br/>
+            C. Option C<br/>
+            D. Option D<br/>
+            *B<br/>
+            Explanation: Optional explanation
+          </div>
+
+          {/* Text area */}
+          <textarea
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            placeholder="Paste your daily mock questions here..."
+            rows={14}
+            className="form-input"
+            style={{ fontFamily: 'monospace', fontSize: 13, resize: 'vertical', lineHeight: 1.6 }}
+          />
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={handlePreview}
+              disabled={!bulkText.trim()}
+              style={{
+                padding: '10px 24px', borderRadius: 10, border: '1.5px solid var(--teal)',
+                background: 'rgba(13,148,136,0.1)', color: 'var(--teal)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit',
+                opacity: !bulkText.trim() ? 0.5 : 1,
+              }}
+            >👁 Preview ({parseBulk(bulkText).results.length} questions)</button>
+
+            <button
+              onClick={handleUpload}
+              disabled={uploading || !bulkText.trim()}
+              style={{
+                padding: '10px 24px', borderRadius: 10, border: 'none',
+                background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+                color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14,
+                fontFamily: 'inherit', opacity: uploading || !bulkText.trim() ? 0.6 : 1,
+              }}
+            >{uploading ? '⏳ Uploading…' : '🚀 Upload to Daily Mock Bank'}</button>
+          </div>
+
+          {/* Preview */}
+          {showPreview && preview.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                Preview — {preview.length} questions
+              </div>
+              {preview.slice(0, 5).map((q, i) => (
+                <div key={i} style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '12px 16px',
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>
+                    {i + 1}. {q.question}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                    {['A','B','C','D'].map(opt => (
+                      <span key={opt} style={{
+                        padding: '3px 10px', borderRadius: 6, fontSize: 12,
+                        background: q.answer === opt ? 'rgba(13,148,136,0.2)' : 'var(--bg-tertiary)',
+                        color: q.answer === opt ? 'var(--teal)' : 'var(--text-muted)',
+                        fontWeight: q.answer === opt ? 700 : 400,
+                        border: q.answer === opt ? '1px solid var(--teal)' : '1px solid transparent',
+                      }}>{opt}. {q[`option${opt}`]}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    ✓ {q.answer} · {q.subject} · {q.date}
+                  </div>
+                </div>
+              ))}
+              {preview.length > 5 && (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  …and {preview.length - 5} more
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── BANK SECTION ── */}
+      {activeSection === 'bank' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Daily Mock Question Bank ({bankStats.total} total)
+            </div>
+            <button
+              onClick={loadBank}
+              disabled={loadingBank}
+              style={{
+                padding: '8px 18px', borderRadius: 8, border: '1.5px solid var(--teal)',
+                background: 'rgba(13,148,136,0.1)', color: 'var(--teal)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+              }}
+            >{loadingBank ? 'Loading…' : '🔄 Load Questions'}</button>
+          </div>
+
+          {bankQuestions.length === 0 && !loadingBank && (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+              Click "Load Questions" to view the bank, or upload questions in the Upload tab.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {bankQuestions.map((q, i) => (
+              <div key={q.id} style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '12px 16px',
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                    {q.question}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    ✓ {q.answer} · {q.subject} · {q.date || 'no date'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteQuestion(q.id)}
+                  style={{
+                    background: 'rgba(239,68,68,0.1)', border: 'none', color: '#EF4444',
+                    borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, flexShrink: 0,
+                  }}
+                >Delete</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── SETTINGS SECTION ── */}
+      {activeSection === 'settings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{
+            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+            borderRadius: 12, padding: '14px 18px',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>How Daily Mock works</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Every day, a date-seeded selection is drawn from the <strong>Daily Mock Bank</strong>.
+              All students get the same questions. Each student can only attempt once per day.
+            </div>
+          </div>
+
+          {/* Question Count */}
+          <div className="card" style={{ padding: '20px 22px' }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
+              ❓ Questions Per Mock
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+              How many questions students answer each day.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <input type="range" min={5} max={60} step={5}
+                value={config.questionCount}
+                onChange={e => setConfig(c => ({ ...c, questionCount: Number(e.target.value) }))}
+                style={{ flex: 1, accentColor: 'var(--teal)' }} />
+              <div style={{
+                minWidth: 54, textAlign: 'center', fontWeight: 800, fontSize: 22,
+                color: 'var(--teal)', background: 'rgba(13,148,136,0.1)', borderRadius: 10, padding: '6px 10px',
+              }}>{config.questionCount}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              {[10, 20, 30, 40, 50].map(n => (
+                <button key={n} onClick={() => setConfig(c => ({ ...c, questionCount: n }))} style={{
+                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .15s',
+                  borderColor: config.questionCount === n ? 'var(--teal)' : 'var(--border)',
+                  background: config.questionCount === n ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                  color: config.questionCount === n ? 'var(--teal)' : 'var(--text-muted)',
+                }}>{n}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time Limit */}
+          <div className="card" style={{ padding: '20px 22px' }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
+              ⏱ Time Limit
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Set to 0 for untimed.</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <input type="range" min={0} max={120} step={5}
+                value={config.timeLimit}
+                onChange={e => setConfig(c => ({ ...c, timeLimit: Number(e.target.value) }))}
+                style={{ flex: 1, accentColor: 'var(--teal)' }} />
+              <div style={{
+                minWidth: 68, textAlign: 'center', fontWeight: 800, fontSize: 20,
+                color: config.timeLimit === 0 ? 'var(--text-muted)' : 'var(--teal)',
+                background: 'rgba(13,148,136,0.08)', borderRadius: 10, padding: '6px 10px', fontFamily: 'monospace',
+              }}>{config.timeLimit === 0 ? '∞' : `${config.timeLimit}m`}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              {[{v:0,l:'Untimed'},{v:20,l:'20m'},{v:30,l:'30m'},{v:45,l:'45m'},{v:60,l:'60m'}].map(({v,l}) => (
+                <button key={v} onClick={() => setConfig(c => ({ ...c, timeLimit: v }))} style={{
+                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .15s',
+                  borderColor: config.timeLimit === v ? 'var(--teal)' : 'var(--border)',
+                  background: config.timeLimit === v ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                  color: config.timeLimit === v ? 'var(--teal)' : 'var(--text-muted)',
+                }}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={saveSettings} disabled={saving} style={{
+            background: saved ? 'linear-gradient(135deg,#10B981,#059669)' : 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+            border: 'none', color: '#fff', padding: '14px 32px', borderRadius: 12,
+            cursor: saving ? 'not-allowed' : 'pointer', fontSize: 15, fontWeight: 700,
+            alignSelf: 'flex-start', opacity: saving ? 0.7 : 1, transition: 'all 0.2s',
+          }}>{saving ? '💾 Saving…' : saved ? '✅ Saved!' : '💾 Save Settings'}</button>
+        </div>
+      )}
+    </div>
+  );
+}
