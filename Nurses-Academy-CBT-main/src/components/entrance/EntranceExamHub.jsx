@@ -1,248 +1,387 @@
 // src/components/entrance/EntranceExamHub.jsx
-// Route: /entrance-exam
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import {
-  collection, query, where, orderBy, getDocs, limit, getCountFromServer,
-} from 'firebase/firestore';
-import { db }      from '../../firebase/config';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import {
+  collection, getDocs, query, where, orderBy, limit, getCountFromServer, doc, getDoc,
+} from 'firebase/firestore';
+import { db } from '../../firebase/config';
 
-function ACard({ children, delay = 0, style: s = {} }) {
-  const [vis, setVis] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+// ── Animated counter ────────────────────────────────────────────
+function useCountUp(target, duration = 1000) {
+  const [val, setVal] = useState(0);
+  const raf = useRef(null);
+  useEffect(() => {
+    if (!target) { setVal(0); return; }
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      setVal(Math.round(p * p * target));
+      if (p < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [target, duration]);
+  return val;
+}
+
+function StatPill({ icon, value, label, loading }) {
+  const displayed = useCountUp(loading ? 0 : value);
   return (
-    <div style={{ opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(16px)', transition: 'opacity .5s ease, transform .5s ease', ...s }}>
-      {children}
+    <div style={{
+      background: 'rgba(255,255,255,0.08)',
+      border: '1px solid rgba(255,255,255,0.15)',
+      borderRadius: 14,
+      padding: '14px 20px',
+      display: 'flex', alignItems: 'center', gap: 12,
+      backdropFilter: 'blur(8px)',
+      minWidth: 120,
+    }}>
+      <span style={{ fontSize: 22 }}>{icon}</span>
+      <div>
+        <div style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 24, fontWeight: 900, color: '#fff',
+          lineHeight: 1,
+        }}>
+          {loading ? '—' : displayed}
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {label}
+        </div>
+      </div>
     </div>
   );
 }
 
-function useCounter(target, duration = 1400, delay = 0) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!target) return;
-    const to = setTimeout(() => {
-      let n = 0; const step = target / (duration / 16);
-      const t = setInterval(() => {
-        n += step;
-        if (n >= target) { setVal(target); clearInterval(t); } else setVal(Math.floor(n));
-      }, 16);
-      return () => clearInterval(t);
-    }, delay);
-    return () => clearTimeout(to);
-  }, [target, duration, delay]);
-  return val;
-}
-
-function FeatureCard({ icon, label, sub, color, to, delay }) {
-  const [hov, setHov] = useState(false);
-  const [vis, setVis] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+// ── Hub card ────────────────────────────────────────────────────
+function HubCard({ icon, title, subtitle, path, accent, badge, disabled }) {
+  const navigate = useNavigate();
   return (
-    <Link
-      to={to}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+    <div
+      onClick={() => !disabled && navigate(path)}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 8, padding: '18px 16px',
-        background: hov ? `${color}14` : 'var(--bg-card)',
-        border: `1.5px solid ${hov ? color + '55' : 'var(--border)'}`,
-        borderRadius: 14, textDecoration: 'none', cursor: 'pointer',
-        position: 'relative', overflow: 'hidden',
-        opacity: vis ? 1 : 0,
-        transform: vis ? (hov ? 'translateY(-3px)' : 'translateY(0)') : 'translateY(14px)',
-        boxShadow: hov ? `0 6px 20px ${color}22` : 'none',
-        transition: 'opacity .45s ease, transform .3s ease, background .2s, border-color .2s, box-shadow .2s',
+        background: 'rgba(255,255,255,0.035)',
+        border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.09)'}`,
+        borderRadius: 16,
+        padding: '22px 20px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'all 0.2s ease',
+        opacity: disabled ? 0.45 : 1,
+      }}
+      onMouseEnter={e => {
+        if (disabled) return;
+        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+        e.currentTarget.style.borderColor = accent + '55';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = `0 8px 32px ${accent}22`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.035)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: color, borderRadius: '4px 0 0 4px' }} />
-      <div style={{ paddingLeft: 8 }}>
-        <div style={{ fontSize: 28, marginBottom: 4 }}>{icon}</div>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</div>
+      {/* Left accent bar */}
+      <div style={{
+        position: 'absolute', left: 0, top: '20%', bottom: '20%',
+        width: 3, borderRadius: '0 3px 3px 0',
+        background: disabled ? 'rgba(255,255,255,0.1)' : accent,
+      }} />
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 30, marginBottom: 10, lineHeight: 1 }}>{icon}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 4 }}>{title}</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{subtitle}</div>
+        </div>
+        {badge && (
+          <span style={{
+            background: accent + '22',
+            border: `1px solid ${accent}44`,
+            color: accent,
+            fontSize: 10, fontWeight: 800,
+            padding: '3px 8px', borderRadius: 20,
+            textTransform: 'uppercase', letterSpacing: 0.5,
+            flexShrink: 0,
+          }}>{badge}</span>
+        )}
       </div>
-      <div style={{ position: 'absolute', right: 12, bottom: 12, color: color, fontWeight: 900, fontSize: 18, opacity: hov ? 1 : 0.3, transition: 'opacity .2s' }}>→</div>
-    </Link>
+
+      {/* Arrow */}
+      {!disabled && (
+        <div style={{
+          position: 'absolute', right: 16, bottom: 16,
+          color: 'rgba(255,255,255,0.2)', fontSize: 16,
+          transition: 'all 0.2s',
+        }}>→</div>
+      )}
+    </div>
   );
 }
 
 export default function EntranceExamHub() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats]               = useState({ schools: 0, questions: 0 });
-  const [recentAttempts, setRecent]     = useState([]);
-  const [avgScore, setAvgScore]         = useState(0);
-  const [bannerVis, setBannerVis]       = useState(false);
-  const [loading, setLoading]           = useState(true);
 
-  const animSchools   = useCounter(stats.schools,   1200, 300);
-  const animQuestions = useCounter(stats.questions, 1400, 400);
+  // Stats
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [totalSchools,    setTotalSchools]    = useState(0);
+  const [totalQuestions,  setTotalQuestions]  = useState(0);
+  const [yourExams,       setYourExams]       = useState(0);
+  const [todayDone,       setTodayDone]       = useState(false);
+  const [lastScore,       setLastScore]       = useState(null);
 
   useEffect(() => {
-    setTimeout(() => setBannerVis(true), 60);
-    if (!user) { setLoading(false); return; }
-    const load = async () => {
+    if (!user) return;
+    let cancelled = false;
+
+    async function loadStats() {
       try {
-        const [schoolsSnap, questionsSnap] = await Promise.all([
-          getCountFromServer(collection(db, 'entranceExamSchools')),
-          getCountFromServer(collection(db, 'entranceExamQuestions')),
-        ]);
-        const attSnap = await getDocs(query(
-          collection(db, 'entranceExamAttempts'),
-          where('userId', '==', user.uid),
-          orderBy('date', 'desc'), limit(10),
-        ));
-        const attempts = attSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setStats({ schools: schoolsSnap.data().count, questions: questionsSnap.data().count });
-        setRecent(attempts.slice(0, 5));
-        setAvgScore(attempts.length ? Math.round(attempts.reduce((s, a) => s + (a.score || 0), 0) / attempts.length) : 0);
-      } catch (e) { console.warn('EntranceExamHub load:', e.message); }
-      finally { setLoading(false); }
-    };
-    load();
+        // Total questions in entrance bank
+        const qCount = await getCountFromServer(collection(db, 'entranceExamQuestions'));
+        // Active schools
+        const schoolSnap = await getDocs(
+          query(collection(db, 'entranceExamSchools'), where('isActive', '!=', false))
+        );
+        // User's daily mock attempts
+        const attSnap = await getDocs(
+          query(
+            collection(db, 'users', user.uid, 'entranceDailyMock'),
+            orderBy('date', 'desc'),
+            limit(1)
+          )
+        );
+
+        if (cancelled) return;
+
+        setTotalQuestions(qCount.data().count);
+        setTotalSchools(schoolSnap.size);
+        setYourExams(attSnap.size > 0 ? attSnap.size : 0); // most recent only here; extend if needed
+
+        // Get full count of attempts
+        const allAttSnap = await getDocs(
+          collection(db, 'users', user.uid, 'entranceDailyMock')
+        );
+        if (!cancelled) setYourExams(allAttSnap.size);
+
+        // Check if today's mock is done
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        const todaySnap = await getDoc(doc(db, 'users', user.uid, 'entranceDailyMock', todayKey));
+        if (!cancelled) {
+          if (todaySnap.exists()) {
+            setTodayDone(true);
+            setLastScore(todaySnap.data().score);
+          }
+        }
+      } catch (e) {
+        console.error('EntranceExamHub stats:', e);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    }
+
+    loadStats();
+    return () => { cancelled = true; };
   }, [user]);
 
-  const FEATURE_CARDS = [
-    { icon: '🗓️', label: 'Daily Mock Exam',         sub: "Today's mock is ready!",          color: '#F59E0B', to: '/entrance-exam/daily-mock',    delay: 350 },
-    { icon: '🏫', label: 'School Past Questions',    sub: `${animSchools || '…'} schools`,   color: '#0D9488', to: '/entrance-exam/schools',        delay: 420 },
-    { icon: '📚', label: 'Subject Drill',            sub: 'Topic-by-topic practice',          color: '#2563EB', to: '/entrance-exam/subject-drill',  delay: 490 },
-    { icon: '📋', label: 'Exams Taken',              sub: `${recentAttempts.length} this session`, color: '#7C3AED', to: '/entrance-exam/my-results',delay: 560 },
-    { icon: '🔖', label: 'Bookmarks',                sub: 'Saved questions',                  color: '#A855F7', to: '/entrance-exam/bookmarks',      delay: 630 },
-    { icon: '📊', label: 'My Results',               sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
-    { icon: '📈', label: 'Analysis',                 sub: 'See weak areas',                   color: '#0891B2', to: '/entrance-exam/analysis',        delay: 770 },
-    { icon: '🏆', label: 'Leaderboard',              sub: 'Top students',                     color: '#EF4444', to: '/entrance-exam/leaderboard',     delay: 840 },
+  const cards = [
+    {
+      icon: '📅',
+      title: 'Daily Mock Exam',
+      subtitle: todayDone
+        ? `Today done · ${lastScore}% · New mock tomorrow`
+        : "Today's mock is ready!",
+      path: '/entrance-exam/daily-mock',
+      accent: '#F59E0B',
+      badge: todayDone ? 'Done' : 'New',
+    },
+    {
+      icon: '🏫',
+      title: 'School Past Questions',
+      subtitle: statsLoading ? '…' : `${totalSchools} school${totalSchools !== 1 ? 's' : ''}`,
+      path: '/entrance-exam/schools',
+      accent: '#0D9488',
+    },
+    {
+      icon: '📚',
+      title: 'Subject Drill',
+      subtitle: 'Topic-by-topic practice',
+      path: '/entrance-exam/subject-drill',
+      accent: '#8B5CF6',
+    },
+    {
+      icon: '📋',
+      title: 'Exams Taken',
+      subtitle: yourExams > 0 ? `${yourExams} attempt${yourExams !== 1 ? 's' : ''} total` : '0 this session',
+      path: '/entrance-exam/exams-taken',
+      accent: '#1E40AF',
+    },
+    {
+      icon: '🔖',
+      title: 'Bookmarks',
+      subtitle: 'Saved questions',
+      path: '/entrance-exam/bookmarks',
+      accent: '#EC4899',
+    },
+    {
+      icon: '📊',
+      title: 'My Results',
+      subtitle: yourExams > 0 ? `${yourExams} exam${yourExams !== 1 ? 's' : ''} recorded` : 'No exams yet',
+      path: '/entrance-exam/my-results',
+      accent: '#10B981',
+    },
+    {
+      icon: '📈',
+      title: 'Analysis',
+      subtitle: 'See weak areas',
+      path: '/entrance-exam/analysis',
+      accent: '#06B6D4',
+    },
+    {
+      icon: '🏆',
+      title: 'Leaderboard',
+      subtitle: 'Top students',
+      path: '/entrance-exam/leaderboard',
+      accent: '#F59E0B',
+    },
   ];
 
-  return (
-    <div style={{ padding: '24px', maxWidth: 1100 }}>
-      {/* Back button */}
-      <button onClick={() => navigate('/dashboard')} style={{
-        background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)',
-        fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 16,
-        display: 'flex', alignItems: 'center', gap: 6,
-      }}>← Back to Dashboard</button>
+  // Recommendations
+  const recommendations = [];
+  if (!todayDone) recommendations.push({ icon: '📅', text: "Don't forget today's Daily Mock Exam" });
+  if (totalSchools > 0) recommendations.push({ icon: '🏫', text: "Start with any school's past questions to get your first score" });
+  if (yourExams > 0 && !todayDone) recommendations.push({ icon: '📈', text: 'Check your Analysis to find weak subjects' });
+  if (recommendations.length === 0) {
+    recommendations.push({ icon: '✅', text: "You've completed today's mock — check your Analysis for insights" });
+    recommendations.push({ icon: '🏫', text: "Practise a school's past questions to reinforce weak areas" });
+  }
 
-      {/* Welcome Banner */}
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'var(--bg-primary, #020B18)',
+      color: '#fff',
+      fontFamily: "'Inter', sans-serif",
+      paddingBottom: 48,
+    }}>
+      {/* Hero header */}
       <div style={{
-        background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 100%)',
-        borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
-        opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
-        transition: 'opacity .6s ease, transform .6s ease',
+        background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 60%, #0D9488 100%)',
+        padding: '32px 28px 36px',
+        position: 'relative',
+        overflow: 'hidden',
+        marginBottom: 0,
       }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.3) 0%, transparent 60%)' }} />
-        <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,32px)' }}>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-            🏥 NMCN CBT Platform
+        {/* Background glow */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(ellipse at 70% 50%, rgba(13,148,136,0.3) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+            🏥 NMCN CBT PLATFORM
           </div>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,4vw,1.7rem)', margin: '0 0 6px', lineHeight: 1.3 }}>
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 'clamp(22px, 4vw, 32px)',
+            fontWeight: 900,
+            color: '#fff',
+            margin: '0 0 6px',
+            lineHeight: 1.2,
+          }}>
             🏫 Nursing Schools Entrance Exam
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.5 }}>
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.6)', margin: '0 0 24px', fontSize: 14, lineHeight: 1.5 }}>
             Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
           </p>
+
+          {/* Stats row */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {[
-              { label: 'Schools',    value: loading ? '…' : animSchools,   icon: '🏫' },
-              { label: 'Questions',  value: loading ? '…' : animQuestions, icon: '❓' },
-              { label: 'Your Exams', value: loading ? '…' : recentAttempts.length, icon: '📝' },
-              ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
-            ].map(s => (
-              <div key={s.label} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)',
-                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 14px',
-              }}>
-                <span style={{ fontSize: 16 }}>{s.icon}</span>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{s.label}</div>
-                </div>
+            <StatPill icon="🏫" value={totalSchools}   label="Schools"    loading={statsLoading} />
+            <StatPill icon="❓" value={totalQuestions} label="Questions"  loading={statsLoading} />
+            <StatPill icon="📝" value={yourExams}      label="Your Exams" loading={statsLoading} />
+          </div>
+        </div>
+      </div>
+
+      {/* Today's mock status banner (if done) */}
+      {todayDone && (
+        <div style={{
+          background: 'rgba(16,185,129,0.1)',
+          borderBottom: '1px solid rgba(16,185,129,0.2)',
+          padding: '12px 28px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 18 }}>✅</span>
+          <span style={{ fontSize: 14, color: '#10B981', fontWeight: 700 }}>
+            Today's Daily Mock complete — Score: {lastScore}%
+          </span>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginLeft: 4 }}>
+            · New mock at midnight
+          </span>
+        </div>
+      )}
+
+      <div style={{ padding: '28px 24px', maxWidth: 1100, margin: '0 auto' }}>
+        {/* Section label */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          marginBottom: 20,
+        }}>
+          <span style={{ fontSize: 18 }}>⚡</span>
+          <span style={{
+            fontWeight: 800, fontSize: 17, color: '#fff',
+            fontFamily: "'Playfair Display', serif",
+          }}>What do you want to do?</span>
+        </div>
+
+        {/* Cards grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: 14,
+          marginBottom: 32,
+        }}>
+          {cards.map(card => (
+            <HubCard key={card.path} {...card} />
+          ))}
+        </div>
+
+        {/* Recommended section */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 16,
+          padding: '20px 22px',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            marginBottom: 14,
+          }}>
+            <span style={{ fontSize: 18 }}>💡</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>Recommended For You</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {recommendations.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span style={{
+                  color: '#0D9488', fontSize: 14, fontWeight: 700,
+                  flexShrink: 0, marginTop: 1,
+                }}>→</span>
+                <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
+                  {r.text}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
-
-      {/* Feature Cards */}
-      <ACard delay={280} style={{ marginBottom: 28 }}>
-        <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 14px' }}>
-          ⚡ What do you want to do?
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-          {FEATURE_CARDS.map(card => <FeatureCard key={card.label} {...card} />)}
-        </div>
-      </ACard>
-
-      {/* Recommendation */}
-      <ACard delay={900} style={{ marginBottom: 20 }}>
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(37,99,235,0.06))',
-          border: '1.5px solid rgba(13,148,136,0.2)', borderRadius: 14, padding: '16px 20px',
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>💡 Recommended For You</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
-              <span style={{ color: '#0D9488' }}>→</span>
-              {avgScore < 70 && avgScore > 0
-                ? `Your average is ${avgScore}% — try Subject Drill to boost weak areas`
-                : avgScore >= 70
-                ? `You're averaging ${avgScore}% — great! Try a harder school's questions`
-                : 'Start with any school\'s past questions to get your first score'}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
-              <span style={{ color: '#0D9488' }}>→</span>
-              Don't forget today's Daily Mock Exam
-            </div>
-          </div>
-        </div>
-      </ACard>
-
-      {/* Recent attempts */}
-      {recentAttempts.length > 0 && (
-        <ACard delay={1000}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>🕓 Recent Attempts</h3>
-            <Link to="/entrance-exam/my-results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {recentAttempts.map(a => (
-              <div key={a.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: '10px 14px',
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                    {a.schoolName || 'Entrance Exam'}{a.year ? ` · ${a.year}` : ''}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {a.date?.toDate ? new Date(a.date.toDate()).toLocaleDateString() : 'Recently'}
-                    {a.mode ? ` · ${a.mode}` : ''}
-                  </div>
-                </div>
-                <div style={{ fontWeight: 800, fontSize: 15, color: (a.score || 0) >= 70 ? 'var(--green)' : (a.score || 0) >= 50 ? 'var(--gold)' : 'var(--red)' }}>
-                  {a.score || 0}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </ACard>
-      )}
-
-      {/* Empty state */}
-      {!loading && recentAttempts.length === 0 && (
-        <ACard delay={900}>
-          <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16 }}>
-            <div style={{ fontSize: 52, marginBottom: 12 }}>🏫</div>
-            <h3 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 8px', color: 'var(--text-primary)' }}>Start Your Entrance Exam Prep</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px' }}>Browse nursing schools and start practicing with real past questions.</p>
-            <Link to="/entrance-exam/schools" className="btn btn-primary" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-              🏫 Browse Schools
-            </Link>
-          </div>
-        </ACard>
-      )}
     </div>
   );
 }
