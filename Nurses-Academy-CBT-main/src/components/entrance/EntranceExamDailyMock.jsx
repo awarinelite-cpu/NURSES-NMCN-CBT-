@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, orderBy, limit, serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '../../firebase/config';
 
 // ── Deterministic seeded shuffle (date-based) ────────────────────
 function seededShuffle(arr, seed) {
