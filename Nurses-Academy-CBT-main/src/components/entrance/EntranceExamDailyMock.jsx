@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, orderBy, limit, serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '../../firebase/config';  // ✅ FIXED
 
 // ── Deterministic seeded shuffle (date-based) ────────────────────
 function seededShuffle(arr, seed) {
@@ -275,7 +275,6 @@ export default function EntranceExamDailyMock() {
       countdown={countdown}
       onBack={() => navigate('/entrance-exam')}
       onReview={() => {
-        // can't review unless we have questions loaded — reload them
         navigate('/entrance-exam');
       }}
     />
