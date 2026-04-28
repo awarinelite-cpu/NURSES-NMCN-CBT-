@@ -42,6 +42,15 @@ import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 import EntranceExamHub    from './components/entrance/EntranceExamHub';
 import EntranceSchoolList from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup  from './components/entrance/EntranceExamSetup';
+import EntranceExamDailyMock from './components/entrance/EntranceExamDailyMock';
+import {
+  EntranceSubjectDrill,
+  EntranceMyResults,
+  EntranceExamsTaken,
+  EntranceBookmarks,
+  EntranceAnalysis,
+  EntranceLeaderboard,
+} from './components/entrance/EntranceExamStubs';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -70,8 +79,6 @@ const isCapacitor = () =>
   window.Capacitor.isNativePlatform?.();
 
 // ── SW Navigation Handler ────────────────────────────────────────
-// Listens for NAVIGATE messages posted by the service worker when
-// the user taps a push notification while the app is already open.
 function SwNavigationHandler() {
   const navigate = useNavigate();
 
@@ -223,9 +230,16 @@ export default function App() {
                   <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
                   {/* ── Nursing Schools Entrance Exam ── */}
-                  <Route path="/entrance-exam"        element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/schools" element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/setup"   element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam"               element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/schools"       element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/setup"         element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/daily-mock"    element={<FreeTrialRoute><EntranceExamDailyMock /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/my-results"    element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/exams-taken"   element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/bookmarks"     element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/analysis"      element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
 
                   {/* Admin */}
                   <Route path="/admin"                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
