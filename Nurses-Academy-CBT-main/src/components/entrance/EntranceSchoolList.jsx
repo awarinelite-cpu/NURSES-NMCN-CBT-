@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  collection, query, where, orderBy, getDocs,
+  collection, query, orderBy, getDocs,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
@@ -21,10 +21,10 @@ export default function EntranceSchoolList() {
       try {
         const snap = await getDocs(query(
           collection(db, 'entranceExamSchools'),
-          where('isActive', '==', true),
           orderBy('name', 'asc'),
         ));
-        setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // Filter active schools client-side to avoid composite index requirement
+        setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.isActive !== false));
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };

@@ -108,20 +108,17 @@ export default function EntranceExamSetup() {
     setError('');
     navigate('/exam/session', {
       state: {
-        examType:    'entrance_exam',
+        examType:           'entrance_exam',
+        isEntranceExam:     true,
         entranceSchoolId:   school.id,
         entranceSchoolName: school.name,
         entranceYear:       year || 'all',
-        category:    'entrance_exam',
-        courseLabel: school.name,
-        examYear:    year || 'All Years',
+        courseLabel:        school.name,
+        examName:           `${school.shortName || school.name} ${year || 'All Years'}`,
         count,
-        timeLimit:   mode === 'practice' ? 0 : timeLimit,
-        doShuffle:   shuffle,
+        timeLimit:          mode === 'practice' ? 0 : timeLimit,
+        doShuffle:          shuffle,
         showExpl,
-        poolMode:    false,
-        // ExamSession will use these to query entranceExamQuestions
-        isEntranceExam: true,
       },
     });
   };
