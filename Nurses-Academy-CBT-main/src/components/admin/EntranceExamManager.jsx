@@ -868,239 +868,455 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TAB 5 — Daily Mock Settings
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB 5 — Daily Mock (Upload + Settings)
 // ══════════════════════════════════════════════════════════════════════════════
 function DailyMockSettingsTab({ toast }) {
+  const [activeSection, setActiveSection] = useState('upload'); // 'upload' | 'settings'
   const [config,   setConfig]  = useState({ questionCount: 30, timeLimit: 30 });
   const [saving,   setSaving]  = useState(false);
   const [saved,    setSaved]   = useState(false);
   const [loading,  setLoading] = useState(true);
-  const [stats,    setStats]   = useState(null); // total questions in bank
+  const [bankStats, setBankStats] = useState({ total: 0, today: 0 });
+
+  // Upload state
+  const [bulkText,   setBulkText]   = useState('');
+  const [subject,    setSubject]    = useState('Biology');
+  const [mockDate,   setMockDate]   = useState(() => new Date().toISOString().split('T')[0]);
+  const [uploading,  setUploading]  = useState(false);
+  const [preview,    setPreview]    = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [bankQuestions, setBankQuestions] = useState([]);
+  const [loadingBank, setLoadingBank] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        // Load saved config
         const snap = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
         if (snap.exists()) setConfig(snap.data());
 
-        // Count total questions in bank
-        const countSnap = await getCountFromServer(collection(db, 'entranceExamQuestions'));
-        setStats({ totalQuestions: countSnap.data().count });
-      } catch (e) { console.error('DailyMock config load:', e); }
+        // Count daily mock bank questions
+        const bankSnap = await getDocs(collection(db, 'entranceExamDailyMockBank'));
+        const today = new Date().toISOString().split('T')[0];
+        const todayCount = bankSnap.docs.filter(d => d.data().date === today).length;
+        setBankStats({ total: bankSnap.size, today: todayCount });
+      } catch (e) { console.error(e); }
       setLoading(false);
     })();
   }, []);
 
-  const save = async () => {
-    const count = Number(config.questionCount);
-    const limit = Number(config.timeLimit);
+  // Parse questions from bulk text
+  function parseBulk(text) {
+    const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+    const results = [], errors = [];
+    blocks.forEach((block, idx) => {
+      const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+      let cursor = 0;
+      const questionText = lines[cursor++];
+      const options = {};
+      while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
+        const letter = lines[cursor][0].toUpperCase();
+        options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
+        cursor++;
+      }
+      if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
+      let answer = '', explanation = '';
+      while (cursor < lines.length) {
+        const l = lines[cursor];
+        const m = /^\*([A-D])$/i.exec(l.trim()) || /^(?:answer|ans):\s*([A-D])/i.exec(l.trim());
+        if (m) answer = m[1].toUpperCase();
+        else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
+        cursor++;
+      }
+      if (!answer) { errors.push(`Block ${idx + 1}: No answer marked (use *A)`); return; }
+      results.push({
+        question: questionText,
+        optionA: options.A, optionB: options.B, optionC: options.C, optionD: options.D,
+        answer, explanation, subject,
+        date: mockDate,
+        type: 'daily_mock',
+      });
+    });
+    return { results, errors };
+  }
 
-    if (stats && count > stats.totalQuestions) {
-      toast(`⚠️ Only ${stats.totalQuestions} questions in the bank — count reduced to that`, 'warning');
+  const handlePreview = () => {
+    const { results, errors } = parseBulk(bulkText);
+    setPreview(results);
+    setShowPreview(true);
+    if (errors.length) toast(`⚠️ ${errors.length} block(s) had errors`, 'warning');
+  };
+
+  const handleUpload = async () => {
+    const { results, errors } = parseBulk(bulkText);
+    if (results.length === 0) { toast('No valid questions to upload', 'error'); return; }
+    setUploading(true);
+    try {
+      const batch = writeBatch(db);
+      results.forEach(q => {
+        const ref = doc(collection(db, 'entranceExamDailyMockBank'));
+        batch.set(ref, { ...q, uploadedAt: serverTimestamp() });
+      });
+      await batch.commit();
+      toast(`✅ ${results.length} questions uploaded to Daily Mock Bank`, 'success');
+      setBulkText('');
+      setShowPreview(false);
+      setBankStats(prev => ({ ...prev, total: prev.total + results.length, today: prev.today + results.filter(q => q.date === new Date().toISOString().split('T')[0]).length }));
+    } catch (e) {
+      toast('Upload failed: ' + e.message, 'error');
     }
+    setUploading(false);
+  };
 
-    setSaving(true);
-    setSaved(false);
+  const loadBank = async () => {
+    setLoadingBank(true);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'entranceExamDailyMockBank'),
+        orderBy('uploadedAt', 'desc'),
+        limit(50)
+      ));
+      setBankQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { toast('Failed to load bank', 'error'); }
+    setLoadingBank(false);
+  };
+
+  const deleteQuestion = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'entranceExamDailyMockBank', id));
+      setBankQuestions(prev => prev.filter(q => q.id !== id));
+      setBankStats(prev => ({ ...prev, total: prev.total - 1 }));
+      toast('Question deleted', 'success');
+    } catch (e) { toast('Delete failed', 'error'); }
+  };
+
+  const saveSettings = async () => {
+    setSaving(true); setSaved(false);
     try {
       await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), {
-        questionCount: count,
-        timeLimit: limit,
+        questionCount: Number(config.questionCount),
+        timeLimit: Number(config.timeLimit),
         updatedAt: new Date().toISOString(),
       });
       setSaved(true);
-      toast('Daily Mock settings saved ✅', 'success');
+      toast('Settings saved ✅', 'success');
       setTimeout(() => setSaved(false), 3000);
-    } catch (e) {
-      toast('Save failed: ' + e.message, 'error');
-    }
+    } catch (e) { toast('Save failed: ' + e.message, 'error'); }
     setSaving(false);
   };
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-        <div className="spinner" style={{ margin: '0 auto 12px' }} />Loading config…
-      </div>
-    );
-  }
+  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading…</div>;
 
-  const maxAllowed = stats?.totalQuestions || 100;
+  const sectionBtn = (id, label) => (
+    <button onClick={() => setActiveSection(id)} style={{
+      padding: '9px 22px', borderRadius: 20, border: 'none', cursor: 'pointer',
+      fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'all .15s',
+      background: activeSection === id ? 'var(--teal)' : 'var(--bg-tertiary)',
+      color: activeSection === id ? '#fff' : 'var(--text-muted)',
+    }}>{label}</button>
+  );
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      {/* Info banner */}
+    <div style={{ maxWidth: 680 }}>
+      {/* Stats bar */}
       <div style={{
-        background: 'rgba(13,148,136,0.08)',
-        border: '1px solid rgba(13,148,136,0.2)',
-        borderRadius: 12, padding: '14px 18px', marginBottom: 24,
-        display: 'flex', alignItems: 'flex-start', gap: 12,
+        display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap',
       }}>
-        <span style={{ fontSize: 22, flexShrink: 0 }}>📅</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
-            How Daily Mock works
+        {[
+          { icon: '📦', label: 'Total in Bank', value: bankStats.total },
+          { icon: '📅', label: "Today's Questions", value: bankStats.today },
+          { icon: '⏱', label: 'Time Limit', value: config.timeLimit === 0 ? 'Untimed' : `${config.timeLimit} min` },
+          { icon: '❓', label: 'Per Mock', value: config.questionCount },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '12px 18px', flex: 1, minWidth: 120,
+          }}>
+            <div style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--teal)' }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Every midnight, a new set of questions is automatically selected from the entrance exam bank using a date seed.
-            All students get the <strong>same questions</strong> on the same day. Each student can only attempt the mock <strong>once per day</strong>.
-            Results are saved to their profile.
+        ))}
+      </div>
+
+      {/* Section tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        {sectionBtn('upload', '📤 Upload Questions')}
+        {sectionBtn('bank', '📦 View Bank')}
+        {sectionBtn('settings', '⚙️ Settings')}
+      </div>
+
+      {/* ── UPLOAD SECTION ── */}
+      {activeSection === 'upload' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{
+            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+            borderRadius: 12, padding: '14px 18px',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
+              📅 Daily Mock Question Upload
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Questions uploaded here go into a <strong>separate Daily Mock Bank</strong> — they do NOT mix with School Past Questions.
+              The daily mock uses a date seed to pick questions, so the same set appears for all students on the same day.
+            </div>
           </div>
-          {stats && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--teal)', fontWeight: 700 }}>
-              📦 {stats.totalQuestions} questions currently in the entrance exam bank
+
+          {/* Date + Subject */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                📅 Mock Date (tag questions for this date)
+              </label>
+              <input
+                type="date"
+                value={mockDate}
+                onChange={e => setMockDate(e.target.value)}
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                📚 Subject (default for this batch)
+              </label>
+              <select value={subject} onChange={e => setSubject(e.target.value)} className="form-input form-select" style={{ width: '100%' }}>
+                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Format guide */}
+          <div style={{
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '12px 16px', fontSize: 12, color: 'var(--text-muted)',
+            fontFamily: 'monospace', lineHeight: 1.8,
+          }}>
+            <div style={{ fontFamily: 'inherit', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              📋 Format — separate questions with a blank line:
+            </div>
+            Question text here<br/>
+            A. Option A<br/>
+            B. Option B<br/>
+            C. Option C<br/>
+            D. Option D<br/>
+            *B<br/>
+            Explanation: Optional explanation
+          </div>
+
+          {/* Text area */}
+          <textarea
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            placeholder="Paste your daily mock questions here..."
+            rows={14}
+            className="form-input"
+            style={{ fontFamily: 'monospace', fontSize: 13, resize: 'vertical', lineHeight: 1.6 }}
+          />
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={handlePreview}
+              disabled={!bulkText.trim()}
+              style={{
+                padding: '10px 24px', borderRadius: 10, border: '1.5px solid var(--teal)',
+                background: 'rgba(13,148,136,0.1)', color: 'var(--teal)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit',
+                opacity: !bulkText.trim() ? 0.5 : 1,
+              }}
+            >👁 Preview ({parseBulk(bulkText).results.length} questions)</button>
+
+            <button
+              onClick={handleUpload}
+              disabled={uploading || !bulkText.trim()}
+              style={{
+                padding: '10px 24px', borderRadius: 10, border: 'none',
+                background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+                color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14,
+                fontFamily: 'inherit', opacity: uploading || !bulkText.trim() ? 0.6 : 1,
+              }}
+            >{uploading ? '⏳ Uploading…' : '🚀 Upload to Daily Mock Bank'}</button>
+          </div>
+
+          {/* Preview */}
+          {showPreview && preview.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                Preview — {preview.length} questions
+              </div>
+              {preview.slice(0, 5).map((q, i) => (
+                <div key={i} style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '12px 16px',
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>
+                    {i + 1}. {q.question}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                    {['A','B','C','D'].map(opt => (
+                      <span key={opt} style={{
+                        padding: '3px 10px', borderRadius: 6, fontSize: 12,
+                        background: q.answer === opt ? 'rgba(13,148,136,0.2)' : 'var(--bg-tertiary)',
+                        color: q.answer === opt ? 'var(--teal)' : 'var(--text-muted)',
+                        fontWeight: q.answer === opt ? 700 : 400,
+                        border: q.answer === opt ? '1px solid var(--teal)' : '1px solid transparent',
+                      }}>{opt}. {q[`option${opt}`]}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    ✓ {q.answer} · {q.subject} · {q.date}
+                  </div>
+                </div>
+              ))}
+              {preview.length > 5 && (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  …and {preview.length - 5} more
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-        {/* Question Count */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
-            ❓ Questions Per Mock
-          </label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-            How many questions students answer each day. Capped at your total bank size ({maxAllowed}).
+      {/* ── BANK SECTION ── */}
+      {activeSection === 'bank' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Daily Mock Question Bank ({bankStats.total} total)
+            </div>
+            <button
+              onClick={loadBank}
+              disabled={loadingBank}
+              style={{
+                padding: '8px 18px', borderRadius: 8, border: '1.5px solid var(--teal)',
+                background: 'rgba(13,148,136,0.1)', color: 'var(--teal)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+              }}
+            >{loadingBank ? 'Loading…' : '🔄 Load Questions'}</button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <input
-              type="range"
-              min={5}
-              max={Math.min(60, maxAllowed)}
-              step={5}
-              value={Math.min(config.questionCount, maxAllowed)}
-              onChange={e => setConfig(c => ({ ...c, questionCount: Number(e.target.value) }))}
-              style={{ flex: 1, accentColor: 'var(--teal)' }}
-            />
-            <div style={{
-              minWidth: 54, textAlign: 'center', fontWeight: 800, fontSize: 22,
-              color: 'var(--teal)', background: 'rgba(13,148,136,0.1)',
-              borderRadius: 10, padding: '6px 10px',
-            }}>
-              {Math.min(config.questionCount, maxAllowed)}
+
+          {bankQuestions.length === 0 && !loadingBank && (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+              Click "Load Questions" to view the bank, or upload questions in the Upload tab.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {bankQuestions.map((q, i) => (
+              <div key={q.id} style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '12px 16px',
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                    {q.question}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    ✓ {q.answer} · {q.subject} · {q.date || 'no date'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteQuestion(q.id)}
+                  style={{
+                    background: 'rgba(239,68,68,0.1)', border: 'none', color: '#EF4444',
+                    borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, flexShrink: 0,
+                  }}
+                >Delete</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── SETTINGS SECTION ── */}
+      {activeSection === 'settings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{
+            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+            borderRadius: 12, padding: '14px 18px',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>How Daily Mock works</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Every day, a date-seeded selection is drawn from the <strong>Daily Mock Bank</strong>.
+              All students get the same questions. Each student can only attempt once per day.
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            <span>5 (quick)</span>
-            <span>{Math.min(60, maxAllowed)} (full)</span>
-          </div>
 
-          {/* Quick presets */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[10, 20, 30, 40, 50].filter(n => n <= maxAllowed).map(n => (
-              <button
-                key={n}
-                onClick={() => setConfig(c => ({ ...c, questionCount: n }))}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
-                  transition: 'all .15s',
+          {/* Question Count */}
+          <div className="card" style={{ padding: '20px 22px' }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
+              ❓ Questions Per Mock
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+              How many questions students answer each day.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <input type="range" min={5} max={60} step={5}
+                value={config.questionCount}
+                onChange={e => setConfig(c => ({ ...c, questionCount: Number(e.target.value) }))}
+                style={{ flex: 1, accentColor: 'var(--teal)' }} />
+              <div style={{
+                minWidth: 54, textAlign: 'center', fontWeight: 800, fontSize: 22,
+                color: 'var(--teal)', background: 'rgba(13,148,136,0.1)', borderRadius: 10, padding: '6px 10px',
+              }}>{config.questionCount}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              {[10, 20, 30, 40, 50].map(n => (
+                <button key={n} onClick={() => setConfig(c => ({ ...c, questionCount: n }))} style={{
+                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .15s',
                   borderColor: config.questionCount === n ? 'var(--teal)' : 'var(--border)',
-                  background:  config.questionCount === n ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
-                  color:       config.questionCount === n ? 'var(--teal)' : 'var(--text-muted)',
-                }}
-              >{n}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Time Limit */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
-            ⏱ Time Limit
-          </label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-            Set to <strong>0</strong> for untimed. When time runs out, the mock auto-submits.
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <input
-              type="range"
-              min={0}
-              max={120}
-              step={5}
-              value={config.timeLimit}
-              onChange={e => setConfig(c => ({ ...c, timeLimit: Number(e.target.value) }))}
-              style={{ flex: 1, accentColor: 'var(--teal)' }}
-            />
-            <div style={{
-              minWidth: 68, textAlign: 'center', fontWeight: 800, fontSize: 20,
-              color: config.timeLimit === 0 ? 'var(--text-muted)' : 'var(--teal)',
-              background: 'rgba(13,148,136,0.08)',
-              borderRadius: 10, padding: '6px 10px', fontFamily: 'monospace',
-            }}>
-              {config.timeLimit === 0 ? '∞' : `${config.timeLimit}m`}
+                  background: config.questionCount === n ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                  color: config.questionCount === n ? 'var(--teal)' : 'var(--text-muted)',
+                }}>{n}</button>
+              ))}
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            <span>Untimed</span>
-            <span>120 min</span>
-          </div>
 
-          {/* Quick presets */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[{ v: 0, l: 'Untimed' }, { v: 20, l: '20 min' }, { v: 30, l: '30 min' }, { v: 45, l: '45 min' }, { v: 60, l: '60 min' }].map(({ v, l }) => (
-              <button
-                key={v}
-                onClick={() => setConfig(c => ({ ...c, timeLimit: v }))}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
-                  transition: 'all .15s',
+          {/* Time Limit */}
+          <div className="card" style={{ padding: '20px 22px' }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
+              ⏱ Time Limit
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Set to 0 for untimed.</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <input type="range" min={0} max={120} step={5}
+                value={config.timeLimit}
+                onChange={e => setConfig(c => ({ ...c, timeLimit: Number(e.target.value) }))}
+                style={{ flex: 1, accentColor: 'var(--teal)' }} />
+              <div style={{
+                minWidth: 68, textAlign: 'center', fontWeight: 800, fontSize: 20,
+                color: config.timeLimit === 0 ? 'var(--text-muted)' : 'var(--teal)',
+                background: 'rgba(13,148,136,0.08)', borderRadius: 10, padding: '6px 10px', fontFamily: 'monospace',
+              }}>{config.timeLimit === 0 ? '∞' : `${config.timeLimit}m`}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              {[{v:0,l:'Untimed'},{v:20,l:'20m'},{v:30,l:'30m'},{v:45,l:'45m'},{v:60,l:'60m'}].map(({v,l}) => (
+                <button key={v} onClick={() => setConfig(c => ({ ...c, timeLimit: v }))} style={{
+                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .15s',
                   borderColor: config.timeLimit === v ? 'var(--teal)' : 'var(--border)',
-                  background:  config.timeLimit === v ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
-                  color:       config.timeLimit === v ? 'var(--teal)' : 'var(--text-muted)',
-                }}
-              >{l}</button>
-            ))}
+                  background: config.timeLimit === v ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                  color: config.timeLimit === v ? 'var(--teal)' : 'var(--text-muted)',
+                }}>{l}</button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Live Preview */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(30,58,138,0.08))',
-          border: '1px solid rgba(13,148,136,0.2)',
-          borderRadius: 14, padding: '16px 20px',
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Preview — What students will see
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-            📅 Today's Daily Mock: <strong style={{ color: 'var(--text-primary)' }}>{Math.min(config.questionCount, maxAllowed)} questions</strong>
-            {' '}·{' '}
-            {config.timeLimit > 0
-              ? <><strong style={{ color: '#F59E0B' }}>{config.timeLimit} minutes</strong> to complete</>
-              : <strong style={{ color: '#10B981' }}>No time limit</strong>
-            }
-            <br />
-            🔁 Same questions for all students, resets at <strong>midnight</strong>
-            <br />
-            ⚠️ Each student gets <strong>one attempt</strong> per day
-          </div>
+          <button onClick={saveSettings} disabled={saving} style={{
+            background: saved ? 'linear-gradient(135deg,#10B981,#059669)' : 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+            border: 'none', color: '#fff', padding: '14px 32px', borderRadius: 12,
+            cursor: saving ? 'not-allowed' : 'pointer', fontSize: 15, fontWeight: 700,
+            alignSelf: 'flex-start', opacity: saving ? 0.7 : 1, transition: 'all 0.2s',
+          }}>{saving ? '💾 Saving…' : saved ? '✅ Saved!' : '💾 Save Settings'}</button>
         </div>
-
-        {/* Save button */}
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{
-            background: saved
-              ? 'linear-gradient(135deg,#10B981,#059669)'
-              : 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-            border: 'none', color: '#fff',
-            padding: '14px 32px', borderRadius: 12,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            fontSize: 15, fontWeight: 700,
-            alignSelf: 'flex-start',
-            opacity: saving ? 0.7 : 1,
-            transition: 'all 0.2s',
-            letterSpacing: 0.3,
-          }}
-        >
-          {saving ? '💾 Saving…' : saved ? '✅ Saved!' : '💾 Save Daily Mock Settings'}
-        </button>
-      </div>
+      )}
     </div>
   );
 }
