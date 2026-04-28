@@ -1,10 +1,10 @@
 // src/components/admin/EntranceExamManager.jsx
 // Route: /admin/entrance-exam
-// Tabs: Manage Schools | Add Questions (Single) | Bulk Upload | Question Bank | Daily Mock
+// Tabs: Manage Schools | Add Questions (Single) | Bulk Upload | Question Bank
 
 import { useState, useEffect } from 'react';
 import {
-  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
+  collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
   query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -14,6 +14,17 @@ const ENTRANCE_YEARS = ['2018','2019','2020','2021','2022','2023','2024','2025']
 const SUBJECTS = ['English Language','Biology','Chemistry','Physics','Mathematics','General Studies','Nursing Aptitude','Current Affairs'];
 
 // ── Parse a block of text into entrance exam questions ────────────────────────
+// Format (same as existing question parser):
+//   [optional: https://image.url on its own line]
+//   Question text
+//   A. Option A
+//   B. Option B
+//   C. Option C
+//   D. Option D
+//   *A   (correct answer)
+//   Explanation: Optional explanation text
+//
+//   [blank line separates questions]
 function parseEntranceQuestions(text) {
   const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
   const results = [], errors = [];
@@ -25,6 +36,7 @@ function parseEntranceQuestions(text) {
     let cursor = 0;
     let diagramUrl = '';
 
+    // Check if first line is a URL
     if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
 
     const questionText = lines[cursor]; cursor++;
@@ -40,17 +52,12 @@ function parseEntranceQuestions(text) {
     let correctAnswer = '', explanation = '';
     while (cursor < lines.length) {
       const l = lines[cursor];
-      const starMatch    = /^\*([A-D])$/i.exec(l.trim());
-      const answerMatch  = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
-      const parenMatch   = /^\(([A-D])\)$/i.exec(l.trim());
-      if      (starMatch)   { correctAnswer = starMatch[1].toUpperCase(); }
-      else if (answerMatch) { correctAnswer = answerMatch[1].toUpperCase(); }
-      else if (parenMatch)  { correctAnswer = parenMatch[1].toUpperCase(); }
+      if (/^\*[A-D]$/i.test(l.trim())) { correctAnswer = l.trim().slice(1).toUpperCase(); }
       else if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
       cursor++;
     }
 
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
+    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer (*A, *B, *C, or *D)`); return; }
 
     results.push({
       questionText,
@@ -67,22 +74,7 @@ function parseEntranceQuestions(text) {
 
 export default function EntranceExamManager() {
   const { toast } = useToast();
-  const [tab, setTab] = useState('schools');
-
-  const [schools,      setSchools]      = useState([]);
-  const [schoolsReady, setSchoolsReady] = useState(false);
-
-  const reloadSchools = async () => {
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc'))
-      );
-      setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error('reloadSchools:', e); }
-    finally { setSchoolsReady(true); }
-  };
-
-  useEffect(() => { reloadSchools(); }, []);
+  const [tab, setTab] = useState('schools'); // schools | add_single | bulk | bank
 
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
@@ -110,7 +102,6 @@ export default function EntranceExamManager() {
           { id: 'add_single', label: '➕ Add Single Question' },
           { id: 'bulk',       label: '📤 Bulk Upload'        },
           { id: 'bank',       label: '📋 Question Bank'      },
-          { id: 'daily_mock', label: '📅 Daily Mock'         },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '10px 18px', borderRadius: 10, border: '1.5px solid',
@@ -123,11 +114,10 @@ export default function EntranceExamManager() {
         ))}
       </div>
 
-      {tab === 'schools'    && <SchoolsTab    toast={toast} onSchoolsChanged={reloadSchools} />}
-      {tab === 'add_single' && <AddSingleTab  toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'daily_mock' && <DailyMockSettingsTab toast={toast} />}
+      {tab === 'schools'    && <SchoolsTab toast={toast} />}
+      {tab === 'add_single' && <AddSingleTab toast={toast} />}
+      {tab === 'bulk'       && <BulkUploadTab toast={toast} />}
+      {tab === 'bank'       && <QuestionBankTab toast={toast} />}
     </div>
   );
 }
@@ -135,7 +125,7 @@ export default function EntranceExamManager() {
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — Manage Schools
 // ══════════════════════════════════════════════════════════════════════════════
-function SchoolsTab({ toast, onSchoolsChanged }) {
+function SchoolsTab({ toast }) {
   const [schools,  setSchools]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showModal, setModal]   = useState(false);
@@ -185,7 +175,6 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
       }
       setModal(false);
       load();
-      onSchoolsChanged();
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -196,7 +185,6 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
       await deleteDoc(doc(db, 'entranceExamSchools', s.id));
       toast('School deleted', 'success');
       load();
-      onSchoolsChanged();
     } catch (e) { toast('Error: ' + e.message, 'error'); }
   };
 
@@ -303,7 +291,8 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 2 — Add Single Question
 // ══════════════════════════════════════════════════════════════════════════════
-function AddSingleTab({ toast, schools, schoolsReady }) {
+function AddSingleTab({ toast }) {
+  const [schools,  setSchools]  = useState([]);
   const [schoolId, setSchoolId] = useState('');
   const [year,     setYear]     = useState('2024');
   const [subject,  setSubject]  = useState('Biology');
@@ -311,6 +300,12 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
   const [parsed,   setParsed]   = useState(null);
   const [parseErr, setParseErr] = useState('');
   const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
+      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {});
+  }, []);
 
   const handleParse = () => {
     setParseErr('');
@@ -338,6 +333,7 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
         active: true,
         createdAt: serverTimestamp(),
       });
+      // Update school question count
       try {
         const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
         await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: qSnap.data().count });
@@ -357,7 +353,7 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
             <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
+              <option value="">Select school…</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
             </select>
           </div>
@@ -469,7 +465,8 @@ Explanation: The pyramid is in renal medulla...`}</pre>
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 3 — Bulk Upload
 // ══════════════════════════════════════════════════════════════════════════════
-function BulkUploadTab({ toast, schools, schoolsReady }) {
+function BulkUploadTab({ toast }) {
+  const [schools,    setSchools]    = useState([]);
   const [schoolId,   setSchoolId]   = useState('');
   const [year,       setYear]       = useState('2024');
   const [subject,    setSubject]    = useState('Biology');
@@ -478,6 +475,12 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
   const [errors,     setErrors]     = useState([]);
   const [importing,  setImporting]  = useState(false);
   const [imported,   setImported]   = useState(null);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
+      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {});
+  }, []);
 
   const handleParse = () => {
     const { results, errors: errs } = parseEntranceQuestions(rawText);
@@ -510,6 +513,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
       });
       await batch.commit();
 
+      // Update school question count
       try {
         const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
         await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: qSnap.data().count });
@@ -534,7 +538,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
             <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
+              <option value="">Select school…</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
             </select>
           </div>
@@ -651,14 +655,21 @@ D. Calyx
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 4 — Question Bank
 // ══════════════════════════════════════════════════════════════════════════════
-function QuestionBankTab({ toast, schools, schoolsReady }) {
+function QuestionBankTab({ toast }) {
   const [questions, setQuestions] = useState([]);
+  const [schools,   setSchools]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [filterSchool, setFilterSchool] = useState('');
   const [filterYear,   setFilterYear]   = useState('');
   const [filterType,   setFilterType]   = useState('');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive','==',true), orderBy('name','asc')))
+      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {});
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -811,6 +822,7 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* School / Year / Subject */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {[
               { label: '🏫 School', key: 'schoolId', type: 'select', options: schools.map(s => ({ value: s.id, label: s.shortName || s.name })) },
@@ -825,14 +837,17 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
               </div>
             ))}
           </div>
+          {/* Diagram URL */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>🖼️ Diagram URL (optional)</label>
             <input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} />
           </div>
+          {/* Question text */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>📝 Question Text</label>
             <textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
           </div>
+          {/* Options */}
           {['A','B','C','D'].map(letter => (
             <div key={letter} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{
@@ -850,6 +865,7 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
             </div>
           ))}
           <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>👆 Click the letter button to set correct answer</p>
+          {/* Explanation */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>💡 Explanation (optional)</label>
             <textarea className="form-input" rows={2} value={form.explanation} onChange={e => setForm(p => ({ ...p, explanation: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
@@ -862,244 +878,6 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
           </button>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TAB 5 — Daily Mock Settings
-// ══════════════════════════════════════════════════════════════════════════════
-function DailyMockSettingsTab({ toast }) {
-  const [config,   setConfig]  = useState({ questionCount: 30, timeLimit: 30 });
-  const [saving,   setSaving]  = useState(false);
-  const [saved,    setSaved]   = useState(false);
-  const [loading,  setLoading] = useState(true);
-  const [stats,    setStats]   = useState(null); // total questions in bank
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // Load saved config
-        const snap = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
-        if (snap.exists()) setConfig(snap.data());
-
-        // Count total questions in bank
-        const countSnap = await getCountFromServer(collection(db, 'entranceExamQuestions'));
-        setStats({ totalQuestions: countSnap.data().count });
-      } catch (e) { console.error('DailyMock config load:', e); }
-      setLoading(false);
-    })();
-  }, []);
-
-  const save = async () => {
-    const count = Number(config.questionCount);
-    const limit = Number(config.timeLimit);
-
-    if (stats && count > stats.totalQuestions) {
-      toast(`⚠️ Only ${stats.totalQuestions} questions in the bank — count reduced to that`, 'warning');
-    }
-
-    setSaving(true);
-    setSaved(false);
-    try {
-      await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), {
-        questionCount: count,
-        timeLimit: limit,
-        updatedAt: new Date().toISOString(),
-      });
-      setSaved(true);
-      toast('Daily Mock settings saved ✅', 'success');
-      setTimeout(() => setSaved(false), 3000);
-    } catch (e) {
-      toast('Save failed: ' + e.message, 'error');
-    }
-    setSaving(false);
-  };
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-        <div className="spinner" style={{ margin: '0 auto 12px' }} />Loading config…
-      </div>
-    );
-  }
-
-  const maxAllowed = stats?.totalQuestions || 100;
-
-  return (
-    <div style={{ maxWidth: 560 }}>
-      {/* Info banner */}
-      <div style={{
-        background: 'rgba(13,148,136,0.08)',
-        border: '1px solid rgba(13,148,136,0.2)',
-        borderRadius: 12, padding: '14px 18px', marginBottom: 24,
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-      }}>
-        <span style={{ fontSize: 22, flexShrink: 0 }}>📅</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
-            How Daily Mock works
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Every midnight, a new set of questions is automatically selected from the entrance exam bank using a date seed.
-            All students get the <strong>same questions</strong> on the same day. Each student can only attempt the mock <strong>once per day</strong>.
-            Results are saved to their profile.
-          </div>
-          {stats && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--teal)', fontWeight: 700 }}>
-              📦 {stats.totalQuestions} questions currently in the entrance exam bank
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-        {/* Question Count */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
-            ❓ Questions Per Mock
-          </label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-            How many questions students answer each day. Capped at your total bank size ({maxAllowed}).
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <input
-              type="range"
-              min={5}
-              max={Math.min(60, maxAllowed)}
-              step={5}
-              value={Math.min(config.questionCount, maxAllowed)}
-              onChange={e => setConfig(c => ({ ...c, questionCount: Number(e.target.value) }))}
-              style={{ flex: 1, accentColor: 'var(--teal)' }}
-            />
-            <div style={{
-              minWidth: 54, textAlign: 'center', fontWeight: 800, fontSize: 22,
-              color: 'var(--teal)', background: 'rgba(13,148,136,0.1)',
-              borderRadius: 10, padding: '6px 10px',
-            }}>
-              {Math.min(config.questionCount, maxAllowed)}
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            <span>5 (quick)</span>
-            <span>{Math.min(60, maxAllowed)} (full)</span>
-          </div>
-
-          {/* Quick presets */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[10, 20, 30, 40, 50].filter(n => n <= maxAllowed).map(n => (
-              <button
-                key={n}
-                onClick={() => setConfig(c => ({ ...c, questionCount: n }))}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
-                  transition: 'all .15s',
-                  borderColor: config.questionCount === n ? 'var(--teal)' : 'var(--border)',
-                  background:  config.questionCount === n ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
-                  color:       config.questionCount === n ? 'var(--teal)' : 'var(--text-muted)',
-                }}
-              >{n}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Time Limit */}
-        <div className="card" style={{ padding: '20px 22px' }}>
-          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>
-            ⏱ Time Limit
-          </label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-            Set to <strong>0</strong> for untimed. When time runs out, the mock auto-submits.
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <input
-              type="range"
-              min={0}
-              max={120}
-              step={5}
-              value={config.timeLimit}
-              onChange={e => setConfig(c => ({ ...c, timeLimit: Number(e.target.value) }))}
-              style={{ flex: 1, accentColor: 'var(--teal)' }}
-            />
-            <div style={{
-              minWidth: 68, textAlign: 'center', fontWeight: 800, fontSize: 20,
-              color: config.timeLimit === 0 ? 'var(--text-muted)' : 'var(--teal)',
-              background: 'rgba(13,148,136,0.08)',
-              borderRadius: 10, padding: '6px 10px', fontFamily: 'monospace',
-            }}>
-              {config.timeLimit === 0 ? '∞' : `${config.timeLimit}m`}
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            <span>Untimed</span>
-            <span>120 min</span>
-          </div>
-
-          {/* Quick presets */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[{ v: 0, l: 'Untimed' }, { v: 20, l: '20 min' }, { v: 30, l: '30 min' }, { v: 45, l: '45 min' }, { v: 60, l: '60 min' }].map(({ v, l }) => (
-              <button
-                key={v}
-                onClick={() => setConfig(c => ({ ...c, timeLimit: v }))}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, border: '1.5px solid',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
-                  transition: 'all .15s',
-                  borderColor: config.timeLimit === v ? 'var(--teal)' : 'var(--border)',
-                  background:  config.timeLimit === v ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
-                  color:       config.timeLimit === v ? 'var(--teal)' : 'var(--text-muted)',
-                }}
-              >{l}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Live Preview */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(30,58,138,0.08))',
-          border: '1px solid rgba(13,148,136,0.2)',
-          borderRadius: 14, padding: '16px 20px',
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Preview — What students will see
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-            📅 Today's Daily Mock: <strong style={{ color: 'var(--text-primary)' }}>{Math.min(config.questionCount, maxAllowed)} questions</strong>
-            {' '}·{' '}
-            {config.timeLimit > 0
-              ? <><strong style={{ color: '#F59E0B' }}>{config.timeLimit} minutes</strong> to complete</>
-              : <strong style={{ color: '#10B981' }}>No time limit</strong>
-            }
-            <br />
-            🔁 Same questions for all students, resets at <strong>midnight</strong>
-            <br />
-            ⚠️ Each student gets <strong>one attempt</strong> per day
-          </div>
-        </div>
-
-        {/* Save button */}
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{
-            background: saved
-              ? 'linear-gradient(135deg,#10B981,#059669)'
-              : 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-            border: 'none', color: '#fff',
-            padding: '14px 32px', borderRadius: 12,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            fontSize: 15, fontWeight: 700,
-            alignSelf: 'flex-start',
-            opacity: saving ? 0.7 : 1,
-            transition: 'all 0.2s',
-            letterSpacing: 0.3,
-          }}
-        >
-          {saving ? '💾 Saving…' : saved ? '✅ Saved!' : '💾 Save Daily Mock Settings'}
-        </button>
       </div>
     </div>
   );
