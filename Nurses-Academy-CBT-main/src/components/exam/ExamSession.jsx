@@ -206,6 +206,40 @@ export default function ExamSession() {
           setQuestions(qs); setPhase('review'); return;
         }
 
+        // ── Entrance Exam mode — MUST come before poolMode check ──────────────
+        if (isEntranceExam && entranceSchoolId) {
+          const constraints = [where('schoolId', '==', entranceSchoolId)];
+          if (entranceYear && entranceYear !== 'all') {
+            constraints.push(where('year', '==', entranceYear));
+          }
+          // Note: no active filter — entrance questions use 'active' too but
+          // let's fetch all and filter client-side to avoid missing index issues
+          const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+          let pool = snap.docs.map(d => {
+            const data = d.data();
+            const opts = data.options || {};
+            return {
+              id:           d.id,
+              question:     data.questionText || '',
+              options:      ['A','B','C','D'].map(l => opts[l] || ''),
+              correctIndex: ['A','B','C','D'].indexOf(data.correctAnswer),
+              explanation:  data.explanation  || '',
+              imageUrl:     data.diagramUrl   || '',
+              questionType: data.questionType || 'text',
+              subject:      data.subject      || '',
+              year:         data.year         || '',
+              schoolName:   data.schoolName   || '',
+            };
+          }).filter(q => q.question && q.options.some(o => o));
+
+          if (pool.length === 0) { setQuestions([]); setPhase('empty'); return; }
+          if (doShuffle) pool.sort(() => Math.random() - 0.5);
+          qs = pool.slice(0, count);
+          setQuestions(qs); questionsRef.current = qs;
+          setPhase('exam'); startedAt.current = Date.now();
+          return;
+        }
+
         // ── Pool mode (daily practice / course drill / topic drill / mock exam) ─
         if (poolMode) {
           const seenIds  = profile?.seenQuestions || [];
@@ -309,38 +343,6 @@ export default function ExamSession() {
           const seenIds = profile?.seenQuestions || [];
           const unseen  = qs.filter(q => !seenIds.includes(q.id));
           const pool    = unseen.length >= Math.min(count, 5) ? unseen : qs;
-          if (doShuffle) pool.sort(() => Math.random() - 0.5);
-          qs = pool.slice(0, count);
-        }
-
-        // ── Entrance Exam mode: load from entranceExamQuestions ────────────────
-        if (isEntranceExam && entranceSchoolId) {
-          const constraints = [
-            where('schoolId', '==', entranceSchoolId),
-            where('active',   '==', true),
-          ];
-          if (entranceYear && entranceYear !== 'all') {
-            constraints.push(where('year', '==', entranceYear));
-          }
-          const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
-          let pool = snap.docs.map(d => {
-            const data = d.data();
-            // Normalise to same shape ExamSession expects
-            return {
-              id: d.id,
-              question: data.questionText,
-              options: Object.values(data.options || {}),
-              correctIndex: ['A','B','C','D'].indexOf(data.correctAnswer),
-              explanation: data.explanation || '',
-              diagramUrl: data.diagramUrl || '',
-              questionType: data.questionType || 'text',
-              subject: data.subject || '',
-              year: data.year || '',
-              schoolName: data.schoolName || '',
-              // Keep original fields too
-              ...data,
-            };
-          });
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
         }
