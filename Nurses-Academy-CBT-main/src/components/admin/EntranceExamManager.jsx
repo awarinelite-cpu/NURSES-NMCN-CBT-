@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
-  query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
+  query, where, orderBy, limit, serverTimestamp, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
@@ -913,7 +913,10 @@ function DailyMockSettingsTab({ toast }) {
       const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
       let cursor = 0;
-      const questionText = lines[cursor++];
+      let diagramUrl = '';
+      // Support optional image URL on first line
+      if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+      const questionText = lines[cursor]; cursor++;
       const options = {};
       while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
         const letter = lines[cursor][0].toUpperCase();
@@ -924,16 +927,23 @@ function DailyMockSettingsTab({ toast }) {
       let answer = '', explanation = '';
       while (cursor < lines.length) {
         const l = lines[cursor];
-        const m = /^\*([A-D])$/i.exec(l.trim()) || /^(?:answer|ans):\s*([A-D])/i.exec(l.trim());
-        if (m) answer = m[1].toUpperCase();
+        const starMatch   = /^\*([A-D])$/i.exec(l.trim());
+        const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
+        const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
+        if      (starMatch)   answer = starMatch[1].toUpperCase();
+        else if (answerMatch) answer = answerMatch[1].toUpperCase();
+        else if (parenMatch)  answer = parenMatch[1].toUpperCase();
         else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
         cursor++;
       }
-      if (!answer) { errors.push(`Block ${idx + 1}: No answer marked (use *A)`); return; }
+      if (!answer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
       results.push({
         question: questionText,
         optionA: options.A, optionB: options.B, optionC: options.C, optionD: options.D,
-        answer, explanation, subject,
+        answer,
+        explanation,
+        diagramUrl,
+        subject,
         date: mockDate,
         type: 'daily_mock',
       });
