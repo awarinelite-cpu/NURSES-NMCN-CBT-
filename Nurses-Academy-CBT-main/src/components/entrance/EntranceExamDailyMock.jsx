@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
-  query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
+  query, where, orderBy, limit, serverTimestamp, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
