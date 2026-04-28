@@ -52,12 +52,18 @@ function parseEntranceQuestions(text) {
     let correctAnswer = '', explanation = '';
     while (cursor < lines.length) {
       const l = lines[cursor];
-      if (/^\*[A-D]$/i.test(l.trim())) { correctAnswer = l.trim().slice(1).toUpperCase(); }
+      // Accept: *B  |  Answer: B  |  Ans: B  |  Correct: B  |  (B)  |  Answer:B
+      const starMatch    = /^\*([A-D])$/i.exec(l.trim());
+      const answerMatch  = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
+      const parenMatch   = /^\(([A-D])\)$/i.exec(l.trim());
+      if      (starMatch)   { correctAnswer = starMatch[1].toUpperCase(); }
+      else if (answerMatch) { correctAnswer = answerMatch[1].toUpperCase(); }
+      else if (parenMatch)  { correctAnswer = parenMatch[1].toUpperCase(); }
       else if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
       cursor++;
     }
 
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer (*A, *B, *C, or *D)`); return; }
+    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
 
     results.push({
       questionText,
