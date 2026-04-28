@@ -13,67 +13,222 @@ import { useToast } from '../shared/Toast';
 const ENTRANCE_YEARS = ['2018','2019','2020','2021','2022','2023','2024','2025'];
 const SUBJECTS = ['English Language','Biology','Chemistry','Physics','Mathematics','General Studies','Nursing Aptitude','Current Affairs'];
 
-// ── Parse a block of text into entrance exam questions ────────────────────────
-// Format (same as existing question parser):
-//   [optional: https://image.url on its own line]
+// ── Parse a block of text into entrance exam questions ────────────────────────────────────────────
+// Supported formats (auto-detected):
+//
+// FORMAT A — Inline answer (original):
+//   [optional: https://image.url]
 //   Question text
-//   A. Option A
+//   A. Option A    or    A) Option A
 //   B. Option B
 //   C. Option C
 //   D. Option D
-//   *A   (correct answer)
-//   Explanation: Optional explanation text
+//   *B              ← OR: "Answer: B" / "Ans: B" / "(B)"
+//   Explanation: Optional explanation
+//   [blank line between questions]
 //
-//   [blank line separates questions]
-function parseEntranceQuestions(text) {
-  const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+// FORMAT B — Numbered questions + separate answer key (NurseElite/NMCN doc style):
+//   1. Question text
+//      A. Option A          (tab or space indented options are fine)
+//      B. Option B
+//      C. Option C
+//      D. Option D
+//   2. Next question...
+//   ...
+//   ANSWER KEY  (or "Answers", "Answer Key", standalone heading)
+//   1. B   2. C   3. A   4. D ...   (all on one line or multiple lines, any spacing)
+//
+function parseEntranceQuestions(rawText) {
   const results = [], errors = [];
 
-  blocks.forEach((block, idx) => {
-    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+  // ── Detect Format B: numbered questions with a separate answer key section ──
+  // Heuristic: text contains a line like "1. B   2. C" or an "ANSWER KEY" heading
+  // followed by number-letter pairs.
+  const answerKeyHeadingRe = /^(?:answer\s*key|answers?|key)\s*[:\-]?$/im;
+  const answerKeyLineRe    = /(?:^|\s)(\d+)[.)\s]+([A-D])(?=\s|$)/gi;
 
-    let cursor = 0;
-    let diagramUrl = '';
+  // Count how many "N. LETTER" pairs exist anywhere in the text
+  const allPairs = [...rawText.matchAll(/(?:^|\s)(\d+)[.)\s]+([A-D])(?=\s|$)/gim)];
 
-    // Check if first line is a URL
-    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+  // Also look for numbered question starts
+  const numberedQRe = /^\d+\.\s+\S/m;
 
-    const questionText = lines[cursor]; cursor++;
-    const options = {};
-    while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
-      const letter = lines[cursor][0].toUpperCase();
-      options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
-      cursor++;
+  // Format B if: (a) there's an explicit answer key heading, OR
+  // (b) numbered questions exist AND we have 4+ number-letter answer pairs.
+  const hasAnswerKeyHeading = answerKeyHeadingRe.test(rawText);
+  const isFormatB = numberedQRe.test(rawText) && (hasAnswerKeyHeading || allPairs.length >= 4);
+
+  if (isFormatB) {
+    // ── FORMAT B PARSER ────────────────────────────────────────────────────────
+    // Step 1: Split into questions section and answer key section.
+    // The answer key section starts at the LAST occurrence of a heading like
+    // "ANSWER KEY" or at the first line that is ONLY number-answer pairs.
+    const lines = rawText.split('\n');
+
+    let answerKeyStartIdx = -1;
+
+    // Look for explicit heading
+    for (let i = 0; i < lines.length; i++) {
+      if (answerKeyHeadingRe.test(lines[i].trim())) {
+        answerKeyStartIdx = i;
+        break;
+      }
     }
 
-    if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
-
-    let correctAnswer = '', explanation = '';
-    while (cursor < lines.length) {
-      const l = lines[cursor];
-      // Accept: *B  |  Answer: B  |  Ans: B  |  Correct: B  |  (B)  |  Answer:B
-      const starMatch    = /^\*([A-D])$/i.exec(l.trim());
-      const answerMatch  = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
-      const parenMatch   = /^\(([A-D])\)$/i.exec(l.trim());
-      if      (starMatch)   { correctAnswer = starMatch[1].toUpperCase(); }
-      else if (answerMatch) { correctAnswer = answerMatch[1].toUpperCase(); }
-      else if (parenMatch)  { correctAnswer = parenMatch[1].toUpperCase(); }
-      else if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
-      cursor++;
+    // If no explicit heading, find where questions end and answer pairs begin.
+    // A line containing ONLY number-answer pairs (no A-D option text) is the key.
+    if (answerKeyStartIdx === -1) {
+      for (let i = 0; i < lines.length; i++) {
+        const stripped = lines[i].trim();
+        if (!stripped) continue;
+        // Line has several "N. X" pairs and no long words (not an option line)
+        const pairsOnLine = [...stripped.matchAll(/(\d+)[.)\s]+([A-D])(?=\s|$)/gi)];
+        const longWords   = stripped.split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !/^[A-D][.)]?$/.test(w));
+        if (pairsOnLine.length >= 3 && longWords.length === 0) {
+          answerKeyStartIdx = i;
+          break;
+        }
+      }
     }
 
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
+    if (answerKeyStartIdx === -1) {
+      errors.push('Format B detected but no answer key section found. Add an "ANSWER KEY" heading followed by numbered answers.');
+      return { results, errors };
+    }
 
-    results.push({
-      questionText,
-      options,
-      correctAnswer,
-      explanation,
-      diagramUrl,
-      questionType: diagramUrl ? 'diagram' : 'text',
+    // Step 2: Parse the answer key into a map { questionNumber: letter }
+    const answerKeyText = lines.slice(answerKeyStartIdx).join(' ');
+    const answerMap = {};
+    for (const m of answerKeyText.matchAll(/(\d+)[.)\s]+([A-D])(?=\s|$)/gi)) {
+      answerMap[parseInt(m[1], 10)] = m[2].toUpperCase();
+    }
+
+    if (Object.keys(answerMap).length === 0) {
+      errors.push('Answer key section found but no valid answers parsed (expected format: "1. B  2. C  3. A").');
+      return { results, errors };
+    }
+
+    // Step 3: Parse numbered questions from the questions section
+    const questionsText = lines.slice(0, answerKeyStartIdx).join('\n');
+
+    // Split on question boundaries: a line starting with a number + period
+    const questionBlocks = questionsText.split(/(?=^\d+\.\s)/m).map(b => b.trim()).filter(Boolean);
+
+    questionBlocks.forEach(block => {
+      const blockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      if (blockLines.length < 2) return;
+
+      // First line: "N. Question text"
+      const qNumMatch = /^(\d+)\.\s+(.+)$/.exec(blockLines[0]);
+      if (!qNumMatch) return;
+      const qNum = parseInt(qNumMatch[1], 10);
+      let questionText = qNumMatch[2].trim();
+
+      // Remaining lines may continue the question text or be options
+      let cursor = 1;
+      let diagramUrl = '';
+
+      // Check for diagram URL immediately after question number line
+      if (cursor < blockLines.length && /^https?:\/\//i.test(blockLines[cursor])) {
+        diagramUrl = blockLines[cursor]; cursor++;
+      }
+
+      // Collect multi-line question text (lines before the first A. option)
+      while (cursor < blockLines.length && !/^[A-D][.)]/i.test(blockLines[cursor])) {
+        questionText += ' ' + blockLines[cursor];
+        cursor++;
+      }
+      questionText = questionText.trim();
+
+      // Parse options A-D
+      const options = {};
+      while (cursor < blockLines.length && /^[A-D][.)]/i.test(blockLines[cursor])) {
+        const letter = blockLines[cursor][0].toUpperCase();
+        options[letter] = blockLines[cursor].replace(/^[A-D][.)][\s]*/i, '').trim();
+        cursor++;
+      }
+
+      if (Object.keys(options).length < 4) {
+        errors.push(`Q${qNum}: Need options A–D (found ${Object.keys(options).length})`);
+        return;
+      }
+
+      const correctAnswer = answerMap[qNum];
+      if (!correctAnswer) {
+        errors.push(`Q${qNum}: No answer found in answer key for question ${qNum}`);
+        return;
+      }
+
+      // Collect explanation if present
+      let explanation = '';
+      while (cursor < blockLines.length) {
+        const l = blockLines[cursor];
+        if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
+        cursor++;
+      }
+
+      results.push({
+        questionText,
+        options,
+        correctAnswer,
+        explanation,
+        diagramUrl,
+        questionType: diagramUrl ? 'diagram' : 'text',
+      });
     });
-  });
+
+    if (results.length === 0 && errors.length === 0) {
+      errors.push('Format B: No questions could be parsed. Check that questions start with a number and period (e.g. "1. Question text").');
+    }
+
+  } else {
+    // ── FORMAT A PARSER (original — blank-line-separated blocks with inline answers) ─
+    const blocks = rawText.trim().split(/\n\s*\n/).filter(b => b.trim());
+
+    blocks.forEach((block, idx) => {
+      const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+
+      let cursor = 0;
+      let diagramUrl = '';
+
+      if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+
+      const questionText = lines[cursor]; cursor++;
+      const options = {};
+      while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
+        const letter = lines[cursor][0].toUpperCase();
+        options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
+        cursor++;
+      }
+
+      if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
+
+      let correctAnswer = '', explanation = '';
+      while (cursor < lines.length) {
+        const l = lines[cursor];
+        const starMatch   = /^\*([A-D])$/i.exec(l.trim());
+        const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
+        const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
+        if      (starMatch)   { correctAnswer = starMatch[1].toUpperCase(); }
+        else if (answerMatch) { correctAnswer = answerMatch[1].toUpperCase(); }
+        else if (parenMatch)  { correctAnswer = parenMatch[1].toUpperCase(); }
+        else if (/^explanation:/i.test(l)) { explanation = l.replace(/^explanation:\s*/i, '').trim(); }
+        cursor++;
+      }
+
+      if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
+
+      results.push({
+        questionText,
+        options,
+        correctAnswer,
+        explanation,
+        diagramUrl,
+        questionType: diagramUrl ? 'diagram' : 'text',
+      });
+    });
+  }
 
   return { results, errors };
 }
