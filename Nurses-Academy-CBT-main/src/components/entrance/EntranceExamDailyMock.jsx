@@ -128,7 +128,7 @@ export default function EntranceExamDailyMock() {
       }
 
       // 3. Load questions from entranceExamQuestions
-      const qSnap = await getDocs(collection(db, 'entranceExamQuestions'));
+      const qSnap = await getDocs(collection(db, 'entranceExamDailyMockBank'));
       const allQ = [];
       qSnap.forEach(d => allQ.push({ id: d.id, ...d.data() }));
 
