@@ -76,6 +76,22 @@ export default function EntranceExamManager() {
   const { toast } = useToast();
   const [tab, setTab] = useState('schools'); // schools | add_single | bulk | bank
 
+  // ── Schools loaded ONCE here, passed to all tabs so they stay in sync ────────
+  const [schools,      setSchools]      = useState([]);
+  const [schoolsReady, setSchoolsReady] = useState(false);
+
+  const reloadSchools = async () => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc'))
+      );
+      setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error('reloadSchools:', e); }
+    finally { setSchoolsReady(true); }
+  };
+
+  useEffect(() => { reloadSchools(); }, []);
+
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
       {/* Header */}
@@ -114,10 +130,10 @@ export default function EntranceExamManager() {
         ))}
       </div>
 
-      {tab === 'schools'    && <SchoolsTab toast={toast} />}
-      {tab === 'add_single' && <AddSingleTab toast={toast} />}
-      {tab === 'bulk'       && <BulkUploadTab toast={toast} />}
-      {tab === 'bank'       && <QuestionBankTab toast={toast} />}
+      {tab === 'schools'    && <SchoolsTab    toast={toast} onSchoolsChanged={reloadSchools} />}
+      {tab === 'add_single' && <AddSingleTab  toast={toast} schools={schools} schoolsReady={schoolsReady} />}
+      {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
+      {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
     </div>
   );
 }
@@ -125,7 +141,7 @@ export default function EntranceExamManager() {
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — Manage Schools
 // ══════════════════════════════════════════════════════════════════════════════
-function SchoolsTab({ toast }) {
+function SchoolsTab({ toast, onSchoolsChanged }) {
   const [schools,  setSchools]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showModal, setModal]   = useState(false);
@@ -175,6 +191,7 @@ function SchoolsTab({ toast }) {
       }
       setModal(false);
       load();
+      onSchoolsChanged();
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -185,6 +202,7 @@ function SchoolsTab({ toast }) {
       await deleteDoc(doc(db, 'entranceExamSchools', s.id));
       toast('School deleted', 'success');
       load();
+      onSchoolsChanged();
     } catch (e) { toast('Error: ' + e.message, 'error'); }
   };
 
@@ -291,8 +309,7 @@ function SchoolsTab({ toast }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 2 — Add Single Question
 // ══════════════════════════════════════════════════════════════════════════════
-function AddSingleTab({ toast }) {
-  const [schools,  setSchools]  = useState([]);
+function AddSingleTab({ toast, schools, schoolsReady }) {
   const [schoolId, setSchoolId] = useState('');
   const [year,     setYear]     = useState('2024');
   const [subject,  setSubject]  = useState('Biology');
@@ -300,12 +317,6 @@ function AddSingleTab({ toast }) {
   const [parsed,   setParsed]   = useState(null);
   const [parseErr, setParseErr] = useState('');
   const [saving,   setSaving]   = useState(false);
-
-  useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
-      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {});
-  }, []);
 
   const handleParse = () => {
     setParseErr('');
@@ -353,7 +364,7 @@ function AddSingleTab({ toast }) {
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
             <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">Select school…</option>
+              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
             </select>
           </div>
@@ -465,8 +476,7 @@ Explanation: The pyramid is in renal medulla...`}</pre>
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 3 — Bulk Upload
 // ══════════════════════════════════════════════════════════════════════════════
-function BulkUploadTab({ toast }) {
-  const [schools,    setSchools]    = useState([]);
+function BulkUploadTab({ toast, schools, schoolsReady }) {
   const [schoolId,   setSchoolId]   = useState('');
   const [year,       setYear]       = useState('2024');
   const [subject,    setSubject]    = useState('Biology');
@@ -475,12 +485,6 @@ function BulkUploadTab({ toast }) {
   const [errors,     setErrors]     = useState([]);
   const [importing,  setImporting]  = useState(false);
   const [imported,   setImported]   = useState(null);
-
-  useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
-      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {});
-  }, []);
 
   const handleParse = () => {
     const { results, errors: errs } = parseEntranceQuestions(rawText);
@@ -538,7 +542,7 @@ function BulkUploadTab({ toast }) {
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>🏫 School *</label>
             <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">Select school…</option>
+              <option value="">{schoolsReady ? (schools.length === 0 ? "No schools yet — add one first" : "Select school…") : "Loading schools…"}</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
             </select>
           </div>
@@ -655,21 +659,14 @@ D. Calyx
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB 4 — Question Bank
 // ══════════════════════════════════════════════════════════════════════════════
-function QuestionBankTab({ toast }) {
+function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [questions, setQuestions] = useState([]);
-  const [schools,   setSchools]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [filterSchool, setFilterSchool] = useState('');
   const [filterYear,   setFilterYear]   = useState('');
   const [filterType,   setFilterType]   = useState('');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
-
-  useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive','==',true), orderBy('name','asc')))
-      .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {});
-  }, []);
 
   const load = async () => {
     setLoading(true);
