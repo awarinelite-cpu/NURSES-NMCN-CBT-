@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Entrance exam banner click handler uses useNavigate (already imported)
 import {
   collection, query, where, orderBy, limit,
-  getDocs, deleteDoc, doc,
+  getDocs, deleteDoc, doc, getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -450,11 +450,19 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
 }
 
 // ── Entrance Exam Banner ─────────────────────────────────────────────────────
-function EntranceExamBanner() {
+// Now accepts live `stats` and falls back to static strings while data loads
+function EntranceExamBanner({ stats }) {
   const navigate = useNavigate();
   const [hov, setHov] = useState(false);
   const [vis, setVis] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVis(true), 350); return () => clearTimeout(t); }, []);
+
+  // Dynamic tags: use live counts once available, otherwise show placeholder dashes
+  const bannerTags = [
+    stats?.schools != null ? `${stats.schools}+ Schools` : '20+ Schools',
+    stats?.questions != null ? `${stats.questions.toLocaleString()}+ Questions` : '500+ Questions',
+    'Updated 2025',
+  ];
 
   return (
     <div
@@ -496,7 +504,7 @@ function EntranceExamBanner() {
             Past Questions &amp; Daily Mock · Practice Smart. Pass First. Enter Your Dream School.
           </div>
           <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-            {['20+ Schools', '500+ Questions', 'Updated 2025'].map(tag => (
+            {bannerTags.map(tag => (
               <span key={tag} style={{
                 fontSize: 10, fontWeight: 700, color: '#5EEAD4',
                 background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)',
@@ -535,6 +543,9 @@ export default function StudentDashboard() {
   const [bannerVis,   setBannerVis]   = useState(false);
   const [slideIdx,    setSlideIdx]    = useState(0);
   const [slideFade,   setSlideFade]   = useState(true);
+
+  // ── Live dashboard stats (schools, questions counts from Firestore) ──────────
+  const [stats, setStats] = useState({ schools: null, questions: null, exams: 0 });
 
   // swipe tracking
   const swipeStartX  = useRef(null);
@@ -592,7 +603,26 @@ export default function StudentDashboard() {
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
     if (!user) { setLoading(false); return; }
+
     const loadData = async () => {
+      // ── 1. Fetch live Firestore counts for the EntranceExamBanner ──────────
+      try {
+        const [schoolsSnap, questionsSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'entranceExamSchools')),
+          getCountFromServer(collection(db, 'questions')),
+        ]);
+        setStats({
+          schools:   schoolsSnap.data().count,
+          questions: questionsSnap.data().count,
+          exams:     profile?.totalExams || 0,
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        // Non-fatal — banner falls back to static strings
+        setStats(prev => ({ ...prev, exams: profile?.totalExams || 0 }));
+      }
+
+      // ── 2. Recent exam sessions ────────────────────────────────────────────
       try {
         const sessSnap = await getDocs(query(
           collection(db, 'examSessions'),
@@ -603,6 +633,7 @@ export default function StudentDashboard() {
         setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.warn('examSessions load failed (non-fatal):', e.message); }
 
+      // ── 3. Paused exams ────────────────────────────────────────────────────
       try {
         const pausedSnap = await getDocs(query(
           collection(db, 'pausedExams'),
@@ -619,8 +650,9 @@ export default function StudentDashboard() {
 
       setLoading(false);
     };
+
     loadData();
-  }, [user]);
+  }, [user, profile]);
 
   const handleResume = useCallback((paused) => {
     setShowModal(false);
@@ -649,6 +681,13 @@ export default function StudentDashboard() {
       setPausedExams(prev => prev.filter(p => p.id !== id));
     } catch (e) { console.error('Delete paused exam error:', e); }
   }, []);
+
+  // ── Handler: navigate to the Entrance Exam Daily Mock session ────────────────
+  const handleDailyMock = useCallback(() => {
+    navigate('/entrance-exam/daily-mock', {
+      state: { mode: 'daily-mock', isEntrance: true },
+    });
+  }, [navigate]);
 
   const totalExams = profile?.totalExams || 0;
   const totalScore = profile?.totalScore || 0;
@@ -810,8 +849,8 @@ export default function StudentDashboard() {
         />
       </div>{/* end banner */}
 
-      {/* ── Entrance Exam Banner ── */}
-      <EntranceExamBanner />
+      {/* ── Entrance Exam Banner — receives live stats ── */}
+      <EntranceExamBanner stats={stats} />
 
       {/* ── Stats row ── */}
       <div style={S.statsGrid}>
@@ -866,6 +905,38 @@ export default function StudentDashboard() {
         <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
         <div style={S.quickGrid}>
           {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
+        </div>
+      </ACard>
+
+      {/* ── Daily Mock card — standalone CTA below Quick Actions ── */}
+      <ACard delay={900} style={{ marginBottom: 32 }}>
+        <div
+          onClick={handleDailyMock}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 16,
+            background: 'rgba(13,148,136,0.07)',
+            border: '1.5px solid rgba(13,148,136,0.28)',
+            borderLeft: '4px solid #0D9488',
+            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
+            transition: 'background .2s, border-color .2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,148,136,0.13)'; e.currentTarget.style.borderColor = 'rgba(13,148,136,0.55)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(13,148,136,0.07)'; e.currentTarget.style.borderColor = 'rgba(13,148,136,0.28)'; }}
+        >
+          <div style={{
+            width: 48, height: 48, borderRadius: 12, flexShrink: 0,
+            background: 'rgba(13,148,136,0.18)', border: '1.5px solid rgba(13,148,136,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
+          }}>🏫</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', marginBottom: 3 }}>
+              Daily Mock — Entrance Exam
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Tackle today's entrance exam mock. Fresh questions every day to keep your readiness sharp.
+            </div>
+          </div>
+          <div style={{ color: '#0D9488', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
         </div>
       </ACard>
 
