@@ -83,7 +83,7 @@ export default function EntranceExamManager() {
   const reloadSchools = async () => {
     try {
       const snap = await getDocs(
-        query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc'))
+        query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc'))
       );
       setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error('reloadSchools:', e); }
