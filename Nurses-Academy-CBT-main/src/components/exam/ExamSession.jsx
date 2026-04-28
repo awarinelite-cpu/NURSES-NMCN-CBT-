@@ -275,8 +275,8 @@ export default function ExamSession() {
             // Queries entranceExamQuestions by schoolId + optional year/subject.
             // State keys expected: schoolId, entranceYear (or year), category (subject)
             const constraints = [];
-            if (schoolId)     constraints.push(where('schoolId', '==', schoolId));
-            if (entranceYear) constraints.push(where('year',     '==', entranceYear));
+            if (schoolId)                        constraints.push(where('schoolId', '==', schoolId));
+            if (entranceYear && entranceYear !== 'all') constraints.push(where('year',     '==', entranceYear));
             if (category)     constraints.push(where('subject',  '==', category));
             constraints.push(limit(fetchLim));
             const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
@@ -521,8 +521,8 @@ export default function ExamSession() {
 
           } else if (examType === 'entrance_exam') {
             const constraints = [];
-            if (schoolId)     constraints.push(where('schoolId', '==', schoolId));
-            if (entranceYear) constraints.push(where('year',     '==', entranceYear));
+            if (schoolId)                        constraints.push(where('schoolId', '==', schoolId));
+            if (entranceYear && entranceYear !== 'all') constraints.push(where('year',     '==', entranceYear));
             if (category)     constraints.push(where('subject',  '==', category));
             constraints.push(limit(fetchLim));
             const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
