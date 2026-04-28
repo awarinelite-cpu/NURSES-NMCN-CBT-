@@ -109,7 +109,7 @@ export default function EntranceExamSetup() {
     navigate('/exam/session', {
       state: {
         examType:    'entrance_exam',
-        entranceSchoolId:   school.id,
+        schoolId:           school.id,
         entranceSchoolName: school.name,
         entranceYear:       year || 'all',
         category:    'entrance_exam',
@@ -119,7 +119,7 @@ export default function EntranceExamSetup() {
         timeLimit:   mode === 'practice' ? 0 : timeLimit,
         doShuffle:   shuffle,
         showExpl,
-        poolMode:    false,
+        poolMode:    true,
         // ExamSession will use these to query entranceExamQuestions
         isEntranceExam: true,
       },
