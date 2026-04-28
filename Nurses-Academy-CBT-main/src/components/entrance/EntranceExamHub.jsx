@@ -85,7 +85,7 @@ export default function EntranceExamHub() {
     const load = async () => {
       try {
         const [schoolsSnap, questionsSnap] = await Promise.all([
-          getCountFromServer(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true))),
+          getCountFromServer(collection(db, 'entranceExamSchools')),
           getCountFromServer(collection(db, 'entranceExamQuestions')),
         ]);
         const attSnap = await getDocs(query(
