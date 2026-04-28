@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '../../firebase/config';
 
 // ── Shared shell ─────────────────────────────────────────────────
 function StubShell({ icon, title, subtitle, children, backPath = '/entrance-exam' }) {
