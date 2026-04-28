@@ -1,396 +1,581 @@
 // src/components/entrance/EntranceSubjectDrill.jsx
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
+import {
+  collection, getDocs, query, where, orderBy, addDoc, setDoc, doc, serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
-function ACard({ children, delay = 0, style: s = {} }) {
-  const [vis, setVis] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
-  return (
-    <div style={{ opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(14px)', transition: 'opacity .45s ease, transform .45s ease', ...s }}>
-      {children}
-    </div>
-  );
+const SUBJECTS = [
+  { name: 'English Language', icon: '🔤', color: '#3B82F6' },
+  { name: 'Biology',          icon: '🧬', color: '#10B981' },
+  { name: 'Chemistry',        icon: '⚗️', color: '#8B5CF6' },
+  { name: 'Physics',          icon: '⚡', color: '#F59E0B' },
+  { name: 'Mathematics',      icon: '➗', color: '#EF4444' },
+  { name: 'General Studies',  icon: '📖', color: '#06B6D4' },
+  { name: 'Nursing Aptitude', icon: '🏥', color: '#EC4899' },
+  { name: 'Current Affairs',  icon: '🌍', color: '#F97316' },
+];
+
+const COUNTS = [10, 20, 30, 40, 50];
+
+function formatTime(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function Skeleton({ h = 60, r = 12 }) {
-  return (
-    <>
-      <style>{`@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
-      <div style={{ height: h, borderRadius: r, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
-    </>
-  );
-}
-
-// ── Step indicator ────────────────────────────────────────────────────────────
-function Steps({ step }) {
-  const steps = ['Choose School', 'Choose Subject', 'Start Drill'];
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28 }}>
-      {steps.map((label, i) => {
-        const done   = i < step;
-        const active = i === step;
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{
-                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                background: done ? '#0D9488' : active ? 'rgba(13,148,136,0.2)' : 'var(--bg-tertiary)',
-                border: `2px solid ${done || active ? '#0D9488' : 'var(--border)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: 12,
-                color: done ? '#fff' : active ? '#0D9488' : 'var(--text-muted)',
-                transition: 'background .3s, border-color .3s',
-              }}>
-                {done ? '✓' : i + 1}
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#0D9488' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                {label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: done ? '#0D9488' : 'var(--border)', margin: '0 6px', marginBottom: 18, transition: 'background .3s' }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── School card ───────────────────────────────────────────────────────────────
-function SchoolCard({ school, onSelect, delay }) {
-  const [vis, setVis] = useState(false);
-  const [hov, setHov] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
-  return (
-    <div
-      onClick={() => onSelect(school)}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 14,
-        background: hov ? 'rgba(13,148,136,0.08)' : 'var(--bg-card)',
-        border: `1.5px solid ${hov ? 'rgba(13,148,136,0.5)' : 'var(--border)'}`,
-        borderRadius: 14, padding: '14px 18px', cursor: 'pointer',
-        opacity: vis ? 1 : 0, transform: vis ? 'translateX(0)' : 'translateX(-14px)',
-        transition: 'opacity .4s ease, transform .4s ease, background .2s, border-color .2s',
-        position: 'relative', overflow: 'hidden',
-      }}
-    >
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: '#0D9488', borderRadius: '4px 0 0 4px', opacity: hov ? 1 : 0, transition: 'opacity .2s' }} />
-      <div style={{
-        width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-        background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.25)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-      }}>
-        🏫
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
-          {school.name}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {school.state || school.location || 'Nigeria'} · {school.questionCount || '—'} questions
-        </div>
-      </div>
-      <div style={{ color: '#0D9488', fontWeight: 800, fontSize: 16 }}>→</div>
-    </div>
-  );
-}
-
-// ── Subject card ──────────────────────────────────────────────────────────────
-function SubjectCard({ subject, count, onSelect, delay }) {
-  const [vis, setVis] = useState(false);
-  const [hov, setHov] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
-
-  const subjectColors = {
-    'English': '#2563EB', 'Mathematics': '#0D9488', 'Biology': '#16A34A',
-    'Chemistry': '#D97706', 'Physics': '#7C3AED', 'Government': '#EF4444',
-    'Economics': '#F59E0B', 'Geography': '#059669',
-  };
-  const color = subjectColors[subject] || '#0D9488';
-
-  return (
-    <div
-      onClick={() => onSelect(subject)}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: hov ? `${color}12` : 'var(--bg-card)',
-        border: `1.5px solid ${hov ? color + '55' : 'var(--border)'}`,
-        borderRadius: 14, padding: '18px 16px', cursor: 'pointer', textAlign: 'center',
-        opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(12px)',
-        transition: 'opacity .4s ease, transform .4s ease, background .2s, border-color .2s',
-        position: 'relative', overflow: 'hidden',
-      }}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, opacity: hov ? 1 : 0, transition: 'opacity .2s' }} />
-      <div style={{
-        width: 44, height: 44, borderRadius: 12, margin: '0 auto 10px',
-        background: `${color}18`, border: `1.5px solid ${color}33`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-      }}>
-        📚
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>{subject}</div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{count} question{count !== 1 ? 's' : ''}</div>
-    </div>
-  );
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function EntranceSubjectDrill() {
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [step,         setStep]         = useState(0); // 0=school, 1=subject, 2=config
-  const [schools,      setSchools]      = useState([]);
-  const [subjects,     setSubjects]     = useState([]); // [{ name, count }]
-  const [selectedSchool, setSelectedSchool] = useState(null);
+  const [phase, setPhase] = useState('pick'); // pick | loading | exam | result
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [questionCount, setQuestionCount] = useState(30);
-  const [timeLimit,     setTimeLimit]    = useState(30);
-  const [loadingSchools, setLoadingSchools] = useState(true);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [search,        setSearch]       = useState('');
+  const [selectedCount, setSelectedCount] = useState(20);
+  const [questions, setQuestions] = useState([]);
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [flagged, setFlagged] = useState({});
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [subjectCounts, setSubjectCounts] = useState({});
+  const [showReview, setShowReview] = useState(false);
 
-  // ── Load schools ────────────────────────────────────────────────────────────
+  const timerRef = useRef(null);
+  const startRef = useRef(null);
+
+  // Load question counts per subject for display
   useEffect(() => {
-    const fetchSchools = async () => {
+    (async () => {
       try {
-        const snap = await getDocs(collection(db, 'entranceExamSchools'));
-        setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error('Failed to load schools:', e);
-      } finally {
-        setLoadingSchools(false);
-      }
-    };
-    fetchSchools();
+        const snap = await getDocs(collection(db, 'entranceExamQuestions'));
+        const counts = {};
+        snap.forEach(d => {
+          const s = d.data().subject;
+          if (s) counts[s] = (counts[s] || 0) + 1;
+        });
+        setSubjectCounts(counts);
+      } catch (e) { /* silent */ }
+    })();
   }, []);
 
-  // ── Load subjects for selected school ──────────────────────────────────────
-  const handleSelectSchool = async (school) => {
-    setSelectedSchool(school);
-    setStep(1);
-    setLoadingSubjects(true);
+  // Timer
+  useEffect(() => {
+    if (phase !== 'exam') { clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => setTimeElapsed(t => t + 1), 1000);
+    return () => clearInterval(timerRef.current);
+  }, [phase]);
+
+  async function startDrill() {
+    if (!selectedSubject) return;
+    setPhase('loading');
+    setError('');
     try {
-      const snap = await getDocs(query(
-        collection(db, 'entranceQuestions'),
-        where('schoolId', '==', school.id),
-      ));
-      // Aggregate by subject
-      const map = {};
-      snap.docs.forEach(d => {
-        const subj = d.data().subject || 'General';
-        map[subj] = (map[subj] || 0) + 1;
-      });
-      setSubjects(Object.entries(map).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count));
+      const snap = await getDocs(
+        query(
+          collection(db, 'entranceExamQuestions'),
+          where('subject', '==', selectedSubject.name),
+        )
+      );
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (all.length === 0) {
+        setError(`No questions found for ${selectedSubject.name}. Try another subject.`);
+        setPhase('pick');
+        return;
+      }
+      // Shuffle
+      const shuffled = all.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, Math.min(selectedCount, shuffled.length));
+      setQuestions(selected);
+      setAnswers({});
+      setFlagged({});
+      setCurrent(0);
+      setTimeElapsed(0);
+      startRef.current = Date.now();
+      setPhase('exam');
     } catch (e) {
-      console.error('Failed to load subjects:', e);
-      setSubjects([]);
-    } finally {
-      setLoadingSubjects(false);
+      setError('Failed to load questions: ' + e.message);
+      setPhase('pick');
     }
-  };
+  }
 
-  const handleSelectSubject = (subject) => {
-    setSelectedSubject(subject);
-    setStep(2);
-  };
+  const handleSubmit = useCallback(async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    clearInterval(timerRef.current);
 
-  const handleStart = () => {
-    navigate('/entrance-exam/session', {
-      state: {
-        mode:          'subject-drill',
-        schoolId:      selectedSchool.id,
-        schoolName:    selectedSchool.name,
-        subject:       selectedSubject,
-        totalQuestions: questionCount,
-        timeLimit,
-        examName:      `${selectedSchool.name} — ${selectedSubject} Drill`,
-        isEntrance:    true,
-      },
+    let correct = 0;
+    const breakdown = questions.map((q, i) => {
+      const chosen = answers[i] || null;
+      const isCorrect = chosen === q.correctAnswer;
+      if (isCorrect) correct++;
+      return { question: q.questionText, chosen, correct: q.correctAnswer, isCorrect, explanation: q.explanation || '' };
     });
-  };
 
-  const filteredSchools = schools.filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.state?.toLowerCase().includes(search.toLowerCase()),
-  );
+    const score = Math.round((correct / questions.length) * 100);
+    const res = {
+      subject: selectedSubject.name,
+      score, correct,
+      total: questions.length,
+      timeTaken: timeElapsed,
+      breakdown,
+      date: new Date().toISOString(),
+    };
 
-  return (
-    <div style={{ padding: '24px', maxWidth: 700, margin: '0 auto' }}>
-      {/* Header */}
-      <ACard delay={0}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <button
-            onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/entrance-exam')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, padding: 4 }}
-          >←</button>
-          <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: 'var(--text-primary)', margin: 0 }}>
-              🎯 Subject Drill
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
-              Pick a school, then a subject — and drill focused questions
-            </p>
-          </div>
+    // Save to Firestore
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
+        ...res, createdAt: serverTimestamp(),
+      });
+    } catch (e) { /* silent */ }
+
+    setResult(res);
+    setPhase('result');
+    setSubmitting(false);
+  }, [submitting, questions, answers, selectedSubject, timeElapsed, user]);
+
+  const answeredCount = Object.keys(answers).length;
+
+  // ── PICK PHASE ──────────────────────────────────────────────
+  if (phase === 'pick' || phase === 'loading') return (
+    <div style={s.wrap}>
+      <button onClick={() => navigate('/entrance-exam')} style={s.back}>← Back to Hub</button>
+
+      <div style={s.header}>
+        <div style={s.headerIcon}>📚</div>
+        <div>
+          <h2 style={s.headerTitle}>Subject Drill</h2>
+          <p style={s.headerSub}>Focus on one subject at a time. Drill until you're confident.</p>
         </div>
-      </ACard>
+      </div>
 
-      <ACard delay={100}>
-        <Steps step={step} />
-      </ACard>
-
-      {/* ── Step 0: Choose School ── */}
-      {step === 0 && (
-        <ACard delay={150}>
-          <div style={{ marginBottom: 16 }}>
-            <input
-              type="text"
-              placeholder="🔍 Search schools or state…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '12px 16px', borderRadius: 12,
-                background: 'var(--bg-card)', border: '1.5px solid var(--border)',
-                color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {loadingSchools
-              ? [1, 2, 3, 4].map(k => <Skeleton key={k} />)
-              : filteredSchools.length === 0
-                ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-                    <div style={{ fontSize: 40, marginBottom: 10 }}>🏫</div>
-                    <div style={{ fontWeight: 700 }}>No schools found</div>
-                    <div style={{ fontSize: 13, marginTop: 4 }}>Try a different search term</div>
-                  </div>
-                )
-                : filteredSchools.map((school, i) => (
-                    <SchoolCard key={school.id} school={school} onSelect={handleSelectSchool} delay={i * 60} />
-                  ))
-            }
-          </div>
-        </ACard>
+      {error && (
+        <div style={s.errorBox}>{error}</div>
       )}
 
-      {/* ── Step 1: Choose Subject ── */}
-      {step === 1 && (
-        <ACard delay={100}>
-          <div style={{
-            background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.2)',
-            borderRadius: 12, padding: '12px 16px', marginBottom: 20,
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontSize: 20 }}>🏫</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{selectedSchool?.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selectedSchool?.state || 'Nigeria'}</div>
-            </div>
-            <button onClick={() => setStep(0)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#0D9488', fontSize: 12, fontWeight: 700 }}>Change</button>
+      {/* Subject grid */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={s.sectionLabel}>Choose a Subject</div>
+        <div style={s.subjectGrid}>
+          {SUBJECTS.map(sub => {
+            const count = subjectCounts[sub.name] || 0;
+            const active = selectedSubject?.name === sub.name;
+            return (
+              <button
+                key={sub.name}
+                onClick={() => setSelectedSubject(sub)}
+                style={{
+                  ...s.subjectBtn,
+                  borderColor: active ? sub.color : 'rgba(255,255,255,0.08)',
+                  background: active ? sub.color + '20' : 'rgba(255,255,255,0.03)',
+                  transform: active ? 'scale(1.02)' : 'scale(1)',
+                }}
+              >
+                <span style={{ fontSize: 28 }}>{sub.icon}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: active ? sub.color : '#fff' }}>{sub.name}</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                  {count > 0 ? `${count} questions` : 'No questions yet'}
+                </span>
+                {count === 0 && (
+                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, background: 'rgba(239,68,68,0.15)', color: '#EF4444', padding: '2px 6px', borderRadius: 8, fontWeight: 700 }}>
+                    Empty
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Count picker */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={s.sectionLabel}>Number of Questions</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {COUNTS.map(c => (
+            <button
+              key={c}
+              onClick={() => setSelectedCount(c)}
+              style={{
+                ...s.countBtn,
+                borderColor: selectedCount === c ? '#0D9488' : 'rgba(255,255,255,0.1)',
+                background: selectedCount === c ? 'rgba(13,148,136,0.15)' : 'rgba(255,255,255,0.03)',
+                color: selectedCount === c ? '#0D9488' : 'rgba(255,255,255,0.6)',
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={startDrill}
+        disabled={!selectedSubject || phase === 'loading'}
+        style={{
+          ...s.startBtn,
+          opacity: !selectedSubject || phase === 'loading' ? 0.4 : 1,
+          cursor: !selectedSubject ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {phase === 'loading' ? '⏳ Loading questions…' : selectedSubject ? `🚀 Start ${selectedSubject.name} Drill (${selectedCount}Q)` : '👆 Select a subject first'}
+      </button>
+    </div>
+  );
+
+  // ── EXAM PHASE ──────────────────────────────────────────────
+  if (phase === 'exam') {
+    const q = questions[current];
+    const progress = ((current + 1) / questions.length) * 100;
+    return (
+      <div style={s.examWrap}>
+        {/* Top bar */}
+        <div style={s.topBar}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={() => { if (window.confirm('Exit drill? Progress will be lost.')) navigate('/entrance-exam'); }} style={s.exitBtn}>✕ Exit</button>
+            <span style={s.drillLabel}>
+              <span style={{ color: selectedSubject.color }}>{selectedSubject.icon}</span>
+              {' '}{selectedSubject.name} Drill
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span style={s.timerBadge}>⏱ {formatTime(timeElapsed)}</span>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{answeredCount}/{questions.length}</span>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div style={s.progressTrack}>
+          <div style={{ ...s.progressFill, width: `${progress}%`, background: selectedSubject.color }} />
+        </div>
+
+        {/* Question nav dots */}
+        <div style={s.dotNav}>
+          {questions.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              style={{
+                width: i === current ? 28 : 20,
+                height: 8,
+                borderRadius: 4,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: i === current ? selectedSubject.color :
+                  answers[i] ? (flagged[i] ? '#F59E0B' : 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.1)',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Question */}
+        <div style={s.qWrap}>
+          <div style={s.qMeta}>
+            <span style={{ ...s.qNum, background: selectedSubject.color + '20', color: selectedSubject.color }}>
+              Q{current + 1} / {questions.length}
+            </span>
+            <button
+              onClick={() => setFlagged(f => ({ ...f, [current]: !f[current] }))}
+              style={{ ...s.flagBtn, color: flagged[current] ? '#F59E0B' : 'rgba(255,255,255,0.25)' }}
+            >
+              {flagged[current] ? '🚩 Flagged' : '🏳 Flag'}
+            </button>
           </div>
 
-          <h3 style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 14 }}>
-            Select a subject to drill:
-          </h3>
+          {q.diagramUrl && (
+            <div style={{ marginBottom: 16, textAlign: 'center' }}>
+              <img
+                src={q.diagramUrl} alt="Question diagram"
+                style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+            </div>
+          )}
 
-          {loadingSubjects ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-              {[1, 2, 3, 4].map(k => <Skeleton key={k} h={110} />)}
-            </div>
-          ) : subjects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
-              <div style={{ fontWeight: 700 }}>No subjects available</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>This school has no questions yet.</div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-              {subjects.map((s, i) => (
-                <SubjectCard key={s.name} subject={s.name} count={s.count} onSelect={handleSelectSubject} delay={i * 60} />
+          <div style={s.qText}>{q.questionText}</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {['A','B','C','D'].map(opt => {
+              const text = q.options?.[opt] || q[`option${opt}`];
+              if (!text) return null;
+              const selected = answers[current] === opt;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => setAnswers(a => ({ ...a, [current]: opt }))}
+                  style={{
+                    ...s.optBtn,
+                    background: selected ? selectedSubject.color + '20' : 'rgba(255,255,255,0.03)',
+                    borderColor: selected ? selectedSubject.color : 'rgba(255,255,255,0.08)',
+                    transform: selected ? 'scale(1.01)' : 'scale(1)',
+                  }}
+                >
+                  <span style={{
+                    ...s.optLetter,
+                    background: selected ? selectedSubject.color : 'rgba(255,255,255,0.08)',
+                    color: selected ? '#fff' : 'rgba(255,255,255,0.4)',
+                  }}>{opt}</span>
+                  <span style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'left', color: selected ? '#fff' : 'rgba(255,255,255,0.8)' }}>{text}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Nav */}
+          <div style={s.navRow}>
+            <button
+              onClick={() => setCurrent(c => Math.max(0, c - 1))}
+              disabled={current === 0}
+              style={{ ...s.navBtn, opacity: current === 0 ? 0.3 : 1 }}
+            >← Prev</button>
+
+            {current < questions.length - 1 ? (
+              <button onClick={() => setCurrent(c => c + 1)} style={s.navBtnPrimary}>Next →</button>
+            ) : (
+              <button
+                onClick={() => {
+                  const unanswered = questions.length - answeredCount;
+                  if (unanswered > 0 && !window.confirm(`${unanswered} unanswered. Submit anyway?`)) return;
+                  handleSubmit();
+                }}
+                disabled={submitting}
+                style={s.submitBtn}
+              >
+                {submitting ? 'Submitting…' : '✅ Submit'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom summary */}
+        <div style={s.summaryBar}>
+          <span>✅ {answeredCount} answered</span>
+          <span>⬜ {questions.length - answeredCount} left</span>
+          {answeredCount === questions.length && (
+            <button onClick={handleSubmit} disabled={submitting} style={s.quickSubmit}>
+              Submit Now
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── RESULT PHASE ────────────────────────────────────────────
+  if (phase === 'result' && result) {
+    const color = result.score >= 60 ? '#10B981' : result.score >= 40 ? '#F59E0B' : '#EF4444';
+    return (
+      <div style={s.wrap}>
+        <div style={s.resultCard}>
+          <div style={{ fontSize: 52, marginBottom: 8 }}>
+            {result.score >= 70 ? '🏆' : result.score >= 50 ? '📊' : '💪'}
+          </div>
+          <h2 style={s.resultTitle}>Drill Complete!</h2>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 20 }}>
+            {selectedSubject.icon} {result.subject}
+          </div>
+
+          <div style={s.bigScore}>
+            <span style={{ ...s.bigScoreNum, color }}>{result.score}%</span>
+            <span style={s.bigScoreSub}>{result.correct} / {result.total} correct · ⏱ {formatTime(result.timeTaken)}</span>
+          </div>
+
+          {/* Mini bar */}
+          <div style={{ width: '100%', height: 10, background: 'rgba(255,255,255,0.08)', borderRadius: 5, overflow: 'hidden', margin: '0 0 24px' }}>
+            <div style={{ height: '100%', width: `${result.score}%`, background: color, borderRadius: 5, transition: 'width 0.8s ease' }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button onClick={() => setShowReview(v => !v)} style={s.navBtnPrimary}>
+              {showReview ? 'Hide Review' : '📋 Review Answers'}
+            </button>
+            <button onClick={() => { setPhase('pick'); setResult(null); }} style={s.navBtn}>
+              🔄 Drill Again
+            </button>
+            <button onClick={() => navigate('/entrance-exam')} style={s.navBtn}>← Hub</button>
+          </div>
+
+          {showReview && (
+            <div style={{ marginTop: 24, maxHeight: 400, overflowY: 'auto', textAlign: 'left' }}>
+              {result.breakdown.map((item, i) => (
+                <div key={i} style={{
+                  ...s.reviewItem,
+                  borderLeft: `4px solid ${item.isCorrect ? '#10B981' : '#EF4444'}`,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Q{i + 1}: {item.question}</div>
+                  <div style={{ fontSize: 12 }}>
+                    <span style={{ color: item.isCorrect ? '#10B981' : '#EF4444' }}>
+                      {item.isCorrect ? '✅' : '❌'} Your answer: {item.chosen || 'Not answered'}
+                    </span>
+                    {!item.isCorrect && <span style={{ color: '#10B981', marginLeft: 10 }}>Correct: {item.correct}</span>}
+                  </div>
+                  {item.explanation && (
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', marginTop: 6 }}>{item.explanation}</div>
+                  )}
+                </div>
               ))}
             </div>
           )}
-        </ACard>
-      )}
+        </div>
+      </div>
+    );
+  }
 
-      {/* ── Step 2: Configure & Start ── */}
-      {step === 2 && (
-        <ACard delay={100}>
-          {/* Selected context */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-            {[
-              { icon: '🏫', label: selectedSchool?.name, onClear: () => { setStep(0); setSelectedSchool(null); setSelectedSubject(null); } },
-              { icon: '📚', label: selectedSubject,       onClear: () => { setStep(1); setSelectedSubject(null); } },
-            ].map(({ icon, label, onClear }) => (
-              <div key={label} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.2)',
-                borderRadius: 10, padding: '8px 14px',
-              }}>
-                <span>{icon}</span>
-                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{label}</span>
-                <button onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: '0 0 0 4px' }}>✕</button>
-              </div>
-            ))}
-          </div>
-
-          {/* Config sliders */}
-          <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '20px 20px', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
-            <ConfigRow
-              label="Number of Questions"
-              value={questionCount}
-              min={10} max={80} step={5}
-              onChange={setQuestionCount}
-              display={`${questionCount} Questions`}
-            />
-            <ConfigRow
-              label="Time Limit"
-              value={timeLimit}
-              min={0} max={120} step={5}
-              onChange={setTimeLimit}
-              display={timeLimit === 0 ? 'No Limit' : `${timeLimit} Minutes`}
-            />
-          </div>
-
-          <button onClick={handleStart} style={{
-            width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-            background: 'linear-gradient(135deg, #0D9488, #2563EB)',
-            color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer',
-            fontFamily: 'inherit', letterSpacing: 0.3,
-          }}>
-            🎯 Start Drill →
-          </button>
-        </ACard>
-      )}
-    </div>
-  );
+  return null;
 }
 
-function ConfigRow({ label, value, min, max, step, onChange, display }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#0D9488' }}>{display}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: '#0D9488' }}
-      />
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{min === 0 ? 'No Limit' : min}</span>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{max}</span>
-      </div>
-    </div>
-  );
-}
+// ── Styles ──────────────────────────────────────────────────────
+const s = {
+  wrap: {
+    maxWidth: 720, margin: '0 auto', padding: '24px 16px 48px',
+    color: '#fff', fontFamily: "'Inter', sans-serif",
+  },
+  back: {
+    background: 'none', border: 'none', color: '#0D9488',
+    cursor: 'pointer', fontSize: 14, fontWeight: 600,
+    padding: '0 0 20px', display: 'block',
+  },
+  header: {
+    display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28,
+  },
+  headerIcon: { fontSize: 40 },
+  headerTitle: {
+    fontFamily: "'Playfair Display', serif", fontSize: 26,
+    fontWeight: 700, margin: '0 0 4px',
+  },
+  headerSub: { color: 'rgba(255,255,255,0.45)', fontSize: 14, margin: 0 },
+  errorBox: {
+    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+    borderRadius: 10, padding: '12px 16px', color: '#EF4444',
+    fontSize: 14, marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
+  },
+  subjectGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+    gap: 10,
+  },
+  subjectBtn: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    padding: '16px 12px', borderRadius: 14, border: '2px solid',
+    cursor: 'pointer', transition: 'all 0.2s', position: 'relative',
+    fontFamily: 'inherit',
+  },
+  countBtn: {
+    width: 64, height: 44, borderRadius: 10, border: '2px solid',
+    cursor: 'pointer', fontWeight: 800, fontSize: 16,
+    fontFamily: 'inherit', transition: 'all 0.15s',
+  },
+  startBtn: {
+    width: '100%', padding: '14px 24px',
+    background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+    border: 'none', color: '#fff', borderRadius: 12,
+    fontWeight: 700, fontSize: 15, cursor: 'pointer',
+    fontFamily: 'inherit', transition: 'opacity 0.15s',
+  },
+  // Exam styles
+  examWrap: {
+    minHeight: '100vh',
+    background: 'var(--bg-primary, #020B18)',
+    color: '#fff', display: 'flex', flexDirection: 'column',
+    fontFamily: "'Inter', sans-serif",
+  },
+  topBar: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '12px 20px',
+    background: 'rgba(0,0,0,0.5)', borderBottom: '1px solid rgba(255,255,255,0.06)',
+    position: 'sticky', top: 0, zIndex: 100, backdropFilter: 'blur(12px)',
+  },
+  exitBtn: {
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.6)', padding: '5px 12px', borderRadius: 8,
+    cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  },
+  drillLabel: { fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' },
+  timerBadge: {
+    fontFamily: 'monospace', fontSize: 16, fontWeight: 700,
+    color: '#0D9488', background: 'rgba(13,148,136,0.12)',
+    padding: '4px 10px', borderRadius: 8,
+  },
+  progressTrack: { height: 3, background: 'rgba(255,255,255,0.06)' },
+  progressFill: { height: '100%', borderRadius: 2, transition: 'width 0.3s' },
+  dotNav: {
+    display: 'flex', gap: 4, padding: '10px 20px',
+    overflowX: 'auto', flexWrap: 'wrap',
+    background: 'rgba(255,255,255,0.02)',
+  },
+  qWrap: { flex: 1, maxWidth: 760, width: '100%', margin: '0 auto', padding: '20px 16px' },
+  qMeta: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
+  qNum: { fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 },
+  flagBtn: {
+    marginLeft: 'auto', background: 'none', border: 'none',
+    cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'color 0.15s',
+  },
+  qText: {
+    fontSize: 16, lineHeight: 1.65, fontWeight: 500, marginBottom: 20,
+    padding: '16px 18px',
+    background: 'rgba(255,255,255,0.04)',
+    borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)',
+  },
+  optBtn: {
+    display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 16px',
+    borderRadius: 10, border: '2px solid', cursor: 'pointer',
+    textAlign: 'left', transition: 'all 0.15s', color: '#fff',
+    fontFamily: 'inherit',
+  },
+  optLetter: {
+    width: 26, height: 26, borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: 700, fontSize: 12, flexShrink: 0, transition: 'all 0.15s',
+  },
+  navRow: { display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 24 },
+  navBtn: {
+    background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
+    color: '#fff', padding: '10px 22px', borderRadius: 10,
+    cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+  },
+  navBtnPrimary: {
+    background: 'linear-gradient(135deg,#0D9488,#0f766e)',
+    border: 'none', color: '#fff', padding: '10px 22px',
+    borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700,
+    fontFamily: 'inherit',
+  },
+  submitBtn: {
+    background: 'linear-gradient(135deg,#10B981,#059669)',
+    border: 'none', color: '#fff', padding: '10px 22px',
+    borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700,
+    fontFamily: 'inherit',
+  },
+  summaryBar: {
+    display: 'flex', alignItems: 'center', gap: 20,
+    padding: '10px 20px',
+    background: 'rgba(0,0,0,0.4)', borderTop: '1px solid rgba(255,255,255,0.06)',
+    fontSize: 13, color: 'rgba(255,255,255,0.4)',
+    position: 'sticky', bottom: 0, backdropFilter: 'blur(12px)',
+  },
+  quickSubmit: {
+    marginLeft: 'auto',
+    background: 'linear-gradient(135deg,#10B981,#059669)',
+    border: 'none', color: '#fff',
+    padding: '6px 16px', borderRadius: 8,
+    cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+  },
+  // Result
+  resultCard: {
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 20, padding: '32px 28px', textAlign: 'center',
+  },
+  resultTitle: {
+    fontFamily: "'Playfair Display', serif", fontSize: 26,
+    fontWeight: 700, margin: '0 0 4px',
+  },
+  bigScore: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, margin: '16px 0' },
+  bigScoreNum: { fontSize: 60, fontWeight: 900, lineHeight: 1, fontFamily: "'Playfair Display', serif" },
+  bigScoreSub: { fontSize: 14, color: 'rgba(255,255,255,0.45)' },
+  reviewItem: {
+    background: 'rgba(255,255,255,0.03)', borderRadius: 8,
+    padding: '12px 14px', marginBottom: 10,
+  },
+};
