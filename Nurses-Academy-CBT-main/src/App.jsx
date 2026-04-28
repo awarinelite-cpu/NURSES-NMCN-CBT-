@@ -38,19 +38,11 @@ import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
-// ── Nursing Schools Entrance Exam ────────────────────────────────
+// Entrance Exam
 import EntranceExamHub    from './components/entrance/EntranceExamHub';
 import EntranceSchoolList from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup  from './components/entrance/EntranceExamSetup';
-import EntranceExamDailyMock from './components/entrance/EntranceExamDailyMock';
-import {
-  EntranceSubjectDrill,
-  EntranceMyResults,
-  EntranceExamsTaken,
-  EntranceBookmarks,
-  EntranceAnalysis,
-  EntranceLeaderboard,
-} from './components/entrance/EntranceExamStubs';
+import EntranceExamManager from './components/admin/EntranceExamManager';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -61,7 +53,6 @@ import AccessCodesManager    from './components/admin/AccessCodesManager';
 import AnnouncementsManager  from './components/admin/AnnouncementsManager';
 import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
 import CoursesManager        from './components/admin/CoursesManager';
-import EntranceExamManager   from './components/admin/EntranceExamManager';
 
 import './styles/global.css';
 
@@ -79,6 +70,8 @@ const isCapacitor = () =>
   window.Capacitor.isNativePlatform?.();
 
 // ── SW Navigation Handler ────────────────────────────────────────
+// Listens for NAVIGATE messages posted by the service worker when
+// the user taps a push notification while the app is already open.
 function SwNavigationHandler() {
   const navigate = useNavigate();
 
@@ -229,29 +222,28 @@ export default function App() {
                   <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
                   <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
-                  {/* ── Nursing Schools Entrance Exam ── */}
-                  <Route path="/entrance-exam"               element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/schools"       element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/setup"         element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/daily-mock"    element={<FreeTrialRoute><EntranceExamDailyMock /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/my-results"    element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/exams-taken"   element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/bookmarks"     element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/analysis"      element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
+                  {/* Entrance Exam Hub */}
+                  <Route path="/entrance-exam"              element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/schools"      element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/setup"        element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/daily-mock"   element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/my-results"   element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/bookmarks"    element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/analysis"     element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/leaderboard"  element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
 
                   {/* Admin */}
-                  <Route path="/admin"                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                  <Route path="/admin/questions"          element={<AdminRoute><QuestionsManager /></AdminRoute>} />
-                  <Route path="/admin/users"              element={<AdminRoute><UsersManager /></AdminRoute>} />
-                  <Route path="/admin/payments"           element={<AdminRoute><PaymentsManager /></AdminRoute>} />
-                  <Route path="/admin/access-codes"       element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                  <Route path="/admin/announcements"      element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
-                  <Route path="/admin/analytics"          element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                  <Route path="/admin/scheduled-exams"    element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
-                  <Route path="/admin/courses"            element={<AdminRoute><CoursesManager /></AdminRoute>} />
-                  <Route path="/admin/entrance-exam"      element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
+                  <Route path="/admin"                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/questions"       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                  <Route path="/admin/users"           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                  <Route path="/admin/payments"        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                  <Route path="/admin/access-codes"    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                  <Route path="/admin/announcements"   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                  <Route path="/admin/analytics"       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                  <Route path="/admin/scheduled-exams" element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                  <Route path="/admin/courses"         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+                  <Route path="/admin/entrance-exam"   element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
                 </Route>
 
                 {/* 404 */}
