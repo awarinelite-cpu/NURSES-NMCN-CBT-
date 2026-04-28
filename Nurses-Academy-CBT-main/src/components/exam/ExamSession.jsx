@@ -104,8 +104,6 @@ export default function ExamSession() {
   const course      = state?.course     || '';
   const courseLabel = state?.courseLabel || '';
   const topic       = state?.topic      || '';
-  const schoolId     = state?.schoolId     || '';
-  const entranceYear = state?.entranceYear || state?.year || '';
   const rawCount    = Number(state?.count     || 20);
   // Cap at 10 questions for free (unsubscribed) users
   const now        = new Date();
@@ -120,6 +118,12 @@ export default function ExamSession() {
   const resumeMode   = state?.resumeMode   || false;
   const pausedExamId = state?.pausedExamId || null;
   const resumeData   = state?.resumeData   || null;
+
+  // Entrance exam fields
+  const isEntranceExam       = state?.isEntranceExam       || false;
+  const entranceSchoolId     = state?.entranceSchoolId     || '';
+  const entranceSchoolName   = state?.entranceSchoolName   || '';
+  const entranceYear         = state?.entranceYear         || '';
 
   const [questions,     setQuestions]     = useState([]);
   const [phase,         setPhase]         = useState('loading');
@@ -270,20 +274,6 @@ export default function ExamSession() {
             qs.sort(() => Math.random() - 0.5);
             qs = qs.slice(0, count || qs.length);
 
-          } else if (examType === 'entrance_exam') {
-            // ── Entrance Exam ─────────────────────────────────────────────────────
-            // Queries entranceExamQuestions by schoolId + optional year/subject.
-            // State keys expected: schoolId, entranceYear (or year), category (subject)
-            const constraints = [];
-            if (schoolId)                        constraints.push(where('schoolId', '==', schoolId));
-            if (entranceYear && entranceYear !== 'all') constraints.push(where('year',     '==', entranceYear));
-            if (category)     constraints.push(where('subject',  '==', category));
-            constraints.push(limit(fetchLim));
-            const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            if (doShuffle) fisherYatesShuffle(qs);
-            qs = qs.slice(0, count || qs.length);
-
           } else {
             // ── Generic fallback (avoid full-collection scan) ─────────────────
             const snap = await getDocs(query(
@@ -319,6 +309,38 @@ export default function ExamSession() {
           const seenIds = profile?.seenQuestions || [];
           const unseen  = qs.filter(q => !seenIds.includes(q.id));
           const pool    = unseen.length >= Math.min(count, 5) ? unseen : qs;
+          if (doShuffle) pool.sort(() => Math.random() - 0.5);
+          qs = pool.slice(0, count);
+        }
+
+        // ── Entrance Exam mode: load from entranceExamQuestions ────────────────
+        if (isEntranceExam && entranceSchoolId) {
+          const constraints = [
+            where('schoolId', '==', entranceSchoolId),
+            where('active',   '==', true),
+          ];
+          if (entranceYear && entranceYear !== 'all') {
+            constraints.push(where('year', '==', entranceYear));
+          }
+          const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+          let pool = snap.docs.map(d => {
+            const data = d.data();
+            // Normalise to same shape ExamSession expects
+            return {
+              id: d.id,
+              question: data.questionText,
+              options: Object.values(data.options || {}),
+              correctIndex: ['A','B','C','D'].indexOf(data.correctAnswer),
+              explanation: data.explanation || '',
+              diagramUrl: data.diagramUrl || '',
+              questionType: data.questionType || 'text',
+              subject: data.subject || '',
+              year: data.year || '',
+              schoolName: data.schoolName || '',
+              // Keep original fields too
+              ...data,
+            };
+          });
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
         }
@@ -373,6 +395,24 @@ export default function ExamSession() {
         totalQuestions: qs.length, scorePercent, timeTaken,
         answers: safeAnswers, questionIds, completedAt: serverTimestamp(),
       });
+
+      // ── Save entrance exam attempt separately ─────────────────────────────
+      if (isEntranceExam && entranceSchoolId) {
+        await addDoc(collection(db, 'entranceExamAttempts'), {
+          userId: currentUser.uid,
+          schoolId: entranceSchoolId,
+          schoolName: entranceSchoolName,
+          year: entranceYear || 'all',
+          mode: state?.timeLimit > 0 ? 'timed' : 'practice',
+          score: scorePercent,
+          correct,
+          totalQuestions: qs.length,
+          timeTaken,
+          answers: safeAnswers,
+          questionIds,
+          date: serverTimestamp(),
+        }).catch(() => {});
+      }
       const today     = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
       const newStreak = profile?.lastPracticeDate === yesterday
@@ -517,17 +557,6 @@ export default function ExamSession() {
             const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
-            qs = qs.slice(0, count || qs.length);
-
-          } else if (examType === 'entrance_exam') {
-            const constraints = [];
-            if (schoolId)                        constraints.push(where('schoolId', '==', schoolId));
-            if (entranceYear && entranceYear !== 'all') constraints.push(where('year',     '==', entranceYear));
-            if (category)     constraints.push(where('subject',  '==', category));
-            constraints.push(limit(fetchLim));
-            const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            if (doShuffle) fisherYatesShuffle(qs);
             qs = qs.slice(0, count || qs.length);
 
           } else {
