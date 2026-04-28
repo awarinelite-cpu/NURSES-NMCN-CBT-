@@ -104,6 +104,8 @@ export default function ExamSession() {
   const course      = state?.course     || '';
   const courseLabel = state?.courseLabel || '';
   const topic       = state?.topic      || '';
+  const schoolId     = state?.schoolId     || '';
+  const entranceYear = state?.entranceYear || state?.year || '';
   const rawCount    = Number(state?.count     || 20);
   // Cap at 10 questions for free (unsubscribed) users
   const now        = new Date();
@@ -266,6 +268,20 @@ export default function ExamSession() {
             const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
+            qs = qs.slice(0, count || qs.length);
+
+          } else if (examType === 'entrance_exam') {
+            // ── Entrance Exam ─────────────────────────────────────────────────────
+            // Queries entranceExamQuestions by schoolId + optional year/subject.
+            // State keys expected: schoolId, entranceYear (or year), category (subject)
+            const constraints = [];
+            if (schoolId)     constraints.push(where('schoolId', '==', schoolId));
+            if (entranceYear) constraints.push(where('year',     '==', entranceYear));
+            if (category)     constraints.push(where('subject',  '==', category));
+            constraints.push(limit(fetchLim));
+            const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (doShuffle) fisherYatesShuffle(qs);
             qs = qs.slice(0, count || qs.length);
 
           } else {
@@ -501,6 +517,17 @@ export default function ExamSession() {
             const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
+            qs = qs.slice(0, count || qs.length);
+
+          } else if (examType === 'entrance_exam') {
+            const constraints = [];
+            if (schoolId)     constraints.push(where('schoolId', '==', schoolId));
+            if (entranceYear) constraints.push(where('year',     '==', entranceYear));
+            if (category)     constraints.push(where('subject',  '==', category));
+            constraints.push(limit(fetchLim));
+            const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (doShuffle) fisherYatesShuffle(qs);
             qs = qs.slice(0, count || qs.length);
 
           } else {
