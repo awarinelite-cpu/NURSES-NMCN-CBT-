@@ -79,39 +79,67 @@ export default function EntranceExamHub() {
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
 
+  // ── PATCHED useEffect: waits for auth, uses correct collection names ──
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 60);
-    if (!user) { setLoading(false); return; }
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     const load = async () => {
       try {
         const [schoolsSnap, questionsSnap] = await Promise.all([
           getCountFromServer(collection(db, 'entranceExamSchools')),
           getCountFromServer(collection(db, 'entranceExamQuestions')),
         ]);
+
+        if (cancelled) return;
+
         const attSnap = await getDocs(query(
           collection(db, 'entranceExamAttempts'),
           where('userId', '==', user.uid),
-          orderBy('date', 'desc'), limit(10),
+          orderBy('date', 'desc'),
+          limit(10),
         ));
+
+        if (cancelled) return;
+
         const attempts = attSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setStats({ schools: schoolsSnap.data().count, questions: questionsSnap.data().count });
+
+        setStats({
+          schools:   schoolsSnap.data().count,
+          questions: questionsSnap.data().count,
+        });
         setRecent(attempts.slice(0, 5));
-        setAvgScore(attempts.length ? Math.round(attempts.reduce((s, a) => s + (a.score || 0), 0) / attempts.length) : 0);
-      } catch (e) { console.warn('EntranceExamHub load:', e.message); }
-      finally { setLoading(false); }
+        setAvgScore(
+          attempts.length
+            ? Math.round(attempts.reduce((s, a) => s + (a.score || 0), 0) / attempts.length)
+            : 0
+        );
+      } catch (e) {
+        console.warn('EntranceExamHub load:', e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
+
     load();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user]); // ← patched: depends on user so it re-runs once auth resolves
 
   const FEATURE_CARDS = [
-    { icon: '🗓️', label: 'Daily Mock Exam',         sub: "Today's mock is ready!",          color: '#F59E0B', to: '/entrance-exam/daily-mock',    delay: 350 },
-    { icon: '🏫', label: 'School Past Questions',    sub: `${animSchools || '…'} schools`,   color: '#0D9488', to: '/entrance-exam/schools',        delay: 420 },
-    { icon: '📚', label: 'Subject Drill',            sub: 'Topic-by-topic practice',          color: '#2563EB', to: '/entrance-exam/subject-drill',  delay: 490 },
-    { icon: '📋', label: 'Exams Taken',              sub: `${recentAttempts.length} this session`, color: '#7C3AED', to: '/entrance-exam/my-results',delay: 560 },
-    { icon: '🔖', label: 'Bookmarks',                sub: 'Saved questions',                  color: '#A855F7', to: '/entrance-exam/bookmarks',      delay: 630 },
+    { icon: '🗓️', label: 'Daily Mock Exam',         sub: "Today's mock is ready!",               color: '#F59E0B', to: '/entrance-exam/daily-mock',    delay: 350 },
+    { icon: '🏫', label: 'School Past Questions',    sub: `${animSchools || '…'} schools`,        color: '#0D9488', to: '/entrance-exam/schools',        delay: 420 },
+    { icon: '📚', label: 'Subject Drill',            sub: 'Topic-by-topic practice',              color: '#2563EB', to: '/entrance-exam/subject-drill',  delay: 490 },
+    { icon: '📋', label: 'Exams Taken',              sub: `${recentAttempts.length} this session`,color: '#7C3AED', to: '/entrance-exam/exams-taken',    delay: 560 },
+    { icon: '🔖', label: 'Bookmarks',                sub: 'Saved questions',                      color: '#A855F7', to: '/entrance-exam/bookmarks',      delay: 630 },
     { icon: '📊', label: 'My Results',               sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
-    { icon: '📈', label: 'Analysis',                 sub: 'See weak areas',                   color: '#0891B2', to: '/entrance-exam/analysis',        delay: 770 },
-    { icon: '🏆', label: 'Leaderboard',              sub: 'Top students',                     color: '#EF4444', to: '/entrance-exam/leaderboard',     delay: 840 },
+    { icon: '📈', label: 'Analysis',                 sub: 'See weak areas',                       color: '#0891B2', to: '/entrance-exam/analysis',        delay: 770 },
+    { icon: '🏆', label: 'Leaderboard',              sub: 'Top students',                         color: '#EF4444', to: '/entrance-exam/leaderboard',     delay: 840 },
   ];
 
   return (
@@ -143,9 +171,9 @@ export default function EntranceExamHub() {
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {[
-              { label: 'Schools',    value: loading ? '…' : animSchools,   icon: '🏫' },
-              { label: 'Questions',  value: loading ? '…' : animQuestions, icon: '❓' },
-              { label: 'Your Exams', value: loading ? '…' : recentAttempts.length, icon: '📝' },
+              { label: 'Schools',    value: loading ? '…' : animSchools,            icon: '🏫' },
+              { label: 'Questions',  value: loading ? '…' : animQuestions,          icon: '❓' },
+              { label: 'Your Exams', value: loading ? '…' : recentAttempts.length,  icon: '📝' },
               ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
             ].map(s => (
               <div key={s.label} style={{
