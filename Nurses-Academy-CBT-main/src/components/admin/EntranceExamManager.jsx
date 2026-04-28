@@ -302,7 +302,7 @@ function AddSingleTab({ toast }) {
   const [saving,   setSaving]   = useState(false);
 
   useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
+    getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')))
       .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {});
   }, []);
@@ -477,7 +477,7 @@ function BulkUploadTab({ toast }) {
   const [imported,   setImported]   = useState(null);
 
   useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive', '==', true), orderBy('name', 'asc')))
+    getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')))
       .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {});
   }, []);
@@ -666,7 +666,7 @@ function QuestionBankTab({ toast }) {
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    getDocs(query(collection(db, 'entranceExamSchools'), where('isActive','==',true), orderBy('name','asc')))
+    getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')))
       .then(snap => setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {});
   }, []);
