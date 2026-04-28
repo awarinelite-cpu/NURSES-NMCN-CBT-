@@ -1,356 +1,276 @@
-// src/App.jsx
-import { useEffect, useState, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { AuthProvider }          from './context/AuthContext';
-import { ThemeProvider }         from './context/ThemeContext';
-import { ToastProvider }         from './components/shared/Toast';
-import { AccessibilityProvider } from './context/AccessibilityContext';
-import { useAuth }               from './context/AuthContext';
-
-import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
-import AppLayout      from './components/shared/AppLayout';
-import LandingPage    from './components/shared/LandingPage';
-import AuthPage       from './components/auth/AuthPage';
-
-// Student pages
-import StudentDashboard      from './components/student/StudentDashboard';
-import AnalyticsPage         from './components/student/AnalyticsPage';
-import BookmarksPage         from './components/student/BookmarksPage';
-import SubscriptionPage      from './components/student/SubscriptionPage';
-import QuickActionsPage      from './components/student/QuickActionsPage';
-import PerformanceMonitorPage  from './components/student/PerformanceMonitorPage';
-import NotificationSettings   from './components/student/NotificationSettings';
-
-// ── Payment page (Paystack + Manual bank transfer) ──────────────
-import PaymentPage       from './components/payment/PaymentPage';
-
-// Exam
-import ExamSetup          from './components/exam/ExamSetup';
-import ExamSession        from './components/exam/ExamSession';
-import ExamReviewPage     from './components/exam/ExamReviewPage';
-import CategoryPickerPage from './components/exam/CategoryPickerPage';
-import ExamConfigPage     from './components/exam/ExamConfigPage';
-import ExamListPage       from './components/exam/ExamListPage';
-import ExamSetupPage      from './components/exam/ExamSetupPage';
-import DailyPracticePage  from './components/exam/DailyPracticePage';
-import MockExamPage       from './components/exam/MockExamPage';
-import CourseDrillPage    from './components/exam/CourseDrillPage';
-import TopicDrillPage     from './components/exam/TopicDrillPage';
-import PastQuestionsPage  from './components/exam/PastQuestionsPage';
-
-// ── Nursing Schools Entrance Exam ────────────────────────────────
-import EntranceExamHub    from './components/entrance/EntranceExamHub';
-import EntranceSchoolList from './components/entrance/EntranceSchoolList';
-import EntranceExamSetup  from './components/entrance/EntranceExamSetup';
-import EntranceExamDailyMock from './components/entrance/EntranceExamDailyMock';
+// src/components/entrance/EntranceExamHub.jsx
+// Route: /entrance-exam
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-  EntranceSubjectDrill,
-  EntranceMyResults,
-  EntranceExamsTaken,
-  EntranceBookmarks,
-  EntranceAnalysis,
-  EntranceLeaderboard,
-} from './components/entrance/EntranceExamStubs';
+  collection, query, where, orderBy, getDocs, limit, getCountFromServer,
+} from 'firebase/firestore';
+import { db }      from '../../firebase/config';
+import { useAuth } from '../../context/AuthContext';
 
-// Admin pages
-import AdminDashboard        from './components/admin/AdminDashboard';
-import QuestionsManager      from './components/admin/QuestionsManager';
-import UsersManager          from './components/admin/UsersManager';
-import PaymentsManager       from './components/admin/PaymentsManager';
-import AccessCodesManager    from './components/admin/AccessCodesManager';
-import AnnouncementsManager  from './components/admin/AnnouncementsManager';
-import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
-import CoursesManager        from './components/admin/CoursesManager';
-import EntranceExamManager   from './components/admin/EntranceExamManager';
-
-import './styles/global.css';
-
-// ── Register PWA service worker (web only) ───────────────────────
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
-  });
-}
-
-// ── Detect Capacitor native shell ────────────────────────────────
-const isCapacitor = () =>
-  typeof window !== 'undefined' &&
-  window.Capacitor !== undefined &&
-  window.Capacitor.isNativePlatform?.();
-
-// ── SW Navigation Handler ────────────────────────────────────────
-function SwNavigationHandler() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-
-    const handler = (event) => {
-      if (event.data?.type === 'NAVIGATE' && event.data.url) {
-        navigate(event.data.url);
-      }
-    };
-
-    navigator.serviceWorker.addEventListener('message', handler);
-    return () => navigator.serviceWorker.removeEventListener('message', handler);
-  }, [navigate]);
-
-  return null;
-}
-
-// ── Back Button Handler ──────────────────────────────────────────
-function BackButtonHandler() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const [showExit, setShowExit] = useState(false);
-  const exitReady = useRef(false);
-  const exitTimer = useRef(null);
-
-  const isHome = location.pathname === '/' || location.pathname === '/dashboard';
-
-  useEffect(() => {
-    if (!isHome) {
-      exitReady.current = false;
-      setShowExit(false);
-      if (exitTimer.current) clearTimeout(exitTimer.current);
-    }
-  }, [isHome]);
-
-  const handleBack = (exitFn) => {
-    if (isHome) {
-      if (exitReady.current) { exitFn(); return; }
-      exitReady.current = true;
-      setShowExit(true);
-      if (exitTimer.current) clearTimeout(exitTimer.current);
-      exitTimer.current = setTimeout(() => {
-        exitReady.current = false;
-        setShowExit(false);
-      }, 2500);
-    } else {
-      navigate(-1);
-    }
-  };
-
-  useEffect(() => {
-    if (!isCapacitor()) return;
-    let listenerHandle = null;
-    const register = async () => {
-      try {
-        const { App: CapApp } = await import('@capacitor/app');
-        listenerHandle = await CapApp.addListener('backButton', () => {
-          handleBack(() => CapApp.exitApp());
-        });
-      } catch (e) {
-        console.warn('Capacitor backButton registration failed:', e);
-      }
-    };
-    register();
-    return () => { if (listenerHandle?.remove) listenerHandle.remove(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, isHome]);
-
-  useEffect(() => {
-    if (isCapacitor()) return;
-    window.history.pushState({ pwa: true }, '');
-    const onPopState = () => {
-      handleBack(() => window.history.go(-1));
-      window.history.pushState({ pwa: true }, '');
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, isHome]);
-
-  useEffect(() => {
-    return () => { if (exitTimer.current) clearTimeout(exitTimer.current); };
-  }, []);
-
-  if (!showExit) return null;
-
+function ACard({ children, delay = 0, style: s = {} }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
   return (
-    <div style={{
-      position: 'fixed', bottom: 48, left: '50%', transform: 'translateX(-50%)',
-      background: 'rgba(2,11,24,0.92)', color: '#fff', padding: '13px 28px',
-      borderRadius: 28, fontSize: 14, fontWeight: 700, zIndex: 99999,
-      backdropFilter: 'blur(10px)', border: '1px solid rgba(13,148,136,0.4)',
-      boxShadow: '0 4px 32px rgba(0,0,0,0.5)', whiteSpace: 'nowrap',
-      letterSpacing: 0.3, animation: 'fadeInUp 0.22s ease', pointerEvents: 'none',
-    }}>
-      Press back again to exit
+    <div style={{ opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(16px)', transition: 'opacity .5s ease, transform .5s ease', ...s }}>
+      {children}
     </div>
   );
 }
 
-export default function App() {
+function useCounter(target, duration = 1400, delay = 0) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!target) return;
+    const to = setTimeout(() => {
+      let n = 0; const step = target / (duration / 16);
+      const t = setInterval(() => {
+        n += step;
+        if (n >= target) { setVal(target); clearInterval(t); } else setVal(Math.floor(n));
+      }, 16);
+      return () => clearInterval(t);
+    }, delay);
+    return () => clearTimeout(to);
+  }, [target, duration, delay]);
+  return val;
+}
+
+function FeatureCard({ icon, label, sub, color, to, delay }) {
+  const [hov, setHov] = useState(false);
+  const [vis, setVis] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
   return (
-    <ThemeProvider>
-      <AccessibilityProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <BrowserRouter>
-              <BackButtonHandler />
-              <SwNavigationHandler />
-
-              <Routes>
-                {/* Public */}
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
-
-                {/* Full-screen exam session — free trial users allowed (10Q cap enforced in ExamSession) */}
-                <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
-                <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
-
-                {/* Payment page — any logged-in user (free users need this to upgrade) */}
-                <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-
-                {/* Authenticated layout */}
-                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-
-                  {/* Free users can see dashboard, profile, subscription, results */}
-                  <Route path="/dashboard"    element={<StudentDashboard />} />
-                  <Route path="/results"      element={<AnalyticsPage />} />
-                  <Route path="/performance"  element={<PerformanceMonitorPage />} />
-                  <Route path="/bookmarks"    element={<BookmarksPage />} />
-                  <Route path="/subscription" element={<SubscriptionPage />} />
-                  <Route path="/leaderboard"  element={<LeaderboardPage />} />
-                  <Route path="/profile"      element={<ProfilePage />} />
-
-                  {/* Exam modes — free trial users get 10 questions once per mode */}
-                  <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
-                  <Route path="/past-questions"  element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
-                  <Route path="/quick-actions"   element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
-                  <Route path="/daily-practice"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                  <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                  <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
-                  <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
-                  <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
-                  <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
-                  <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
-                  <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
-                  <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
-
-                  {/* ── Nursing Schools Entrance Exam ── */}
-                  <Route path="/entrance-exam"               element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/schools"       element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/setup"         element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/daily-mock"    element={<FreeTrialRoute><EntranceExamDailyMock /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/my-results"    element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/exams-taken"   element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/bookmarks"     element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/analysis"      element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
-
-                  {/* Admin */}
-                  <Route path="/admin"                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                  <Route path="/admin/questions"          element={<AdminRoute><QuestionsManager /></AdminRoute>} />
-                  <Route path="/admin/users"              element={<AdminRoute><UsersManager /></AdminRoute>} />
-                  <Route path="/admin/payments"           element={<AdminRoute><PaymentsManager /></AdminRoute>} />
-                  <Route path="/admin/access-codes"       element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                  <Route path="/admin/announcements"      element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
-                  <Route path="/admin/analytics"          element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                  <Route path="/admin/scheduled-exams"    element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
-                  <Route path="/admin/courses"            element={<AdminRoute><CoursesManager /></AdminRoute>} />
-                  <Route path="/admin/entrance-exam"      element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
-                </Route>
-
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </ToastProvider>
-        </AuthProvider>
-      </AccessibilityProvider>
-    </ThemeProvider>
+    <Link
+      to={to}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 8, padding: '18px 16px',
+        background: hov ? `${color}14` : 'var(--bg-card)',
+        border: `1.5px solid ${hov ? color + '55' : 'var(--border)'}`,
+        borderRadius: 14, textDecoration: 'none', cursor: 'pointer',
+        position: 'relative', overflow: 'hidden',
+        opacity: vis ? 1 : 0,
+        transform: vis ? (hov ? 'translateY(-3px)' : 'translateY(0)') : 'translateY(14px)',
+        boxShadow: hov ? `0 6px 20px ${color}22` : 'none',
+        transition: 'opacity .45s ease, transform .3s ease, background .2s, border-color .2s, box-shadow .2s',
+      }}
+    >
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: color, borderRadius: '4px 0 0 4px' }} />
+      <div style={{ paddingLeft: 8 }}>
+        <div style={{ fontSize: 28, marginBottom: 4 }}>{icon}</div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</div>
+      </div>
+      <div style={{ position: 'absolute', right: 12, bottom: 12, color: color, fontWeight: 900, fontSize: 18, opacity: hov ? 1 : 0.3, transition: 'opacity .2s' }}>→</div>
+    </Link>
   );
 }
 
-// ── Inline simple pages ──────────────────────────────────────────
-
-function LeaderboardPage() {
-  return (
-    <div style={{ padding: 24, maxWidth: 700 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>🏆 Leaderboard</h2>
-      <p style={{ color: 'var(--text-muted)' }}>
-        Top performers coming soon — take more exams to rank!
-      </p>
-    </div>
-  );
-}
-
-function ProfilePage() {
+export default function EntranceExamHub() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats]               = useState({ schools: 0, questions: 0 });
+  const [recentAttempts, setRecent]     = useState([]);
+  const [avgScore, setAvgScore]         = useState(0);
+  const [bannerVis, setBannerVis]       = useState(false);
+  const [loading, setLoading]           = useState(true);
+
+  const animSchools   = useCounter(stats.schools,   1200, 300);
+  const animQuestions = useCounter(stats.questions, 1400, 400);
+
+  // ── PATCHED useEffect: waits for auth, uses correct collection names ──
+  useEffect(() => {
+    setTimeout(() => setBannerVis(true), 60);
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const [schoolsSnap, questionsSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'entranceExamSchools')),
+          getCountFromServer(collection(db, 'entranceExamQuestions')),
+        ]);
+
+        if (cancelled) return;
+
+        const attSnap = await getDocs(query(
+          collection(db, 'entranceExamAttempts'),
+          where('userId', '==', user.uid),
+          orderBy('date', 'desc'),
+          limit(10),
+        ));
+
+        if (cancelled) return;
+
+        const attempts = attSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        setStats({
+          schools:   schoolsSnap.data().count,
+          questions: questionsSnap.data().count,
+        });
+        setRecent(attempts.slice(0, 5));
+        setAvgScore(
+          attempts.length
+            ? Math.round(attempts.reduce((s, a) => s + (a.score || 0), 0) / attempts.length)
+            : 0
+        );
+      } catch (e) {
+        console.warn('EntranceExamHub load:', e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user]); // ← patched: depends on user so it re-runs once auth resolves
+
+  const FEATURE_CARDS = [
+    { icon: '🗓️', label: 'Daily Mock Exam',         sub: "Today's mock is ready!",               color: '#F59E0B', to: '/entrance-exam/daily-mock',    delay: 350 },
+    { icon: '🏫', label: 'School Past Questions',    sub: `${animSchools || '…'} schools`,        color: '#0D9488', to: '/entrance-exam/schools',        delay: 420 },
+    { icon: '📚', label: 'Subject Drill',            sub: 'Topic-by-topic practice',              color: '#2563EB', to: '/entrance-exam/subject-drill',  delay: 490 },
+    { icon: '📋', label: 'Exams Taken',              sub: `${recentAttempts.length} this session`,color: '#7C3AED', to: '/entrance-exam/exams-taken',    delay: 560 },
+    { icon: '🔖', label: 'Bookmarks',                sub: 'Saved questions',                      color: '#A855F7', to: '/entrance-exam/bookmarks',      delay: 630 },
+    { icon: '📊', label: 'My Results',               sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
+    { icon: '📈', label: 'Analysis',                 sub: 'See weak areas',                       color: '#0891B2', to: '/entrance-exam/analysis',        delay: 770 },
+    { icon: '🏆', label: 'Leaderboard',              sub: 'Top students',                         color: '#EF4444', to: '/entrance-exam/leaderboard',     delay: 840 },
+  ];
+
   return (
-    <div style={{ padding: 24, maxWidth: 600 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 24 }}>👤 My Profile</h2>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: 26, color: '#fff',
-          }}>
-            {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
+    <div style={{ padding: '24px', maxWidth: 1100 }}>
+      {/* Back button */}
+      <button onClick={() => navigate('/dashboard')} style={{
+        background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)',
+        fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 16,
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>← Back to Dashboard</button>
+
+      {/* Welcome Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 100%)',
+        borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
+        opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
+        transition: 'opacity .6s ease, transform .6s ease',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.3) 0%, transparent 60%)' }} />
+        <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,32px)' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
+            🏥 NMCN CBT Platform
           </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 18 }}>
-              {profile?.name || user?.displayName || 'Student'}
-            </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
-            <span
-              className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`}
-              style={{ marginTop: 4, display: 'inline-flex' }}
-            >
-              {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
-            </span>
+          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.1rem,4vw,1.7rem)', margin: '0 0 6px', lineHeight: 1.3 }}>
+            🏫 Nursing Schools Entrance Exam
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.5 }}>
+            Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Schools',    value: loading ? '…' : animSchools,            icon: '🏫' },
+              { label: 'Questions',  value: loading ? '…' : animQuestions,          icon: '❓' },
+              { label: 'Your Exams', value: loading ? '…' : recentAttempts.length,  icon: '📝' },
+              ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
+            ].map(s => (
+              <div key={s.label} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)',
+                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 14px',
+              }}>
+                <span style={{ fontSize: 16 }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1 }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{s.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            ['Total Exams', profile?.totalExams || 0],
-            ['Avg Score',   profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
-            ['Plan',        profile?.subscriptionPlan || 'Free'],
-            ['Expires',     profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
-          ].map(([k, v]) => (
-            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{v}</div>
-            </div>
-          ))}
+      {/* Feature Cards */}
+      <ACard delay={280} style={{ marginBottom: 28 }}>
+        <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 14px' }}>
+          ⚡ What do you want to do?
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+          {FEATURE_CARDS.map(card => <FeatureCard key={card.label} {...card} />)}
         </div>
+      </ACard>
 
-        {/* Notification Settings */}
-        <NotificationSettings />
-      </div>
-    </div>
-  );
-}
+      {/* Recommendation */}
+      <ACard delay={900} style={{ marginBottom: 20 }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(37,99,235,0.06))',
+          border: '1.5px solid rgba(13,148,136,0.2)', borderRadius: 14, padding: '16px 20px',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>💡 Recommended For You</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
+              <span style={{ color: '#0D9488' }}>→</span>
+              {avgScore < 70 && avgScore > 0
+                ? `Your average is ${avgScore}% — try Subject Drill to boost weak areas`
+                : avgScore >= 70
+                ? `You're averaging ${avgScore}% — great! Try a harder school's questions`
+                : 'Start with any school\'s past questions to get your first score'}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
+              <span style={{ color: '#0D9488' }}>→</span>
+              Don't forget today's Daily Mock Exam
+            </div>
+          </div>
+        </div>
+      </ACard>
 
-function AdminAnalytics() {
-  return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>📈 Platform Analytics</h2>
-      <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
-    </div>
-  );
-}
+      {/* Recent attempts */}
+      {recentAttempts.length > 0 && (
+        <ACard delay={1000}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>🕓 Recent Attempts</h3>
+            <Link to="/entrance-exam/my-results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {recentAttempts.map(a => (
+              <div key={a.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '10px 14px',
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                    {a.schoolName || 'Entrance Exam'}{a.year ? ` · ${a.year}` : ''}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {a.date?.toDate ? new Date(a.date.toDate()).toLocaleDateString() : 'Recently'}
+                    {a.mode ? ` · ${a.mode}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: (a.score || 0) >= 70 ? 'var(--green)' : (a.score || 0) >= 50 ? 'var(--gold)' : 'var(--red)' }}>
+                  {a.score || 0}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </ACard>
+      )}
 
-function NotFound() {
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', flexDirection: 'column', gap: 16,
-      textAlign: 'center', padding: 24,
-      background: '#020B18', color: '#fff',
-    }}>
-      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
-        404
-      </div>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Page Not Found</h2>
-      <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
-      <a href="/" className="btn btn-primary">← Go Home</a>
+      {/* Empty state */}
+      {!loading && recentAttempts.length === 0 && (
+        <ACard delay={900}>
+          <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16 }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>🏫</div>
+            <h3 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 8px', color: 'var(--text-primary)' }}>Start Your Entrance Exam Prep</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px' }}>Browse nursing schools and start practicing with real past questions.</p>
+            <Link to="/entrance-exam/schools" className="btn btn-primary" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              🏫 Browse Schools
+            </Link>
+          </div>
+        </ACard>
+      )}
     </div>
   );
 }
