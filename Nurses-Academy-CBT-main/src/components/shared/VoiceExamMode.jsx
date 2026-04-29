@@ -1,9 +1,12 @@
 // src/components/shared/VoiceExamMode.jsx
-// Android-safe rewrite:
-// • TTS triggered directly from button tap (user gesture)
-// • Mic opened directly after TTS ends via utterance.onend
-// • No useEffect chains — everything flows from the tap
-// • Voices pre-loaded on mount so first speak is instant
+// Fast-answer rewrite:
+// • interimResults = true  → fires on EVERY word chunk, not just finals
+// • Interim scan: if ANY interim chunk matches a letter → accept immediately
+// • matchLetter greatly expanded: handles "the answer is a", "i'll go with b",
+//   "i think it's c", "number one", phonetic edge cases, etc.
+// • Silent miss: no TTS "didn't catch that" — just resets mic silently (saves ~2s)
+// • maxAlternatives = 6, all alternatives scanned on each interim + final event
+// • Android-safe: TTS triggered from button tap, no useEffect chains
 
 import { useState, useEffect, useRef } from 'react';
 
@@ -19,7 +22,6 @@ function getVoices() {
       window.speechSynthesis.onvoiceschanged = null;
       resolve(window.speechSynthesis.getVoices());
     };
-    // hard fallback
     setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000);
   });
 }
@@ -38,22 +40,79 @@ function pickVoice(voices) {
 /* ── normalize transcript ── */
 const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 
+/* ── EXPANDED fast letter matcher ── */
 function matchLetter(transcript) {
   const t = norm(transcript);
-  const map = {
-    a:0, ay:0, 'option a':0, 'answer a':0, 'choice a':0, first:0,
-    b:1, be:1, bee:1, 'option b':1, 'answer b':1, 'choice b':1, second:1,
-    c:2, see:2, sea:2, 'option c':2, 'answer c':2, 'choice c':2, third:2,
-    d:3, de:3, dee:3, 'option d':3, 'answer d':3, 'choice d':3, fourth:3,
+
+  // ── exact / short-form map (checked first for speed) ──
+  const exactMap = {
+    // A
+    a:0, ay:0, eh:0, alpha:0,
+    'option a':0, 'answer a':0, 'choice a':0, 'number a':0,
+    'letter a':0, 'select a':0, 'pick a':0, 'choose a':0,
+    'go with a':0, 'i pick a':0, 'i choose a':0,
+    'its a':0, "it's a":0, 'i think a':0, 'i think its a':0,
+    first:0, 'number one':0, 'number 1':0, one:0,
+    // B
+    b:1, be:1, bee:1, beta:1,
+    'option b':1, 'answer b':1, 'choice b':1, 'number b':1,
+    'letter b':1, 'select b':1, 'pick b':1, 'choose b':1,
+    'go with b':1, 'i pick b':1, 'i choose b':1,
+    'its b':1, "it's b":1, 'i think b':1, 'i think its b':1,
+    second:1, 'number two':1, 'number 2':1, two:1,
+    // C
+    c:2, see:2, sea:2, si:2, charlie:2,
+    'option c':2, 'answer c':2, 'choice c':2, 'number c':2,
+    'letter c':2, 'select c':2, 'pick c':2, 'choose c':2,
+    'go with c':2, 'i pick c':2, 'i choose c':2,
+    'its c':2, "it's c":2, 'i think c':2, 'i think its c':2,
+    third:2, 'number three':2, 'number 3':2, three:2,
+    // D
+    d:3, de:3, dee:3, delta:3,
+    'option d':3, 'answer d':3, 'choice d':3, 'number d':3,
+    'letter d':3, 'select d':3, 'pick d':3, 'choose d':3,
+    'go with d':3, 'i pick d':3, 'i choose d':3,
+    'its d':3, "it's d":3, 'i think d':3, 'i think its d':3,
+    fourth:3, 'number four':3, 'number 4':3, four:3,
   };
-  if (t in map) return map[t];
-  // last word
-  const last = t.split(/\s+/).pop();
-  if (last in map) return map[last];
-  // first word
-  const first = t.split(/\s+/)[0];
-  if (first in map) return map[first];
+
+  if (t in exactMap) return exactMap[t];
+
+  // ── regex scan: finds "a", "b", "c", "d" anywhere in richer phrases ──
+  // e.g. "the answer is a", "i'll go with b", "definitely c", "i think d"
+  const patterns = [
+    // "answer/option/choice is/= X"
+    /\b(?:answer|option|choice|pick|select)\s+(?:is\s+)?([abcd])\b/,
+    // "go with / choose / pick X"
+    /\b(?:go\s+with|choose|pick|select|i(?:'ll)?\s+(?:go\s+with|choose|pick|select))\s+([abcd])\b/,
+    // "it(?:'s| is) X" at end
+    /\bit(?:'s|\s+is)\s+([abcd])(?:\s|$)/,
+    // "i think (?:it's )?X"
+    /\bi\s+think\s+(?:it(?:'s|\s+is)\s+)?([abcd])(?:\s|$)/,
+    // standalone letter at end of phrase
+    /\b([abcd])\s*$/,
+    // standalone letter at start of phrase
+    /^\s*([abcd])\b/,
+    // any isolated letter in the string (most lenient, last resort)
+    /\b([abcd])\b/,
+  ];
+
+  const letterIndex = { a: 0, b: 1, c: 2, d: 3 };
+
+  for (const rx of patterns) {
+    const m = t.match(rx);
+    if (m) {
+      const letter = m[1];
+      if (letter in letterIndex) return letterIndex[letter];
+    }
+  }
+
   return -1;
+}
+
+/* ── is this a "repeat" command? ── */
+function isRepeatCommand(t) {
+  return /\b(read\s+again|repeat|again|re-?read|start\s+over|once\s+more)\b/.test(norm(t));
 }
 
 /* ── inject CSS ── */
@@ -112,11 +171,12 @@ export default function VoiceExamMode({
   const [countdown, setCountdown] = useState(TIMEOUT_SEC);
   const [statusMsg, setStatusMsg] = useState('');
 
-  const activeRef  = useRef(false);
-  const srRef      = useRef(null);
-  const timerRef   = useRef(null);
-  const cdRef      = useRef(TIMEOUT_SEC);
-  const voiceRef   = useRef(null);   // cached SpeechSynthesisVoice
+  const activeRef   = useRef(false);
+  const srRef       = useRef(null);
+  const timerRef    = useRef(null);
+  const cdRef       = useRef(TIMEOUT_SEC);
+  const voiceRef    = useRef(null);
+  const answeredRef = useRef(false); // guard against double-fire on interim+final
 
   // always-fresh prop mirrors
   const questionRef = useRef(question);
@@ -132,7 +192,6 @@ export default function VoiceExamMode({
 
   useEffect(() => {
     injectStyles();
-    // pre-load voices on mount
     getVoices().then(voices => { voiceRef.current = pickVoice(voices); });
     return () => hardStop();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +208,7 @@ export default function VoiceExamMode({
   /* ── hard stop ── */
   const hardStop = () => {
     activeRef.current = false;
+    answeredRef.current = false;
     window.speechSynthesis?.cancel();
     stopMic();
     stopTimer();
@@ -168,12 +228,11 @@ export default function VoiceExamMode({
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   };
 
-  /* ── speak (safe for Android) ── */
+  /* ── speak ── */
   const speakText = (text, onDone) => {
     if (!activeRef.current) return;
     window.speechSynthesis.cancel();
 
-    // ensure voices loaded
     const voices = window.speechSynthesis.getVoices();
     if (!voiceRef.current && voices.length) voiceRef.current = pickVoice(voices);
 
@@ -183,13 +242,12 @@ export default function VoiceExamMode({
     u.rate  = 0.85;
     u.pitch = 1;
 
-    // Chrome keep-alive (paused bug)
     const ka = setInterval(() => {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     }, 5000);
 
     u.onstart = () => console.log('[VEM] TTS started');
-    u.onend   = () => { clearInterval(ka); console.log('[VEM] TTS ended'); if (activeRef.current) onDone?.(); };
+    u.onend   = () => { clearInterval(ka); if (activeRef.current) onDone?.(); };
     u.onerror = (e) => {
       clearInterval(ka);
       console.warn('[VEM] TTS error:', e.error);
@@ -198,7 +256,25 @@ export default function VoiceExamMode({
     };
 
     window.speechSynthesis.speak(u);
-    console.log('[VEM] speak() called, pending:', window.speechSynthesis.pending, 'speaking:', window.speechSynthesis.speaking);
+  };
+
+  /* ── commit answer (called from interim OR final) ── */
+  const commitAnswer = (idx) => {
+    if (!activeRef.current || answeredRef.current) return;
+    answeredRef.current = true;          // lock — prevent double-fire
+    stopTimer();
+    stopMic();
+    const letter = LETTERS[idx];
+    setStatusMsg(`✓ Option ${letter}`);
+    setPhase('idle');
+    onAnswerRef.current?.(idx);
+    speakText(`Option ${letter}.`, () => {
+      if (activeRef.current && hasNextRef.current) {
+        setTimeout(() => {
+          if (activeRef.current) onNextRef.current?.();
+        }, 400);
+      }
+    });
   };
 
   /* ── open mic ── */
@@ -208,15 +284,16 @@ export default function VoiceExamMode({
     if (!SR) { setStatusMsg('Speech recognition not supported.'); return; }
 
     stopMic();
+    answeredRef.current = false;
 
     const sr = new SR();
-    srRef.current      = sr;
+    srRef.current = sr;
     sr.lang            = 'en-US';
-    sr.continuous      = false;
-    sr.interimResults  = false;
-    sr.maxAlternatives = 4;
+    sr.continuous      = true;
+    sr.interimResults  = true;   // ← KEY CHANGE: fire on every partial word
+    sr.maxAlternatives = 6;      // more alternatives = more chances to match
 
-    // start countdown
+    // countdown
     stopTimer();
     cdRef.current = TIMEOUT_SEC;
     setCountdown(TIMEOUT_SEC);
@@ -235,49 +312,60 @@ export default function VoiceExamMode({
     }, 1000);
 
     setPhase('listening');
-    setStatusMsg('Say A, B, C or D');
+    setStatusMsg('');
 
     sr.onresult = (e) => {
-      const transcripts = Array.from(e.results[0]).map(r => r.transcript);
-      console.log('[VEM] heard:', transcripts);
-      const heard = transcripts[0] || '';
+      if (!activeRef.current || answeredRef.current) return;
 
-      let idx = -1;
-      for (const t of transcripts) { idx = matchLetter(t); if (idx >= 0) break; }
+      // collect ALL result chunks (interim + final) from this event
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        const isFinal = result.isFinal;
 
-      // repeat command
-      const isRepeat = transcripts.some(t => /\b(read again|repeat|again|re-read)\b/.test(norm(t)));
-      if (isRepeat) {
-        stopTimer(); stopMic();
-        setStatusMsg('Re-reading…');
-        startReading();
-        return;
-      }
+        // build list of all alternatives for this chunk
+        const alts = Array.from(result).map(r => r.transcript);
+        console.log('[VEM]', isFinal ? 'FINAL' : 'interim', alts);
 
-      if (idx >= 0) {
-        stopTimer(); stopMic();
-        const letter = LETTERS[idx];
-        setStatusMsg(`✓ Option ${letter}`);
-        setPhase('idle');
-        onAnswerRef.current?.(idx);
-        speakText(`Option ${letter}.`, () => {
-          if (activeRef.current && hasNextRef.current) {
-            setTimeout(() => { if (activeRef.current) onNextRef.current?.(); }, 400);
+        // ── check for repeat command first ──
+        if (alts.some(isRepeatCommand)) {
+          stopTimer(); stopMic();
+          setStatusMsg('Re-reading…');
+          setTimeout(() => { if (activeRef.current) startReading(); }, 50);
+          return;
+        }
+
+        // ── scan all alternatives for a letter match ──
+        let idx = -1;
+        for (const t of alts) {
+          idx = matchLetter(t);
+          if (idx >= 0) break;
+        }
+
+        if (idx >= 0) {
+          commitAnswer(idx);
+          return;
+        }
+
+        // ── if final with no match: silent — don't speak, just keep listening ──
+        // (removes the ~2s TTS "didn't catch that" penalty)
+        if (isFinal) {
+          const heard = alts[0] || '';
+          if (heard.trim().length > 0) {
+            setStatusMsg(`Didn't catch "${heard.slice(0, 30)}" — say A, B, C or D`);
+            // clear status after 1.5s so it doesn't linger
+            setTimeout(() => {
+              if (activeRef.current && !answeredRef.current) setStatusMsg('');
+            }, 1500);
           }
-        });
-      } else {
-        setStatusMsg(`Didn't catch "${heard}" — say A, B, C or D`);
-        speakText("Didn't catch that. Say A, B, C, or D.", () => {
-          if (activeRef.current) openMic();
-        });
+        }
       }
     };
 
     sr.onend = () => {
-      if (!activeRef.current) return;
-      // reopen if no result yet
+      if (!activeRef.current || answeredRef.current) return;
       if (cdRef.current > 0) {
-        setTimeout(() => { if (activeRef.current) openMic(); }, 200);
+        console.log('[VEM] mic force-closed, reopening…');
+        setTimeout(() => { if (activeRef.current && !answeredRef.current) openMic(); }, 100);
       }
     };
 
@@ -290,22 +378,22 @@ export default function VoiceExamMode({
         hardStop();
         return;
       }
-      if (e.error === 'no-speech') {
-        // normal — reopen
-        setTimeout(() => { if (activeRef.current) openMic(); }, 200);
-        return;
-      }
-      setTimeout(() => { if (activeRef.current) openMic(); }, 400);
+      if (e.error === 'aborted') return;
+      setTimeout(() => { if (activeRef.current && !answeredRef.current) openMic(); }, 400);
     };
 
     try { sr.start(); console.log('[VEM] mic started'); }
-    catch(e) { console.error('[VEM] sr.start threw:', e); setTimeout(() => { if (activeRef.current) openMic(); }, 500); }
+    catch(e) {
+      console.error('[VEM] sr.start threw:', e);
+      setTimeout(() => { if (activeRef.current) openMic(); }, 500);
+    }
   };
 
   /* ── read question then open mic ── */
   const startReading = () => {
     if (!activeRef.current) return;
     stopMic(); stopTimer();
+    answeredRef.current = false;
     setPhase('reading');
     setStatusMsg('');
     cdRef.current = TIMEOUT_SEC;
@@ -314,7 +402,9 @@ export default function VoiceExamMode({
     const q = questionRef.current;
     const opts = optionsRef.current;
     let text = q + '.  ';
-    opts.forEach((o, i) => { text += `Option ${LETTERS[i]}: ${typeof o === 'string' ? o : (o.text ?? '')}.  `; });
+    opts.forEach((o, i) => {
+      text += `Option ${LETTERS[i]}: ${typeof o === 'string' ? o : (o.text ?? '')}.  `;
+    });
 
     speakText(text, () => { if (activeRef.current) openMic(); });
   };
@@ -322,7 +412,6 @@ export default function VoiceExamMode({
   /* ── handle Read button tap ── */
   const handleStart = () => {
     activeRef.current = true;
-    // ensure voices are loaded (may not be on first tap on Android)
     getVoices().then(voices => {
       voiceRef.current = pickVoice(voices);
       startReading();
