@@ -76,11 +76,12 @@ export default function EntranceExamSession() {
           setAnswers(savedAnswers || {});
           setSubmitted(true);
         } else if (poolMode) {
-          // Fetch from pool
+          // FIX 3: Query only by inDailyBank — subject field is often empty
+          // for daily bank questions uploaded via admin, so filtering by it
+          // would return zero results.
           const snap = await getDocs(
             query(
               collection(db, 'entranceExamQuestions'),
-              where('subject',     '==', subject),
               where('inDailyBank', '==', true),
             )
           );
@@ -127,7 +128,8 @@ export default function EntranceExamSession() {
     if (!currentQ) return;
     const synth = synthRef.current;
     if (speaking) { synth.cancel(); setSpeaking(false); return; }
-    const utter = new SpeechSynthesisUtterance(currentQ.question);
+    // FIX 2: Use questionText (not question)
+    const utter = new SpeechSynthesisUtterance(currentQ.questionText);
     utter.onend  = () => setSpeaking(false);
     utter.onerror = () => setSpeaking(false);
     setSpeaking(true);
@@ -440,12 +442,12 @@ export default function EntranceExamSession() {
               · {currentQ.id}
             </div>
 
-            {/* Question text */}
+            {/* FIX 1: Use questionText (not question) */}
             <div style={{
               fontSize: 18, fontWeight: 700, color: 'var(--text-primary)',
               lineHeight: 1.55, marginBottom: 16,
             }}>
-              {currentQ.question}
+              {currentQ.questionText}
             </div>
 
             {/* Read Question TTS */}
