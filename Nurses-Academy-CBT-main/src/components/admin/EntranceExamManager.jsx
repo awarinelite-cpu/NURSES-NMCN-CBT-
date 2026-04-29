@@ -860,8 +860,8 @@ function DailyMockSettings({ toast }) {
 // ── Daily Mock: Upload Questions to Daily Bank ────────────────────────────────
 function DailyMockUpload({ toast }) {
   const [mode, setMode] = useState('form');
-  // form fields
-  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
+  // form fields (no subject/year — daily mock questions are generic)
+  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
   // paste mode
   const [rawText,  setRawText]  = useState('');
   const [parsed,   setParsed]   = useState([]);
@@ -880,7 +880,7 @@ function DailyMockUpload({ toast }) {
     try {
       await addDoc(collection(db, 'entranceExamQuestions'), {
         schoolId: null, schoolName: '',
-        year: form.year, subject: form.subject,
+        year: '', subject: '',
         questionType: form.diagramUrl ? 'diagram' : 'text',
         diagramUrl: form.diagramUrl || '',
         questionText: form.questionText,
@@ -892,7 +892,7 @@ function DailyMockUpload({ toast }) {
         createdAt: serverTimestamp(),
       });
       toast('Question added to Daily Mock Bank ✅', 'success');
-      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
+      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -906,7 +906,7 @@ function DailyMockUpload({ toast }) {
         const ref = doc(collection(db, 'entranceExamQuestions'));
         batch.set(ref, {
           schoolId: null, schoolName: '',
-          year: form.year, subject: form.subject,
+          year: '', subject: '',
           questionType: q.questionType, diagramUrl: q.diagramUrl || '',
           questionText: q.questionText, options: q.options,
           correctAnswer: q.correctAnswer, explanation: q.explanation || '',
@@ -932,31 +932,13 @@ function DailyMockUpload({ toast }) {
         </div>
       </div>
 
-      {/* Subject / Year row */}
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Question Metadata</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={S.label}>📚 Subject</label>
-            <select className="form-input form-select" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} style={{ width: '100%' }}>
-              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📅 Year</label>
-            <select className="form-input form-select" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} style={{ width: '100%' }}>
-              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* Mode toggle */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {[{ id: 'form', label: '🖊️ Single (Form)' }, { id: 'paste_single', label: '📋 Single (Paste)' }, { id: 'paste_bulk', label: '📦 Bulk Paste' }].map(m => (
           <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .2s', borderColor: mode === m.id ? '#8B5CF6' : 'var(--border)', background: mode === m.id ? 'rgba(139,92,246,0.12)' : 'var(--bg-card)', color: mode === m.id ? '#8B5CF6' : 'var(--text-muted)' }}>{m.label}</button>
         ))}
       </div>
+
 
       {/* Form entry */}
       {mode === 'form' && (
