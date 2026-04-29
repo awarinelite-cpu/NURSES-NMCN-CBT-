@@ -127,10 +127,26 @@ export default function EntranceExamDailyMock() {
         return;
       }
 
-      // 3. Load questions from entranceExamQuestions
-      const qSnap = await getDocs(collection(db, 'entranceExamQuestions'));
+      // 3. Load questions from entranceExamQuestions — daily bank only
+      const qSnap = await getDocs(
+        query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true))
+      );
       const allQ = [];
-      qSnap.forEach(d => allQ.push({ id: d.id, ...d.data() }));
+      qSnap.forEach(d => {
+        const raw = { id: d.id, ...d.data() };
+        // Normalise field names: manager saves questionText/options{A-D}/correctAnswer
+        // but this component expects question/optionA-D/answer
+        const normalized = {
+          ...raw,
+          question:    raw.question    || raw.questionText || '',
+          optionA:     raw.optionA     || (raw.options && raw.options.A) || '',
+          optionB:     raw.optionB     || (raw.options && raw.options.B) || '',
+          optionC:     raw.optionC     || (raw.options && raw.options.C) || '',
+          optionD:     raw.optionD     || (raw.options && raw.options.D) || '',
+          answer:      raw.answer      || raw.correctAnswer || 'A',
+        };
+        allQ.push(normalized);
+      });
 
       if (allQ.length === 0) {
         setError('No questions available yet. Please check back later.');
@@ -217,13 +233,13 @@ export default function EntranceExamDailyMock() {
       const isCorrect = chosen === q.answer;
       if (isCorrect) correct++;
       return {
-        question: q.question,
+        question: q.question || q.questionText || '',
         chosen,
         correct: q.answer,
         isCorrect,
         explanation: q.explanation || '',
         subject: q.subject || q.specialty || '',
-        school: q.school || '',
+        school: q.schoolName || q.school || '',
       };
     });
 
