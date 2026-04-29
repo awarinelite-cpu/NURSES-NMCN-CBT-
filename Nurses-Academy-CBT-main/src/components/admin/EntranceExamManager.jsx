@@ -38,43 +38,233 @@ function dateSeed(dateStr) {
 }
 
 // ── Parse a block of text into entrance exam questions ────────────────────────
+//
+// Supported formats (all mixed freely):
+//
+// OPTIONS:
+//   A. text  |  A) text  |  a. text  |  a) text          — standard A-D
+//   1. text  |  2. text  |  3. text  |  4. text           — numbered 1-4 mapped to A-D
+//   {a} text | {b} text                                   — curly-brace style
+//   A  text  (tab-separated, MCQ table style)
+//
+// ANSWERS (anywhere after the question/options):
+//   *A  |  *a                                             — star prefix
+//   (A)  |  (a)                                           — bare paren
+//   Answer: A  |  Answer: A) text  |  Answer: (A) text   — with label
+//   **Answer: A) text**                                   — bold markdown
+//   Ans: A  |  Ans:A  |  ANS A  |  ANS: A  |  ANSWER A   — short forms
+//   Ans: D  (end of line or standalone)
+//   Answer (B) Population health                          — letter in parens after label
+//   a) (inline after last option on same line)            — inline answer
+//   [A]  |  [a]                                           — square-bracket
+//   Just the letter alone on a line: A / B / C / D
+//
+// EXPLANATION:
+//   Explanation: text  |  Rationale: text
+//
+// DIAGRAM:
+//   https://... (first line of block)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Map numbered options (1→A, 2→B, 3→C, 4→D)
+const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+
+// Extract the answer letter from a raw answer string (handles all variants)
+function extractAnswerLetter(raw) {
+  if (!raw) return '';
+  const s = raw.trim();
+
+  // **Answer: C) Plant** — bold markdown
+  let m = /\*\*[^*]*?([A-D])[.)]/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // Answer: B) text  or  Answer: (B) text  or  Answer: B
+  m = /^(?:answer|ans|correct(?:\s+answer)?|ansr?)\s*[:\-]?\s*\(?([A-D])\)?/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // ANS: B  or  ANS B  or  ANSWER B  or  ANSWER: B
+  m = /^(?:ans(?:wer)?)\s*:?\s*([A-D])\b/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // *A  or  *a
+  m = /^\*([A-D])$/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // (A) or [A]
+  m = /^[(\[]([A-D])[)\]]$/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // Numbered answer: Ans: 1  →  A
+  m = /^(?:answer|ans|correct(?:\s+answer)?)\s*[:\-]?\s*([1-4])\b/i.exec(s);
+  if (m) return NUM_TO_LETTER[m[1]] || '';
+
+  // Bare letter at start/end: "A" alone
+  m = /^([A-D])$/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  return '';
+}
+
+// Try to extract answer letter embedded anywhere within a line (for inline answers)
+function extractAnswerInline(line) {
+  const s = line.trim();
+
+  // **Answer: C) text**
+  let m = /\*\*[^*]*?\b([A-D])[.)]/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // Answer: A / Ans: A / ANS A / ANSWER A anywhere in line
+  m = /(?:^|\s)(?:answer|ans(?:wer)?)\s*[:\-]?\s*\(?([A-D])\)?(?:\b|$)/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // Ans : A  (with spaces around colon)
+  m = /\bans\s*:\s*([A-D])\b/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  // ANS:A  or  ANS: A at end
+  m = /ANS\s*:?\s*([A-D])\b/i.exec(s);
+  if (m) return m[1].toUpperCase();
+
+  return '';
+}
+
 function parseEntranceQuestions(text) {
-  const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+  // ── Pre-process: collapse Windows line endings ──────────────────────────────
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // ── Split into blocks on blank lines ────────────────────────────────────────
+  const blocks = text.trim().split(/\n{2,}/).filter(b => b.trim());
   const results = [], errors = [];
 
   blocks.forEach((block, idx) => {
-    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+    // Normalise: remove leading bullet numbers like "1.\t" or "1. " that prefix the whole block
+    const rawLines = block.trim().split('\n');
+    // strip leading question-number prefix from first content line only
+    const lines = rawLines
+      .map(l => l.trim())
+      .filter(Boolean);
 
+    if (lines.length < 2) return; // skip near-empty blocks silently
+
+    // ── 1. Diagram URL on first line ──────────────────────────────────────────
     let cursor = 0;
     let diagramUrl = '';
-    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor++; }
 
-    const questionText = lines[cursor]; cursor++;
+    // ── 2. Strip leading question number (e.g. "1." "23." "Q.5" "MCQ3") ──────
+    let questionLine = lines[cursor];
+    questionLine = questionLine
+      .replace(/^(?:MCQ\s*\d+|Q\.?\s*\d+|Q\d+|\d+[.)]\s*)/i, '')
+      .trim();
+    if (!questionLine) { cursor++; questionLine = lines[cursor] || ''; cursor++; }
+    else { cursor++; }
+
+    // ── 3. Collect option lines ───────────────────────────────────────────────
     const options = {};
-    while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
-      const letter = lines[cursor][0].toUpperCase();
-      options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
-      cursor++;
-    }
+    const OPTION_RE = /^(?:([A-D])[.)]\s*|([A-D])\s{2,}|([1-4])[.)]\s*|\{([a-d])\}\s*)/i;
 
-    if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
-
-    let correctAnswer = '', explanation = '';
     while (cursor < lines.length) {
       const l = lines[cursor];
-      const starMatch   = /^\*([A-D])$/i.exec(l.trim());
-      const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
-      const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
-      if      (starMatch)   correctAnswer = starMatch[1].toUpperCase();
-      else if (answerMatch) correctAnswer = answerMatch[1].toUpperCase();
-      else if (parenMatch)  correctAnswer = parenMatch[1].toUpperCase();
-      else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
+
+      // Check if this line is an answer line — stop collecting options
+      if (extractAnswerInline(l) && !OPTION_RE.test(l)) break;
+      if (/^(?:answer|ans(?:wer)?|correct)\s*[:\-]?\s*[A-D1-4\*\(\[]/i.test(l)) break;
+      if (/^\*[A-D]$/i.test(l.trim())) break;
+      if (/^[(\[]([A-D])[)\]]$/i.test(l.trim())) break;
+      if (/^explanation\s*:/i.test(l)) break;
+      if (/^rationale\s*:/i.test(l)) break;
+
+      const optMatch = OPTION_RE.exec(l);
+      if (optMatch) {
+        // Determine letter
+        let letter = (optMatch[1] || optMatch[2] || '').toUpperCase();
+        if (!letter && optMatch[3]) letter = NUM_TO_LETTER[optMatch[3]] || '';
+        if (!letter && optMatch[4]) letter = optMatch[4].toUpperCase();
+        if (!letter) { cursor++; continue; }
+
+        const optText = l.replace(OPTION_RE, '').trim();
+
+        // Inline answer at end of option line e.g. "A. Some text  Ans: A"
+        const inlineAns = extractAnswerInline(optText);
+        options[letter] = inlineAns
+          ? optText.replace(/\s*(?:ans(?:wer)?)\s*[:\-]?\s*[A-D]\b.*/i, '').trim()
+          : optText;
+
+        cursor++;
+        continue;
+      }
+
+      // Tab-separated MCQ table: "Alimentary Canal\t\t100" — skip grade column lines
+      // They appear in one document but aren't options
+      if (/\t.*\d{3}$/.test(l)) { cursor++; continue; }
+
+      // Not an option line and not yet an answer — could be continuation of question
+      // If we have at least 1 option already, stop
+      if (Object.keys(options).length > 0) break;
+      // Otherwise append to question
+      questionLine += ' ' + l;
       cursor++;
     }
 
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
-    results.push({ questionText, options, correctAnswer, explanation, diagramUrl, questionType: diagramUrl ? 'diagram' : 'text' });
+    // ── 4. Collect answer / explanation ──────────────────────────────────────
+    let correctAnswer = '', explanation = '';
+
+    // First pass: look for inline answer already embedded in option texts
+    if (!correctAnswer) {
+      for (const [, optLine] of Object.entries(lines)) {
+        // Check options for trailing inline ans
+        const il = extractAnswerInline(optLine);
+        if (il && !OPTION_RE.test(optLine) && options[il]) { correctAnswer = il; break; }
+      }
+    }
+
+    // Check if question line itself has inline answer  (rare but present)
+    if (!correctAnswer) {
+      const qa = extractAnswerInline(questionLine);
+      if (qa) correctAnswer = qa;
+    }
+
+    // Scan remaining lines for answer & explanation
+    while (cursor < lines.length) {
+      const l = lines[cursor];
+
+      // Explanation / Rationale
+      if (/^(?:explanation|rationale)\s*:/i.test(l)) {
+        explanation = l.replace(/^(?:explanation|rationale)\s*:\s*/i, '').trim();
+        cursor++; continue;
+      }
+
+      // Try full-line answer extraction
+      const a = extractAnswerLetter(l);
+      if (a) { if (!correctAnswer) correctAnswer = a; cursor++; continue; }
+
+      // Try inline answer extraction
+      const ia = extractAnswerInline(l);
+      if (ia) { if (!correctAnswer) correctAnswer = ia; cursor++; continue; }
+
+      cursor++;
+    }
+
+    // ── 5. Validate ───────────────────────────────────────────────────────────
+    if (Object.keys(options).length < 2) {
+      errors.push(`Block ${idx + 1}: Not enough options (found ${Object.keys(options).length}) — "${questionLine.slice(0, 60)}"`);
+      return;
+    }
+    // Pad to A-D if only 2-3 options detected and the others are just missing labels
+    // (e.g. True/False questions with A & B only — allow them)
+    if (!correctAnswer) {
+      errors.push(`Block ${idx + 1}: Missing answer — "${questionLine.slice(0, 60)}"`);
+      return;
+    }
+
+    results.push({
+      questionText: questionLine,
+      options,
+      correctAnswer,
+      explanation,
+      diagramUrl,
+      questionType: diagramUrl ? 'diagram' : 'text',
+    });
   });
 
   return { results, errors };
@@ -1332,20 +1522,56 @@ function Spinner() {
 }
 
 function FormatGuide({ bulk }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <div style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA', marginBottom: 6 }}>
-        📋 Format Guide{bulk ? ' — separate questions with a blank line' : ''}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA' }}>
+          📋 Format Guide{bulk ? ' — separate questions with a blank line' : ''}
+        </div>
+        <button onClick={() => setExpanded(p => !p)} style={{ fontSize: 11, background: 'none', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', color: '#60A5FA' }}>
+          {expanded ? '▲ Less' : '▼ All formats'}
+        </button>
       </div>
+
+      {/* Basic example always visible */}
       <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`What is the functional unit of the kidney?
 A. Nephron
 B. Neuron
 C. Nodule
 D. Nucleus
 *A
-Explanation: The nephron filters blood...${bulk ? `\n\nhttps://i.imgur.com/abc123.png\nIn the diagram, part labeled A is ___\nA. Bowman capsule\nB. Nephron\nC. Pyramid\nD. Calyx\n*C` : ''}`}</pre>
+Explanation: The nephron filters blood...${bulk ? `\n\nhttps://i.imgur.com/abc123.png\nDiagram question here\nA. Bowman capsule\nB. Nephron\nC. Pyramid\nD. Calyx\n*C` : ''}`}</pre>
+
+      {/* Expanded: all formats */}
+      {expanded && (
+        <div style={{ marginTop: 12, borderTop: '1px solid rgba(37,99,235,0.15)', paddingTop: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', marginBottom: 6 }}>✅ All supported option styles:</div>
+          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.9, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`A. text   A) text   a. text   a) text      ← standard
+1. text   2. text   3. text   4. text      ← numbered (1=A, 2=B…)
+{a} text  {b} text  {c} text  {d} text     ← curly-brace style
+A  text   (tab-separated)                  ← MCQ table style`}</pre>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', margin: '10px 0 6px' }}>✅ All supported answer formats:</div>
+          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.9, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`*A                          ← star prefix
+(A)  or  [A]               ← bracketed letter
+Answer: A                  ← with colon
+Answer: A) Nephron         ← letter + option text
+**Answer: A) Nephron**     ← bold markdown
+Ans: A   Ans:A   ANS A     ← short forms
+ANSWER A   ANSWER: A       ← uppercase
+Ans : D  (end of any line) ← inline / trailing
+a) text   ANS:B   Ans: C   ← inline within last line`}</pre>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', margin: '10px 0 6px' }}>✅ Optional extras:</div>
+          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`Explanation: Your rationale here
+Rationale: Your rationale here
+https://i.imgur.com/abc.png  ← diagram URL on first line`}</pre>
+        </div>
+      )}
+
       <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-        ✅ Answer formats accepted: <code>*A</code> · <code>Answer: A</code> · <code>(A)</code>
+        ✅ Answer formats accepted: <code>*A</code> · <code>Answer: A</code> · <code>Ans: A</code> · <code>ANS A</code> · <code>ANSWER A</code> · <code>(A)</code> · <code>[A]</code> · <code>**Answer: A)**</code>
       </div>
     </div>
   );
