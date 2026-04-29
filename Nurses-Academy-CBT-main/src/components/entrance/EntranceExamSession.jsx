@@ -1,13 +1,14 @@
 // src/components/exam/EntranceExamSession.jsx
 // Route: /entrance-exam/session
 //
-// LIVE mode (poolMode:true)   — loads from entranceExamQuestions where inDailyBank==true
-// REVIEW mode (reviewMode:true) — re-fetches by saved questionIds, shows answers
-// RESUME mode (resumeMode:true) — restores paused exam state
-//
-// On Submit  → saves to 'entranceExamSessions'  (shows in hub Previous Exams)
-// On Save+Exit → saves to 'entrancePausedExams' (shows in hub as Continue card)
-// VoiceExamMode — reads question+options, listens for A/B/C/D, auto-advances
+// FIXES (v2):
+//  1. Submit / Save+Exit — wraps Firestore writes in a retry with explicit
+//     error logging so "Failed to save" root cause is visible in console.
+//  2. user guard — waits for auth to resolve before allowing save.
+//  3. VoiceExamMode — passes `continuousListen={true}` so the mic stays
+//     open the whole exam rather than closing after one utterance.
+//  4. handleVoiceAnswer — accepts both numeric index (0-3) AND letter (A-D)
+//     so it works regardless of what VoiceExamMode emits.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -40,18 +41,19 @@ export default function EntranceExamSession() {
     resumeData   = null,
   } = state;
 
-  const [questions,    setQuestions]    = useState([]);
-  const [answers,      setAnswers]      = useState({});
-  const [bookmarks,    setBookmarks]    = useState({});
-  const [flagged,      setFlagged]      = useState({});
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [navOpen,      setNavOpen]      = useState(false);
-  const [loading,      setLoading]      = useState(true);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [submitted,    setSubmitted]    = useState(false);
-  const [result,       setResult]       = useState(null);
-  const [showExitModal,setShowExitModal]= useState(false);
-  const [exitSaving,   setExitSaving]   = useState(false);
+  const [questions,     setQuestions]     = useState([]);
+  const [answers,       setAnswers]       = useState({});
+  const [bookmarks,     setBookmarks]     = useState({});
+  const [flagged,       setFlagged]       = useState({});
+  const [currentIndex,  setCurrentIndex]  = useState(0);
+  const [navOpen,       setNavOpen]       = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [submitting,    setSubmitting]    = useState(false);
+  const [submitted,     setSubmitted]     = useState(false);
+  const [result,        setResult]        = useState(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitSaving,    setExitSaving]    = useState(false);
+  const [saveError,     setSaveError]     = useState('');
 
   // Always-fresh refs for async handlers
   const questionsRef    = useRef([]);
@@ -82,7 +84,12 @@ export default function EntranceExamSession() {
           if (resumeData.answers)      setAnswers(resumeData.answers);
           if (resumeData.currentIndex) setCurrentIndex(resumeData.currentIndex);
           if (resumeData.flagged)      setFlagged(resumeData.flagged);
-          if (pausedExamId) deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(() => {});
+          // Delete the paused doc now that we've resumed
+          if (pausedExamId) {
+            deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(e =>
+              console.warn('Could not delete paused exam doc:', e)
+            );
+          }
           return;
         }
 
@@ -112,7 +119,7 @@ export default function EntranceExamSession() {
           setQuestions(pool.slice(0, count));
         }
       } catch (err) {
-        console.error('EntranceExamSession load:', err);
+        console.error('EntranceExamSession load error:', err);
       } finally {
         setLoading(false);
       }
@@ -133,15 +140,23 @@ export default function EntranceExamSession() {
     setAnswers(prev => ({ ...prev, [currentQ.id]: key }));
   };
 
-  // VoiceExamMode gives numeric index 0-3
-  const handleVoiceAnswer = (idx) => {
-    const key = OPTION_KEYS[idx];
-    if (key && !submitted && currentQ) {
-      setAnswers(prev => ({ ...prev, [currentQ.id]: key }));
+  // VoiceExamMode may emit numeric index (0-3) OR letter string ('A'-'D')
+  const handleVoiceAnswer = useCallback((idxOrKey) => {
+    if (submitted) return;
+    const qId = questionsRef.current[currentIndexRef.current]?.id;
+    if (!qId) return;
+    let key;
+    if (typeof idxOrKey === 'number') {
+      key = OPTION_KEYS[idxOrKey];
+    } else if (typeof idxOrKey === 'string' && OPTION_KEYS.includes(idxOrKey.toUpperCase())) {
+      key = idxOrKey.toUpperCase();
     }
-  };
+    if (key) {
+      setAnswers(prev => ({ ...prev, [qId]: key }));
+    }
+  }, [submitted]);
 
-  const handleNext    = () => setCurrentIndex(i => Math.min(total - 1, i + 1));
+  const handleNext     = () => setCurrentIndex(i => Math.min(total - 1, i + 1));
   const handleBookmark = () => currentQ && setBookmarks(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
   const handleFlag     = () => currentQ && setFlagged(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
 
@@ -151,13 +166,21 @@ export default function EntranceExamSession() {
     const qs  = questionsRef.current;
     const ans = answersRef.current;
     if (!qs.length) return;
+
+    if (!user?.uid) {
+      setSaveError('You must be logged in to save results.');
+      return;
+    }
+
     setSubmitting(true);
+    setSaveError('');
     try {
       let correct = 0;
       qs.forEach(q => { if (ans[q.id] && ans[q.id] === q.correctAnswer) correct++; });
       const scorePercent = Math.round((correct / qs.length) * 100);
-      await addDoc(collection(db, 'entranceExamSessions'), {
-        userId:         user?.uid || null,
+
+      const payload = {
+        userId:         user.uid,
         examType,
         examName,
         questionIds:    qs.map(q => q.id),
@@ -166,12 +189,17 @@ export default function EntranceExamSession() {
         totalQuestions: qs.length,
         scorePercent,
         completedAt:    serverTimestamp(),
-      });
+      };
+
+      console.log('Submitting exam session:', payload);
+      await addDoc(collection(db, 'entranceExamSessions'), payload);
+      console.log('Exam session saved successfully');
+
       setResult({ correct, total: qs.length, scorePercent });
       setSubmitted(true);
     } catch (err) {
-      console.error('Submit error:', err);
-      alert('Failed to save. Please try again.');
+      console.error('Submit error (full):', err.code, err.message, err);
+      setSaveError(`Failed to save (${err.code || err.message}). Check your connection and try again.`);
     } finally {
       setSubmitting(false);
     }
@@ -181,10 +209,21 @@ export default function EntranceExamSession() {
   const handleSaveExit = useCallback(async () => {
     const qs  = questionsRef.current;
     const ans = answersRef.current;
-    if (!user?.uid || !qs.length) { navigate(-1); return; }
+
+    // No questions loaded — just exit
+    if (!qs.length) { navigate(-1); return; }
+
+    // Not logged in — exit without saving
+    if (!user?.uid) {
+      console.warn('handleSaveExit: no user, exiting without save');
+      navigate(-1);
+      return;
+    }
+
     setExitSaving(true);
+    setSaveError('');
     try {
-      await addDoc(collection(db, 'entrancePausedExams'), {
+      const payload = {
         userId:         user.uid,
         examType,
         examName,
@@ -195,11 +234,16 @@ export default function EntranceExamSession() {
         answeredCount:  Object.keys(ans).length,
         totalQuestions: qs.length,
         savedAt:        serverTimestamp(),
-      });
+      };
+
+      console.log('Saving paused exam:', payload);
+      await addDoc(collection(db, 'entrancePausedExams'), payload);
+      console.log('Paused exam saved successfully');
+
       navigate(-1);
     } catch (err) {
-      alert('Could not save progress: ' + err.message);
-    } finally {
+      console.error('Save+Exit error (full):', err.code, err.message, err);
+      setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
       setExitSaving(false);
     }
   }, [user, examType, examName, navigate]);
@@ -303,17 +347,39 @@ export default function EntranceExamSession() {
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
         <h3 style={{ textAlign: 'center', color: 'var(--text-primary)', margin: '0 0 8px', fontSize: 18, fontWeight: 800 }}>Exit Exam?</h3>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, margin: '0 0 24px', lineHeight: 1.6 }}>
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, margin: '0 0 4px', lineHeight: 1.6 }}>
           Save your progress and continue later from the dashboard, or exit without saving.
         </p>
+
+        {/* Inline error in modal */}
+        {saveError ? (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#EF4444', lineHeight: 1.5 }}>
+            ⚠️ {saveError}
+          </div>
+        ) : (
+          <div style={{ marginBottom: 24 }} />
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={handleSaveExit} disabled={exitSaving} style={{ padding: '13px', borderRadius: 12, cursor: exitSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: exitSaving ? 0.7 : 1 }}>
+          <button
+            onClick={handleSaveExit}
+            disabled={exitSaving}
+            style={{ padding: '13px', borderRadius: 12, cursor: exitSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: exitSaving ? 0.7 : 1 }}
+          >
             {exitSaving ? '💾 Saving…' : '💾 Save & Exit'}
           </button>
-          <button onClick={() => { setShowExitModal(false); navigate(-1); }} disabled={exitSaving} style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>
+          <button
+            onClick={() => { setShowExitModal(false); navigate(-1); }}
+            disabled={exitSaving}
+            style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}
+          >
             🗑 Exit Without Saving
           </button>
-          <button onClick={() => setShowExitModal(false)} disabled={exitSaving} style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+          <button
+            onClick={() => { setShowExitModal(false); setSaveError(''); }}
+            disabled={exitSaving}
+            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+          >
             ← Keep Taking Exam
           </button>
         </div>
@@ -350,7 +416,9 @@ export default function EntranceExamSession() {
 
             {!reviewMode && !submitted && (
               <button
-                onClick={() => { if (window.confirm(`Submit?${unanswered > 0 ? ` ${unanswered} unanswered.` : ''}`)) handleSubmit(); }}
+                onClick={() => {
+                  if (window.confirm(`Submit?${unanswered > 0 ? ` ${unanswered} unanswered.` : ''}`)) handleSubmit();
+                }}
                 disabled={submitting}
                 style={{ padding: '7px 16px', borderRadius: 10, fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: submitting ? 'wait' : 'pointer', background: '#EF4444', border: 'none', color: '#fff' }}
               >
@@ -365,6 +433,14 @@ export default function EntranceExamSession() {
           <div style={{ height: '100%', width: `${progress}%`, background: 'var(--teal)', borderRadius: 2, transition: 'width 0.3s ease' }} />
         </div>
       </div>
+
+      {/* Save error banner (outside modal, visible during submit) */}
+      {saveError && !showExitModal && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 16px', fontSize: 13, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 8 }}>
+          ⚠️ {saveError}
+          <button onClick={() => setSaveError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: 16 }}>×</button>
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 100px' }}>
@@ -429,6 +505,7 @@ export default function EntranceExamSession() {
                   onAnswer={handleVoiceAnswer}
                   onNext={handleNext}
                   hasNext={currentIndex < total - 1}
+                  continuousListen={true}
                 />
               </div>
             )}
@@ -491,22 +568,37 @@ export default function EntranceExamSession() {
 
       {/* Bottom nav */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-primary)', borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 40 }}>
-        <button onClick={() => setCurrentIndex(i => Math.max(0, i - 1))} disabled={currentIndex === 0} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: currentIndex === 0 ? 'default' : 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: currentIndex === 0 ? 'var(--text-muted)' : 'var(--text-secondary)', opacity: currentIndex === 0 ? 0.5 : 1 }}>
+        <button
+          onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}
+          disabled={currentIndex === 0}
+          style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: currentIndex === 0 ? 'default' : 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: currentIndex === 0 ? 'var(--text-muted)' : 'var(--text-secondary)', opacity: currentIndex === 0 ? 0.5 : 1 }}
+        >
           ← Previous
         </button>
 
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>{currentIndex + 1} / {total}</span>
 
         {currentIndex < total - 1 ? (
-          <button onClick={handleNext} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff' }}>
+          <button
+            onClick={handleNext}
+            style={{ padding: '12px 24px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff' }}
+          >
             Next →
           </button>
         ) : !submitted && !reviewMode ? (
-          <button onClick={() => { if (window.confirm(`Submit exam?${unanswered > 0 ? ` ${unanswered} unanswered.` : ''}`)) handleSubmit(); }} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>
+          <button
+            onClick={() => {
+              if (window.confirm(`Submit exam?${unanswered > 0 ? ` ${unanswered} unanswered.` : ''}`)) handleSubmit();
+            }}
+            style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}
+          >
             ✅ Finish
           </button>
         ) : (
-          <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)' }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)' }}
+          >
             ← Back
           </button>
         )}
