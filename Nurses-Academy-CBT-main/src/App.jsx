@@ -39,11 +39,12 @@ import TopicDrillPage     from './components/exam/TopicDrillPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
 // ── Nursing Schools Entrance Exam ────────────────────────────────
-import EntranceExamHub       from './components/entrance/EntranceExamHub';
-import EntranceSchoolList    from './components/entrance/EntranceSchoolList';
-import EntranceExamSetup     from './components/entrance/EntranceExamSetup';
-import EntranceExamDailyMock from './components/entrance/EntranceExamDailyMock';
-import EntranceSubjectDrill  from './components/entrance/EntranceSubjectDrill';
+import EntranceExamHub        from './components/entrance/EntranceExamHub';
+import EntranceSchoolList     from './components/entrance/EntranceSchoolList';
+import EntranceExamSetup      from './components/entrance/EntranceExamSetup';
+import EntranceExamDailyMock  from './components/entrance/EntranceExamDailyMock';
+import EntranceSubjectDrill   from './components/entrance/EntranceSubjectDrill';
+import EntranceDailyMockUpload from './components/entrance/EntranceDailyMockUpload';
 import {
   EntranceMyResults,
   EntranceExamsTaken,
@@ -244,18 +245,21 @@ export default function App() {
                   <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
 
                   {/* Admin */}
-                  <Route path="/admin"                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                  <Route path="/admin/questions"          element={<AdminRoute><QuestionsManager /></AdminRoute>} />
-                  <Route path="/admin/users"              element={<AdminRoute><UsersManager /></AdminRoute>} />
-                  <Route path="/admin/payments"          element={<AdminRoute><PaymentsManager /></AdminRoute>} />
-                  <Route path="/admin/access-codes"      element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                  <Route path="/admin/announcements"     element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
-                  <Route path="/admin/analytics"         element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                  <Route path="/admin/scheduled-exams"   element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
-                  <Route path="/admin/courses"           element={<AdminRoute><CoursesManager /></AdminRoute>} />
-                  <Route path="/admin/entrance-exam"     element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
+                  <Route path="/admin"                                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/questions"                          element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                  <Route path="/admin/users"                              element={<AdminRoute><UsersManager /></AdminRoute>} />
+                  <Route path="/admin/payments"                           element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                  <Route path="/admin/access-codes"                       element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                  <Route path="/admin/announcements"                      element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                  <Route path="/admin/analytics"                          element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                  <Route path="/admin/scheduled-exams"                    element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                  <Route path="/admin/courses"                            element={<AdminRoute><CoursesManager /></AdminRoute>} />
+                  <Route path="/admin/entrance-exam"                      element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
+                  {/* ── NEW: Daily Mock Upload ── */}
+                  <Route path="/admin/entrance-exam/daily-mock-upload"    element={<AdminRoute><EntranceDailyMockUpload /></AdminRoute>} />
+
                 </Route>
-<Route path="/admin/entrance-exam/daily-mock-upload" element={<EntranceDailyMockUpload />} />
+
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
