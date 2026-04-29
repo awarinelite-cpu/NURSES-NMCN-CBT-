@@ -255,7 +255,7 @@ export default function App() {
                   <Route path="/admin/courses"           element={<AdminRoute><CoursesManager /></AdminRoute>} />
                   <Route path="/admin/entrance-exam"     element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
                 </Route>
-
+<Route path="/admin/entrance-exam/daily-mock-upload" element={<EntranceDailyMockUpload />} />
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
