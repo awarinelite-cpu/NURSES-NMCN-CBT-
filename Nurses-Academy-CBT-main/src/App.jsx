@@ -42,7 +42,6 @@ import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 import EntranceExamHub        from './components/entrance/EntranceExamHub';
 import EntranceSchoolList     from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup      from './components/entrance/EntranceExamSetup';
-import EntranceExamDailyMock  from './components/entrance/EntranceExamDailyMock';
 import EntranceSubjectDrill   from './components/entrance/EntranceSubjectDrill';
 import EntranceDailyMockUpload from './components/entrance/EntranceDailyMockUpload';
 import {
