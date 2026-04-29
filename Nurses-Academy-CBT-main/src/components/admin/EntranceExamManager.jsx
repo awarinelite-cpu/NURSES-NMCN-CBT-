@@ -38,43 +38,250 @@ function dateSeed(dateStr) {
 }
 
 // ── Parse a block of text into entrance exam questions ────────────────────────
-function parseEntranceQuestions(text) {
-  const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
+// ─── UNIVERSAL QUESTION PARSER ───────────────────────────────────────────────
+// Handles every format seen in the wild:
+//
+//  FORMAT 1 – Standard blank-line separated blocks (original format)
+//    What is X?            FORMAT 2 – **Answer: C) Text**  (bold markdown)
+//    A. option             FORMAT 3 – Ans: A / ANS A / ANS: A (after options)
+//    B. option             FORMAT 4 – ANSWER: A on its own line
+//    C. option             FORMAT 5 – ✓ prefix marks the correct option
+//    D. option             FORMAT 6 – {a}/{b}/{c}/{d} curly-brace options
+//    *A                    FORMAT 7 – lowercase a. b. c. d. options
+//                          FORMAT 8 – Numbered 1. 2. 3. 4. options (→ A B C D)
+//                          FORMAT 9 – Inline compact (options on same lines)
+//                          FORMAT 10– Answer key block at end of doc (1)A  2)C …)
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseEntranceQuestions(rawText) {
   const results = [], errors = [];
 
+  // ── helpers ────────────────────────────────────────────────────────────────
+  const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+
+  // Strip leading question number  "1." "1)" "Q1." "Q.1" "Q1 " etc.
+  function stripQNum(s) {
+    return s.replace(/^(?:Q\.?\s*)?\d+[.)]\s*/i, '').trim();
+  }
+
+  // Strip leading option label  "A." "A)" "a." "(A)" "{a}" "A " "1." "1)"
+  function stripOptLabel(s) {
+    return s.replace(/^[\(\{]?[A-Da-d1-4][\)\}.]\s*/, '').replace(/^[A-Da-d]\s+/, '').trim();
+  }
+
+  // Extract option letter from a line's prefix → always returns 'A'-'D' or null
+  function optLetter(s) {
+    const m = s.match(/^[\(\{]?([A-Da-d1-4])[\)\}.\s]/);
+    if (!m) return null;
+    const c = m[1].toUpperCase();
+    return NUM_TO_LETTER[c] || c;
+  }
+
+  // Does this line look like an option?
+  function isOptLine(s) {
+    return /^[\(\{]?[A-Da-d1-4][\)\}.\s]/.test(s) && s.length > 2;
+  }
+
+  // Does line contain a ✓ checkmark (correct answer marker)?
+  function hasCheckmark(s) { return s.includes('✓'); }
+
+  // Extract answer letter from any answer-line variant
+  function extractAnswer(s) {
+    // **Answer: C) …**  or  Answer: C)  or  Answer: C
+    let m = s.match(/\*{0,2}answers?\s*[:\-]?\s*[:\-]?\s*([A-Da-d])\s*[\).]?\s*/i);
+    if (m) return (NUM_TO_LETTER[m[1].toUpperCase()] || m[1].toUpperCase());
+    // ANS: A  /  ANS A  /  Ans : A  /  ANSWER A
+    m = s.match(/\bans(?:wer)?\s*[:\-]?\s*([A-Da-d1-4])\b/i);
+    if (m) return (NUM_TO_LETTER[m[1].toUpperCase()] || m[1].toUpperCase());
+    // (A)  /  (C)  standalone
+    m = s.match(/^\s*\(([A-Da-d1-4])\)\s*$/);
+    if (m) return (NUM_TO_LETTER[m[1].toUpperCase()] || m[1].toUpperCase());
+    // *A  standalone
+    m = s.match(/^\s*\*([A-Da-d1-4])\s*$/);
+    if (m) return (NUM_TO_LETTER[m[1].toUpperCase()] || m[1].toUpperCase());
+    return null;
+  }
+
+  // ── PHASE 1: try to detect & strip a trailing answer-key block ─────────────
+  // e.g.  "1) A   2) C   3) B …"  or  "1.  A\n2.  C\n…"
+  // We detect it as ≥5 consecutive lines each matching  ^number[.)]\s*[A-D]
+  let text = rawText;
+  const ansKeyMap = {};
+  const ansKeyPattern = /^(\d+)[.)]\s*([A-Da-d])\s*$/;
+  const rawLines = rawText.split('\n');
+  const keyStart = rawLines.findIndex(l => ansKeyPattern.test(l.trim()));
+  if (keyStart !== -1) {
+    // Count consecutive key lines from keyStart
+    let i = keyStart, consecutive = 0;
+    while (i < rawLines.length) {
+      if (ansKeyPattern.test(rawLines[i].trim())) { consecutive++; i++; }
+      else if (rawLines[i].trim() === '') { i++; }
+      else break;
+    }
+    if (consecutive >= 5) {
+      // It's a proper answer key
+      for (let j = keyStart; j < i; j++) {
+        const m = rawLines[j].trim().match(ansKeyPattern);
+        if (m) ansKeyMap[m[1]] = m[2].toUpperCase();
+      }
+      // Remove key block from text so it doesn't confuse block parsing
+      text = rawLines.slice(0, keyStart).join('\n');
+    }
+  }
+
+  // ── PHASE 2: split into per-question blocks ────────────────────────────────
+  // Strategy: split on blank lines first; if that yields <2 blocks, try
+  // splitting on question-number boundaries instead.
+  let blocks = text.trim().split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+
+  // If the whole thing looks like one big block (no blank lines used as sep),
+  // re-split on lines that start with a question number pattern
+  if (blocks.length <= 1) {
+    const allLines = text.split('\n');
+    const qNumRe = /^(?:Q\.?\s*)?\d+[.)]\s*\S/i;
+    const splitPoints = [];
+    allLines.forEach((l, idx) => { if (qNumRe.test(l.trim())) splitPoints.push(idx); });
+    if (splitPoints.length >= 2) {
+      blocks = [];
+      for (let s = 0; s < splitPoints.length; s++) {
+        const end = s + 1 < splitPoints.length ? splitPoints[s + 1] : allLines.length;
+        blocks.push(allLines.slice(splitPoints[s], end).join('\n').trim());
+      }
+    }
+  }
+
+  // ── PHASE 3: parse each block ──────────────────────────────────────────────
   blocks.forEach((block, idx) => {
-    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+    const rawBlockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (rawBlockLines.length < 2) return; // skip noise
 
     let cursor = 0;
     let diagramUrl = '';
-    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
+    if (/^https?:\/\//i.test(rawBlockLines[0])) { diagramUrl = rawBlockLines[0]; cursor = 1; }
 
-    const questionText = lines[cursor]; cursor++;
+    // ── Extract question text (strip leading number, skip header noise) ──────
+    let questionText = '';
+    // Consume lines until we hit an option line, answer line, or end
+    const qLines = [];
+    while (cursor < rawBlockLines.length) {
+      const l = rawBlockLines[cursor];
+      if (isOptLine(l)) break;
+      const ans = extractAnswer(l);
+      if (ans && qLines.length > 0) break; // answer line reached
+      // Skip pure question-number-only lines like "1." with nothing after
+      const strippedNum = stripQNum(l);
+      if (strippedNum) qLines.push(strippedNum);
+      cursor++;
+    }
+    questionText = qLines.join(' ').trim();
+    if (!questionText) {
+      errors.push(`Block ${idx + 1}: Could not extract question text`); return;
+    }
+
+    // ── Extract options ──────────────────────────────────────────────────────
     const options = {};
-    while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
-      const letter = lines[cursor][0].toUpperCase();
-      options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
+    let checkmarkAnswer = ''; // answer via ✓
+
+    // Some formats pack ALL options on one line after the question
+    // e.g.  "A. Nephron  B. Neuron  C. Nodule  D. Nucleus"
+    // Detect this by checking if the next "line" contains multiple option labels
+    if (cursor < rawBlockLines.length) {
+      const peek = rawBlockLines[cursor];
+      const inlineOptRe = /[A-Da-d][.)]\s+\S/g;
+      const inlineMatches = [...peek.matchAll(inlineOptRe)];
+      if (inlineMatches.length >= 2) {
+        // Split by option label boundaries
+        const parts = peek.split(/(?=[A-Da-d][.)]\s)/);
+        parts.forEach(p => {
+          const letter = optLetter(p);
+          if (letter) {
+            const val = stripOptLabel(p).trim();
+            if (val) {
+              options[letter] = val;
+              if (hasCheckmark(p)) checkmarkAnswer = letter;
+            }
+          }
+        });
+        cursor++;
+      }
+    }
+
+    // Normal multi-line options
+    while (cursor < rawBlockLines.length && Object.keys(options).length < 4) {
+      const l = rawBlockLines[cursor];
+      const letter = optLetter(l);
+      if (!letter) break;
+      const val = stripOptLabel(l).replace(/✓/g, '').trim();
+      options[letter] = val;
+      if (hasCheckmark(l)) checkmarkAnswer = letter;
       cursor++;
     }
 
-    if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
+    // If we still have fewer than 4 options, try reading more lines that
+    // might be option continuations (no letter prefix but part of last opt)
+    // — only if we have at least 2 options already
+    if (Object.keys(options).length >= 2 && Object.keys(options).length < 4) {
+      while (cursor < rawBlockLines.length) {
+        const l = rawBlockLines[cursor];
+        const letter = optLetter(l);
+        if (letter) {
+          options[letter] = stripOptLabel(l).replace(/✓/g, '').trim();
+          if (hasCheckmark(l)) checkmarkAnswer = letter;
+          cursor++;
+        } else break;
+      }
+    }
 
-    let correctAnswer = '', explanation = '';
-    while (cursor < lines.length) {
-      const l = lines[cursor];
-      const starMatch   = /^\*([A-D])$/i.exec(l.trim());
-      const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
-      const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
-      if      (starMatch)   correctAnswer = starMatch[1].toUpperCase();
-      else if (answerMatch) correctAnswer = answerMatch[1].toUpperCase();
-      else if (parenMatch)  correctAnswer = parenMatch[1].toUpperCase();
-      else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
+    if (Object.keys(options).length < 4) {
+      errors.push(`Block ${idx + 1}: Need 4 options (A–D), found ${Object.keys(options).length} — "${questionText.slice(0, 60)}"`);
+      return;
+    }
+
+    // ── Extract correct answer ───────────────────────────────────────────────
+    let correctAnswer = checkmarkAnswer;
+    let explanation = '';
+
+    while (cursor < rawBlockLines.length) {
+      const l = rawBlockLines[cursor];
+      // Inline answer at end of option block e.g. "Ans: A" on its own line
+      const ans = extractAnswer(l);
+      if (ans && !correctAnswer) correctAnswer = ans;
+      // Bold-style answer: **Answer: C) Plant**
+      const boldM = l.match(/\*{1,2}answer\s*[:\-]?\s*([A-Da-d1-4])\)?/i);
+      if (boldM && !correctAnswer) correctAnswer = NUM_TO_LETTER[boldM[1].toUpperCase()] || boldM[1].toUpperCase();
+      // Explanation
+      if (/^explanation\s*:/i.test(l)) explanation = l.replace(/^explanation\s*:\s*/i, '').trim();
       cursor++;
     }
 
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
-    results.push({ questionText, options, correctAnswer, explanation, diagramUrl, questionType: diagramUrl ? 'diagram' : 'text' });
+    // ── Fallback: look up in answer-key block (if we parsed one) ─────────────
+    if (!correctAnswer && Object.keys(ansKeyMap).length > 0) {
+      // Try to find this block's question number
+      const qNumM = block.match(/^(?:Q\.?\s*)?(\d+)[.)]/i);
+      if (qNumM && ansKeyMap[qNumM[1]]) correctAnswer = ansKeyMap[qNumM[1]];
+    }
+
+    // ── Last resort: scan entire block for any answer pattern ─────────────────
+    if (!correctAnswer) {
+      const fullBlock = block;
+      const ans = extractAnswer(fullBlock.replace(/\n/g, ' '));
+      if (ans) correctAnswer = ans;
+    }
+
+    if (!correctAnswer) {
+      errors.push(`Block ${idx + 1}: Missing answer — "${questionText.slice(0, 60)}"`);
+      return;
+    }
+
+    results.push({
+      questionText,
+      options,
+      correctAnswer,
+      explanation,
+      diagramUrl,
+      questionType: diagramUrl ? 'diagram' : 'text',
+    });
   });
 
   return { results, errors };
@@ -860,8 +1067,8 @@ function DailyMockSettings({ toast }) {
 // ── Daily Mock: Upload Questions to Daily Bank ────────────────────────────────
 function DailyMockUpload({ toast }) {
   const [mode, setMode] = useState('form');
-  // form fields (no subject/year — daily mock questions are generic)
-  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
+  // form fields
+  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
   // paste mode
   const [rawText,  setRawText]  = useState('');
   const [parsed,   setParsed]   = useState([]);
@@ -880,7 +1087,7 @@ function DailyMockUpload({ toast }) {
     try {
       await addDoc(collection(db, 'entranceExamQuestions'), {
         schoolId: null, schoolName: '',
-        year: '', subject: '',
+        year: form.year, subject: form.subject,
         questionType: form.diagramUrl ? 'diagram' : 'text',
         diagramUrl: form.diagramUrl || '',
         questionText: form.questionText,
@@ -892,7 +1099,7 @@ function DailyMockUpload({ toast }) {
         createdAt: serverTimestamp(),
       });
       toast('Question added to Daily Mock Bank ✅', 'success');
-      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
+      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -906,7 +1113,7 @@ function DailyMockUpload({ toast }) {
         const ref = doc(collection(db, 'entranceExamQuestions'));
         batch.set(ref, {
           schoolId: null, schoolName: '',
-          year: '', subject: '',
+          year: form.year, subject: form.subject,
           questionType: q.questionType, diagramUrl: q.diagramUrl || '',
           questionText: q.questionText, options: q.options,
           correctAnswer: q.correctAnswer, explanation: q.explanation || '',
@@ -932,13 +1139,31 @@ function DailyMockUpload({ toast }) {
         </div>
       </div>
 
+      {/* Subject / Year row */}
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Question Metadata</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={S.label}>📚 Subject</label>
+            <select className="form-input form-select" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} style={{ width: '100%' }}>
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={S.label}>📅 Year</label>
+            <select className="form-input form-select" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} style={{ width: '100%' }}>
+              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Mode toggle */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {[{ id: 'form', label: '🖊️ Single (Form)' }, { id: 'paste_single', label: '📋 Single (Paste)' }, { id: 'paste_bulk', label: '📦 Bulk Paste' }].map(m => (
           <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .2s', borderColor: mode === m.id ? '#8B5CF6' : 'var(--border)', background: mode === m.id ? 'rgba(139,92,246,0.12)' : 'var(--bg-card)', color: mode === m.id ? '#8B5CF6' : 'var(--text-muted)' }}>{m.label}</button>
         ))}
       </div>
-
 
       {/* Form entry */}
       {mode === 'form' && (
@@ -1336,17 +1561,53 @@ function FormatGuide({ bulk }) {
   return (
     <div style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 12 }}>
       <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA', marginBottom: 6 }}>
-        📋 Format Guide{bulk ? ' — separate questions with a blank line' : ''}
+        📋 Format Guide — All these formats are auto-detected{bulk ? ' (separate questions with a blank line)' : ''}
       </div>
-      <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`What is the functional unit of the kidney?
+      <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.8, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`── FORMAT 1: Standard (original) ──────────
+What is the functional unit of the kidney?
 A. Nephron
 B. Neuron
 C. Nodule
 D. Nucleus
 *A
-Explanation: The nephron filters blood...${bulk ? `\n\nhttps://i.imgur.com/abc123.png\nIn the diagram, part labeled A is ___\nA. Bowman capsule\nB. Nephron\nC. Pyramid\nD. Calyx\n*C` : ''}`}</pre>
+
+── FORMAT 2: Bold Answer ───────────────────
+What is the functional unit of the kidney?
+A. Nephron   B. Neuron   C. Nodule   D. Nucleus
+**Answer: A) Nephron**
+
+── FORMAT 3: ANS / Ans / ANS: ─────────────
+What is the functional unit of the kidney?
+a. Nephron
+b. Neuron
+c. Nodule
+d. Nucleus
+Ans: A   (or  ANS A  or  Ans : A  or  ANSWER: A)
+
+── FORMAT 4: ✓ Checkmark on correct option ─
+What is the functional unit of the kidney?
+A. ✓Nephron
+B. Neuron
+C. Nodule
+D. Nucleus
+
+── FORMAT 5: Numbered options (1 2 3 4) ────
+What is the functional unit of the kidney?
+1. Nephron
+2. Neuron
+3. Nodule
+4. Nucleus
+Ans: A
+
+── FORMAT 6: Curly-brace options {a}{b}… ──
+What is X?  {a} Option1  {b} Option2  {c} Option3  {d} Option4  ANS C
+
+── FORMAT 7: Numbered questions with inline ─
+1. What is X?
+A. Option1  B. Option2  C. Option3  D. Option4
+ANSWER: B`}</pre>
       <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-        ✅ Answer formats accepted: <code>*A</code> · <code>Answer: A</code> · <code>(A)</code>
+        ✅ Answer formats: <code>*A</code> · <code>Answer: A</code> · <code>**Answer: A) text**</code> · <code>Ans: A</code> · <code>ANS A</code> · <code>ANSWER: A</code> · <code>(A)</code> · <code>✓</code> on correct option
       </div>
     </div>
   );
