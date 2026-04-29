@@ -1,34 +1,70 @@
 // src/components/shared/VoiceExamMode.jsx
-//
-// Flow:
-//   • Student clicks "Read Question" once → session starts for the whole exam
-//   • TTS reads question + options → mic stays ALWAYS OPEN (continuous)
-//   • Student says A/B/C/D → answer saved → TTS reads next question immediately
-//   • Student says "read again" → re-reads current question, mic stays open
-//   • No answer in 60 s → timeout → auto-advance → reads next question
-//   • Click ■ Stop → everything pauses until student clicks "Read Question" again
-//   • Session NEVER auto-stops between questions
+// Android-safe rewrite:
+// • TTS triggered directly from button tap (user gesture)
+// • Mic opened directly after TTS ends via utterance.onend
+// • No useEffect chains — everything flows from the tap
+// • Voices pre-loaded on mount so first speak is instant
 
 import { useState, useEffect, useRef } from 'react';
 
-/* ─── styles ──────────────────────────────────────────────────── */
+const LETTERS     = ['A','B','C','D','E','F'];
+const TIMEOUT_SEC = 60;
+
+/* ── pre-load voices as early as possible ── */
+function getVoices() {
+  return new Promise(resolve => {
+    const v = window.speechSynthesis.getVoices();
+    if (v.length) { resolve(v); return; }
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      resolve(window.speechSynthesis.getVoices());
+    };
+    // hard fallback
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000);
+  });
+}
+
+/* ── pick best English voice ── */
+function pickVoice(voices) {
+  return (
+    voices.find(v => v.lang === 'en-US' && v.localService) ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang.startsWith('en')) ||
+    voices[0] ||
+    null
+  );
+}
+
+/* ── normalize transcript ── */
+const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+function matchLetter(transcript) {
+  const t = norm(transcript);
+  const map = {
+    a:0, ay:0, 'option a':0, 'answer a':0, 'choice a':0, first:0,
+    b:1, be:1, bee:1, 'option b':1, 'answer b':1, 'choice b':1, second:1,
+    c:2, see:2, sea:2, 'option c':2, 'answer c':2, 'choice c':2, third:2,
+    d:3, de:3, dee:3, 'option d':3, 'answer d':3, 'choice d':3, fourth:3,
+  };
+  if (t in map) return map[t];
+  // last word
+  const last = t.split(/\s+/).pop();
+  if (last in map) return map[last];
+  // first word
+  const first = t.split(/\s+/)[0];
+  if (first in map) return map[first];
+  return -1;
+}
+
+/* ── inject CSS ── */
 const injectStyles = () => {
   if (document.getElementById('vem-styles')) return;
   const s = document.createElement('style');
   s.id = 'vem-styles';
   s.textContent = `
-    @keyframes vem-ripple {
-      0%   { transform:scale(1);   opacity:.6; }
-      100% { transform:scale(1.7); opacity:0;  }
-    }
     @keyframes vem-bar {
       0%,100% { transform:scaleY(.3); }
       50%     { transform:scaleY(1);  }
-    }
-    @keyframes vem-flash-green {
-      0%   { box-shadow: 0 0 0 0    rgba(22,163,74,.65); }
-      60%  { box-shadow: 0 0 0 16px rgba(22,163,74,0);   }
-      100% { box-shadow: none; }
     }
     .vem-bar {
       display:inline-block; width:3px; border-radius:2px;
@@ -39,82 +75,19 @@ const injectStyles = () => {
     .vem-bar:nth-child(3){ animation-delay:.26s }
     .vem-bar:nth-child(4){ animation-delay:.39s }
     .vem-bar:nth-child(5){ animation-delay:.52s }
-    .vem-flash-green { animation: vem-flash-green .8s ease forwards; }
   `;
   document.head.appendChild(s);
 };
 
-/* ─── helpers ─────────────────────────────────────────────────── */
-const LETTERS     = ['A','B','C','D','E','F'];
-const TIMEOUT_SEC = 60;
-
-const hasSR  = () => !!(typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition));
-const hasTTS = () =>   typeof window !== 'undefined' && 'speechSynthesis' in window;
-const norm   = s  => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-
-function matchSpeech(transcript, options) {
-  const t = norm(transcript);
-
-  // ── REPEAT commands (check first — highest priority) ──────────
-  if (/\b(read again|repeat|read it again|say again|again|replay|re-read|reread)\b/.test(t))
-    return 'REPEAT';
-
-  const hasReadTail = /\band\s+(read|repeat|replay)\b/.test(t);
-  const tClean = hasReadTail ? t.replace(/\band\s+(read|repeat|replay).*$/, '').trim() : t;
-
-  for (let i = 0; i < LETTERS.length; i++) {
-    const l   = LETTERS[i].toLowerCase();
-    const lRx = new RegExp(`\\b${l}\\b`);
-
-    if (tClean === l) return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\b(the\s+)?answer\s+is\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\b(i\s+)?(think|believe|say|choose|go\s+with|pick|select)\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\boption\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\banswer\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\b(choose|select|pick|go\s+with)\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\bit'?s?\s+is?\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-    if (/\b(letter|choice|number)\b/.test(tClean) && lRx.test(tClean))
-      return hasReadTail ? `${i}+REPEAT` : i;
-  }
-
-  const texts = options.map(o => norm(typeof o === 'string' ? o : (o.text ?? '')));
-  let best = -1, bestScore = 0;
-  texts.forEach((ot, i) => {
-    const words = ot.split(/\s+/).filter(w => w.length > 3);
-    if (!words.length) return;
-    const score = words.filter(w => tClean.includes(w)).length / words.length;
-    if (score > 0.5 && score > bestScore) { bestScore = score; best = i; }
-  });
-  if (best !== -1) return hasReadTail ? `${best}+REPEAT` : best;
-
-  return -1;
-}
-
-function buildSpeechText(question, options) {
-  let text = question + '.  ';
-  options.forEach((o, i) => {
-    text += `Option ${LETTERS[i]}: ${typeof o === 'string' ? o : (o.text ?? '')}.  `;
-  });
-  return text;
-}
-
-/* ─── CountdownRing ───────────────────────────────────────────── */
+/* ── CountdownRing ── */
 function CountdownRing({ seconds }) {
-  const r    = 18;
-  const circ = +(2 * Math.PI * r).toFixed(2);
-  const off  = +(circ * (1 - Math.max(0, Math.min(1, seconds / TIMEOUT_SEC)))).toFixed(2);
+  const r = 18, circ = +(2 * Math.PI * r).toFixed(2);
+  const off = +(circ * (1 - Math.max(0, Math.min(1, seconds / TIMEOUT_SEC)))).toFixed(2);
   const color = seconds <= 10 ? '#EF4444' : seconds <= 20 ? '#F59E0B' : '#0D9488';
   return (
     <svg width={44} height={44} style={{ transform:'rotate(-90deg)', flexShrink:0 }}>
       <circle cx={22} cy={22} r={r} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth={3}/>
-      <circle cx={22} cy={22} r={r} fill="none"
-        stroke={color} strokeWidth={3}
+      <circle cx={22} cy={22} r={r} fill="none" stroke={color} strokeWidth={3}
         strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
         style={{ transition:'stroke-dashoffset 1s linear, stroke .4s' }}/>
       <text x={22} y={22} textAnchor="middle" dominantBaseline="central"
@@ -126,7 +99,7 @@ function CountdownRing({ seconds }) {
   );
 }
 
-/* ─── VoiceExamMode ───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════ */
 export default function VoiceExamMode({
   question   = '',
   options    = [],
@@ -135,17 +108,17 @@ export default function VoiceExamMode({
   onNext,
   hasNext = true,
 }) {
-  const [phase,     setPhase]     = useState('idle');
+  const [phase,     setPhase]     = useState('idle');   // idle|reading|listening|stopped
   const [countdown, setCountdown] = useState(TIMEOUT_SEC);
   const [statusMsg, setStatusMsg] = useState('');
-  const [matchIdx,  setMatchIdx]  = useState(null);
 
-  const activeRef   = useRef(false);
-  const speakingRef = useRef(false);
-  const srRef       = useRef(null);
-  const timerRef    = useRef(null);
-  const cdRef       = useRef(TIMEOUT_SEC);
+  const activeRef  = useRef(false);
+  const srRef      = useRef(null);
+  const timerRef   = useRef(null);
+  const cdRef      = useRef(TIMEOUT_SEC);
+  const voiceRef   = useRef(null);   // cached SpeechSynthesisVoice
 
+  // always-fresh prop mirrors
   const questionRef = useRef(question);
   const optionsRef  = useRef(options);
   const onAnswerRef = useRef(onAnswer);
@@ -157,362 +130,282 @@ export default function VoiceExamMode({
   onNextRef.current   = onNext;
   hasNextRef.current  = hasNext;
 
-  const stopRef          = useRef(null);
-  const startSRRef       = useRef(null);
-  const readAndListenRef = useRef(null);
+  useEffect(() => {
+    injectStyles();
+    // pre-load voices on mount
+    getVoices().then(voices => { voiceRef.current = pickVoice(voices); });
+    return () => hardStop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => { injectStyles(); }, []);
-
+  // when question changes and session is active → re-read
   useEffect(() => {
     if (activeRef.current) {
-      setTimeout(() => {
-        if (activeRef.current) readAndListenRef.current?.();
-      }, 100);
+      setTimeout(() => { if (activeRef.current) startReading(); }, 150);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionId]);
 
-  useEffect(() => () => stopRef.current?.(false), []);
-
-  stopRef.current = (userStopped = true) => {
-    activeRef.current  = false;
-    speakingRef.current = false;
+  /* ── hard stop ── */
+  const hardStop = () => {
+    activeRef.current = false;
     window.speechSynthesis?.cancel();
-    try { srRef.current?.stop(); } catch(_) {}
-    try { srRef.current?.abort(); } catch(_) {}
-    srRef.current = null;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    cdRef.current = TIMEOUT_SEC;
-    setPhase(userStopped ? 'stopped' : 'idle');
-    setCountdown(TIMEOUT_SEC);
-    setMatchIdx(null);
+    stopMic();
+    stopTimer();
+    setPhase('stopped');
     setStatusMsg('');
+    setCountdown(TIMEOUT_SEC);
   };
 
-  const speak = (text, onDone) => {
-    if (!activeRef.current) return;
-    speakingRef.current = true;
+  /* ── mic helpers ── */
+  const stopMic = () => {
+    try { srRef.current?.stop();  } catch(_) {}
     try { srRef.current?.abort(); } catch(_) {}
+    srRef.current = null;
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  };
+
+  /* ── speak (safe for Android) ── */
+  const speakText = (text, onDone) => {
+    if (!activeRef.current) return;
     window.speechSynthesis.cancel();
 
-    const doSpeak = () => {
-      if (!activeRef.current) return;
-      const u  = new SpeechSynthesisUtterance(text);
-      // Pick a valid en-US voice if available (fixes silent Android bug)
-      const voices = window.speechSynthesis.getVoices();
-      const enVoice = voices.find(v => v.lang.startsWith('en') && !v.localService === false)
-                   || voices.find(v => v.lang.startsWith('en'))
-                   || voices[0];
-      if (enVoice) u.voice = enVoice;
-      u.lang   = 'en-US';
-      u.rate   = 0.9;
-      u.pitch  = 1;
-      const ka = setInterval(() => {
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-      }, 10_000);
-      u.onend = () => {
-        clearInterval(ka);
-        speakingRef.current = false;
-        if (activeRef.current) onDone?.();
-      };
-      u.onerror = (e) => {
-        clearInterval(ka);
-        speakingRef.current = false;
-        if (e.error === 'interrupted' || e.error === 'canceled') return;
-        if (activeRef.current) onDone?.();
-      };
-      window.speechSynthesis.speak(u);
+    // ensure voices loaded
+    const voices = window.speechSynthesis.getVoices();
+    if (!voiceRef.current && voices.length) voiceRef.current = pickVoice(voices);
+
+    const u = new SpeechSynthesisUtterance(text);
+    if (voiceRef.current) u.voice = voiceRef.current;
+    u.lang  = 'en-US';
+    u.rate  = 0.85;
+    u.pitch = 1;
+
+    // Chrome keep-alive (paused bug)
+    const ka = setInterval(() => {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }, 5000);
+
+    u.onstart = () => console.log('[VEM] TTS started');
+    u.onend   = () => { clearInterval(ka); console.log('[VEM] TTS ended'); if (activeRef.current) onDone?.(); };
+    u.onerror = (e) => {
+      clearInterval(ka);
+      console.warn('[VEM] TTS error:', e.error);
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      if (activeRef.current) onDone?.();
     };
 
-    // Voices may not be loaded yet (common on Android Chrome)
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      doSpeak();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        doSpeak();
-      };
-      // Fallback: if onvoiceschanged never fires, try after 500ms
-      setTimeout(() => {
-        if (speakingRef.current && activeRef.current) return; // already started
-        doSpeak();
-      }, 500);
-    }
+    window.speechSynthesis.speak(u);
+    console.log('[VEM] speak() called, pending:', window.speechSynthesis.pending, 'speaking:', window.speechSynthesis.speaking);
   };
 
-  startSRRef.current = () => {
-    if (!activeRef.current || speakingRef.current) return;
-    if (!hasSR()) { setPhase('unsupported'); return; }
-    try { srRef.current?.abort(); } catch(_) {}
-    srRef.current = null;
-
+  /* ── open mic ── */
+  const openMic = () => {
+    if (!activeRef.current) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const sr = new SR();
-    srRef.current = sr;
+    if (!SR) { setStatusMsg('Speech recognition not supported.'); return; }
 
+    stopMic();
+
+    const sr = new SR();
+    srRef.current      = sr;
     sr.lang            = 'en-US';
+    sr.continuous      = false;
     sr.interimResults  = false;
     sr.maxAlternatives = 4;
-    sr.continuous      = true;
 
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    // start countdown
+    stopTimer();
     cdRef.current = TIMEOUT_SEC;
     setCountdown(TIMEOUT_SEC);
-
     timerRef.current = setInterval(() => {
-      if (!activeRef.current || speakingRef.current) return;
       cdRef.current -= 1;
       setCountdown(cdRef.current);
       if (cdRef.current <= 0) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+        stopTimer();
         if (!activeRef.current) return;
-        setStatusMsg('No answer heard — moving on…');
-        speak("Time's up. Moving to the next question.", () => {
-          if (!activeRef.current) return;
-          if (hasNextRef.current) onNextRef.current?.();
+        setStatusMsg('No answer — moving on…');
+        stopMic();
+        speakText("Time's up. Moving on.", () => {
+          if (activeRef.current && hasNextRef.current) onNextRef.current?.();
         });
       }
     }, 1000);
 
     setPhase('listening');
-    setStatusMsg('');
+    setStatusMsg('Say A, B, C or D');
 
     sr.onresult = (e) => {
-      if (!activeRef.current || speakingRef.current) return;
-      const resultIdx  = e.results.length - 1;
-      const result     = e.results[resultIdx];
-      if (!result.isFinal) return;
-      const transcripts = Array.from(result).map(a => a.transcript);
-      const heard       = transcripts[0] || '';
-      console.log('[VoiceExamMode] heard:', transcripts);
+      const transcripts = Array.from(e.results[0]).map(r => r.transcript);
+      console.log('[VEM] heard:', transcripts);
+      const heard = transcripts[0] || '';
 
-      let match = -1;
-      for (const t of transcripts) {
-        match = matchSpeech(t, optionsRef.current);
-        if (match !== -1) break;
-      }
+      let idx = -1;
+      for (const t of transcripts) { idx = matchLetter(t); if (idx >= 0) break; }
 
-      let afterAnswerRepeat = false;
-      if (typeof match === 'string' && match.includes('+REPEAT')) {
-        afterAnswerRepeat = true;
-        match = parseInt(match.split('+')[0], 10);
-      }
-
-      if (match === 'REPEAT') {
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-        setStatusMsg('Re-reading question…');
-        readAndListenRef.current?.();
+      // repeat command
+      const isRepeat = transcripts.some(t => /\b(read again|repeat|again|re-read)\b/.test(norm(t)));
+      if (isRepeat) {
+        stopTimer(); stopMic();
+        setStatusMsg('Re-reading…');
+        startReading();
         return;
       }
 
-      if (match >= 0) {
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-        setMatchIdx(match);
-        setPhase('processing');
-        onAnswerRef.current?.(match);
-        const letter = LETTERS[match];
-        setStatusMsg(`Selected option ${letter}`);
-        setTimeout(() => {
-          const el = document.getElementById(`vem-opt-${match}`);
-          if (el) { el.classList.remove('vem-flash-green'); void el.offsetWidth; el.classList.add('vem-flash-green'); }
-        }, 40);
-        if (afterAnswerRepeat) {
-          speak(`Option ${letter} selected. Re-reading the question.`, () => {
-            if (activeRef.current) readAndListenRef.current?.();
-          });
-        } else {
-          speak(
-            `Option ${letter} selected. ${hasNextRef.current ? 'Moving to next question.' : 'That was the last question.'}`,
-            () => {
-              if (!activeRef.current) return;
-              if (hasNextRef.current) {
-                onNextRef.current?.();
-              } else {
-                stopRef.current(false);
-              }
-            }
-          );
-        }
+      if (idx >= 0) {
+        stopTimer(); stopMic();
+        const letter = LETTERS[idx];
+        setStatusMsg(`✓ Option ${letter}`);
+        setPhase('idle');
+        onAnswerRef.current?.(idx);
+        speakText(`Option ${letter}.`, () => {
+          if (activeRef.current && hasNextRef.current) {
+            setTimeout(() => { if (activeRef.current) onNextRef.current?.(); }, 400);
+          }
+        });
       } else {
-        setStatusMsg(`Didn't catch that${heard ? ` — heard "${heard}"` : ''}. Say A, B, C or D.`);
-        speak("Sorry, I didn't catch that. Please say A, B, C, or D.", () => {
-          if (activeRef.current) startSRRef.current?.();
+        setStatusMsg(`Didn't catch "${heard}" — say A, B, C or D`);
+        speakText("Didn't catch that. Say A, B, C, or D.", () => {
+          if (activeRef.current) openMic();
         });
       }
     };
 
     sr.onend = () => {
-      if (!activeRef.current || speakingRef.current) return;
-      setTimeout(() => {
-        if (activeRef.current && !speakingRef.current) startSRRef.current?.();
-      }, 100);
+      if (!activeRef.current) return;
+      // reopen if no result yet
+      if (cdRef.current > 0) {
+        setTimeout(() => { if (activeRef.current) openMic(); }, 200);
+      }
     };
 
     sr.onerror = (e) => {
+      console.warn('[VEM] SR error:', e.error);
       if (!activeRef.current) return;
-      if (e.error === 'aborted') return;
-      console.warn('[VoiceExamMode] SR error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        stopTimer();
         setStatusMsg('Microphone permission denied.');
-        stopRef.current(true);
+        hardStop();
         return;
       }
-      setTimeout(() => {
-        if (activeRef.current && !speakingRef.current) startSRRef.current?.();
-      }, 400);
+      if (e.error === 'no-speech') {
+        // normal — reopen
+        setTimeout(() => { if (activeRef.current) openMic(); }, 200);
+        return;
+      }
+      setTimeout(() => { if (activeRef.current) openMic(); }, 400);
     };
 
-    try {
-      sr.start();
-    } catch(e) {
-      console.error('[VoiceExamMode] sr.start() threw:', e);
-      setTimeout(() => { if (activeRef.current) startSRRef.current?.(); }, 500);
-    }
+    try { sr.start(); console.log('[VEM] mic started'); }
+    catch(e) { console.error('[VEM] sr.start threw:', e); setTimeout(() => { if (activeRef.current) openMic(); }, 500); }
   };
 
-  readAndListenRef.current = () => {
+  /* ── read question then open mic ── */
+  const startReading = () => {
     if (!activeRef.current) return;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    try { srRef.current?.abort(); } catch(_) {}
+    stopMic(); stopTimer();
     setPhase('reading');
     setStatusMsg('');
-    setMatchIdx(null);
     cdRef.current = TIMEOUT_SEC;
     setCountdown(TIMEOUT_SEC);
-    const text = buildSpeechText(questionRef.current, optionsRef.current);
-    speak(text, () => {
-      if (activeRef.current) startSRRef.current?.();
+
+    const q = questionRef.current;
+    const opts = optionsRef.current;
+    let text = q + '.  ';
+    opts.forEach((o, i) => { text += `Option ${LETTERS[i]}: ${typeof o === 'string' ? o : (o.text ?? '')}.  `; });
+
+    speakText(text, () => { if (activeRef.current) openMic(); });
+  };
+
+  /* ── handle Read button tap ── */
+  const handleStart = () => {
+    activeRef.current = true;
+    // ensure voices are loaded (may not be on first tap on Android)
+    getVoices().then(voices => {
+      voiceRef.current = pickVoice(voices);
+      startReading();
     });
   };
 
-  const handleStart = () => {
-    if (!hasTTS()) { setPhase('unsupported'); return; }
-    activeRef.current = true;
-    readAndListenRef.current?.();
-  };
-
-  const isReading    = phase === 'reading';
-  const isListening  = phase === 'listening';
-  const isProcessing = phase === 'processing';
-  const isStopped    = phase === 'stopped';
-  const isActive     = isReading || isListening || isProcessing;
-
-  if (phase === 'unsupported') return (
-    <span style={{ fontSize:11, color:'rgba(239,68,68,.7)' }}>
-      🎤 Voice not supported in this browser
-    </span>
-  );
-
-  const btnBorder = isActive ? 'rgba(13,148,136,.6)'  : 'rgba(13,148,136,.3)';
-  const btnBg     = isActive ? 'rgba(13,148,136,.13)' : 'rgba(255,255,255,.04)';
-  const btnColor  = isActive ? '#14B8A6' : '#0D9488';
+  /* ── render ── */
+  const isReading   = phase === 'reading';
+  const isListening = phase === 'listening';
+  const isActive    = isReading || isListening;
+  const isStopped   = phase === 'stopped';
 
   return (
-    <div style={{ display:'inline-flex', flexDirection:'column', gap:7 }}>
+    <div style={{ display:'inline-flex', flexDirection:'column', gap:6 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
 
+        {/* main button */}
         <button
           onClick={isActive ? undefined : handleStart}
           disabled={isActive}
           style={{
-            display:'inline-flex', alignItems:'center', gap:9,
+            display:'inline-flex', alignItems:'center', gap:8,
             padding:'8px 16px', borderRadius:999,
-            border:`1.5px solid ${btnBorder}`,
-            background:btnBg, color:btnColor,
+            border: isActive ? '1.5px solid rgba(13,148,136,.6)' : '1.5px solid rgba(13,148,136,.3)',
+            background: isActive ? 'rgba(13,148,136,.13)' : 'rgba(255,255,255,.04)',
+            color: isActive ? '#14B8A6' : '#0D9488',
             fontSize:13, fontWeight:600,
             cursor: isActive ? 'default' : 'pointer',
-            transition:'all .2s', backdropFilter:'blur(8px)',
-            position:'relative', overflow:'hidden', letterSpacing:.2,
-            boxShadow: isActive
-              ? '0 0 0 1px rgba(13,148,136,.25), 0 2px 18px rgba(13,148,136,.15)'
-              : 'none',
+            transition:'all .2s',
           }}
         >
-          {isReading && (
-            <span style={{
-              position:'absolute', inset:0, borderRadius:999,
-              border:'1.5px solid rgba(13,148,136,.55)',
-              animation:'vem-ripple 1.3s ease-out infinite',
-              pointerEvents:'none',
-            }}/>
-          )}
-
           {isReading ? (
-            <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:16, color:'#14B8A6' }}>
-              {[10,16,12,18,10].map((h,i) => (
-                <span key={i} className="vem-bar" style={{ height:h, animationDelay:`${i*.13}s` }}/>
-              ))}
+            <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:16 }}>
+              {[10,16,12,18,10].map((h,i) => <span key={i} className="vem-bar" style={{ height:h }}/>)}
             </span>
           ) : isListening ? (
-            <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:16, color:'#14B8A6' }}>
-              {[14,10,18,10,14].map((h,i) => (
-                <span key={i} className="vem-bar" style={{ height:h, animationDelay:`${i*.17}s` }}/>
-              ))}
+            <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:16 }}>
+              {[14,10,18,10,14].map((h,i) => <span key={i} className="vem-bar" style={{ height:h }}/>)}
             </span>
-          ) : isProcessing ? (
-            <span style={{fontSize:14}}>⏳</span>
           ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
             </svg>
           )}
-
           <span>
-            {isReading    ? 'Reading question…'
-           : isListening  ? 'Listening…'
-           : isProcessing ? 'Processing…'
-           : isStopped    ? '🔊 Read Again'
-           :                '🔊 Read Question'}
+            {isReading ? 'Reading…' : isListening ? 'Listening…' : isStopped ? '🔊 Read Again' : '🔊 Read Question'}
           </span>
         </button>
 
+        {/* countdown */}
         {isListening && <CountdownRing seconds={countdown} />}
 
+        {/* stop */}
         {isActive && (
           <button
-            onClick={() => stopRef.current(true)}
-            title="Stop voice session"
+            onClick={hardStop}
+            title="Stop"
             style={{
+              width:32, height:32, borderRadius:'50%', border:'1.5px solid rgba(239,68,68,.35)',
+              background:'rgba(239,68,68,.08)', color:'rgba(239,68,68,.7)',
+              cursor:'pointer', fontSize:10, fontWeight:800,
               display:'inline-flex', alignItems:'center', justifyContent:'center',
-              width:32, height:32, borderRadius:'50%',
-              border:'1.5px solid rgba(239,68,68,.35)',
-              background:'rgba(239,68,68,.08)',
-              color:'rgba(239,68,68,.7)',
-              cursor:'pointer', fontSize:10, fontWeight:800, transition:'all .2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,.2)'; e.currentTarget.style.color='#EF4444'; }}
-            onMouseLeave={e => { e.currentTarget.style.background='rgba(239,68,68,.08)'; e.currentTarget.style.color='rgba(239,68,68,.7)'; }}
           >■</button>
         )}
       </div>
 
-      {isListening && !statusMsg && (
+      {/* status */}
+      {statusMsg ? (
+        <span style={{ fontSize:11, color:'rgba(20,184,166,.85)', paddingLeft:2 }}>{statusMsg}</span>
+      ) : isListening ? (
         <span style={{ fontSize:11, color:'rgba(20,184,166,.85)', paddingLeft:2 }}>
           Say <strong>A</strong>, <strong>B</strong>, <strong>C</strong> or <strong>D</strong>
-          &nbsp;·&nbsp; or say <em>"read again"</em> to repeat
+          &nbsp;·&nbsp;<em>"read again"</em> to repeat
         </span>
-      )}
-      {isReading && (
-        <span style={{ fontSize:11, color:'rgba(20,184,166,.6)', paddingLeft:2 }}>
-          Reading question and options aloud…
-        </span>
-      )}
-      {statusMsg && (
-        <span style={{ fontSize:11, paddingLeft:2, color:'rgba(20,184,166,.85)' }}>
-          {statusMsg}
-        </span>
-      )}
-      {isStopped && !statusMsg && (
-        <span style={{ fontSize:11, color:'rgba(255,255,255,.35)', paddingLeft:2 }}>
-          Voice paused — click to resume
-        </span>
-      )}
+      ) : isReading ? (
+        <span style={{ fontSize:11, color:'rgba(20,184,166,.6)', paddingLeft:2 }}>Reading question aloud…</span>
+      ) : isStopped ? (
+        <span style={{ fontSize:11, color:'rgba(255,255,255,.35)', paddingLeft:2 }}>Voice paused — tap to resume</span>
+      ) : null}
     </div>
   );
 }
