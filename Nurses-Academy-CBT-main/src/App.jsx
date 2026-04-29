@@ -38,7 +38,7 @@ import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
-// ── Nursing Schools Entrance Exam ────────────────────────────────
+// ── Nursing Schools Entrance Exam (entrance folder — existing) ───
 import EntranceExamHub        from './components/entrance/EntranceExamHub';
 import EntranceSchoolList     from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup      from './components/entrance/EntranceExamSetup';
@@ -52,6 +52,10 @@ import {
   EntranceAnalysis,
   EntranceLeaderboard,
 } from './components/entrance/EntranceResultsPages';
+
+// ── NEW: Daily Mock Hub + Session ───────────────────────────────
+import EntranceExamDailyMockHub from './components/entrance/EntranceExamDailyMockHub';
+import EntranceExamSession      from './components/entrance/EntranceExamSession';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -236,13 +240,16 @@ export default function App() {
                   <Route path="/entrance-exam"               element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/schools"       element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/setup"         element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/daily-mock"    element={<FreeTrialRoute><EntranceExamDailyMock /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/my-results"    element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/exams-taken"   element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/bookmarks"     element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/analysis"      element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
+
+                  {/* ── NEW: Daily Mock Hub → Session flow ── */}
+                  <Route path="/entrance-exam/daily-mock" element={<FreeTrialRoute><EntranceExamDailyMockHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/session"    element={<FreeTrialRoute><EntranceExamSession /></FreeTrialRoute>} />
 
                   {/* Admin */}
                   <Route path="/admin"                                    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -255,7 +262,7 @@ export default function App() {
                   <Route path="/admin/scheduled-exams"                    element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
                   <Route path="/admin/courses"                            element={<AdminRoute><CoursesManager /></AdminRoute>} />
                   <Route path="/admin/entrance-exam"                      element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
-                  {/* ── NEW: Daily Mock Upload ── */}
+                  {/* ── Entrance Exam Daily Mock Upload ── */}
                   <Route path="/admin/entrance-exam/daily-mock-upload"    element={<AdminRoute><EntranceDailyMockUpload /></AdminRoute>} />
 
                 </Route>
