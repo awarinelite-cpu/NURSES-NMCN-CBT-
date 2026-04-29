@@ -1,386 +1,343 @@
-// src/components/entrance/EntranceExamHub.jsx
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+// src/components/exam/EntranceExamHub.jsx
+// Route: /entrance-exam/daily-mock
+//
+// Shows:
+//   - Subject badge (passed via route state or props)
+//   - Take New Exam card (question count selector + start button)
+//   - Previous Exams list (with pass/fail badges + Review button)
+
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  collection, getDocs, query, where, orderBy, limit, getCountFromServer, doc, getDoc,
+  collection, query, where, getDocs,
 } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { db }      from '../../firebase/config';
+import { useAuth } from '../../context/AuthContext';
 
-// ── Animated counter ────────────────────────────────────────────
-function useCountUp(target, duration = 1000) {
-  const [val, setVal] = useState(0);
-  const raf = useRef(null);
-  useEffect(() => {
-    if (!target) { setVal(0); return; }
-    const start = performance.now();
-    const tick = (now) => {
-      const p = Math.min((now - start) / duration, 1);
-      setVal(Math.round(p * p * target));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, duration]);
-  return val;
-}
-
-function StatPill({ icon, value, label, loading }) {
-  const displayed = useCountUp(loading ? 0 : value);
-  return (
-    <div style={{
-      background: 'rgba(255,255,255,0.08)',
-      border: '1px solid rgba(255,255,255,0.15)',
-      borderRadius: 14,
-      padding: '14px 20px',
-      display: 'flex', alignItems: 'center', gap: 12,
-      backdropFilter: 'blur(8px)',
-      minWidth: 120,
-    }}>
-      <span style={{ fontSize: 22 }}>{icon}</span>
-      <div>
-        <div style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: 24, fontWeight: 900, color: '#fff',
-          lineHeight: 1,
-        }}>
-          {loading ? '—' : displayed}
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Hub card ────────────────────────────────────────────────────
-function HubCard({ icon, title, subtitle, path, accent, badge, disabled }) {
-  const navigate = useNavigate();
-  return (
-    <div
-      onClick={() => !disabled && navigate(path)}
-      style={{
-        background: 'rgba(255,255,255,0.035)',
-        border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.09)'}`,
-        borderRadius: 16,
-        padding: '22px 20px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        position: 'relative',
-        overflow: 'hidden',
-        transition: 'all 0.2s ease',
-        opacity: disabled ? 0.45 : 1,
-      }}
-      onMouseEnter={e => {
-        if (disabled) return;
-        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
-        e.currentTarget.style.borderColor = accent + '55';
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = `0 8px 32px ${accent}22`;
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.035)';
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      {/* Left accent bar */}
-      <div style={{
-        position: 'absolute', left: 0, top: '20%', bottom: '20%',
-        width: 3, borderRadius: '0 3px 3px 0',
-        background: disabled ? 'rgba(255,255,255,0.1)' : accent,
-      }} />
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 30, marginBottom: 10, lineHeight: 1 }}>{icon}</div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 4 }}>{title}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{subtitle}</div>
-        </div>
-        {badge && (
-          <span style={{
-            background: accent + '22',
-            border: `1px solid ${accent}44`,
-            color: accent,
-            fontSize: 10, fontWeight: 800,
-            padding: '3px 8px', borderRadius: 20,
-            textTransform: 'uppercase', letterSpacing: 0.5,
-            flexShrink: 0,
-          }}>{badge}</span>
-        )}
-      </div>
-
-      {/* Arrow */}
-      {!disabled && (
-        <div style={{
-          position: 'absolute', right: 16, bottom: 16,
-          color: 'rgba(255,255,255,0.2)', fontSize: 16,
-          transition: 'all 0.2s',
-        }}>→</div>
-      )}
-    </div>
-  );
-}
+const QUESTION_PRESETS = [10, 20, 30, 50];
+const PASS_MARK        = 50; // percent
 
 export default function EntranceExamHub() {
-  const { user, profile } = useAuth();
-  const navigate = useNavigate();
+  const navigate     = useNavigate();
+  const location     = useLocation();
+  const { user }     = useAuth();
+  const currentUser  = user;
 
-  // Stats
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [totalSchools,    setTotalSchools]    = useState(0);
-  const [totalQuestions,  setTotalQuestions]  = useState(0);
-  const [yourExams,       setYourExams]       = useState(0);
-  const [todayDone,       setTodayDone]       = useState(false);
-  const [lastScore,       setLastScore]       = useState(null);
+  // Subject can come from route state or a default
+  const subject = location.state?.subject ?? {
+    id:         'entrance_general',
+    label:      'Entrance Exam',
+    shortLabel: 'Entrance Exam',
+    icon:       '🎓',
+    color:      '#0D9488',
+  };
 
+  // Hub state
+  const [sessions,    setSessions]    = useState([]);
+  const [sessLoading, setSessLoading] = useState(false);
+  const [qCount,      setQCount]      = useState(20);
+  const [customCount, setCustomCount] = useState('');
+  const [useCustom,   setUseCustom]   = useState(false);
+
+  // ── Load saved sessions ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
+    if (!currentUser?.uid) return;
+    setSessLoading(true);
+    getDocs(
+      query(
+        collection(db, 'entranceExamSessions'),
+        where('userId',   '==', currentUser.uid),
+        where('examType', '==', 'entrance_daily_mock'),
+        where('subject',  '==', subject.id),
+      )
+    )
+      .then(snap => {
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        results.sort((a, b) => {
+          const ta = a.completedAt?.toDate?.()?.getTime?.() || 0;
+          const tb = b.completedAt?.toDate?.()?.getTime?.() || 0;
+          return tb - ta;
+        });
+        setSessions(results);
+      })
+      .catch(() => setSessions([]))
+      .finally(() => setSessLoading(false));
+  }, [currentUser, subject.id]);
 
-    async function loadStats() {
-      try {
-        // Total questions in entrance bank
-        const qCount = await getCountFromServer(collection(db, 'entranceExamQuestions'));
-        // Active schools
-        const schoolSnap = await getDocs(
-          query(collection(db, 'entranceExamSchools'), where('isActive', '!=', false))
-        );
-        // User's daily mock attempts
-        const attSnap = await getDocs(
-          query(
-            collection(db, 'users', user.uid, 'entranceDailyMock'),
-            orderBy('date', 'desc'),
-            limit(1)
-          )
-        );
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const finalCount = useCustom
+    ? Math.min(Math.max(parseInt(customCount, 10) || 20, 1), 250)
+    : qCount;
 
-        if (cancelled) return;
+  const handleTakeNew = () => {
+    navigate('/entrance-exam/session', {
+      state: {
+        poolMode:  true,
+        examType:  'entrance_daily_mock',
+        subject:   subject.id,
+        examName:  `${subject.shortLabel} — Daily Mock`,
+        count:     finalCount,
+        doShuffle: true,
+        timeLimit: 0,
+      },
+    });
+  };
 
-        setTotalQuestions(qCount.data().count);
-        setTotalSchools(schoolSnap.size);
-        setYourExams(attSnap.size > 0 ? attSnap.size : 0); // most recent only here; extend if needed
+  const handleReview = (session) => {
+    navigate('/entrance-exam/session', {
+      state: {
+        reviewMode:   true,
+        poolMode:     false,
+        examType:     'entrance_daily_mock',
+        examName:     session.examName || 'Daily Mock',
+        subject:      session.subject,
+        savedSession: {
+          questionIds:    session.questionIds,
+          answers:        session.answers,
+          correct:        session.correct,
+          totalQuestions: session.totalQuestions,
+        },
+      },
+    });
+  };
 
-        // Get full count of attempts
-        const allAttSnap = await getDocs(
-          collection(db, 'users', user.uid, 'entranceDailyMock')
-        );
-        if (!cancelled) setYourExams(allAttSnap.size);
-
-        // Check if today's mock is done
-        const today = new Date();
-        const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-        const todaySnap = await getDoc(doc(db, 'users', user.uid, 'entranceDailyMock', todayKey));
-        if (!cancelled) {
-          if (todaySnap.exists()) {
-            setTodayDone(true);
-            setLastScore(todaySnap.data().score);
-          }
-        }
-      } catch (e) {
-        console.error('EntranceExamHub stats:', e);
-      } finally {
-        if (!cancelled) setStatsLoading(false);
-      }
-    }
-
-    loadStats();
-    return () => { cancelled = true; };
-  }, [user]);
-
-  const cards = [
-    {
-      icon: '📅',
-      title: 'Daily Mock Exam',
-      subtitle: todayDone
-        ? `Today done · ${lastScore}% · New mock tomorrow`
-        : "Today's mock is ready!",
-      path: '/entrance-exam/daily-mock',
-      accent: '#F59E0B',
-      badge: todayDone ? 'Done' : 'New',
-    },
-    {
-      icon: '🏫',
-      title: 'School Past Questions',
-      subtitle: statsLoading ? '…' : `${totalSchools} school${totalSchools !== 1 ? 's' : ''}`,
-      path: '/entrance-exam/schools',
-      accent: '#0D9488',
-    },
-    {
-      icon: '📚',
-      title: 'Subject Drill',
-      subtitle: 'Topic-by-topic practice',
-      path: '/entrance-exam/subject-drill',
-      accent: '#8B5CF6',
-    },
-    {
-      icon: '📋',
-      title: 'Exams Taken',
-      subtitle: yourExams > 0 ? `${yourExams} attempt${yourExams !== 1 ? 's' : ''} total` : '0 this session',
-      path: '/entrance-exam/exams-taken',
-      accent: '#1E40AF',
-    },
-    {
-      icon: '🔖',
-      title: 'Bookmarks',
-      subtitle: 'Saved questions',
-      path: '/entrance-exam/bookmarks',
-      accent: '#EC4899',
-    },
-    {
-      icon: '📊',
-      title: 'My Results',
-      subtitle: yourExams > 0 ? `${yourExams} exam${yourExams !== 1 ? 's' : ''} recorded` : 'No exams yet',
-      path: '/entrance-exam/my-results',
-      accent: '#10B981',
-    },
-    {
-      icon: '📈',
-      title: 'Analysis',
-      subtitle: 'See weak areas',
-      path: '/entrance-exam/analysis',
-      accent: '#06B6D4',
-    },
-    {
-      icon: '🏆',
-      title: 'Leaderboard',
-      subtitle: 'Top students',
-      path: '/entrance-exam/leaderboard',
-      accent: '#F59E0B',
-    },
-  ];
-
-  // Recommendations
-  const recommendations = [];
-  if (!todayDone) recommendations.push({ icon: '📅', text: "Don't forget today's Daily Mock Exam" });
-  if (totalSchools > 0) recommendations.push({ icon: '🏫', text: "Start with any school's past questions to get your first score" });
-  if (yourExams > 0 && !todayDone) recommendations.push({ icon: '📈', text: 'Check your Analysis to find weak subjects' });
-  if (recommendations.length === 0) {
-    recommendations.push({ icon: '✅', text: "You've completed today's mock — check your Analysis for insights" });
-    recommendations.push({ icon: '🏫', text: "Practise a school's past questions to reinforce weak areas" });
-  }
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg-primary, #020B18)',
-      color: '#fff',
-      fontFamily: "'Inter', sans-serif",
-      paddingBottom: 48,
-    }}>
-      {/* Hero header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 60%, #0D9488 100%)',
-        padding: '32px 28px 36px',
-        position: 'relative',
-        overflow: 'hidden',
-        marginBottom: 0,
-      }}>
-        {/* Background glow */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at 70% 50%, rgba(13,148,136,0.3) 0%, transparent 65%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
-            🏥 NMCN CBT PLATFORM
-          </div>
-          <h1 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 'clamp(22px, 4vw, 32px)',
-            fontWeight: 900,
-            color: '#fff',
-            margin: '0 0 6px',
-            lineHeight: 1.2,
-          }}>
-            🏫 Nursing Schools Entrance Exam
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.6)', margin: '0 0 24px', fontSize: 14, lineHeight: 1.5 }}>
-            Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
-          </p>
+    <div style={{ padding: '24px', maxWidth: 860 }}>
 
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <StatPill icon="🏫" value={totalSchools}   label="Schools"    loading={statsLoading} />
-            <StatPill icon="❓" value={totalQuestions} label="Questions"  loading={statsLoading} />
-            <StatPill icon="📝" value={yourExams}      label="Your Exams" loading={statsLoading} />
+      {/* Subject badge */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 10,
+        background: `${subject.color}18`,
+        border: `1.5px solid ${subject.color}40`,
+        borderRadius: 40, padding: '8px 16px', marginBottom: 28,
+      }}>
+        <span style={{ fontSize: 20 }}>{subject.icon}</span>
+        <div>
+          <div style={{
+            fontSize: 11, color: subject.color, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: 0.5,
+          }}>
+            DAILY MOCK
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+            {subject.label}
           </div>
         </div>
       </div>
 
-      {/* Today's mock status banner (if done) */}
-      {todayDone && (
-        <div style={{
-          background: 'rgba(16,185,129,0.1)',
-          borderBottom: '1px solid rgba(16,185,129,0.2)',
-          padding: '12px 28px',
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <span style={{ fontSize: 18 }}>✅</span>
-          <span style={{ fontSize: 14, color: '#10B981', fontWeight: 700 }}>
-            Today's Daily Mock complete — Score: {lastScore}%
-          </span>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginLeft: 4 }}>
-            · New mock at midnight
-          </span>
-        </div>
-      )}
-
-      <div style={{ padding: '28px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        {/* Section label */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          marginBottom: 20,
-        }}>
-          <span style={{ fontSize: 18 }}>⚡</span>
-          <span style={{
-            fontWeight: 800, fontSize: 17, color: '#fff',
-            fontFamily: "'Playfair Display', serif",
-          }}>What do you want to do?</span>
+      {/* ── Take New Exam card ────────────────────────────────────────────── */}
+      <div style={{
+        background: 'var(--bg-card)', border: '2px solid var(--teal)',
+        borderRadius: 18, padding: 24, marginBottom: 32,
+        boxShadow: '0 0 0 4px rgba(13,148,136,0.06)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <span style={{ fontSize: 24 }}>⚡</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>
+              Take New Exam
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Fresh questions, randomly selected
+            </div>
+          </div>
         </div>
 
-        {/* Cards grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 14,
-          marginBottom: 32,
-        }}>
-          {cards.map(card => (
-            <HubCard key={card.path} {...card} />
-          ))}
-        </div>
-
-        {/* Recommended section */}
-        <div style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: 16,
-          padding: '20px 22px',
-        }}>
+        {/* Question count selector */}
+        <div style={{ marginBottom: 18 }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            marginBottom: 14,
+            fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10,
           }}>
-            <span style={{ fontSize: 18 }}>💡</span>
-            <span style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>Recommended For You</span>
+            📊 Number of Questions
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {recommendations.map((r, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <span style={{
-                  color: '#0D9488', fontSize: 14, fontWeight: 700,
-                  flexShrink: 0, marginTop: 1,
-                }}>→</span>
-                <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-                  {r.text}
-                </span>
-              </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {QUESTION_PRESETS.map(n => (
+              <button
+                key={n}
+                onClick={() => { setQCount(n); setUseCustom(false); }}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, fontFamily: 'inherit',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+                  border: `2px solid ${!useCustom && qCount === n ? 'var(--teal)' : 'var(--border)'}`,
+                  background: !useCustom && qCount === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                  color: !useCustom && qCount === n ? 'var(--teal)' : 'var(--text-secondary)',
+                }}
+              >
+                {n}
+              </button>
             ))}
+
+            {/* Custom */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => setUseCustom(true)}
+                style={{
+                  padding: '8px 14px', borderRadius: 10, fontFamily: 'inherit',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+                  border: `2px solid ${useCustom ? 'var(--teal)' : 'var(--border)'}`,
+                  background: useCustom ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                  color: useCustom ? 'var(--teal)' : 'var(--text-secondary)',
+                }}
+              >
+                Custom
+              </button>
+              {useCustom && (
+                <input
+                  type="number" min={1} max={250}
+                  value={customCount}
+                  onChange={e => setCustomCount(e.target.value)}
+                  placeholder="e.g. 75"
+                  autoFocus
+                  style={{
+                    width: 80, padding: '8px 10px', borderRadius: 10,
+                    border: '2px solid var(--teal)', background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)', fontFamily: 'inherit',
+                    fontSize: 14, fontWeight: 700, outline: 'none',
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+            {useCustom
+              ? customCount
+                ? `Will attempt ${Math.min(Math.max(parseInt(customCount, 10) || 0, 1), 250)} questions`
+                : 'Enter a number between 1 and 250'
+              : `${qCount} questions selected`}
           </div>
         </div>
+
+        <button
+          className="btn btn-primary"
+          onClick={handleTakeNew}
+          disabled={useCustom && !customCount}
+          style={{ width: '100%', padding: '14px', fontSize: 15, fontWeight: 800, borderRadius: 12 }}
+        >
+          🚀 Start Exam — {finalCount} Questions
+        </button>
+      </div>
+
+      {/* ── Previous Exams ────────────────────────────────────────────────── */}
+      <div>
+        <div style={{
+          fontWeight: 800, fontSize: 15, color: 'var(--text-primary)',
+          marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          📋 Previous Exams
+          {sessions.length > 0 && (
+            <span style={{
+              fontSize: 12, background: 'var(--bg-tertiary)',
+              color: 'var(--text-muted)', padding: '2px 10px',
+              borderRadius: 20, fontWeight: 700,
+            }}>
+              {sessions.length}
+            </span>
+          )}
+        </div>
+
+        {sessLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto' }} />
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 10 }}>
+              Loading exam history…
+            </div>
+          </div>
+        ) : sessions.length === 0 ? (
+          <div style={{
+            textAlign: 'center', padding: '40px 20px',
+            background: 'var(--bg-card)', borderRadius: 14,
+            border: '1.5px dashed var(--border)',
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+              No exams taken yet
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Take your first mock above — it'll appear here when done.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sessions.map(session => {
+              const pct    = session.scorePercent
+                ?? Math.round(((session.correct || 0) / (session.totalQuestions || 1)) * 100);
+              const passed = pct >= PASS_MARK;
+              const date   = session.completedAt?.toDate
+                ? session.completedAt.toDate()
+                : session.completedAt ? new Date(session.completedAt) : null;
+              const dateStr = date
+                ? date.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—';
+              const timeStr = date
+                ? date.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+                : '';
+
+              return (
+                <div key={session.id} style={{
+                  background:   'var(--bg-card)',
+                  border:       '1.5px solid var(--border)',
+                  borderLeft:   `4px solid ${passed ? '#16A34A' : '#EF4444'}`,
+                  borderRadius: 14, padding: '16px 18px',
+                  display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+                }}>
+                  {/* Score badge */}
+                  <div style={{
+                    width: 54, height: 54, borderRadius: 12, flexShrink: 0,
+                    background: passed ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `2px solid ${passed ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{
+                      fontSize: 15, fontWeight: 900,
+                      color: passed ? '#16A34A' : '#EF4444', lineHeight: 1,
+                    }}>
+                      {pct}%
+                    </div>
+                    <div style={{
+                      fontSize: 9, fontWeight: 700,
+                      color: passed ? '#16A34A' : '#EF4444',
+                      textTransform: 'uppercase', letterSpacing: 0.5,
+                    }}>
+                      {passed ? 'PASS' : 'FAIL'}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 700, fontSize: 14,
+                      color: 'var(--text-primary)', marginBottom: 4,
+                    }}>
+                      {session.examName || 'Daily Mock'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        📅 {dateStr}{timeStr ? ` · ${timeStr}` : ''}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        ✅ {session.correct ?? '?'} / {session.totalQuestions ?? '?'} correct
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        📝 {session.totalQuestions ?? '?'} questions
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Review button */}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => handleReview(session)}
+                    style={{ flexShrink: 0, fontWeight: 700 }}
+                  >
+                    🔍 Review
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
