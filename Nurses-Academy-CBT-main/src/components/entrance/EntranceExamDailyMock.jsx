@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-  collection, query, where, getDocs, doc, getDoc, setDoc, orderBy, limit, serverTimestamp
+  collection, query, where, getDocs, doc, getDoc, setDoc, limit, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
@@ -150,7 +150,7 @@ export default function EntranceExamDailyMock() {
       if (attSnap.exists()) {
         setTodayResult(attSnap.data());
         setPhase('already-done');
-        await loadPastAttempts();
+        loadPastAttempts(); // fire-and-forget
         return;
       }
 
@@ -235,8 +235,11 @@ export default function EntranceExamDailyMock() {
       });
       setProcessedQ(processed);
 
-      await loadPastAttempts();
+      // ⚠️ loadPastAttempts is intentionally outside the main try/catch.
+      // A missing Firestore index or permission error here must NEVER
+      // prevent the exam from loading — it only affects the history panel.
       setPhase('intro');
+      loadPastAttempts(); // fire-and-forget — errors are silenced inside
 
     } catch (e) {
       console.error('EntranceExamDailyMock load error:', e);
@@ -247,17 +250,23 @@ export default function EntranceExamDailyMock() {
 
   async function loadPastAttempts() {
     try {
+      // Query without orderBy to avoid requiring a composite Firestore index.
+      // We sort client-side instead.
       const snap = await getDocs(
         query(
           collection(db, 'users', user.uid, 'entranceDailyMock'),
-          orderBy('date', 'desc'),
           limit(7)
         )
       );
       const past = [];
       snap.forEach(d => past.push({ id: d.id, ...d.data() }));
+      // Sort by date descending client-side
+      past.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       setPastAttempts(past);
-    } catch { /* silent */ }
+    } catch (e) {
+      // Silent — history panel is non-critical
+      console.warn('loadPastAttempts failed (non-critical):', e.message);
+    }
   }
 
   // ── Start exam ─────────────────────────────────────────────────
