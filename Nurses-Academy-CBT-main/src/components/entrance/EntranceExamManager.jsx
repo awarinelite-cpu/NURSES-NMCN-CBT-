@@ -9,75 +9,17 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
-
-const ENTRANCE_YEARS = ['2018','2019','2020','2021','2022','2023','2024','2025'];
-const SUBJECTS = [
-  'English Language','Biology','Chemistry','Physics',
-  'Mathematics','General Studies','Nursing Aptitude','Current Affairs',
-];
+import {
+  parseEntranceQuestions,
+  seededShuffle,
+  dateSeed,
+  ENTRANCE_YEARS,
+  ENTRANCE_SUBJECTS as SUBJECTS,
+} from '../../utils/entranceExamParser';
 
 // ── Utility: get today's date string YYYY-MM-DD ───────────────────────────────
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
-}
-
-// ── Seeded shuffle (deterministic per day) ───────────────────────────────────
-function seededShuffle(arr, seed) {
-  const a = [...arr];
-  let s = seed;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function dateSeed(dateStr) {
-  return dateStr.split('-').reduce((acc, v) => acc * 100 + Number(v), 0);
-}
-
-// ── Parse a block of text into entrance exam questions ────────────────────────
-function parseEntranceQuestions(text) {
-  const blocks = text.trim().split(/\n\s*\n/).filter(b => b.trim());
-  const results = [], errors = [];
-
-  blocks.forEach((block, idx) => {
-    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 5) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
-
-    let cursor = 0;
-    let diagramUrl = '';
-    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor = 1; }
-
-    const questionText = lines[cursor]; cursor++;
-    const options = {};
-    while (cursor < lines.length && /^[A-D][.)]\s*/i.test(lines[cursor])) {
-      const letter = lines[cursor][0].toUpperCase();
-      options[letter] = lines[cursor].replace(/^[A-D][.)]\s*/i, '').trim();
-      cursor++;
-    }
-
-    if (Object.keys(options).length < 4) { errors.push(`Block ${idx + 1}: Need options A–D`); return; }
-
-    let correctAnswer = '', explanation = '';
-    while (cursor < lines.length) {
-      const l = lines[cursor];
-      const starMatch   = /^\*([A-D])$/i.exec(l.trim());
-      const answerMatch = /^(?:answer|ans|correct(?:\s+answer)?)\s*:\s*([A-D])\b/i.exec(l.trim());
-      const parenMatch  = /^\(([A-D])\)$/i.exec(l.trim());
-      if      (starMatch)   correctAnswer = starMatch[1].toUpperCase();
-      else if (answerMatch) correctAnswer = answerMatch[1].toUpperCase();
-      else if (parenMatch)  correctAnswer = parenMatch[1].toUpperCase();
-      else if (/^explanation:/i.test(l)) explanation = l.replace(/^explanation:\s*/i, '').trim();
-      cursor++;
-    }
-
-    if (!correctAnswer) { errors.push(`Block ${idx + 1}: Missing answer — use *B, "Answer: B", or "(B)"`); return; }
-    results.push({ questionText, options, correctAnswer, explanation, diagramUrl, questionType: diagramUrl ? 'diagram' : 'text' });
-  });
-
-  return { results, errors };
 }
 
 // ── Shared field row style ────────────────────────────────────────────────────
@@ -861,7 +803,7 @@ function DailyMockSettings({ toast }) {
 function DailyMockUpload({ toast }) {
   const [mode, setMode] = useState('form');
   // form fields
-  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
+  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
   // paste mode
   const [rawText,  setRawText]  = useState('');
   const [parsed,   setParsed]   = useState([]);
@@ -880,7 +822,7 @@ function DailyMockUpload({ toast }) {
     try {
       await addDoc(collection(db, 'entranceExamQuestions'), {
         schoolId: null, schoolName: '',
-        year: form.year, subject: form.subject,
+        year: '', subject: '',
         questionType: form.diagramUrl ? 'diagram' : 'text',
         diagramUrl: form.diagramUrl || '',
         questionText: form.questionText,
@@ -892,7 +834,7 @@ function DailyMockUpload({ toast }) {
         createdAt: serverTimestamp(),
       });
       toast('Question added to Daily Mock Bank ✅', 'success');
-      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '', subject: 'Biology', year: '2024' });
+      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -906,7 +848,7 @@ function DailyMockUpload({ toast }) {
         const ref = doc(collection(db, 'entranceExamQuestions'));
         batch.set(ref, {
           schoolId: null, schoolName: '',
-          year: form.year, subject: form.subject,
+          year: '', subject: '',
           questionType: q.questionType, diagramUrl: q.diagramUrl || '',
           questionText: q.questionText, options: q.options,
           correctAnswer: q.correctAnswer, explanation: q.explanation || '',
@@ -929,25 +871,6 @@ function DailyMockUpload({ toast }) {
         <span style={{ fontSize: 22 }}>📅</span>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           Questions added here go <strong style={{ color: '#8B5CF6' }}>directly into the Daily Mock Bank</strong>. The system will select from them automatically every 24 hours. You can add questions at any time — they'll be included in upcoming rotations.
-        </div>
-      </div>
-
-      {/* Subject / Year row */}
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Question Metadata</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={S.label}>📚 Subject</label>
-            <select className="form-input form-select" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} style={{ width: '100%' }}>
-              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📅 Year</label>
-            <select className="form-input form-select" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} style={{ width: '100%' }}>
-              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
         </div>
       </div>
 
@@ -995,7 +918,7 @@ function DailyMockUpload({ toast }) {
           onSave={async qData => {
             setSaving(true);
             try {
-              await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: form.year, subject: form.subject, questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, createdAt: serverTimestamp() });
+              await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, createdAt: serverTimestamp() });
               toast('Added to Daily Mock Bank ✅', 'success');
             } catch (e) { toast('Error: ' + e.message, 'error'); }
             finally { setSaving(false); }
