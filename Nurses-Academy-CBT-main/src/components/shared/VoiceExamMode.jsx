@@ -194,25 +194,51 @@ export default function VoiceExamMode({
     speakingRef.current = true;
     try { srRef.current?.abort(); } catch(_) {}
     window.speechSynthesis.cancel();
-    const u  = new SpeechSynthesisUtterance(text);
-    u.lang   = 'en-US';
-    u.rate   = 0.9;
-    u.pitch  = 1;
-    const ka = setInterval(() => {
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    }, 10_000);
-    u.onend = () => {
-      clearInterval(ka);
-      speakingRef.current = false;
-      if (activeRef.current) onDone?.();
+
+    const doSpeak = () => {
+      if (!activeRef.current) return;
+      const u  = new SpeechSynthesisUtterance(text);
+      // Pick a valid en-US voice if available (fixes silent Android bug)
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find(v => v.lang.startsWith('en') && !v.localService === false)
+                   || voices.find(v => v.lang.startsWith('en'))
+                   || voices[0];
+      if (enVoice) u.voice = enVoice;
+      u.lang   = 'en-US';
+      u.rate   = 0.9;
+      u.pitch  = 1;
+      const ka = setInterval(() => {
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      }, 10_000);
+      u.onend = () => {
+        clearInterval(ka);
+        speakingRef.current = false;
+        if (activeRef.current) onDone?.();
+      };
+      u.onerror = (e) => {
+        clearInterval(ka);
+        speakingRef.current = false;
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
+        if (activeRef.current) onDone?.();
+      };
+      window.speechSynthesis.speak(u);
     };
-    u.onerror = (e) => {
-      clearInterval(ka);
-      speakingRef.current = false;
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      if (activeRef.current) onDone?.();
-    };
-    window.speechSynthesis.speak(u);
+
+    // Voices may not be loaded yet (common on Android Chrome)
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      doSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        doSpeak();
+      };
+      // Fallback: if onvoiceschanged never fires, try after 500ms
+      setTimeout(() => {
+        if (speakingRef.current && activeRef.current) return; // already started
+        doSpeak();
+      }, 500);
+    }
   };
 
   startSRRef.current = () => {
