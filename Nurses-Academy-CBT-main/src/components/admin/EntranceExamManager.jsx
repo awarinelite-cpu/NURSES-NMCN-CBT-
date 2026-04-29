@@ -45,19 +45,20 @@ function dateSeed(dateStr) {
 //   A. text  |  A) text  |  a. text  |  a) text          — standard A-D
 //   1. text  |  2. text  |  3. text  |  4. text           — numbered 1-4 mapped to A-D
 //   {a} text | {b} text                                   — curly-brace style
-//   A  text  (tab-separated, MCQ table style)
+//   A\ttext  (tab-separated)
 //
 // ANSWERS (anywhere after the question/options):
 //   *A  |  *a                                             — star prefix
-//   (A)  |  (a)                                           — bare paren
+//   (A)  |  (a)  |  [A]                                  — bracketed
 //   Answer: A  |  Answer: A) text  |  Answer: (A) text   — with label
 //   **Answer: A) text**                                   — bold markdown
 //   Ans: A  |  Ans:A  |  ANS A  |  ANS: A  |  ANSWER A   — short forms
 //   Ans: D  (end of line or standalone)
 //   Answer (B) Population health                          — letter in parens after label
-//   a) (inline after last option on same line)            — inline answer
-//   [A]  |  [a]                                           — square-bracket
 //   Just the letter alone on a line: A / B / C / D
+//
+// MISSING ANSWER → saved as correctAnswer:'', flagged as needsReview:true
+//   (admin can fill in later — not a hard error)
 //
 // EXPLANATION:
 //   Explanation: text  |  Rationale: text
@@ -66,10 +67,8 @@ function dateSeed(dateStr) {
 //   https://... (first line of block)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Map numbered options (1→A, 2→B, 3→C, 4→D)
 const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
 
-// Extract the answer letter from a raw answer string (handles all variants)
 function extractAnswerLetter(raw) {
   if (!raw) return '';
   const s = raw.trim();
@@ -90,22 +89,21 @@ function extractAnswerLetter(raw) {
   m = /^\*([A-D])$/i.exec(s);
   if (m) return m[1].toUpperCase();
 
-  // (A) or [A]
+  // (A)  [A]
   m = /^[(\[]([A-D])[)\]]$/i.exec(s);
   if (m) return m[1].toUpperCase();
 
-  // Numbered answer: Ans: 1  →  A
+  // Numbered: Ans: 1 → A
   m = /^(?:answer|ans|correct(?:\s+answer)?)\s*[:\-]?\s*([1-4])\b/i.exec(s);
   if (m) return NUM_TO_LETTER[m[1]] || '';
 
-  // Bare letter at start/end: "A" alone
+  // Bare letter alone
   m = /^([A-D])$/i.exec(s);
   if (m) return m[1].toUpperCase();
 
   return '';
 }
 
-// Try to extract answer letter embedded anywhere within a line (for inline answers)
 function extractAnswerInline(line) {
   const s = line.trim();
 
@@ -117,157 +115,143 @@ function extractAnswerInline(line) {
   m = /(?:^|\s)(?:answer|ans(?:wer)?)\s*[:\-]?\s*\(?([A-D])\)?(?:\b|$)/i.exec(s);
   if (m) return m[1].toUpperCase();
 
-  // Ans : A  (with spaces around colon)
+  // Ans : A  (spaces around colon)
   m = /\bans\s*:\s*([A-D])\b/i.exec(s);
   if (m) return m[1].toUpperCase();
 
-  // ANS:A  or  ANS: A at end
-  m = /ANS\s*:?\s*([A-D])\b/i.exec(s);
+  // ANS:A  or  ANS: A  (uppercase)
+  m = /\bANS\s*:?\s*([A-D])\b/i.exec(s);
   if (m) return m[1].toUpperCase();
 
   return '';
 }
 
+// Regex to detect an option line in any supported format
+const OPTION_RE = /^(?:([A-Da-d])[.)]\s*|([A-Da-d])\t|([1-4])[.)]\s*|\{([a-d])\}\s*)/i;
+
 function parseEntranceQuestions(text) {
-  // ── Pre-process: collapse Windows line endings ──────────────────────────────
+  // Normalise line endings
   text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // ── Split into blocks on blank lines ────────────────────────────────────────
   const blocks = text.trim().split(/\n{2,}/).filter(b => b.trim());
-  const results = [], errors = [];
+  const results = [], warnings = [];
 
   blocks.forEach((block, idx) => {
-    // Normalise: remove leading bullet numbers like "1.\t" or "1. " that prefix the whole block
-    const rawLines = block.trim().split('\n');
-    // strip leading question-number prefix from first content line only
-    const lines = rawLines
+    const lines = block.trim().split('\n')
       .map(l => l.trim())
       .filter(Boolean);
 
     if (lines.length < 2) return; // skip near-empty blocks silently
 
-    // ── 1. Diagram URL on first line ──────────────────────────────────────────
+    // ── 1. Diagram URL ──────────────────────────────────────────────────────
     let cursor = 0;
     let diagramUrl = '';
     if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor++; }
 
-    // ── 2. Strip leading question number (e.g. "1." "23." "Q.5" "MCQ3") ──────
-    let questionLine = lines[cursor];
-    questionLine = questionLine
-      .replace(/^(?:MCQ\s*\d+|Q\.?\s*\d+|Q\d+|\d+[.)]\s*)/i, '')
-      .trim();
-    if (!questionLine) { cursor++; questionLine = lines[cursor] || ''; cursor++; }
-    else { cursor++; }
+    // ── 2. Question text (strip leading number/label) ───────────────────────
+    let questionLine = (lines[cursor] || '').trim();
+    // Strip leading: "1." "23." "Q.5" "Q5" "MCQ3" "FBQ51" etc.
+    questionLine = questionLine.replace(/^(?:MCQ\s*\d+|FBQ\s*\d+|Q\.?\s*\d+|Q\d+|\d+[.)]\s*)/i, '').trim();
+    if (!questionLine && cursor < lines.length) { cursor++; questionLine = (lines[cursor] || '').trim(); }
+    cursor++;
 
-    // ── 3. Collect option lines ───────────────────────────────────────────────
+    // ── 3. Options ──────────────────────────────────────────────────────────
     const options = {};
-    const OPTION_RE = /^(?:([A-D])[.)]\s*|([A-D])\s{2,}|([1-4])[.)]\s*|\{([a-d])\}\s*)/i;
 
     while (cursor < lines.length) {
       const l = lines[cursor];
 
-      // Check if this line is an answer line — stop collecting options
-      if (extractAnswerInline(l) && !OPTION_RE.test(l)) break;
-      if (/^(?:answer|ans(?:wer)?|correct)\s*[:\-]?\s*[A-D1-4\*\(\[]/i.test(l)) break;
-      if (/^\*[A-D]$/i.test(l.trim())) break;
-      if (/^[(\[]([A-D])[)\]]$/i.test(l.trim())) break;
-      if (/^explanation\s*:/i.test(l)) break;
-      if (/^rationale\s*:/i.test(l)) break;
+      // Stop if this looks like an answer line (not an option)
+      const lTrimmed = l.trim();
+      if (/^(?:answer|ans(?:wer)?|correct)\s*[:\-]?\s*[A-D1-4\*\(\[]/i.test(lTrimmed)) break;
+      if (/^\*[A-D]$/i.test(lTrimmed)) break;
+      if (/^[(\[]([A-D])[)\]]$/i.test(lTrimmed)) break;
+      if (/^(?:explanation|rationale)\s*:/i.test(lTrimmed)) break;
+      // "Ans : A" or "ANS: A" standalone
+      if (/^(?:ans\s*:?\s*[A-D]\b|ANS\s*:?\s*[A-D]\b)/i.test(lTrimmed)) break;
 
-      const optMatch = OPTION_RE.exec(l);
+      const optMatch = OPTION_RE.exec(lTrimmed);
       if (optMatch) {
-        // Determine letter
         let letter = (optMatch[1] || optMatch[2] || '').toUpperCase();
         if (!letter && optMatch[3]) letter = NUM_TO_LETTER[optMatch[3]] || '';
         if (!letter && optMatch[4]) letter = optMatch[4].toUpperCase();
         if (!letter) { cursor++; continue; }
 
-        const optText = l.replace(OPTION_RE, '').trim();
+        // Strip the option prefix to get the text
+        let optText = lTrimmed.replace(OPTION_RE, '').trim();
 
-        // Inline answer at end of option line e.g. "A. Some text  Ans: A"
+        // Check for inline answer embedded at end of option line
+        // e.g. "d. 8.0 – 14.0 Ans: A"
         const inlineAns = extractAnswerInline(optText);
-        options[letter] = inlineAns
-          ? optText.replace(/\s*(?:ans(?:wer)?)\s*[:\-]?\s*[A-D]\b.*/i, '').trim()
-          : optText;
+        if (inlineAns) {
+          optText = optText.replace(/\s*(?:ans(?:wer)?)\s*[:\-]?\s*[A-D]\b.*/i, '').trim();
+        }
 
+        options[letter] = optText;
         cursor++;
         continue;
       }
 
-      // Tab-separated MCQ table: "Alimentary Canal\t\t100" — skip grade column lines
-      // They appear in one document but aren't options
-      if (/\t.*\d{3}$/.test(l)) { cursor++; continue; }
-
-      // Not an option line and not yet an answer — could be continuation of question
-      // If we have at least 1 option already, stop
+      // If we already have options and this isn't one → stop
       if (Object.keys(options).length > 0) break;
-      // Otherwise append to question
-      questionLine += ' ' + l;
+      // Otherwise it's a continuation of the question
+      questionLine += ' ' + lTrimmed;
       cursor++;
     }
 
-    // ── 4. Collect answer / explanation ──────────────────────────────────────
+    // ── 4. Answer + explanation ──────────────────────────────────────────────
     let correctAnswer = '', explanation = '';
 
-    // First pass: look for inline answer already embedded in option texts
-    if (!correctAnswer) {
-      for (const [, optLine] of Object.entries(lines)) {
-        // Check options for trailing inline ans
-        const il = extractAnswerInline(optLine);
-        if (il && !OPTION_RE.test(optLine) && options[il]) { correctAnswer = il; break; }
-      }
+    // Check if any option had an inline answer embedded
+    for (const line of lines) {
+      if (!OPTION_RE.test(line.trim())) continue;
+      const optText = line.trim().replace(OPTION_RE, '');
+      const ia = extractAnswerInline(optText);
+      if (ia) { correctAnswer = ia; break; }
     }
 
-    // Check if question line itself has inline answer  (rare but present)
-    if (!correctAnswer) {
-      const qa = extractAnswerInline(questionLine);
-      if (qa) correctAnswer = qa;
-    }
-
-    // Scan remaining lines for answer & explanation
+    // Scan remaining lines
     while (cursor < lines.length) {
       const l = lines[cursor];
 
-      // Explanation / Rationale
       if (/^(?:explanation|rationale)\s*:/i.test(l)) {
         explanation = l.replace(/^(?:explanation|rationale)\s*:\s*/i, '').trim();
         cursor++; continue;
       }
 
-      // Try full-line answer extraction
+      // Try full-line answer
       const a = extractAnswerLetter(l);
       if (a) { if (!correctAnswer) correctAnswer = a; cursor++; continue; }
 
-      // Try inline answer extraction
+      // Try inline answer
       const ia = extractAnswerInline(l);
       if (ia) { if (!correctAnswer) correctAnswer = ia; cursor++; continue; }
 
       cursor++;
     }
 
-    // ── 5. Validate ───────────────────────────────────────────────────────────
-    if (Object.keys(options).length < 2) {
-      errors.push(`Block ${idx + 1}: Not enough options (found ${Object.keys(options).length}) — "${questionLine.slice(0, 60)}"`);
-      return;
-    }
-    // Pad to A-D if only 2-3 options detected and the others are just missing labels
-    // (e.g. True/False questions with A & B only — allow them)
-    if (!correctAnswer) {
-      errors.push(`Block ${idx + 1}: Missing answer — "${questionLine.slice(0, 60)}"`);
-      return;
+    // ── 5. Validation ────────────────────────────────────────────────────────
+    if (!questionLine) return; // skip truly empty blocks
+    if (Object.keys(options).length < 2) return; // skip non-question blocks silently
+
+    // Missing answer → soft warning, save as needsReview
+    const needsReview = !correctAnswer;
+    if (needsReview) {
+      warnings.push(`Block ${idx + 1}: No answer found — "${questionLine.slice(0, 55)}…" (saved for review)`);
     }
 
     results.push({
       questionText: questionLine,
       options,
-      correctAnswer,
+      correctAnswer,  // may be '' if missing — admin reviews later
       explanation,
       diagramUrl,
       questionType: diagramUrl ? 'diagram' : 'text',
+      needsReview,
     });
   });
 
-  return { results, errors };
+  return { results, warnings, errors: [] }; // errors always empty — warnings replace them
 }
 
 // ── Shared field row style ────────────────────────────────────────────────────
@@ -482,9 +466,11 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
 
   const handleParse = () => {
     setParseErr('');
-    const { results, errors } = parseEntranceQuestions(rawText);
-    if (errors.length) { setParseErr(errors.join('\n')); setParsed(null); return; }
+    const { results, warnings } = parseEntranceQuestions(rawText);
     if (!results.length) { setParseErr('No question detected.'); return; }
+    if (warnings.length && !results[0].correctAnswer) {
+      setParseErr('⚠️ No answer found — please add the correct answer manually before saving.');
+    }
     setParsed(results[0]);
   };
 
@@ -637,13 +623,13 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
   const [addToDailyBank, setAddToDailyBank] = useState(false);
   const [rawText,   setRawText]   = useState('');
   const [parsed,    setParsed]    = useState([]);
-  const [errors,    setErrors]    = useState([]);
+  const [warnings,  setWarnings]  = useState([]);
   const [importing, setImporting] = useState(false);
   const [imported,  setImported]  = useState(null);
 
   const handleParse = () => {
-    const { results, errors: errs } = parseEntranceQuestions(rawText);
-    setParsed(results); setErrors(errs); setImported(null);
+    const { results, warnings: warns } = parseEntranceQuestions(rawText);
+    setParsed(results); setWarnings(warns); setImported(null);
   };
 
   const handleImport = async () => {
@@ -661,6 +647,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
           questionType: q.questionType, diagramUrl: q.diagramUrl || '',
           questionText: q.questionText, options: q.options,
           correctAnswer: q.correctAnswer, explanation: q.explanation || '',
+          needsReview: q.needsReview || false,
           active: true, inDailyBank: addToDailyBank,
           createdAt: serverTimestamp(),
         });
@@ -672,15 +659,18 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
           await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: c.data().count });
         } catch {}
       }
-      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length });
-      setParsed([]); setRawText('');
-      toast(`Imported ${parsed.length} questions ✅`, 'success');
+      const reviewCount = parsed.filter(q => q.needsReview).length;
+      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length, reviewCount });
+      setParsed([]); setRawText(''); setWarnings([]);
+      toast(`Imported ${parsed.length} questions ✅${reviewCount ? ` (${reviewCount} need answer review)` : ''}`, reviewCount ? 'warning' : 'success');
     } catch (e) { toast('Import failed: ' + e.message, 'error'); }
     finally { setImporting(false); }
   };
 
-  const diagrams = parsed.filter(q => q.questionType === 'diagram').length;
-  const texts    = parsed.filter(q => q.questionType === 'text').length;
+  const reviewNeeded = parsed.filter(q => q.needsReview).length;
+  const withAnswer   = parsed.filter(q => !q.needsReview).length;
+  const diagrams     = parsed.filter(q => q.questionType === 'diagram').length;
+  const texts        = parsed.filter(q => q.questionType === 'text').length;
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -722,14 +712,25 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
 
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📝 Paste All Questions</div>
-        <textarea className="form-input" rows={16} placeholder="Paste all your questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setErrors([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />
+        <textarea className="form-input" rows={16} placeholder="Paste all your questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setWarnings([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />
         <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview All</button>
       </div>
 
-      {errors.length > 0 && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>⚠️ {errors.length} parse error{errors.length !== 1 ? 's' : ''}</div>
-          {errors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#EF4444' }}>{e}</div>)}
+      {/* Warnings (soft — questions still parsed, just missing answers) */}
+      {warnings.length > 0 && (
+        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>
+            ⚠️ {warnings.length} question{warnings.length !== 1 ? 's' : ''} have no answer — they will be saved and flagged for review
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+            You can fill in their correct answers later in the Question Bank tab.
+          </div>
+          <details>
+            <summary style={{ fontSize: 12, color: '#F59E0B', cursor: 'pointer' }}>Show details</summary>
+            <div style={{ marginTop: 8 }}>
+              {warnings.map((w, i) => <div key={i} style={{ fontSize: 11, color: '#F59E0B', lineHeight: 1.6 }}>{w}</div>)}
+            </div>
+          </details>
         </div>
       )}
 
@@ -738,23 +739,30 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
               <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>✅ Parsed: {parsed.length} questions</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>📝 {texts} text · 🖼️ {diagrams} diagram</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                📝 {texts} text · 🖼️ {diagrams} diagram
+                {reviewNeeded > 0 && <span style={{ color: '#F59E0B', marginLeft: 8 }}>· ⚠️ {reviewNeeded} need answer · ✅ {withAnswer} complete</span>}
+              </div>
             </div>
-            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>{importing ? '⬆️ Importing…' : `✅ Import All (${parsed.length})`}</button>
+            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>{importing ? '⬆️ Importing…' : `⬆️ Import All (${parsed.length})`}</button>
           </div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>#</th><th>Question Preview</th><th>Ans</th><th>Type</th></tr></thead>
               <tbody>
-                {parsed.slice(0, 20).map((q, i) => (
-                  <tr key={i}>
+                {parsed.slice(0, 25).map((q, i) => (
+                  <tr key={i} style={q.needsReview ? { background: 'rgba(245,158,11,0.05)' } : {}}>
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
                     <td style={{ fontSize: 12 }}>{q.questionText.slice(0, 60)}{q.questionText.length > 60 ? '…' : ''}</td>
-                    <td><span className="badge badge-teal">{q.correctAnswer}</span></td>
+                    <td>
+                      {q.correctAnswer
+                        ? <span className="badge badge-teal">{q.correctAnswer}</span>
+                        : <span style={{ fontSize: 11, color: '#F59E0B' }}>⚠️ review</span>}
+                    </td>
                     <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
                   </tr>
                 ))}
-                {parsed.length > 20 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 20} more</td></tr>}
+                {parsed.length > 25 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 25} more</td></tr>}
               </tbody>
             </table>
           </div>
@@ -762,10 +770,18 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
       )}
 
       {imported && (
-        <div style={{ background: 'rgba(22,163,74,0.08)', border: '1.5px solid rgba(22,163,74,0.3)', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--green)', marginBottom: 4 }}>Import Complete!</div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Imported {imported.count} questions · {imported.diagrams} with diagrams · {imported.count - imported.diagrams} text only</div>
+        <div style={{ background: imported.reviewCount ? 'rgba(245,158,11,0.07)' : 'rgba(22,163,74,0.08)', border: `1.5px solid ${imported.reviewCount ? 'rgba(245,158,11,0.3)' : 'rgba(22,163,74,0.3)'}`, borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>{imported.reviewCount ? '⚠️' : '✅'}</div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: imported.reviewCount ? '#F59E0B' : 'var(--green)', marginBottom: 4 }}>Import Complete!</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            Imported {imported.count} questions · {imported.diagrams} with diagrams
+            {imported.reviewCount > 0 && <span style={{ color: '#F59E0B' }}> · {imported.reviewCount} flagged for answer review</span>}
+          </div>
+          {imported.reviewCount > 0 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+              Go to the <strong>Question Bank</strong> tab to add missing answers.
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1622,9 +1638,11 @@ function SinglePasteUpload({ onSave, saving }) {
 
   const handleParse = () => {
     setParseErr('');
-    const { results, errors } = parseEntranceQuestions(rawText);
-    if (errors.length) { setParseErr(errors.join('\n')); setParsed(null); return; }
+    const { results, warnings } = parseEntranceQuestions(rawText);
     if (!results.length) { setParseErr('No question detected.'); return; }
+    if (warnings.length && !results[0].correctAnswer) {
+      setParseErr('⚠️ No answer found in text — please set the correct answer manually.');
+    }
     setParsed(results[0]);
   };
 
