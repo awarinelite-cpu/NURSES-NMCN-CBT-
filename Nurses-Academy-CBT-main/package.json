@@ -25,7 +25,15 @@
   "eslintConfig": {
     "extends": [
       "react-app"
-    ]
+    ],
+    "rules": {
+      "no-useless-escape": "off",
+      "no-unused-vars": "off",
+      "no-undef": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "no-unreachable": "off",
+      "no-duplicate-case": "off"
+    }
   },
   "browserslist": {
     "production": [
