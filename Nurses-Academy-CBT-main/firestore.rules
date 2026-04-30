@@ -1,10 +1,6 @@
-// firestore.rules
-// Deploy with: firebase deploy --only firestore:rules
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isAuth()  { return request.auth != null; }
     function uid()     { return request.auth.uid; }
     function isAdmin() {
@@ -12,7 +8,6 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
     }
 
-    // ── Users ────────────────────────────────────────────────────
     match /users/{userId} {
       allow read:   if isAuth();
       allow create: if isAuth() && uid() == userId;
@@ -20,13 +15,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Questions ────────────────────────────────────────────────
     match /questions/{qId} {
-      allow read:   if isAuth();
-      allow write:  if isAdmin();
+      allow read:  if isAuth();
+      allow write: if isAdmin();
     }
 
-    // ── Exam sessions ────────────────────────────────────────────
     match /examSessions/{sessionId} {
       allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == uid();
@@ -34,13 +27,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Access codes ─────────────────────────────────────────────
     match /accessCodes/{codeId} {
-      allow read:   if isAuth();
-      allow write:  if isAdmin();
+      allow read:  if isAuth();
+      allow write: if isAdmin();
     }
 
-    // ── Payments ─────────────────────────────────────────────────
     match /payments/{payId} {
       allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == uid();
@@ -48,7 +39,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Notifications ────────────────────────────────────────────
     match /notifications/{notifId} {
       allow read:   if isAuth();
       allow create: if isAuth();
@@ -56,7 +46,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Bookmarks ────────────────────────────────────────────────
     match /bookmarks/{bookmarkId} {
       allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == uid();
@@ -64,10 +53,53 @@ service cloud.firestore {
       allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
     }
 
-    // ── Announcements ────────────────────────────────────────────
     match /announcements/{annId} {
       allow read:  if isAuth();
       allow write: if isAdmin();
+    }
+
+    // ── Entrance Exam Questions ──────────────────────────────────
+    match /entranceExamQuestions/{qId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── Entrance Exam Schools ────────────────────────────────────
+    match /entranceExamSchools/{schoolId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── Entrance Exam Sessions (completed) ───────────────────────
+    match /entranceExamSessions/{sessionId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
+
+    // ── Entrance Paused Exams (save & exit) ──────────────────────
+    match /entrancePausedExams/{examId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
+
+    // ── Entrance Exam Bookmarks ──────────────────────────────────
+    match /entranceBookmarks/{bookmarkId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
+
+    // ── User subcollections ──────────────────────────────────────
+    match /users/{userId}/{subcollection}/{docId} {
+      allow read:   if isAuth() && (uid() == userId || isAdmin());
+      allow create: if isAuth() && uid() == userId;
+      allow update: if isAuth() && uid() == userId;
+      allow delete: if isAuth() && (uid() == userId || isAdmin());
     }
   }
 }
