@@ -1,9 +1,5 @@
 // src/components/entrance/EntranceExamHub.jsx
 // Route: /entrance-exam
-//
-// FIX: Banner "Your Exams" count now reads from `entranceExamSessions`
-//      (the collection EntranceExamSession actually writes to).
-//      Previously read from `entranceExamAttempts` — wrong collection, always 0.
 
 import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
@@ -74,53 +70,42 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
   );
 }
 
-/* ── Continue card (paused exam) ─────────────────────────────────────────── */
 function ContinueCard({ exam, onContinue, onDiscard }) {
-  const pct = exam.answeredCount && exam.totalQuestions
-    ? Math.round((exam.answeredCount / exam.totalQuestions) * 100)
-    : 0;
+  const pct  = exam.answeredCount && exam.totalQuestions
+    ? Math.round((exam.answeredCount / exam.totalQuestions) * 100) : 0;
   const date = exam.savedAt?.toDate
     ? exam.savedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
     : 'Recently';
-
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)',
-      border: '1.5px solid rgba(255,255,255,0.15)',
-      borderRadius: 14, padding: '14px 16px',
-      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-    }}>
+    <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
       <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: 'rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📋</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 2 }}>
-          {exam.examName || 'Daily Mock Exam'}
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
-          {exam.answeredCount || 0}/{exam.totalQuestions || '?'} answered · {date}
-        </div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 2 }}>{exam.examName || 'Daily Mock Exam'}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>{exam.answeredCount || 0}/{exam.totalQuestions || '?'} answered · {date}</div>
         <div style={{ height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, background: '#F59E0B', borderRadius: 2, transition: 'width 0.4s' }} />
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
         <button onClick={onContinue} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#F59E0B', color: '#000', fontFamily: 'inherit', fontWeight: 800, fontSize: 13 }}>▶ Continue</button>
-        <button onClick={onDiscard} title="Discard" style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}>✕</button>
+        <button onClick={onDiscard} style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}>✕</button>
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════════════ */
 export default function EntranceExamHub() {
-  const { user }  = useAuth();
-  const navigate  = useNavigate();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [stats,          setStats]          = useState({ schools: 0, questions: 0 });
-  const [completedExams, setCompletedExams] = useState([]);  // from entranceExamSessions
+  const [completedExams, setCompletedExams] = useState([]);
   const [pausedExams,    setPausedExams]    = useState([]);
   const [avgScore,       setAvgScore]       = useState(0);
   const [bannerVis,      setBannerVis]      = useState(false);
   const [loading,        setLoading]        = useState(true);
+  const [loadError,      setLoadError]      = useState('');
 
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
@@ -128,62 +113,95 @@ export default function EntranceExamHub() {
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 60);
     if (!user) { setLoading(false); return; }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-    const load = async () => {
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
+
+    // ── 1. Schools + questions count ──────────────────────────────────────────
+    try {
+      const [sc, qc] = await Promise.all([
+        getCountFromServer(collection(db, 'entranceExamSchools')),
+        getCountFromServer(collection(db, 'entranceExamQuestions')),
+      ]);
+      setStats({ schools: sc.data().count, questions: qc.data().count });
+    } catch (e) {
+      console.error('Stats count error:', e.code, e.message);
+    }
+
+    // ── 2. Completed sessions ─────────────────────────────────────────────────
+    // Try with orderBy first (requires composite index). If that fails (missing
+    // index), fall back to a simple where-only query and sort client-side.
+    try {
+      let snap;
       try {
-        const [schoolsSnap, questionsSnap] = await Promise.all([
-          getCountFromServer(collection(db, 'entranceExamSchools')),
-          getCountFromServer(collection(db, 'entranceExamQuestions')),
-        ]);
-
-        // ── FIX: read from `entranceExamSessions` (what EntranceExamSession writes to) ──
-        // Previously read from `entranceExamAttempts` — wrong collection
-        const sessSnap = await getDocs(query(
+        snap = await getDocs(query(
           collection(db, 'entranceExamSessions'),
           where('userId', '==', user.uid),
           orderBy('completedAt', 'desc'),
           limit(20),
         ));
-        const sessions = sessSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // Paused exams
-        const pausedSnap = await getDocs(query(
-          collection(db, 'entrancePausedExams'),
+      } catch (indexErr) {
+        console.warn('orderBy failed (missing index?), trying without orderBy:', indexErr.code);
+        snap = await getDocs(query(
+          collection(db, 'entranceExamSessions'),
           where('userId', '==', user.uid),
+          limit(20),
         ));
-        const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        paused.sort((a, b) => {
-          const ta = a.savedAt?.toDate?.()?.getTime?.() ?? 0;
-          const tb = b.savedAt?.toDate?.()?.getTime?.() ?? 0;
-          return tb - ta;
-        });
-
-        // Compute average score from completed sessions
-        const avg = sessions.length
-          ? Math.round(sessions.reduce((s, a) => s + (a.scorePercent || 0), 0) / sessions.length)
-          : 0;
-
-        setStats({ schools: schoolsSnap.data().count, questions: questionsSnap.data().count });
-        setCompletedExams(sessions.slice(0, 5));
-        setAvgScore(avg);
-        setPausedExams(paused);
-      } catch (e) {
-        console.warn('EntranceExamHub load:', e.message);
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
-  }, [user]);
+
+      let sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Sort client-side (works even if orderBy index is missing)
+      sessions.sort((a, b) => {
+        const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
+        const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
+        return tb - ta;
+      });
+
+      const avg = sessions.length
+        ? Math.round(sessions.reduce((s, a) => s + (a.scorePercent || 0), 0) / sessions.length)
+        : 0;
+
+      setCompletedExams(sessions.slice(0, 5));
+      setAvgScore(avg);
+      console.log(`Loaded ${sessions.length} completed sessions, avg ${avg}%`);
+    } catch (e) {
+      console.error('Sessions load error:', e.code, e.message);
+      setLoadError(`Could not load your exams (${e.code || e.message})`);
+    }
+
+    // ── 3. Paused exams ───────────────────────────────────────────────────────
+    try {
+      const pausedSnap = await getDocs(query(
+        collection(db, 'entrancePausedExams'),
+        where('userId', '==', user.uid),
+      ));
+      const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      paused.sort((a, b) => {
+        const ta = a.savedAt?.toDate?.()?.getTime?.() ?? 0;
+        const tb = b.savedAt?.toDate?.()?.getTime?.() ?? 0;
+        return tb - ta;
+      });
+      setPausedExams(paused);
+      console.log(`Loaded ${paused.length} paused exams`);
+    } catch (e) {
+      console.error('Paused exams load error:', e.code, e.message);
+    }
+
+    setLoading(false);
+  };
 
   const handleContinue = (exam) => {
     navigate('/entrance-exam/session', {
       state: {
         resumeMode:   true,
         pausedExamId: exam.id,
-        examType:     exam.examType  || 'entrance_daily_mock',
-        examName:     exam.examName  || 'Entrance Exam — Daily Mock',
-        subject:      exam.subject   || 'entrance_general',
+        examType:     exam.examType || 'entrance_daily_mock',
+        examName:     exam.examName || 'Entrance Exam — Daily Mock',
         resumeData: {
           questionIds:  exam.questionIds,
           answers:      exam.answers,
@@ -203,14 +221,14 @@ export default function EntranceExamHub() {
   };
 
   const FEATURE_CARDS = [
-    { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                      color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
-    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools`,                color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
-    { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',                      color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
-    { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent`,              color: '#7C3AED', to: '/entrance-exam/my-results',    delay: 560 },
-    { icon: '🔖', label: 'Bookmarks',              sub: 'Saved questions',                              color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
-    { icon: '📊', label: 'My Results',             sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
-    { icon: '📈', label: 'Analysis',               sub: 'See weak areas',                               color: '#0891B2', to: '/entrance-exam/analysis',       delay: 770 },
-    { icon: '🏆', label: 'Leaderboard',            sub: 'Top students',                                 color: '#EF4444', to: '/entrance-exam/leaderboard',    delay: 840 },
+    { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                           color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
+    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools`,                    color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
+    { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',                          color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
+    { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent`,                  color: '#7C3AED', to: '/entrance-exam/my-results',    delay: 560 },
+    { icon: '🔖', label: 'Bookmarks',              sub: 'Saved questions',                                  color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
+    { icon: '📊', label: 'My Results',             sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results',  delay: 700 },
+    { icon: '📈', label: 'Analysis',               sub: 'See weak areas',                                   color: '#0891B2', to: '/entrance-exam/analysis',       delay: 770 },
+    { icon: '🏆', label: 'Leaderboard',            sub: 'Top students',                                     color: '#EF4444', to: '/entrance-exam/leaderboard',    delay: 840 },
   ];
 
   return (
@@ -220,7 +238,15 @@ export default function EntranceExamHub() {
         ← Back to Dashboard
       </button>
 
-      {/* ── Welcome Banner ─────────────────────────────────────────────── */}
+      {/* load error banner */}
+      {loadError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#EF4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          ⚠️ {loadError}
+          <button onClick={load} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Retry</button>
+        </div>
+      )}
+
+      {/* ── Welcome Banner ─────────────────────────────────────────────────── */}
       <div style={{
         background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 100%)',
         borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
@@ -240,19 +266,15 @@ export default function EntranceExamHub() {
             Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
           </p>
 
-          {/* Stat pills — FIX: Your Exams now uses completedExams.length from entranceExamSessions */}
+          {/* Stat pills */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 20 : 0 }}>
             {[
-              { label: 'Schools',    value: loading ? '…' : animSchools,              icon: '🏫' },
-              { label: 'Questions',  value: loading ? '…' : animQuestions,            icon: '❓' },
-              { label: 'Your Exams', value: loading ? '…' : completedExams.length,    icon: '📝' },
+              { label: 'Schools',    value: loading ? '…' : animSchools,           icon: '🏫' },
+              { label: 'Questions',  value: loading ? '…' : animQuestions,         icon: '❓' },
+              { label: 'Your Exams', value: loading ? '…' : completedExams.length, icon: '📝' },
               ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
             ].map(s => (
-              <div key={s.label} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)',
-                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 14px',
-              }}>
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 14px' }}>
                 <span style={{ fontSize: 16 }}>{s.icon}</span>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1 }}>{s.value}</div>
@@ -262,14 +284,12 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* Paused / Exited exams — Continue cards */}
+          {/* Continue cards */}
           {pausedExams.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>▶ Continue Exam</div>
-                <div style={{ background: 'rgba(245,158,11,0.9)', color: '#000', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 800 }}>
-                  {pausedExams.length}
-                </div>
+                <div style={{ background: 'rgba(245,158,11,0.9)', color: '#000', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 800 }}>{pausedExams.length}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {pausedExams.map(exam => (
@@ -281,17 +301,15 @@ export default function EntranceExamHub() {
         </div>
       </div>
 
-      {/* ── Feature cards ───────────────────────────────────────────────── */}
+      {/* ── Feature cards ────────────────────────────────────────────────────── */}
       <ACard delay={280} style={{ marginBottom: 28 }}>
-        <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 14px' }}>
-          ⚡ What do you want to do?
-        </h3>
+        <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 14px' }}>⚡ What do you want to do?</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {FEATURE_CARDS.map(card => <FeatureCard key={card.label} {...card} />)}
         </div>
       </ACard>
 
-      {/* ── Recommendation ──────────────────────────────────────────────── */}
+      {/* ── Recommendation ───────────────────────────────────────────────────── */}
       <ACard delay={900} style={{ marginBottom: 20 }}>
         <div style={{ background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(37,99,235,0.06))', border: '1.5px solid rgba(13,148,136,0.2)', borderRadius: 14, padding: '16px 20px' }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>💡 Recommended For You</div>
@@ -312,7 +330,7 @@ export default function EntranceExamHub() {
         </div>
       </ACard>
 
-      {/* ── Recent completed sessions ────────────────────────────────────── */}
+      {/* ── Recent completed sessions ─────────────────────────────────────────── */}
       {completedExams.length > 0 && (
         <ACard delay={1000}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -323,20 +341,18 @@ export default function EntranceExamHub() {
             {completedExams.map(s => {
               const pct    = s.scorePercent ?? Math.round(((s.correct || 0) / (s.totalQuestions || 1)) * 100);
               const passed = pct >= 50;
-              const date   = s.completedAt?.toDate ? s.completedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently';
+              const date   = s.completedAt?.toDate
+                ? s.completedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
+                : 'Recently';
               return (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `4px solid ${passed ? '#16A34A' : '#EF4444'}`, borderRadius: 10, padding: '10px 14px' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                      {s.examName || 'Entrance Exam'}
-                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{s.examName || 'Entrance Exam'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                       {date} · {s.correct ?? '?'}/{s.totalQuestions ?? '?'} correct
                     </div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: passed ? '#16A34A' : '#EF4444' }}>
-                    {pct}%
-                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: passed ? '#16A34A' : '#EF4444' }}>{pct}%</div>
                 </div>
               );
             })}
@@ -351,9 +367,7 @@ export default function EntranceExamHub() {
             <div style={{ fontSize: 52, marginBottom: 12 }}>🏫</div>
             <h3 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 8px', color: 'var(--text-primary)' }}>Start Your Entrance Exam Prep</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px' }}>Browse nursing schools and start practicing with real past questions.</p>
-            <Link to="/entrance-exam/schools" className="btn btn-primary" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-              🏫 Browse Schools
-            </Link>
+            <Link to="/entrance-exam/schools" className="btn btn-primary" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>🏫 Browse Schools</Link>
           </div>
         </ACard>
       )}
