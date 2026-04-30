@@ -1,9 +1,9 @@
 // src/components/entrance/EntranceExamHub.jsx
 // Route: /entrance-exam
 //
-// UPDATED: Loads entrancePausedExams for the current user and shows them
-// as "Continue" cards inside the banner (matching the dashboard screenshot pattern)
-// with a count badge showing how many exams are paused.
+// FIX: Banner "Your Exams" count now reads from `entranceExamSessions`
+//      (the collection EntranceExamSession actually writes to).
+//      Previously read from `entranceExamAttempts` — wrong collection, always 0.
 
 import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
@@ -90,14 +90,7 @@ function ContinueCard({ exam, onContinue, onDiscard }) {
       borderRadius: 14, padding: '14px 16px',
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     }}>
-      {/* Clipboard icon */}
-      <div style={{
-        width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-        background: 'rgba(139,92,246,0.25)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-      }}>📋</div>
-
-      {/* Info */}
+      <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: 'rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📋</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 2 }}>
           {exam.examName || 'Daily Mock Exam'}
@@ -105,30 +98,13 @@ function ContinueCard({ exam, onContinue, onDiscard }) {
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
           {exam.answeredCount || 0}/{exam.totalQuestions || '?'} answered · {date}
         </div>
-        {/* Progress bar */}
         <div style={{ height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, background: '#F59E0B', borderRadius: 2, transition: 'width 0.4s' }} />
         </div>
       </div>
-
-      {/* Buttons */}
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button
-          onClick={onContinue}
-          style={{
-            padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: '#F59E0B', color: '#000', fontFamily: 'inherit', fontWeight: 800, fontSize: 13,
-          }}
-        >▶ Continue</button>
-        <button
-          onClick={onDiscard}
-          title="Discard this paused exam"
-          style={{
-            padding: '8px 10px', borderRadius: 10, cursor: 'pointer',
-            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#EF4444', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
-          }}
-        >✕</button>
+        <button onClick={onContinue} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#F59E0B', color: '#000', fontFamily: 'inherit', fontWeight: 800, fontSize: 13 }}>▶ Continue</button>
+        <button onClick={onDiscard} title="Discard" style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}>✕</button>
       </div>
     </div>
   );
@@ -139,12 +115,12 @@ export default function EntranceExamHub() {
   const { user }  = useAuth();
   const navigate  = useNavigate();
 
-  const [stats,         setStats]         = useState({ schools: 0, questions: 0 });
-  const [recentAttempts,setRecent]        = useState([]);
-  const [pausedExams,   setPausedExams]   = useState([]);
-  const [avgScore,      setAvgScore]      = useState(0);
-  const [bannerVis,     setBannerVis]     = useState(false);
-  const [loading,       setLoading]       = useState(true);
+  const [stats,          setStats]          = useState({ schools: 0, questions: 0 });
+  const [completedExams, setCompletedExams] = useState([]);  // from entranceExamSessions
+  const [pausedExams,    setPausedExams]    = useState([]);
+  const [avgScore,       setAvgScore]       = useState(0);
+  const [bannerVis,      setBannerVis]      = useState(false);
+  const [loading,        setLoading]        = useState(true);
 
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
@@ -160,30 +136,36 @@ export default function EntranceExamHub() {
           getCountFromServer(collection(db, 'entranceExamQuestions')),
         ]);
 
-        // Recent completed attempts
-        const attSnap = await getDocs(query(
-          collection(db, 'entranceExamAttempts'),
+        // ── FIX: read from `entranceExamSessions` (what EntranceExamSession writes to) ──
+        // Previously read from `entranceExamAttempts` — wrong collection
+        const sessSnap = await getDocs(query(
+          collection(db, 'entranceExamSessions'),
           where('userId', '==', user.uid),
-          orderBy('date', 'desc'), limit(10),
+          orderBy('completedAt', 'desc'),
+          limit(20),
         ));
-        const attempts = attSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const sessions = sessSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // Paused exams (saved but not submitted)
+        // Paused exams
         const pausedSnap = await getDocs(query(
           collection(db, 'entrancePausedExams'),
           where('userId', '==', user.uid),
         ));
         const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // Sort newest first
         paused.sort((a, b) => {
           const ta = a.savedAt?.toDate?.()?.getTime?.() ?? 0;
           const tb = b.savedAt?.toDate?.()?.getTime?.() ?? 0;
           return tb - ta;
         });
 
+        // Compute average score from completed sessions
+        const avg = sessions.length
+          ? Math.round(sessions.reduce((s, a) => s + (a.scorePercent || 0), 0) / sessions.length)
+          : 0;
+
         setStats({ schools: schoolsSnap.data().count, questions: questionsSnap.data().count });
-        setRecent(attempts.slice(0, 5));
-        setAvgScore(attempts.length ? Math.round(attempts.reduce((s, a) => s + (a.score || 0), 0) / attempts.length) : 0);
+        setCompletedExams(sessions.slice(0, 5));
+        setAvgScore(avg);
         setPausedExams(paused);
       } catch (e) {
         console.warn('EntranceExamHub load:', e.message);
@@ -194,7 +176,6 @@ export default function EntranceExamHub() {
     load();
   }, [user]);
 
-  // ── Continue a paused exam ──────────────────────────────────────────────────
   const handleContinue = (exam) => {
     navigate('/entrance-exam/session', {
       state: {
@@ -202,6 +183,7 @@ export default function EntranceExamHub() {
         pausedExamId: exam.id,
         examType:     exam.examType  || 'entrance_daily_mock',
         examName:     exam.examName  || 'Entrance Exam — Daily Mock',
+        subject:      exam.subject   || 'entrance_general',
         resumeData: {
           questionIds:  exam.questionIds,
           answers:      exam.answers,
@@ -212,7 +194,6 @@ export default function EntranceExamHub() {
     });
   };
 
-  // ── Discard a paused exam ───────────────────────────────────────────────────
   const handleDiscard = async (exam) => {
     if (!window.confirm('Discard this paused exam?')) return;
     try {
@@ -222,25 +203,24 @@ export default function EntranceExamHub() {
   };
 
   const FEATURE_CARDS = [
-    { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",               color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
-    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools`,         color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
-    { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',               color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
-    { icon: '📋', label: 'Exams Taken',            sub: `${recentAttempts.length} this session`, color: '#7C3AED', to: '/entrance-exam/my-results',    delay: 560 },
-    { icon: '🔖', label: 'Bookmarks',              sub: 'Saved questions',                       color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
+    { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                      color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
+    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools`,                color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
+    { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',                      color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
+    { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent`,              color: '#7C3AED', to: '/entrance-exam/my-results',    delay: 560 },
+    { icon: '🔖', label: 'Bookmarks',              sub: 'Saved questions',                              color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
     { icon: '📊', label: 'My Results',             sub: avgScore > 0 ? `Avg: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
-    { icon: '📈', label: 'Analysis',               sub: 'See weak areas',                        color: '#0891B2', to: '/entrance-exam/analysis',       delay: 770 },
-    { icon: '🏆', label: 'Leaderboard',            sub: 'Top students',                          color: '#EF4444', to: '/entrance-exam/leaderboard',    delay: 840 },
+    { icon: '📈', label: 'Analysis',               sub: 'See weak areas',                               color: '#0891B2', to: '/entrance-exam/analysis',       delay: 770 },
+    { icon: '🏆', label: 'Leaderboard',            sub: 'Top students',                                 color: '#EF4444', to: '/entrance-exam/leaderboard',    delay: 840 },
   ];
 
   return (
     <div style={{ padding: '24px', maxWidth: 1100 }}>
 
-      {/* Back */}
       <button onClick={() => navigate('/dashboard')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
         ← Back to Dashboard
       </button>
 
-      {/* ── Welcome Banner ────────────────────────────────────────────────────── */}
+      {/* ── Welcome Banner ─────────────────────────────────────────────── */}
       <div style={{
         background: 'linear-gradient(135deg, #0F2A4A 0%, #065F46 100%)',
         borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
@@ -250,7 +230,6 @@ export default function EntranceExamHub() {
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.3) 0%, transparent 60%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,32px)' }}>
-          {/* Title */}
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
             🏥 NMCN CBT Platform
           </div>
@@ -261,12 +240,12 @@ export default function EntranceExamHub() {
             Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
           </p>
 
-          {/* Stat pills */}
+          {/* Stat pills — FIX: Your Exams now uses completedExams.length from entranceExamSessions */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 20 : 0 }}>
             {[
-              { label: 'Schools',    value: loading ? '…' : animSchools,            icon: '🏫' },
-              { label: 'Questions',  value: loading ? '…' : animQuestions,          icon: '❓' },
-              { label: 'Your Exams', value: loading ? '…' : recentAttempts.length,  icon: '📝' },
+              { label: 'Schools',    value: loading ? '…' : animSchools,              icon: '🏫' },
+              { label: 'Questions',  value: loading ? '…' : animQuestions,            icon: '❓' },
+              { label: 'Your Exams', value: loading ? '…' : completedExams.length,    icon: '📝' },
               ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
             ].map(s => (
               <div key={s.label} style={{
@@ -283,32 +262,18 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* ── Paused / Exited exams — Continue cards ──────────────────────── */}
+          {/* Paused / Exited exams — Continue cards */}
           {pausedExams.length > 0 && (
             <div>
-              {/* Header row with count badge */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
-                  ▶ Continue Exam
-                </div>
-                {/* Count badge — matches screenshot style */}
-                <div style={{
-                  background: 'rgba(245,158,11,0.9)', color: '#000',
-                  borderRadius: 20, padding: '2px 10px',
-                  fontSize: 12, fontWeight: 800,
-                }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>▶ Continue Exam</div>
+                <div style={{ background: 'rgba(245,158,11,0.9)', color: '#000', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 800 }}>
                   {pausedExams.length}
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {pausedExams.map(exam => (
-                  <ContinueCard
-                    key={exam.id}
-                    exam={exam}
-                    onContinue={() => handleContinue(exam)}
-                    onDiscard={() => handleDiscard(exam)}
-                  />
+                  <ContinueCard key={exam.id} exam={exam} onContinue={() => handleContinue(exam)} onDiscard={() => handleDiscard(exam)} />
                 ))}
               </div>
             </div>
@@ -316,7 +281,7 @@ export default function EntranceExamHub() {
         </div>
       </div>
 
-      {/* ── Feature cards ─────────────────────────────────────────────────────── */}
+      {/* ── Feature cards ───────────────────────────────────────────────── */}
       <ACard delay={280} style={{ marginBottom: 28 }}>
         <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 14px' }}>
           ⚡ What do you want to do?
@@ -326,7 +291,7 @@ export default function EntranceExamHub() {
         </div>
       </ACard>
 
-      {/* ── Recommendation ────────────────────────────────────────────────────── */}
+      {/* ── Recommendation ──────────────────────────────────────────────── */}
       <ACard delay={900} style={{ marginBottom: 20 }}>
         <div style={{ background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(37,99,235,0.06))', border: '1.5px solid rgba(13,148,136,0.2)', borderRadius: 14, padding: '16px 20px' }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>💡 Recommended For You</div>
@@ -347,36 +312,40 @@ export default function EntranceExamHub() {
         </div>
       </ACard>
 
-      {/* ── Previous completed sessions ────────────────────────────────────────── */}
-      {recentAttempts.length > 0 && (
+      {/* ── Recent completed sessions ────────────────────────────────────── */}
+      {completedExams.length > 0 && (
         <ACard delay={1000}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>🕓 Recent Attempts</h3>
+            <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>🕓 Recent Exams</h3>
             <Link to="/entrance-exam/my-results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {recentAttempts.map(a => (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                    {a.schoolName || 'Entrance Exam'}{a.year ? ` · ${a.year}` : ''}
+            {completedExams.map(s => {
+              const pct    = s.scorePercent ?? Math.round(((s.correct || 0) / (s.totalQuestions || 1)) * 100);
+              const passed = pct >= 50;
+              const date   = s.completedAt?.toDate ? s.completedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently';
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `4px solid ${passed ? '#16A34A' : '#EF4444'}`, borderRadius: 10, padding: '10px 14px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                      {s.examName || 'Entrance Exam'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {date} · {s.correct ?? '?'}/{s.totalQuestions ?? '?'} correct
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {a.date?.toDate ? new Date(a.date.toDate()).toLocaleDateString() : 'Recently'}
-                    {a.mode ? ` · ${a.mode}` : ''}
+                  <div style={{ fontWeight: 800, fontSize: 15, color: passed ? '#16A34A' : '#EF4444' }}>
+                    {pct}%
                   </div>
                 </div>
-                <div style={{ fontWeight: 800, fontSize: 15, color: (a.score || 0) >= 70 ? 'var(--green)' : (a.score || 0) >= 50 ? 'var(--gold)' : 'var(--red)' }}>
-                  {a.score || 0}%
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ACard>
       )}
 
       {/* Empty state */}
-      {!loading && recentAttempts.length === 0 && pausedExams.length === 0 && (
+      {!loading && completedExams.length === 0 && pausedExams.length === 0 && (
         <ACard delay={900}>
           <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16 }}>
             <div style={{ fontSize: 52, marginBottom: 12 }}>🏫</div>
