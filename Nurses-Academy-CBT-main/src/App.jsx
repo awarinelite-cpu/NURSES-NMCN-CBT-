@@ -39,11 +39,12 @@ import TopicDrillPage     from './components/exam/TopicDrillPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
 // ── Nursing Schools Entrance Exam (entrance folder — existing) ───
-import EntranceExamHub        from './components/entrance/EntranceExamHub';
-import EntranceSchoolList     from './components/entrance/EntranceSchoolList';
-import EntranceExamSetup      from './components/entrance/EntranceExamSetup';
-import EntranceSubjectDrill   from './components/entrance/EntranceSubjectDrill';
-import EntranceDailyMockUpload from './components/entrance/EntranceDailyMockUpload';
+import EntranceExamHub          from './components/entrance/EntranceExamHub';
+import EntranceSchoolList       from './components/entrance/EntranceSchoolList';
+import EntranceExamSetup        from './components/entrance/EntranceExamSetup';
+import EntranceSubjectDrill     from './components/entrance/EntranceSubjectDrill';
+import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';   // ← NEW
+import EntranceDailyMockUpload  from './components/entrance/EntranceDailyMockUpload';
 import {
   EntranceMyResults,
   EntranceExamsTaken,
@@ -236,17 +237,18 @@ export default function App() {
                   <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
                   {/* ── Nursing Schools Entrance Exam ── */}
-                  <Route path="/entrance-exam"               element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/schools"       element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/setup"         element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/subject-drill" element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/my-results"    element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/exams-taken"   element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/bookmarks"     element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/analysis"      element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/leaderboard"   element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam"                 element={<FreeTrialRoute><EntranceExamHub /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/schools"         element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/setup"           element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/subject-drill"   element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/subject-session" element={<FreeTrialRoute><EntranceSubjectSession /></FreeTrialRoute>} />  {/* ← NEW */}
+                  <Route path="/entrance-exam/my-results"      element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/exams-taken"     element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/bookmarks"       element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/analysis"        element={<FreeTrialRoute><EntranceAnalysis /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/leaderboard"     element={<FreeTrialRoute><EntranceLeaderboard /></FreeTrialRoute>} />
 
-                  {/* ── NEW: Daily Mock Hub → Session flow ── */}
+                  {/* ── Daily Mock Hub → Session flow ── */}
                   <Route path="/entrance-exam/daily-mock" element={<FreeTrialRoute><EntranceExamDailyMockHub /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/session"    element={<FreeTrialRoute><EntranceExamSession /></FreeTrialRoute>} />
 
