@@ -199,7 +199,7 @@ h1 {
   font-style: normal;
   color: var(--text-primary);
   line-height: 1.2;
-  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-size: clamp(2.88rem, 6.4vw, 4.8rem);
   letter-spacing: -0.01em;
 }
 
@@ -211,11 +211,11 @@ h2, h3, h4, h5, h6 {
   line-height: 1.3;
 }
 
-h2 { font-size: clamp(1.4rem, 3vw, 2.2rem); }
-h3 { font-size: clamp(1.1rem, 2vw, 1.5rem); }
-h4 { font-size: clamp(1.0rem, 1.8vw, 1.2rem); }
-h5 { font-size: 1rem; }
-h6 { font-size: 0.9rem; }
+h2 { font-size: clamp(2.24rem, 4.8vw, 3.52rem); }
+h3 { font-size: clamp(1.76rem, 3.2vw, 2.4rem); }
+h4 { font-size: clamp(1.6rem, 2.88vw, 1.92rem); }
+h5 { font-size: 1.6rem; }
+h6 { font-size: 1.44rem; }
 
 /* Body text */
 p {
@@ -605,7 +605,7 @@ tr:hover td { background: var(--bg-secondary); }
 @media (max-width: 640px) {
   .container { padding: 0 16px; }
   .card { padding: 16px; }
-  h1 { font-size: 1.6rem; }
+  h1 { font-size: 2.56rem; }
   .btn-lg { padding: 12px 22px; font-size: 15px; }
 }
 
@@ -613,12 +613,12 @@ tr:hover td { background: var(--bg-secondary); }
    ACCESSIBILITY
 ════════════════════════════════════════════════════════════════════ */
 
-html[style*="font-size: 18"] h1 { font-size: clamp(1.9rem, 4vw, 3.2rem); }
-html[style*="font-size: 18"] h2 { font-size: clamp(1.5rem, 3vw, 2.4rem); }
-html[style*="font-size: 18"] h3 { font-size: clamp(1.2rem, 2vw, 1.7rem); }
-html[style*="font-size: 14"] h1 { font-size: clamp(1.5rem, 3.5vw, 2.6rem); }
-html[style*="font-size: 14"] h2 { font-size: clamp(1.2rem, 2.5vw, 1.9rem); }
-html[style*="font-size: 14"] h3 { font-size: clamp(1.0rem, 1.8vw, 1.3rem); }
+html[style*="font-size: 18"] h1 { font-size: clamp(3.04rem, 6.4vw, 5.12rem); }
+html[style*="font-size: 18"] h2 { font-size: clamp(2.4rem, 4.8vw, 3.84rem); }
+html[style*="font-size: 18"] h3 { font-size: clamp(1.92rem, 3.2vw, 2.72rem); }
+html[style*="font-size: 14"] h1 { font-size: clamp(2.4rem, 5.6vw, 4.16rem); }
+html[style*="font-size: 14"] h2 { font-size: clamp(1.92rem, 4vw, 3.04rem); }
+html[style*="font-size: 14"] h3 { font-size: clamp(1.6rem, 2.88vw, 2.08rem); }
 
 :focus-visible {
   outline: 3px solid var(--teal);
