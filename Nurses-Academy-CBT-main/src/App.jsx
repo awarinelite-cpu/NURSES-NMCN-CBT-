@@ -284,7 +284,7 @@ export default function App() {
 function LeaderboardPage() {
   return (
     <div style={{ padding: 24, maxWidth: 700 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>🏆 Leaderboard</h2>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>🏆 Leaderboard</h2>
       <p style={{ color: 'var(--text-muted)' }}>
         Top performers coming soon — take more exams to rank!
       </p>
@@ -296,7 +296,7 @@ function ProfilePage() {
   const { user, profile } = useAuth();
   return (
     <div style={{ padding: 24, maxWidth: 600 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 24 }}>👤 My Profile</h2>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 24 }}>👤 My Profile</h2>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
@@ -345,7 +345,7 @@ function ProfilePage() {
 function AdminAnalytics() {
   return (
     <div style={{ padding: 24 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif" }}>📈 Platform Analytics</h2>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>📈 Platform Analytics</h2>
       <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
     </div>
   );
@@ -359,10 +359,10 @@ function NotFound() {
       textAlign: 'center', padding: 24,
       background: '#020B18', color: '#fff',
     }}>
-      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
+      <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>
         404
       </div>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Page Not Found</h2>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: '#fff' }}>Page Not Found</h2>
       <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
       <a href="/" className="btn btn-primary">← Go Home</a>
     </div>
