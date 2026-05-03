@@ -25,6 +25,8 @@ const SUBJECTS = [
 const COUNTS     = [10, 20, 30, 40, 50];
 const TIME_LIMITS = { 10: 10, 20: 20, 30: 30, 40: 40, 50: 50 };
 const ALL_YEARS  = 'All Years';
+// Fixed year range 2018 – 2025, newest first
+const YEARS = ['2025','2024','2023','2022','2021','2020','2019','2018'];
 
 export default function EntranceSubjectDrill() {
   const { user }  = useAuth();
@@ -37,26 +39,21 @@ export default function EntranceSubjectDrill() {
   const [error,           setError]            = useState('');
 
   // Raw data from Firestore: array of { subject, year } per question
-  const [allDocs,  setAllDocs]  = useState([]); // [{ subject, year }]
-  const [allYears, setAllYears] = useState([]); // sorted year strings
+  const [allDocs,     setAllDocs]     = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // Load all questions once (just subject + year fields — lightweight)
+  // Load all questions once (subject + year fields only — lightweight)
   useEffect(() => {
     (async () => {
       setDataLoading(true);
       try {
         const snap = await getDocs(collection(db, 'entranceExamQuestions'));
         const docs = [];
-        const yearsSet = new Set();
         snap.forEach(d => {
           const { subject, year } = d.data();
           docs.push({ subject: subject || '', year: year ? String(year) : '' });
-          if (year) yearsSet.add(String(year));
         });
         setAllDocs(docs);
-        // Sort years descending (newest first)
-        setAllYears([...yearsSet].sort((a, b) => Number(b) - Number(a)));
       } catch (e) {
         console.error('SubjectDrill load error:', e);
       } finally {
@@ -158,42 +155,35 @@ export default function EntranceSubjectDrill() {
               All Years
             </button>
 
-            {/* Dynamic year pills */}
-            {allYears.length === 0 ? (
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>
-                No year data found in questions
-              </span>
-            ) : (
-              allYears.map(yr => {
-                const active = selectedYear === yr;
-                // Count questions for this year across all subjects
-                const yrCount = allDocs.filter(d => d.year === yr).length;
-                return (
-                  <button
-                    key={yr}
-                    onClick={() => setSelectedYear(yr)}
-                    style={{
-                      ...s.yearBtn,
-                      borderColor: active ? '#F59E0B' : 'rgba(255,255,255,0.09)',
-                      background:  active ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
-                      color:       active ? '#F59E0B' : 'rgba(255,255,255,0.55)',
-                      transform:   active ? 'scale(1.05)' : 'scale(1)',
-                      fontWeight:  active ? 800 : 600,
-                      position: 'relative',
-                    }}
-                  >
-                    {yr}
-                    {/* Question count badge */}
-                    <span style={{
-                      display: 'block', fontSize: 9, fontWeight: 700, marginTop: 1,
-                      color: active ? '#F59E0B' : 'rgba(255,255,255,0.25)',
-                    }}>
-                      {yrCount}Q
-                    </span>
-                  </button>
-                );
-              })
-            )}
+            {/* Static year pills 2018 – 2025 */}
+            {YEARS.map(yr => {
+              const active  = selectedYear === yr;
+              const yrCount = allDocs.filter(d => d.year === yr).length;
+              const hasData = yrCount > 0;
+              return (
+                <button
+                  key={yr}
+                  onClick={() => setSelectedYear(yr)}
+                  style={{
+                    ...s.yearBtn,
+                    borderColor: active ? '#F59E0B' : hasData ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
+                    background:  active ? 'rgba(245,158,11,0.15)' : hasData ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                    color:       active ? '#F59E0B' : hasData ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
+                    transform:   active ? 'scale(1.05)' : 'scale(1)',
+                    fontWeight:  active ? 800 : 600,
+                    opacity:     hasData || active ? 1 : 0.45,
+                  }}
+                >
+                  {yr}
+                  <span style={{
+                    display: 'block', fontSize: 9, fontWeight: 700, marginTop: 1,
+                    color: active ? '#F59E0B' : hasData ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)',
+                  }}>
+                    {dataLoading ? '…' : hasData ? `${yrCount}Q` : 'empty'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
