@@ -37,6 +37,7 @@ export default function EntranceSubjectSession() {
 
   const {
     subject      = { name: 'Subject Drill', icon: '📚', color: '#0D9488' },
+    year         = 'All Years',
     count        = 20,
     timeLimitMin = 20,
   } = location.state || {};
@@ -74,11 +75,21 @@ export default function EntranceSubjectSession() {
     (async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(
-          query(collection(db, 'entranceExamQuestions'), where('subject', '==', subject.name))
-        );
+        // Build Firestore query — filter by subject + optional year
+        const constraints = [where('subject', '==', subject.name)];
+        if (year && year !== 'All Years') {
+          constraints.push(where('year', '==', year));
+        }
+        const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
         let all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!all.length) { setLoadError(`No questions found for ${subject.name}.`); return; }
+        if (!all.length) {
+          setLoadError(
+            year && year !== 'All Years'
+              ? `No ${subject.name} questions found for ${year}.`
+              : `No questions found for ${subject.name}.`
+          );
+          return;
+        }
         all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(count, all.length));
         setQuestions(all);
       } catch (e) {
@@ -374,6 +385,11 @@ export default function EntranceSubjectSession() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {subject.icon} {subject.name}
+                {year && year !== 'All Years' && (
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 20 }}>
+                    📅 {year}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
                 Q{current + 1} of {total} · {answered} answered
