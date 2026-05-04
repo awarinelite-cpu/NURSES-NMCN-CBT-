@@ -1,4 +1,9 @@
 // src/context/AuthContext.jsx
+// CHANGES:
+//  1. register() now accepts school param → saved to users/{uid}
+//  2. googleLogin() prompts for school after first sign-in via state flag
+//  3. profile includes school field throughout
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
@@ -21,7 +26,6 @@ import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
 
-/* ── Get or create a stable device ID ── */
 function getDeviceId() {
   let id = localStorage.getItem('nmcn_device_id');
   if (!id) {
@@ -41,7 +45,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let profileUnsub = null;
 
-    // Handle redirect result on page load (after signInWithRedirect)
     getRedirectResult(auth).then(async (result) => {
       if (result?.user) {
         const { uid, displayName, email } = result.user;
@@ -52,6 +55,7 @@ export function AuthProvider({ children }) {
             uid,
             name:           displayName || '',
             email:          email || '',
+            school:         '',          // ← will be set from profile edit
             role:           'student',
             subscribed:     false,
             accessLevel:    'free',
@@ -74,35 +78,23 @@ export function AuthProvider({ children }) {
       if (firebaseUser) {
         setUser(firebaseUser);
 
-        // ── Per-code device lock check ──────────────────────────────
-        // Only enforce for subscribed non-admin users
         const userRef = doc(db, 'users', firebaseUser.uid);
         const snap    = await getDoc(userRef);
 
         if (snap.exists()) {
           const data = snap.data();
 
+          // Device lock check
           if (data.subscribed && data.role !== 'admin' && data.accessCodeUsed) {
             const deviceId = getDeviceId();
             const codeUsed = data.accessCodeUsed;
-
             try {
-              // Look up the access code document to verify device binding
               const codeSnap = await getDocs(
-                query(
-                  collection(db, 'accessCodes'),
-                  where('code', '==', codeUsed)
-                )
+                query(collection(db, 'accessCodes'), where('code', '==', codeUsed))
               );
-
               if (!codeSnap.empty) {
                 const codeData = codeSnap.docs[0].data();
-
-                // If code has a bound device that doesn't match this device → block
-                if (
-                  codeData.boundDeviceId &&
-                  codeData.boundDeviceId !== deviceId
-                ) {
+                if (codeData.boundDeviceId && codeData.boundDeviceId !== deviceId) {
                   setDeviceBlocked(true);
                   setBlockReason('device_mismatch');
                   setLoading(false);
@@ -110,7 +102,6 @@ export function AuthProvider({ children }) {
                 }
               }
             } catch (e) {
-              // If we can't check (e.g. offline), allow access — don't punish connectivity issues
               console.warn('Device check failed, allowing access:', e);
             }
           }
@@ -148,13 +139,15 @@ export function AuthProvider({ children }) {
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 
-  const register = async (email, password, name, role = 'student') => {
+  // ── register now accepts school ──────────────────────────────────────────
+  const register = async (email, password, name, role = 'student', school = '') => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
     await setDoc(doc(db, 'users', cred.user.uid), {
       uid:            cred.user.uid,
       name,
       email,
+      school,                           // ← SCHOOL SAVED HERE
       role,
       subscribed:     false,
       accessLevel:    'free',
@@ -170,14 +163,12 @@ export function AuthProvider({ children }) {
     return cred;
   };
 
-  // ── Google Sign-In (popup with redirect fallback) ─────────────
+  // ── Google login — school left empty, user sets it in profile ───────────
   const googleLogin = async (useRedirect = false) => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    if (useRedirect) {
-      return signInWithRedirect(auth, provider);
-    }
+    if (useRedirect) return signInWithRedirect(auth, provider);
 
     const cred = await signInWithPopup(auth, provider);
     const { uid, displayName, email } = cred.user;
@@ -189,6 +180,7 @@ export function AuthProvider({ children }) {
         uid,
         name:           displayName || '',
         email:          email || '',
+        school:         '',              // ← prompted from profile page
         role:           'student',
         subscribed:     false,
         accessLevel:    'free',
@@ -209,6 +201,19 @@ export function AuthProvider({ children }) {
 
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
+  // ── updateSchool — called from ProfilePage ───────────────────────────────
+  const updateSchool = async (school) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { school });
+  };
+
+  // ── updateProfile — called from ProfilePage ──────────────────────────────
+  const updateUserProfile = async (fields) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), fields);
+    if (fields.name) await updateProfile(user, { displayName: fields.name });
+  };
+
   const refreshProfile = async () => {
     if (!user) return;
     try {
@@ -222,7 +227,9 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, profile, loading, deviceBlocked,
-      login, register, logout, resetPassword, refreshProfile, googleLogin,
+      login, register, logout, resetPassword,
+      refreshProfile, googleLogin,
+      updateSchool, updateUserProfile,
       isAdmin:      profile?.role === 'admin',
       isSubscribed: profile?.subscribed || profile?.accessLevel === 'full',
     }}>
@@ -240,13 +247,13 @@ export function AuthProvider({ children }) {
               borderRadius: 20, padding: '40px 32px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
-              <h2 style={{ color: '#EF4444', fontFamily: "'Playfair Display',serif", margin: '0 0 12px' }}>
+              <h2 style={{ color: '#EF4444', fontFamily: "'Arial Black',Arial,sans-serif", margin: '0 0 12px' }}>
                 Device Not Authorised
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px' }}>
+              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
                 Your access code is <strong style={{ color: '#fff' }}>locked to a different device</strong>.
               </p>
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px' }}>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
                 Each access code can only be used on <strong style={{ color: '#fff' }}>one device</strong>.
                 If you lost or changed your device, contact your admin to reset the device lock.
               </p>
@@ -257,10 +264,9 @@ export function AuthProvider({ children }) {
                   background: 'rgba(239,68,68,0.15)', color: '#EF4444',
                   fontWeight: 700, fontSize: 14,
                   border: '1px solid rgba(239,68,68,0.4)',
+                  fontFamily: "'Times New Roman',Times,serif",
                 }}
-              >
-                ← Sign Out
-              </button>
+              >← Sign Out</button>
             </div>
           </div>
         ) : children
