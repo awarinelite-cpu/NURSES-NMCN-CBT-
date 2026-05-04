@@ -293,34 +293,149 @@ function LeaderboardPage() {
 }
 
 function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, updateUserProfile } = useAuth();
+  const F = "'Times New Roman', Times, serif";
+  const H = "'Arial Black', Arial, sans-serif";
+
+  const [editing,     setEditing]     = useState(false);
+  const [name,        setName]        = useState('');
+  const [school,      setSchool]      = useState('');
+  const [schools,     setSchools]     = useState([]);
+  const [saving,      setSaving]      = useState(false);
+  const [saveMsg,     setSaveMsg]     = useState('');
+
+  // Load schools for dropdown
+  useEffect(() => {
+    if (!editing) return;
+    import('firebase/firestore').then(({ collection, getDocs, query, orderBy }) => {
+      import('../firebase/config').then(({ db }) => {
+        getDocs(collection(db, 'entranceExamSchools')).then(snap => {
+          const list = snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort();
+          setSchools(list);
+        }).catch(() => {});
+      });
+    });
+  }, [editing]);
+
+  const startEdit = () => {
+    setName(profile?.name || user?.displayName || '');
+    setSchool(profile?.school || '');
+    setSaveMsg('');
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateUserProfile({ name, school });
+      setSaveMsg('✅ Profile updated!');
+      setEditing(false);
+    } catch (e) {
+      setSaveMsg('❌ Failed to save. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div style={{ padding: 24, maxWidth: 600 }}>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 24 }}>👤 My Profile</h2>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ padding: 24, maxWidth: 600, fontFamily: F, color: 'var(--text-primary)' }}>
+      <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.8rem,4vw,2.8rem)', marginBottom: 24, color: 'var(--text-primary)' }}>
+        👤 My Profile
+      </h1>
+
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* Avatar + info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: '50%',
+            width: 68, height: 68, borderRadius: '50%',
             background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: 26, color: '#fff',
+            fontWeight: 900, fontSize: 28, color: '#fff', fontFamily: H, flexShrink: 0,
           }}>
             {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
           </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 18 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 18, fontFamily: H, color: 'var(--text-primary)' }}>
               {profile?.name || user?.displayName || 'Student'}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user?.email}</div>
-            <span
-              className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`}
-              style={{ marginTop: 4, display: 'inline-flex' }}
-            >
+            <div style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, fontFamily: F, marginTop: 2 }}>
+              {user?.email}
+            </div>
+            {profile?.school && (
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginTop: 4, fontFamily: F }}>
+                🏫 {profile.school}
+              </div>
+            )}
+            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 6, display: 'inline-flex' }}>
               {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
             </span>
           </div>
+          {!editing && (
+            <button onClick={startEdit} style={{
+              padding: '9px 18px', borderRadius: 10, cursor: 'pointer',
+              background: 'var(--teal-glow)', border: '1.5px solid var(--teal)',
+              color: 'var(--teal)', fontWeight: 700, fontSize: 14, fontFamily: F,
+            }}>✏️ Edit</button>
+          )}
         </div>
 
+        {/* Edit form */}
+        {editing && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px', background: 'var(--bg-secondary)', borderRadius: 12, border: '1.5px solid var(--border)' }}>
+            <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,2vw,1.5rem)', margin: 0, color: 'var(--text-primary)' }}>
+              Edit Profile
+            </h3>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-secondary)' }}>Full Name</label>
+              <input
+                type="text" className="form-input"
+                value={name} onChange={e => setName(e.target.value)}
+                style={{ fontFamily: F, fontWeight: 700 }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-secondary)' }}>🏫 Your School</label>
+              <select
+                className="form-input form-select"
+                value={school} onChange={e => setSchool(e.target.value)}
+                style={{ fontFamily: F, fontWeight: 700 }}
+              >
+                <option value="">— Select your school —</option>
+                {schools.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="Other">Other</option>
+              </select>
+              <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: 'var(--text-muted)', marginTop: 4 }}>
+                This determines which leaderboard you appear on.
+              </p>
+            </div>
+
+            {saveMsg && (
+              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: F, color: saveMsg.startsWith('✅') ? '#16A34A' : '#EF4444' }}>
+                {saveMsg}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handleSave} disabled={saving} style={{
+                padding: '10px 24px', background: 'var(--teal)', border: 'none',
+                color: '#fff', borderRadius: 10, cursor: saving ? 'wait' : 'pointer',
+                fontWeight: 700, fontSize: 14, fontFamily: F,
+              }}>
+                {saving ? 'Saving…' : '💾 Save Changes'}
+              </button>
+              <button onClick={() => setEditing(false)} style={{
+                padding: '10px 18px', background: 'var(--bg-tertiary)',
+                border: '1.5px solid var(--border)', color: 'var(--text-secondary)',
+                borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F,
+              }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[
             ['Total Exams', profile?.totalExams || 0],
@@ -328,14 +443,13 @@ function ProfilePage() {
             ['Plan',        profile?.subscriptionPlan || 'Free'],
             ['Expires',     profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
           ].map(([k, v]) => (
-            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{v}</div>
+            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: F }}>{k}</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 4, color: 'var(--text-primary)', fontFamily: H }}>{v}</div>
             </div>
           ))}
         </div>
 
-        {/* Notification Settings */}
         <NotificationSettings />
       </div>
     </div>
