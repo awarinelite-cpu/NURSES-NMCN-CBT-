@@ -643,10 +643,11 @@ export function EntranceAnalysis() {
 export function EntranceLeaderboard() {
   const { user }   = useAuth();
   const navigate   = useNavigate();
-  const [board,    setBoard]   = useState([]);
-  const [loading,  setLoading] = useState(true);
-  const [filter,   setFilter]  = useState('month');
-  const [error,    setError]   = useState('');
+  const [board,        setBoard]       = useState([]);
+  const [loading,      setLoading]     = useState(true);
+  const [filter,       setFilter]      = useState('month');
+  const [error,        setError]       = useState('');
+  const [mySchoolName, setMySchoolName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -659,22 +660,50 @@ export function EntranceLeaderboard() {
         else if (filter === 'month') cutoff.setMonth(cutoff.getMonth() - 1);
         else                         cutoff.setFullYear(2000);
 
-        // ── Query root entranceExamSessions ────────────────────────────────
+        // ── Get current user's school ──────────────────────────────────────
+        let mySchool = '';
+        if (user?.uid) {
+          try {
+            const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+            const uSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+            if (uSnap.exists()) mySchool = uSnap.data().school || '';
+          } catch (e) { console.warn('Could not read user school:', e); }
+        }
+
+        // ── Query root entranceExamSessions filtered by school ─────────────
         let snap;
         try {
-          snap = await getDocs(query(
-            collection(db, 'entranceExamSessions'),
-            where('completedAt', '>=', Timestamp.fromDate(cutoff)),
-            orderBy('completedAt', 'desc'),
-            limit(500),
-          ));
+          if (mySchool) {
+            snap = await getDocs(query(
+              collection(db, 'entranceExamSessions'),
+              where('userSchool', '==', mySchool),
+              where('completedAt', '>=', Timestamp.fromDate(cutoff)),
+              orderBy('completedAt', 'desc'),
+              limit(500),
+            ));
+          } else {
+            snap = await getDocs(query(
+              collection(db, 'entranceExamSessions'),
+              where('completedAt', '>=', Timestamp.fromDate(cutoff)),
+              orderBy('completedAt', 'desc'),
+              limit(500),
+            ));
+          }
         } catch {
-          // Index missing fallback — get recent without date filter
-          snap = await getDocs(query(
-            collection(db, 'entranceExamSessions'),
-            orderBy('completedAt', 'desc'),
-            limit(500),
-          ));
+          // Index fallback
+          if (mySchool) {
+            snap = await getDocs(query(
+              collection(db, 'entranceExamSessions'),
+              where('userSchool', '==', mySchool),
+              limit(500),
+            ));
+          } else {
+            snap = await getDocs(query(
+              collection(db, 'entranceExamSessions'),
+              orderBy('completedAt', 'desc'),
+              limit(500),
+            ));
+          }
         }
 
         // ── Group by userId ───────────────────────────────────────────────
@@ -703,6 +732,7 @@ export function EntranceLeaderboard() {
         }));
 
         rows.sort((a, b) => b.avg - a.avg || b.count - a.count);
+        setMySchoolName(mySchool);
         setBoard(rows.slice(0, 50));
       } catch (e) {
         console.error('Leaderboard error:', e);
@@ -738,6 +768,19 @@ export function EntranceLeaderboard() {
         <FilterBtn id="week"  label="This Week" />
         <FilterBtn id="month" label="This Month" />
         <FilterBtn id="all"   label="All Time" />
+      </div>
+
+      {/* School banner */}
+      <div style={{ marginBottom: 16, padding: '12px 18px', borderRadius: 12, background: 'var(--blue-glow)', border: '1.5px solid var(--blue-mid)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 22 }}>🏫</span>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--text-primary)', fontFamily: H }}>
+            {mySchoolName ? `${mySchoolName} Leaderboard` : 'All Schools Leaderboard'}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
+            {mySchoolName ? 'Ranked among students from your school only' : 'Set your school in your profile to see school-specific rankings'}
+          </div>
+        </div>
       </div>
 
       {/* My rank banner */}
