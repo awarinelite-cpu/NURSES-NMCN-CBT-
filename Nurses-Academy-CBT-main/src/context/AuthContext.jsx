@@ -22,7 +22,7 @@ import {
   updateDoc, serverTimestamp, collection,
   query, where, getDocs,
 } from 'firebase/firestore';
-import { auth, db } from '../../firebase/config';
+import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
 
