@@ -658,84 +658,83 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         </div>
       )}
 
+      {/* Select All bar */}
+      {!loading && displayed.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 10, marginBottom: 10 }}>
+          <input
+            type="checkbox"
+            checked={allDisplayedSelected}
+            onChange={toggleSelectAll}
+            style={{ width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--teal)' }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
+            {allDisplayedSelected ? 'Deselect All' : 'Select All'} ({displayed.length})
+          </span>
+        </div>
+      )}
+
       {loading ? <Spinner /> : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                {/* Select All checkbox */}
-                <th style={{ width: 40, textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={allDisplayedSelected}
-                    onChange={toggleSelectAll}
-                    title={allDisplayedSelected ? 'Deselect all' : 'Select all visible'}
-                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--teal)' }}
-                  />
-                </th>
-                <th>#</th>
-                <th>Question</th>
-                <th>School</th>
-                <th>Year</th>
-                <th>Subject</th>
-                <th>Daily Bank</th>
-                <th>Type</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {displayed.map((q, i) => {
                 const isSelected = selected.has(q.id);
                 return (
-                  <tr
+                  <div
                     key={q.id}
                     style={{
-                      background: isSelected ? 'rgba(239,68,68,0.06)' : undefined,
-                      transition: 'background 0.15s',
+                      background: isSelected ? 'rgba(239,68,68,0.06)' : 'var(--bg-card)',
+                      border: isSelected ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid var(--border)',
+                      borderRadius: 12, padding: '12px 14px',
+                      transition: 'all 0.15s',
                     }}
                   >
-                    {/* Per-row checkbox */}
-                    <td style={{ textAlign: 'center', paddingRight: 0 }}>
+                    {/* Top row: checkbox + question text + delete */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleOne(q.id)}
-                        style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#EF4444' }}
+                        style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#EF4444', flexShrink: 0, marginTop: 2 }}
                       />
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
-                    <td style={{ fontSize: 12, maxWidth: 260 }}>{q.questionText?.slice(0, 55)}…</td>
-                    <td style={{ fontSize: 11 }}>{q.schoolName?.split(' ').slice(-2).join(' ') || '—'}</td>
-                    <td style={{ fontSize: 12 }}>{q.year || '—'}</td>
-                    <td style={{ fontSize: 11 }}>{q.subject || '—'}</td>
-                    <td>
-                      <button
-                        onClick={() => toggleDailyBank(q)}
-                        title={q.inDailyBank ? 'Remove from Daily Bank' : 'Add to Daily Bank'}
-                        style={{ padding: '3px 10px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 11, transition: 'all .15s', borderColor: q.inDailyBank ? '#8B5CF6' : 'var(--border)', background: q.inDailyBank ? 'rgba(139,92,246,0.12)' : 'var(--bg-tertiary)', color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)' }}>
-                        {q.inDailyBank ? '📅 In Bank' : '➕ Add'}
-                      </button>
-                    </td>
-                    <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: F, lineHeight: 1.5 }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 6 }}>#{i + 1}</span>
+                        {q.questionText?.slice(0, 80)}{q.questionText?.length > 80 ? '…' : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
                         <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(q)} style={{ color: '#EF4444' }}>🗑️</button>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+
+                    {/* Bottom row: badges */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', paddingLeft: 28 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        📅 {q.year || '—'}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        📚 {q.subject || '—'}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        🏫 {q.schoolName?.split(' ').slice(-2).join(' ') || '—'}
+                      </span>
+                      <button
+                        onClick={() => toggleDailyBank(q)}
+                        style={{ padding: '2px 10px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 11, transition: 'all .15s', borderColor: q.inDailyBank ? '#8B5CF6' : 'var(--border)', background: q.inDailyBank ? 'rgba(139,92,246,0.12)' : 'var(--bg-tertiary)', color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)' }}>
+                        {q.inDailyBank ? '📅 In Bank' : '➕ Add to Bank'}
+                      </button>
+                      <span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span>
+                    </div>
+                  </div>
                 );
               })}
               {filtered.length > 100 && (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 14, fontFamily: F }}>
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 14, fontFamily: F }}>
                     Showing 100 of {filtered.length} — use filters to narrow down
-                  </td>
-                </tr>
+                  </div>
               )}
-            </tbody>
-          </table>
         </div>
+                );
+              })}
+              {filtered.length > 100 && (
       )}
 
       {editing && (
