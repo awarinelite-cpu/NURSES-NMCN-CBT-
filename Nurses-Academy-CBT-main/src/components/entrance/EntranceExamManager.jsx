@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/EntranceExamManager.jsx << 'ENDOFFILE'
 // src/components/admin/EntranceExamManager.jsx
 // Route: /admin/entrance-exam
 // CHANGES: QuestionBankTab now has:
@@ -1117,10 +1116,3 @@ function SinglePasteUpload({ onSave, saving }) {
 function SliderWithPresets({ value, min, max, step, presets, onChange, displayFn, color }) {
   return (<><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: color }} /><div style={{ minWidth: 58, textAlign: 'center', fontWeight: 800, fontSize: 22, color, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px', fontFamily: H }}>{displayFn(value)}</div></div><div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>{presets.map(p => { const v = typeof p === 'object' ? p.v : p; const l = typeof p === 'object' ? p.l : String(p); return (<button key={v} onClick={() => onChange(v)} style={{ padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 12, transition: 'all .15s', borderColor: value === v ? color : 'var(--border)', background: value === v ? `${color}22` : 'var(--bg-tertiary)', color: value === v ? color : 'var(--text-muted)' }}>{l}</button>); })}</div></>);
 }
-ENDOFFILE
-echo "✅ EntranceExamManager.jsx written"
-Output
-
-✅ EntranceExamManager.jsx written
-Done
-
