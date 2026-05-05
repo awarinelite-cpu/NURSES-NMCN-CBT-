@@ -12,7 +12,7 @@ import {
   collection, query, where, getDocs,
   addDoc, serverTimestamp, deleteDoc, doc,
 }                                                    from 'firebase/firestore';
-import { db }                                        from '../../firebase/config';
+import { db } from '../firebase/config';                                        from '../../firebase/config';
 import { useAuth }                                   from '../../context/AuthContext';
 import VoiceExamMode                                 from '../shared/VoiceExamMode';
 
