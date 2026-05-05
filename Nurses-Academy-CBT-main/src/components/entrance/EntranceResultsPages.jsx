@@ -11,7 +11,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate }                       from 'react-router-dom';
-import { db } from '../firebase/config';                                from '../../firebase/config';
+import { db } from '../firebase/config';
 import {
   collection, doc, getDocs, query, orderBy,
   limit, deleteDoc, where, Timestamp,
