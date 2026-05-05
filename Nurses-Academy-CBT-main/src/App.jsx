@@ -308,7 +308,7 @@ function ProfilePage() {
   useEffect(() => {
     if (!editing) return;
     import('firebase/firestore').then(({ collection, getDocs, query, orderBy }) => {
-      import('../firebase/config').then(({ db }) => {
+      import('../../firebase/config').then(({ db }) => {
         getDocs(collection(db, 'entranceExamSchools')).then(snap => {
           const list = snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort();
           setSchools(list);
