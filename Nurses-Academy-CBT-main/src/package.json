@@ -1,0 +1,50 @@
+{
+  "name": "nmcn-cbt-platform",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase": "^10.8.0",
+    "firebase-admin": "^12.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^3.5.0",
+    "workbox-webpack-plugin": "^7.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "react-scripts start",
+    "build": "DISABLE_ESLINT_PLUGIN=true react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ],
+    "rules": {
+      "no-useless-escape": "off",
+      "no-unused-vars": "off",
+      "no-undef": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "no-unreachable": "off",
+      "no-duplicate-case": "off"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
