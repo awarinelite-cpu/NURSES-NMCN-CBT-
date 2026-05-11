@@ -113,7 +113,10 @@ function BackButtonHandler() {
   const exitReady = useRef(false);
   const exitTimer = useRef(null);
 
-  const isHome = location.pathname === '/' || location.pathname === '/dashboard';
+  const isHome = location.pathname === '/' || 
+               location.pathname === '/dashboard' ||
+               location.pathname === '/entrance-exam' ||
+               location.pathname.startsWith('/entrance-exam/');
 
   useEffect(() => {
     if (!isHome) {
