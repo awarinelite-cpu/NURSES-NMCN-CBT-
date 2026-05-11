@@ -126,12 +126,9 @@ export default function LandingPage() {
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <span style={{ fontSize: 24 }}>📚</span>
-          NMCN<span style={{ color: '#14B8A8' }}>CBT</span>
+          Nurses<span style={{ color: '#14B8A8' }}>Academy</span>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <a href="/auth" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}>Sign In</a>
-          <a href="/auth" className="btn btn-primary btn-sm">Get Started</a>
-        </div>
+
       </nav>
 
       {/* ── Platform Selection Hero ── */}
@@ -225,15 +222,7 @@ export default function LandingPage() {
           />
         </div>
 
-        {/* Small note */}
-        <p style={{
-          marginTop: 28, fontSize: 13,
-          color: 'rgba(255,255,255,0.35)',
-          fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
-          textAlign: 'center', position: 'relative', zIndex: 1,
-        }}>
-          Already have an account? <a href="/auth" style={{ color: '#14B8A8', textDecoration: 'underline' }}>Sign in here</a>
-        </p>
+
       </section>
 
       {/* Categories */}
@@ -322,7 +311,7 @@ export default function LandingPage() {
         padding: '24px', textAlign: 'center',
         color: 'rgba(255,255,255,0.35)', fontSize: 13,
       }}>
-        © {new Date().getFullYear()} NMCN CBT Platform · Built for Nigerian Nursing Students
+        © {new Date().getFullYear()} Nurses Academy · Built for Nigerian Nursing Students
       </footer>
     </div>
   );
