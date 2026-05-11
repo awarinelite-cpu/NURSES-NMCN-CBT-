@@ -273,19 +273,6 @@ export default function EntranceExamHub() {
   return (
     <div style={{ padding: '24px 20px', maxWidth: 1100, fontFamily: F, color: 'var(--text-primary)' }}>
 
-      {/* Back */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--teal)', fontWeight: 700, fontSize: 15,
-          padding: 0, marginBottom: 20,
-          display: 'flex', alignItems: 'center', gap: 6,
-          fontFamily: F,
-        }}
-      >
-        ← Back to Dashboard
-      </button>
 
       {/* Load error */}
       {loadError && (
