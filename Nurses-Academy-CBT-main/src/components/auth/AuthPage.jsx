@@ -5,7 +5,21 @@ import { useAuth } from '../../context/AuthContext';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
+// ── Helper: store and read which platform the user chose ────────────────────
+export function getChosenPlatform() {
+  return localStorage.getItem('nmcn_chosen_platform') || 'nmcn';
+}
+function setChosenPlatform(p) {
+  localStorage.setItem('nmcn_chosen_platform', p === 'entrance' ? 'entrance' : 'nmcn');
+}
+function platformRedirect(platform) {
+  return platform === 'entrance' ? '/entrance-exam' : '/dashboard';
+}
+
 export default function AuthPage() {
+  const [searchParams]      = useSearchParams();
+  const platformParam       = searchParams.get('platform'); // 'nmcn' | 'entrance' | null
+
   const [mode, setMode]         = useState('login');
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
@@ -21,10 +35,17 @@ export default function AuthPage() {
 
   const { login, register, resetPassword, googleLogin } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/dashboard';
 
-  // Load schools from Firestore when register mode is active
+  // Persist the platform choice whenever this page is opened with a param
+  useEffect(() => {
+    if (platformParam) setChosenPlatform(platformParam);
+  }, [platformParam]);
+
+  // Determine active platform (from URL or stored)
+  const platform = platformParam || getChosenPlatform();
+  const isEntrance = platform === 'entrance';
+
+  // Load schools only for entrance platform registration
   useEffect(() => {
     if (mode !== 'register') return;
     setSchoolsLoading(true);
@@ -37,7 +58,6 @@ export default function AuthPage() {
           snap = await getDocs(collection(db, 'entranceExamSchools'));
         }
         const list = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
-        // Also pull unique school names from entranceExamQuestions as fallback
         if (list.length === 0) {
           const qSnap = await getDocs(collection(db, 'entranceExamQuestions'));
           const names = new Set();
@@ -60,13 +80,14 @@ export default function AuthPage() {
     try {
       if (mode === 'login') {
         await login(email, password);
-        setTimeout(() => navigate(redirectPath, { replace: true }), 100);
+        setTimeout(() => navigate(platformRedirect(platform)), 100);
       } else if (mode === 'register') {
         if (password !== confirm) throw new Error('Passwords do not match.');
         if (password.length < 6)  throw new Error('Password must be at least 6 characters.');
-        if (!school)               throw new Error('Please select your school.');
+        // School is only required for entrance platform
+        if (isEntrance && !school) throw new Error('Please select your school.');
         await register(email, password, name, 'student', school);
-        navigate(redirectPath, { replace: true });
+        navigate(platformRedirect(platform));
       } else {
         await resetPassword(email);
         setSuccess('Password reset email sent! Check your inbox.');
@@ -86,7 +107,7 @@ export default function AuthPage() {
     setError(''); setLoading(true);
     try {
       await googleLogin();
-      navigate(redirectPath, { replace: true });
+      navigate(platformRedirect(platform));
     } catch (err) {
       if (err.code === 'auth/popup-blocked' || (err.message && err.message.includes('popup-blocked'))) {
         await googleLogin(true);
@@ -103,23 +124,47 @@ export default function AuthPage() {
   const F = "'Times New Roman', Times, serif";
   const H = "'Arial Black', Arial, sans-serif";
 
+  // Platform-specific branding
+  const brand = isEntrance
+    ? { icon: '🏫', name: 'Entrance Exam', sub: 'Nursing Schools Entrance Exam Platform', accent: '#F59E0B' }
+    : { icon: '📚', name: 'NMCN CBT',      sub: 'Nursing Exam Prep Platform',             accent: '#0D9488' };
+
   return (
     <div style={styles.page}>
       <div style={styles.bgOrb1} />
       <div style={styles.bgOrb2} />
 
       <div style={styles.card} className="anim-bounceIn">
+        {/* Platform indicator strip at top */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 4,
+          borderRadius: '24px 24px 0 0',
+          background: `linear-gradient(90deg, ${brand.accent}, ${isEntrance ? '#D97706' : '#1E3A8A'})`,
+        }} />
+
         {/* Logo */}
         <div style={styles.logo}>
-          <div style={styles.logoIcon}>📚</div>
+          <div style={{ ...styles.logoIcon, background: `linear-gradient(135deg, ${brand.accent}, ${isEntrance ? '#92400E' : '#1E3A8A'})` }}>
+            {brand.icon}
+          </div>
           <div>
             <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: '#FFFFFF', letterSpacing: 1 }}>
-              NMCN CBT
+              {brand.name}
             </div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1, fontFamily: F }}>
-              Nursing Exam Prep Platform
+              {brand.sub}
             </div>
           </div>
+        </div>
+
+        {/* Platform badge */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: `${brand.accent}18`, border: `1px solid ${brand.accent}44`,
+          borderRadius: 20, padding: '4px 12px', marginBottom: 20,
+          fontSize: 12, color: brand.accent, fontWeight: 700, fontFamily: F,
+        }}>
+          {isEntrance ? '🏫 Nursing Schools Entrance Exam' : '📚 NMCN CBT — Nursing Council Exam'}
         </div>
 
         {/* Title */}
@@ -131,7 +176,7 @@ export default function AuthPage() {
           </h2>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, fontFamily: F, fontWeight: 700 }}>
             {mode === 'login'    && 'Sign in to continue your exam preparation'}
-            {mode === 'register' && 'Join thousands of nursing students preparing for NMCN'}
+            {mode === 'register' && `Join thousands of nursing students preparing ${isEntrance ? 'for entrance exams' : 'for NMCN'}`}
             {mode === 'forgot'   && 'Enter your email to receive a reset link'}
           </p>
         </div>
@@ -201,8 +246,8 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* ── SCHOOL SELECTOR ── */}
-          {mode === 'register' && (
+          {/* School selector — only for entrance platform registration */}
+          {mode === 'register' && isEntrance && (
             <div className="form-group">
               <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
                 🏫 Your Nursing School
@@ -226,9 +271,7 @@ export default function AuthPage() {
                     {s.name}
                   </option>
                 ))}
-                <option value="Other" style={{ background: '#0A1F35', color: '#fff' }}>
-                  Other
-                </option>
+                <option value="Other" style={{ background: '#0A1F35', color: '#fff' }}>Other</option>
               </select>
               <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
                 This determines which leaderboard you appear on. Can be changed in your profile.
@@ -246,9 +289,15 @@ export default function AuthPage() {
             </button>
           )}
 
-          <button type="submit" className="btn btn-primary btn-full btn-lg"
+          <button
+            type="submit"
+            className="btn btn-primary btn-full btn-lg"
             disabled={loading}
-            style={{ fontFamily: F, fontWeight: 700, fontSize: 15 }}
+            style={{
+              fontFamily: F, fontWeight: 700, fontSize: 15,
+              background: brand.accent,
+              borderColor: brand.accent,
+            }}
           >
             {loading ? <><span className="spinner spinner-sm" />Processing…</> : (
               mode === 'login'    ? '🔐 Sign In' :
@@ -300,8 +349,18 @@ export default function AuthPage() {
           )}
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 16, padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontFamily: F, fontWeight: 700 }}>
-          🏥 Exclusively for NMCN-registered nursing students
+        {/* Switch platform link */}
+        <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <a
+            href={isEntrance ? '/auth?platform=nmcn' : '/auth?platform=entrance'}
+            style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, textDecoration: 'underline' }}
+          >
+            {isEntrance ? '← Switch to NMCN CBT platform' : '← Switch to Entrance Exam platform'}
+          </a>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 14, padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontFamily: F, fontWeight: 700 }}>
+          🏥 {isEntrance ? 'For nursing school applicants & Post-UTME candidates' : 'Exclusively for NMCN-registered nursing students'}
         </div>
       </div>
     </div>
@@ -326,14 +385,13 @@ const styles = {
   },
   card: {
     background: 'rgba(10,31,53,0.95)', border: '1px solid rgba(13,148,136,0.25)',
-    borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 460,
+    borderRadius: 24, padding: '44px 36px 36px', width: '100%', maxWidth: 460,
     boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(13,148,136,0.1)',
-    backdropFilter: 'blur(12px)', position: 'relative',
+    backdropFilter: 'blur(12px)', position: 'relative', overflow: 'hidden',
   },
-  logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 },
+  logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 },
   logoIcon: {
     width: 48, height: 48, borderRadius: 12,
-    background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 22, flexShrink: 0,
   },
