@@ -1,7 +1,6 @@
 // src/components/student/StudentDashboard.jsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// Entrance exam banner click handler uses useNavigate (already imported)
 import {
   collection, query, where, orderBy, limit,
   getDocs, deleteDoc, doc,
@@ -90,7 +89,7 @@ function examTypeLabel(type) {
   }
 }
 
-// ── Paused Exams Modal (unchanged logic, animated entrance) ───────────────────
+// ── Paused Exams Modal ────────────────────────────────────────────────────────
 function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
   const [vis, setVis] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setVis(true)); }, []);
@@ -196,7 +195,7 @@ const M = {
   deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', whiteSpace: 'nowrap' },
 };
 
-// ── Quick actions data (single source of truth) ───────────────────────────────
+// ── Quick actions data ────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
   {
     to: '/daily-practice', icon: '⚡', label: 'Daily Practice',
@@ -258,7 +257,6 @@ function StartExamModal({ onClose }) {
         transform: vis ? 'scale(1) translateY(0)' : 'scale(.96) translateY(20px)',
         transition: 'opacity .35s ease, transform .35s ease',
       }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>⚡</span>
@@ -272,8 +270,6 @@ function StartExamModal({ onClose }) {
             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >✕</button>
         </div>
-
-        {/* Action list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {QUICK_ACTIONS.map((a, idx) => (
             <StartExamCard key={a.to} action={a} delay={idx * 60} onClose={onClose} />
@@ -305,9 +301,7 @@ function StartExamCard({ action, delay, onClose }) {
         transition: 'opacity .4s ease, transform .4s ease, background .2s, border-color .2s',
       }}
     >
-      {/* Accent bar */}
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: action.color, borderRadius: '4px 0 0 4px' }} />
-      {/* Icon */}
       <div style={{
         width: 44, height: 44, borderRadius: 12, flexShrink: 0,
         background: `${action.color}22`, border: `1.5px solid ${action.color}44`,
@@ -315,18 +309,16 @@ function StartExamCard({ action, delay, onClose }) {
       }}>
         {action.icon}
       </div>
-      {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 3 }}>{action.label}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{action.desc}</div>
       </div>
-      {/* Arrow */}
       <div style={{ color: action.color, fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
     </Link>
   );
 }
 
-// ── Banner Action Buttons (slideable strip at bottom of banner) ───────────────
+// ── Banner Action Buttons ─────────────────────────────────────────────────────
 function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
   const trackRef    = useRef(null);
   const dragStartX  = useRef(null);
@@ -341,7 +333,6 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
     transition: 'opacity .2s, transform .15s', userSelect: 'none',
   };
 
-  // ── drag / swipe handlers ────────────────────────────────────────────────────
   const onDown = (e) => {
     dragStartX.current  = e.touches ? e.touches[0].clientX : e.clientX;
     scrollStart.current = trackRef.current?.scrollLeft || 0;
@@ -367,37 +358,15 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
       onMouseDown={e => e.stopPropagation()}
       onTouchStart={e => e.stopPropagation()}
     >
-      {/* Left fade hint */}
-      <div style={{
-        position: 'absolute', left: 0, top: 0, bottom: 0, width: 28, zIndex: 3,
-        background: 'linear-gradient(to right, rgba(0,0,0,0.30), transparent)',
-        borderRadius: '0 0 0 20px', pointerEvents: 'none',
-      }} />
-      {/* Right fade hint */}
-      <div style={{
-        position: 'absolute', right: 0, top: 0, bottom: 0, width: 28, zIndex: 3,
-        background: 'linear-gradient(to left, rgba(0,0,0,0.30), transparent)',
-        borderRadius: '0 0 20px 0', pointerEvents: 'none',
-      }} />
-
-      {/* Scrollable track */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 28, zIndex: 3, background: 'linear-gradient(to right, rgba(0,0,0,0.30), transparent)', borderRadius: '0 0 0 20px', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 28, zIndex: 3, background: 'linear-gradient(to left, rgba(0,0,0,0.30), transparent)', borderRadius: '0 0 20px 0', pointerEvents: 'none' }} />
       <div
         ref={trackRef}
         className="btn-strip-track"
-        style={{
-          display: 'flex', gap: 10, overflowX: 'auto',
-          padding: '0 20px', cursor: 'grab',
-          WebkitOverflowScrolling: 'touch',
-        }}
-        onMouseDown={onDown}
-        onMouseMove={onMove}
-        onMouseUp={onUp}
-        onMouseLeave={onUp}
-        onTouchStart={onDown}
-        onTouchMove={onMove}
-        onTouchEnd={onUp}
+        style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 20px', cursor: 'grab', WebkitOverflowScrolling: 'touch' }}
+        onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+        onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
       >
-        {/* ⚡ Start Exam — opens modal */}
         <button
           onClick={e => { e.stopPropagation(); onStartExam(); }}
           style={{ ...btnBase, background: '#F59E0B', color: '#1a1a1a', border: 'none' }}
@@ -405,44 +374,28 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
           ⚡ Start Exam
         </button>
 
-        {/* ▶ Continue — only when paused exams exist */}
         {pausedExams.length > 0 && (
           <button
             onClick={e => { e.stopPropagation(); onContinue(); }}
-            style={{
-              ...btnBase,
-              background: 'rgba(13,148,136,0.25)',
-              border: '1.5px solid rgba(13,148,136,0.65)',
-              color: '#5EEAD4',
-            }}
+            style={{ ...btnBase, background: 'rgba(13,148,136,0.25)', border: '1.5px solid rgba(13,148,136,0.65)', color: '#5EEAD4' }}
           >
             ▶ Continue
-            <span style={{
-              background: '#0D9488', color: '#fff', borderRadius: 20,
-              fontSize: 10, fontWeight: 900, padding: '1px 7px', lineHeight: '16px',
-            }}>
+            <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', lineHeight: '16px' }}>
               {pausedExams.length}
             </span>
           </button>
         )}
 
-        {/* 👑 Upgrade — only for non-subscribers */}
         {!profile?.subscribed && (
           <Link
             to="/subscription"
             onClick={e => e.stopPropagation()}
-            style={{
-              ...btnBase,
-              background: 'rgba(255,255,255,0.1)',
-              border: '1.5px solid rgba(255,255,255,0.4)',
-              color: '#fff',
-            }}
+            style={{ ...btnBase, background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.4)', color: '#fff' }}
           >
             👑 Upgrade
           </Link>
         )}
 
-        {/* Trailing spacer so last button clears the right fade */}
         <div style={{ flexShrink: 0, width: 12 }} />
       </div>
     </div>
@@ -459,21 +412,16 @@ export default function StudentDashboard() {
   const [showModal,      setShowModal]      = useState(false);
   const [showStartModal, setShowStartModal] = useState(false);
   const [loading,        setLoading]        = useState(true);
-  const [bannerVis,   setBannerVis]   = useState(false);
-  const [slideIdx,    setSlideIdx]    = useState(0);
-  const [slideFade,   setSlideFade]   = useState(true);
+  const [bannerVis,      setBannerVis]      = useState(false);
+  const [slideIdx,       setSlideIdx]       = useState(0);
+  const [slideFade,      setSlideFade]      = useState(true);
 
-
-  // swipe tracking
   const swipeStartX  = useRef(null);
   const swipeStartY  = useRef(null);
   const isDragging   = useRef(false);
+  const slideIdxRef  = useRef(0);
+  const autoTimer    = useRef(null);
 
-  // ── slide ref keeps auto-advance in sync without stale closures ─────────────
-  const slideIdxRef = useRef(0);
-  const autoTimer   = useRef(null);
-
-  // ── go to a specific slide with fade ─────────────────────────────────────────
   const goToSlide = useCallback((idx) => {
     const next = ((idx % QUICK_ACTIONS.length) + QUICK_ACTIONS.length) % QUICK_ACTIONS.length;
     setSlideFade(false);
@@ -484,7 +432,6 @@ export default function StudentDashboard() {
     }, 300);
   }, []);
 
-  // ── start / restart the 4-second auto-advance ────────────────────────────────
   const startAuto = useCallback(() => {
     clearInterval(autoTimer.current);
     autoTimer.current = setInterval(() => {
@@ -498,7 +445,6 @@ export default function StudentDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Swipe / drag handlers ─────────────────────────────────────────────────────
   const handlePointerDown = (e) => {
     swipeStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
     swipeStartY.current = e.touches ? e.touches[0].clientY : e.clientY;
@@ -513,7 +459,7 @@ export default function StudentDashboard() {
     const dy   = Math.abs(endY - swipeStartY.current);
     if (Math.abs(dx) > 40 && Math.abs(dx) > dy) {
       goToSlide(slideIdxRef.current + (dx < 0 ? 1 : -1));
-      startAuto(); // restart timer after manual swipe
+      startAuto();
     }
   };
 
@@ -522,7 +468,7 @@ export default function StudentDashboard() {
     if (!user) { setLoading(false); return; }
 
     const loadData = async () => {
-      // ── 2. Recent exam sessions ────────────────────────────────────────────
+      // Recent exam sessions
       try {
         const sessSnap = await getDocs(query(
           collection(db, 'examSessions'),
@@ -533,7 +479,7 @@ export default function StudentDashboard() {
         setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.warn('examSessions load failed (non-fatal):', e.message); }
 
-      // ── 3. Paused exams ────────────────────────────────────────────────────
+      // Paused exams
       try {
         const pausedSnap = await getDocs(query(
           collection(db, 'pausedExams'),
@@ -552,7 +498,7 @@ export default function StudentDashboard() {
     };
 
     loadData();
-  }, [user, profile]);
+  }, [user]);
 
   const handleResume = useCallback((paused) => {
     setShowModal(false);
@@ -582,20 +528,18 @@ export default function StudentDashboard() {
     } catch (e) { console.error('Delete paused exam error:', e); }
   }, []);
 
-
-  const totalExams = profile?.totalExams || 0;
-  const totalScore = profile?.totalScore || 0;
-  const avgScore   = totalExams > 0 ? Math.round(totalScore / totalExams) : 0;
-  const streak     = profile?.streak        || 0;
-  const bookmarks  = profile?.bookmarkCount || 0;
+  const totalExams    = profile?.totalExams    || 0;
+  const totalScore    = profile?.totalScore    || 0;
+  const avgScore      = totalExams > 0 ? Math.round(totalScore / totalExams) : 0;
+  const streak        = profile?.streak        || 0;
+  const bookmarks     = profile?.bookmarkCount || 0;
 
   const hour  = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  // Animated stat values
-  const animExams = useCounter(totalExams, 1600, 400);
-  const animStreak = useCounter(streak,    1400, 550);
-  const animBookmarks = useCounter(bookmarks, 1400, 700);
+  const animExams     = useCounter(totalExams, 1600, 400);
+  const animStreak    = useCounter(streak,     1400, 550);
+  const animBookmarks = useCounter(bookmarks,  1400, 700);
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
@@ -604,7 +548,6 @@ export default function StudentDashboard() {
         .btn-strip-track { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      {/* Paused exams modal */}
       {showModal && (
         <PausedExamsModal
           paused={pausedExams}
@@ -614,7 +557,6 @@ export default function StudentDashboard() {
         />
       )}
 
-      {/* Start exam modal */}
       {showStartModal && (
         <StartExamModal onClose={() => setShowStartModal(false)} />
       )}
@@ -634,123 +576,94 @@ export default function StudentDashboard() {
         onTouchStart={handlePointerDown}
         onTouchEnd={handlePointerUp}
       >
-        {/* Slides wrapper — flex:1 so it fills the space above the button strip */}
         <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {QUICK_ACTIONS.map((action, i) => (
-          <div
-            key={action.label}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 12,
-              padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
-              opacity: i === slideIdx ? (slideFade ? 1 : 0) : 0,
-              pointerEvents: i === slideIdx ? 'auto' : 'none',
-              transition: 'opacity .38s ease',
-              background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
-              borderRadius: 20,
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* Glow overlay */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20,
-              background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)`,
-            }} />
+          {QUICK_ACTIONS.map((action, i) => (
+            <div
+              key={action.label}
+              style={{
+                position: 'absolute', inset: 0, width: '100%',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                flexWrap: 'wrap', gap: 12,
+                padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
+                opacity: i === slideIdx ? (slideFade ? 1 : 0) : 0,
+                pointerEvents: i === slideIdx ? 'auto' : 'none',
+                transition: 'opacity .38s ease',
+                background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
+                borderRadius: 20, boxSizing: 'border-box',
+              }}
+            >
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)` }} />
 
-            {/* LEFT — greeting + action info */}
-            <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
-              {/* Platform label */}
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-                🏥 NMCN CBT Platform
-              </div>
-
-              {/* Greeting */}
-              <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
-                {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
-              </h2>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
-                {profile?.subscribed
-                  ? '🌟 Premium subscriber — all content unlocked'
-                  : '🎯 Free plan — upgrade to unlock all past questions'}
-              </p>
-
-              {/* Feature pill */}
-              <Link
-                to={action.to}
-                onClick={e => e.stopPropagation()}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
-                  border: `1.5px solid ${action.color}66`,
-                  borderLeft: `4px solid ${action.color}`,
-                  borderRadius: 12, padding: '10px 14px',
-                  textDecoration: 'none', width: '100%', boxSizing: 'border-box',
-                }}
-              >
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                  background: `${action.color}2a`,
-                  border: `1.5px solid ${action.color}55`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                }}>
-                  {action.icon}
+              <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                  🏥 NMCN CBT Platform
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 2 }}>
-                    {action.label}
+                <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
+                  {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
+                </h2>
+                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
+                  {profile?.subscribed
+                    ? '🌟 Premium subscriber — all content unlocked'
+                    : '🎯 Free plan — upgrade to unlock all past questions'}
+                </p>
+                <Link
+                  to={action.to}
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
+                    border: `1.5px solid ${action.color}66`,
+                    borderLeft: `4px solid ${action.color}`,
+                    borderRadius: 12, padding: '10px 14px',
+                    textDecoration: 'none', width: '100%', boxSizing: 'border-box',
+                  }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: `${action.color}2a`, border: `1.5px solid ${action.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                    {action.icon}
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4,
-                    overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                  }}>
-                    {action.desc}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 2 }}>{action.label}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {action.desc}
+                    </div>
                   </div>
-                </div>
-                <div style={{ color: action.color, fontWeight: 900, fontSize: 16, flexShrink: 0 }}>→</div>
-              </Link>
+                  <div style={{ color: action.color, fontWeight: 900, fontSize: 16, flexShrink: 0 }}>→</div>
+                </Link>
 
-              {/* Dot indicators */}
-              <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
-                {QUICK_ACTIONS.map((a, di) => (
-                  <button
-                    key={di}
-                    onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
-                    style={{
-                      width: di === slideIdx ? 20 : 6, height: 6,
-                      borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                      background: di === slideIdx ? action.color : 'rgba(255,255,255,0.28)',
-                      transition: 'width .3s ease, background .3s ease',
-                    }}
-                  />
-                ))}
+                <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
+                  {QUICK_ACTIONS.map((a, di) => (
+                    <button
+                      key={di}
+                      onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
+                      style={{
+                        width: di === slideIdx ? 20 : 6, height: 6,
+                        borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                        background: di === slideIdx ? action.color : 'rgba(255,255,255,0.28)',
+                        transition: 'width .3s ease, background .3s ease',
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        </div>{/* end slides wrapper */}
+          ))}
+        </div>
 
-        {/* ── Action buttons — fixed at the bottom of the banner, always visible ── */}
         <BannerButtonStrip
           pausedExams={pausedExams}
           profile={profile}
           onContinue={() => setShowModal(true)}
           onStartExam={() => setShowStartModal(true)}
         />
-      </div>{/* end banner */}
-
+      </div>
 
       {/* ── Stats row ── */}
       <div style={S.statsGrid}>
         {[
-          { icon: '📝', label: 'Exams Taken', value: animExams,    raw: totalExams,  color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: null,          delay: 200 },
-          { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, raw: null,      color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: null,          delay: 320, ring: avgScore },
-          { icon: '🔥', label: 'Day Streak',  value: animStreak,  raw: streak,       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: null,          delay: 440 },
-          { icon: '🔖', label: 'Bookmarked',  value: animBookmarks, raw: bookmarks,  color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/bookmarks',  delay: 560 },
+          { icon: '📝', label: 'Exams Taken', value: animExams,      raw: totalExams, color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: null,         delay: 200 },
+          { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, raw: null,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: null,         delay: 320, ring: avgScore },
+          { icon: '🔥', label: 'Day Streak',  value: animStreak,     raw: streak,     color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: null,         delay: 440 },
+          { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,  raw: bookmarks,  color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/bookmarks', delay: 560 },
         ].map(s => (
           <ACard key={s.label} delay={s.delay}>
             {s.to ? (
@@ -775,7 +688,6 @@ export default function StudentDashboard() {
               display: 'flex', alignItems: 'center', gap: 14,
               background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
               borderRadius: 14, padding: '14px 18px', cursor: 'pointer',
-              transition: 'background .2s',
             }}
           >
             <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
@@ -800,53 +712,21 @@ export default function StudentDashboard() {
         </div>
       </ACard>
 
-      {/* ── Daily Mock card — standalone CTA below Quick Actions ── */}
-      <ACard delay={900} style={{ marginBottom: 32 }}>
-        <div
-          onClick={handleDailyMock}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 16,
-            background: 'rgba(13,148,136,0.07)',
-            border: '1.5px solid rgba(13,148,136,0.28)',
-            borderLeft: '4px solid #0D9488',
-            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
-            transition: 'background .2s, border-color .2s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,148,136,0.13)'; e.currentTarget.style.borderColor = 'rgba(13,148,136,0.55)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(13,148,136,0.07)'; e.currentTarget.style.borderColor = 'rgba(13,148,136,0.28)'; }}
-        >
-          <div style={{
-            width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-            background: 'rgba(13,148,136,0.18)', border: '1.5px solid rgba(13,148,136,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
-          }}>🏫</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', marginBottom: 3 }}>
-              Daily Mock — Entrance Exam
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              Tackle today's entrance exam mock. Fresh questions every day to keep your readiness sharp.
-            </div>
-          </div>
-          <div style={{ color: '#0D9488', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
-        </div>
-      </ACard>
-
       {/* ── Categories ── */}
-      <ACard delay={1100} style={{ marginBottom: 32 }}>
+      <ACard delay={1000} style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <h3 style={S.sectionTitle}>🏥 Exam Categories</h3>
         </div>
         <div style={S.categoriesGrid}>
           {NURSING_CATEGORIES.slice(0, 8).map((cat, i) => (
-            <CatCard key={cat.id} cat={cat} delay={1150 + i * 60} />
+            <CatCard key={cat.id} cat={cat} delay={1050 + i * 60} />
           ))}
         </div>
       </ACard>
 
       {/* ── Recent sessions ── */}
       {recentSessions.length > 0 && (
-        <ACard delay={1400}>
+        <ACard delay={1300}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={S.sectionTitle}>🕓 Recent Exams</h3>
             <Link to="/results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
@@ -859,9 +739,7 @@ export default function StudentDashboard() {
               <tbody>
                 {recentSessions.map((s, i) => {
                   const cat = NURSING_CATEGORIES.find(c => c.id === s.category);
-                  return (
-                    <SessionRow key={s.id} s={s} cat={cat} delay={1450 + i * 80} />
-                  );
+                  return <SessionRow key={s.id} s={s} cat={cat} delay={1350 + i * 80} />;
                 })}
               </tbody>
             </table>
@@ -960,10 +838,7 @@ function SessionRow({ s, cat, delay }) {
       <td>{cat?.icon} {cat?.shortLabel || s.category}</td>
       <td><span className="badge badge-teal">{s.examType}</span></td>
       <td>
-        <span style={{
-          fontWeight: 700,
-          color: s.scorePercent >= 70 ? 'var(--green)' : s.scorePercent >= 50 ? 'var(--gold)' : 'var(--red)',
-        }}>
+        <span style={{ fontWeight: 700, color: s.scorePercent >= 70 ? 'var(--green)' : s.scorePercent >= 50 ? 'var(--gold)' : 'var(--red)' }}>
           {s.scorePercent || 0}%
         </span>
       </td>
@@ -985,13 +860,6 @@ const S = {
     background: 'linear-gradient(135deg, #1E3A8A 0%, #0D9488 100%)',
     borderRadius: 20, marginBottom: 28,
     position: 'relative', overflow: 'hidden',
-  },
-  bannerGlow: {
-    position: 'absolute', inset: 0, pointerEvents: 'none',
-    background: 'radial-gradient(ellipse at 70% 50%, rgba(245,158,11,0.15) 0%, transparent 60%)',
-  },
-  bannerActions: {
-    display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center',
   },
   statsGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
