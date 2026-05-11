@@ -1,1692 +1,581 @@
 // src/components/admin/EntranceExamManager.jsx
-// Route: /admin/entrance-exam
-// Tabs: Manage Schools | Add Single | Bulk Upload | Question Bank | Daily Mock
-
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
-  query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
+  collection, getDocs, doc, deleteDoc,
+  query, orderBy, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { useToast } from '../shared/Toast';
 
-const ENTRANCE_YEARS = ['2018','2019','2020','2021','2022','2023','2024','2025'];
-const SUBJECTS = [
-  'English Language','Biology','Chemistry','Physics',
-  'Mathematics','General Studies','Nursing Aptitude','Current Affairs',
-];
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
 
-// ── Utility: get today's date string YYYY-MM-DD ───────────────────────────────
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+const TABS = ['Question Bank', 'Manage Schools', 'Add Single Question', 'Bulk Upload', 'Daily Mock'];
 
-// ── Seeded shuffle (deterministic per day) ───────────────────────────────────
-function seededShuffle(arr, seed) {
-  const a = [...arr];
-  let s = seed;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// ── helpers ──────────────────────────────────────────────────────
+const ALL = 'All';
 
-function dateSeed(dateStr) {
-  return dateStr.split('-').reduce((acc, v) => acc * 100 + Number(v), 0);
-}
-
-// ── Parse a block of text into entrance exam questions ────────────────────────
-//
-// Supported formats (all mixed freely):
-//
-// OPTIONS:
-//   A. text  |  A) text  |  a. text  |  a) text          — standard A-D
-//   1. text  |  2. text  |  3. text  |  4. text           — numbered 1-4 mapped to A-D
-//   {a} text | {b} text                                   — curly-brace style
-//   A\ttext  (tab-separated)
-//
-// ANSWERS (anywhere after the question/options):
-//   *A  |  *a                                             — star prefix
-//   (A)  |  (a)  |  [A]                                  — bracketed
-//   Answer: A  |  Answer: A) text  |  Answer: (A) text   — with label
-//   **Answer: A) text**                                   — bold markdown
-//   Ans: A  |  Ans:A  |  ANS A  |  ANS: A  |  ANSWER A   — short forms
-//   Ans: D  (end of line or standalone)
-//   Answer (B) Population health                          — letter in parens after label
-//   Just the letter alone on a line: A / B / C / D
-//
-// MISSING ANSWER → saved as correctAnswer:'', flagged as needsReview:true
-//   (admin can fill in later — not a hard error)
-//
-// EXPLANATION:
-//   Explanation: text  |  Rationale: text
-//
-// DIAGRAM:
-//   https://... (first line of block)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
-
-function extractAnswerLetter(raw) {
-  if (!raw) return '';
-  const s = raw.trim();
-
-  // **Answer: C) Plant** — bold markdown
-  let m = /\*\*[^*]*?([A-D])[.)]/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // Answer: B) text  or  Answer: (B) text  or  Answer: B
-  m = /^(?:answer|ans|correct(?:\s+answer)?|ansr?)\s*[:\-]?\s*\(?([A-D])\)?/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // ANS: B  or  ANS B  or  ANSWER B  or  ANSWER: B
-  m = /^(?:ans(?:wer)?)\s*:?\s*([A-D])\b/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // *A  or  *a
-  m = /^\*([A-D])$/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // (A)  [A]
-  m = /^[(\[]([A-D])[)\]]$/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // Numbered: Ans: 1 → A
-  m = /^(?:answer|ans|correct(?:\s+answer)?)\s*[:\-]?\s*([1-4])\b/i.exec(s);
-  if (m) return NUM_TO_LETTER[m[1]] || '';
-
-  // Bare letter alone
-  m = /^([A-D])$/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  return '';
-}
-
-function extractAnswerInline(line) {
-  const s = line.trim();
-
-  // **Answer: C) text**
-  let m = /\*\*[^*]*?\b([A-D])[.)]/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // Answer: A / Ans: A / ANS A / ANSWER A anywhere in line
-  m = /(?:^|\s)(?:answer|ans(?:wer)?)\s*[:\-]?\s*\(?([A-D])\)?(?:\b|$)/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // Ans : A  (spaces around colon)
-  m = /\bans\s*:\s*([A-D])\b/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  // ANS:A  or  ANS: A  (uppercase)
-  m = /\bANS\s*:?\s*([A-D])\b/i.exec(s);
-  if (m) return m[1].toUpperCase();
-
-  return '';
-}
-
-// Regex to detect an option line in any supported format
-const OPTION_RE = /^(?:([A-Da-d])[.)]\s*|([A-Da-d])\t|([1-4])[.)]\s*|\{([a-d])\}\s*)/i;
-
-function parseEntranceQuestions(text) {
-  // Normalise line endings
-  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  const blocks = text.trim().split(/\n{2,}/).filter(b => b.trim());
-  const results = [], warnings = [];
-
-  blocks.forEach((block, idx) => {
-    const lines = block.trim().split('\n')
-      .map(l => l.trim())
-      .filter(Boolean);
-
-    if (lines.length < 2) return; // skip near-empty blocks silently
-
-    // ── 1. Diagram URL ──────────────────────────────────────────────────────
-    let cursor = 0;
-    let diagramUrl = '';
-    if (/^https?:\/\//i.test(lines[0])) { diagramUrl = lines[0]; cursor++; }
-
-    // ── 2. Question text (strip leading number/label) ───────────────────────
-    let questionLine = (lines[cursor] || '').trim();
-    // Strip leading: "1." "23." "Q.5" "Q5" "MCQ3" "FBQ51" etc.
-    questionLine = questionLine.replace(/^(?:MCQ\s*\d+|FBQ\s*\d+|Q\.?\s*\d+|Q\d+|\d+[.)]\s*)/i, '').trim();
-    if (!questionLine && cursor < lines.length) { cursor++; questionLine = (lines[cursor] || '').trim(); }
-    cursor++;
-
-    // ── 3. Options ──────────────────────────────────────────────────────────
-    const options = {};
-
-    while (cursor < lines.length) {
-      const l = lines[cursor];
-
-      // Stop if this looks like an answer line (not an option)
-      const lTrimmed = l.trim();
-      if (/^(?:answer|ans(?:wer)?|correct)\s*[:\-]?\s*[A-D1-4\*\(\[]/i.test(lTrimmed)) break;
-      if (/^\*[A-D]$/i.test(lTrimmed)) break;
-      if (/^[(\[]([A-D])[)\]]$/i.test(lTrimmed)) break;
-      if (/^(?:explanation|rationale)\s*:/i.test(lTrimmed)) break;
-      // "Ans : A" or "ANS: A" standalone
-      if (/^(?:ans\s*:?\s*[A-D]\b|ANS\s*:?\s*[A-D]\b)/i.test(lTrimmed)) break;
-
-      const optMatch = OPTION_RE.exec(lTrimmed);
-      if (optMatch) {
-        let letter = (optMatch[1] || optMatch[2] || '').toUpperCase();
-        if (!letter && optMatch[3]) letter = NUM_TO_LETTER[optMatch[3]] || '';
-        if (!letter && optMatch[4]) letter = optMatch[4].toUpperCase();
-        if (!letter) { cursor++; continue; }
-
-        // Strip the option prefix to get the text
-        let optText = lTrimmed.replace(OPTION_RE, '').trim();
-
-        // Check for inline answer embedded at end of option line
-        // e.g. "d. 8.0 – 14.0 Ans: A"
-        const inlineAns = extractAnswerInline(optText);
-        if (inlineAns) {
-          optText = optText.replace(/\s*(?:ans(?:wer)?)\s*[:\-]?\s*[A-D]\b.*/i, '').trim();
-        }
-
-        options[letter] = optText;
-        cursor++;
-        continue;
-      }
-
-      // If we already have options and this isn't one → stop
-      if (Object.keys(options).length > 0) break;
-      // Otherwise it's a continuation of the question
-      questionLine += ' ' + lTrimmed;
-      cursor++;
-    }
-
-    // ── 4. Answer + explanation ──────────────────────────────────────────────
-    let correctAnswer = '', explanation = '';
-
-    // Check if any option had an inline answer embedded
-    for (const line of lines) {
-      if (!OPTION_RE.test(line.trim())) continue;
-      const optText = line.trim().replace(OPTION_RE, '');
-      const ia = extractAnswerInline(optText);
-      if (ia) { correctAnswer = ia; break; }
-    }
-
-    // Scan remaining lines
-    while (cursor < lines.length) {
-      const l = lines[cursor];
-
-      if (/^(?:explanation|rationale)\s*:/i.test(l)) {
-        explanation = l.replace(/^(?:explanation|rationale)\s*:\s*/i, '').trim();
-        cursor++; continue;
-      }
-
-      // Try full-line answer
-      const a = extractAnswerLetter(l);
-      if (a) { if (!correctAnswer) correctAnswer = a; cursor++; continue; }
-
-      // Try inline answer
-      const ia = extractAnswerInline(l);
-      if (ia) { if (!correctAnswer) correctAnswer = ia; cursor++; continue; }
-
-      cursor++;
-    }
-
-    // ── 5. Validation ────────────────────────────────────────────────────────
-    if (!questionLine) return; // skip truly empty blocks
-    if (Object.keys(options).length < 2) return; // skip non-question blocks silently
-
-    // Missing answer → soft warning, save as needsReview
-    const needsReview = !correctAnswer;
-    if (needsReview) {
-      warnings.push(`Block ${idx + 1}: No answer found — "${questionLine.slice(0, 55)}…" (saved for review)`);
-    }
-
-    results.push({
-      questionText: questionLine,
-      options,
-      correctAnswer,  // may be '' if missing — admin reviews later
-      explanation,
-      diagramUrl,
-      questionType: diagramUrl ? 'diagram' : 'text',
-      needsReview,
-    });
-  });
-
-  return { results, warnings, errors: [] }; // errors always empty — warnings replace them
-}
-
-// ── Shared field row style ────────────────────────────────────────────────────
-const S = {
-  label: { fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 },
-  card: { background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '18px 20px' },
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-// ROOT
-// ═════════════════════════════════════════════════════════════════════════════
 export default function EntranceExamManager() {
-  const { toast } = useToast();
-  const [tab, setTab] = useState('schools');
-  const [schools, setSchools] = useState([]);
-  const [schoolsReady, setSchoolsReady] = useState(false);
-
-  const reloadSchools = async () => {
-    try {
-      const snap = await getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')));
-      setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error('reloadSchools:', e); }
-    finally { setSchoolsReady(true); }
-  };
-
-  useEffect(() => { reloadSchools(); }, []);
-
-  const TABS = [
-    { id: 'schools',    label: '🏫 Manage Schools'    },
-    { id: 'add_single', label: '➕ Add Single Question' },
-    { id: 'bulk',       label: '📤 Bulk Upload'        },
-    { id: 'bank',       label: '📋 Question Bank'      },
-    { id: 'daily_mock', label: '📅 Daily Mock'         },
-  ];
+  const [activeTab,   setActiveTab]   = useState('Question Bank');
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200 }}>
+    <div style={{ padding: '20px 16px', maxWidth: 900, margin: '0 auto', fontFamily: F, color: 'var(--text-primary)' }}>
       {/* Header */}
       <div style={{
-        background: 'linear-gradient(135deg,#0F2A4A,#065F46)',
-        borderRadius: 16, padding: '24px 28px', marginBottom: 28,
-        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(135deg,#041428,#0A1F35)',
+        borderRadius: 16, padding: '24px 20px', marginBottom: 24,
+        border: '1px solid rgba(13,148,136,0.25)',
       }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.25) 0%, transparent 60%)' }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: '0 0 4px' }}>
-            🏫 Entrance Exam Manager
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', margin: 0, fontSize: 14 }}>
-            Manage schools · upload questions · configure smart daily mock rotation
-          </p>
-        </div>
+        <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.6rem,4vw,2.4rem)', margin: 0, color: '#fff' }}>
+          🏫 Entrance Exam Manager
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.55)', margin: '8px 0 0', fontSize: 14, fontWeight: 700 }}>
+          Manage schools · upload questions · configure smart daily mock rotation
+        </p>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '10px 18px', borderRadius: 10, border: '1.5px solid',
-            cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
-            transition: 'all .2s',
-            borderColor: tab === t.id ? 'var(--teal)' : 'var(--border)',
-            background:  tab === t.id ? 'rgba(13,148,136,0.15)' : 'var(--bg-card)',
-            color:       tab === t.id ? 'var(--teal)' : 'var(--text-secondary)',
-          }}>{t.label}</button>
+      {/* Tab strip */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
+        {TABS.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding: '9px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 700,
+            fontSize: 13, fontFamily: F,
+            background: activeTab === tab ? 'var(--teal)' : 'var(--bg-secondary)',
+            color:      activeTab === tab ? '#fff'        : 'var(--text-secondary)',
+            border: activeTab === tab
+              ? '1.5px solid var(--teal)'
+              : '1.5px solid var(--border)',
+            transition: 'all 0.18s',
+          }}>
+            {tab === 'Question Bank'        && '📋 '}
+            {tab === 'Manage Schools'       && '🏫 '}
+            {tab === 'Add Single Question'  && '➕ '}
+            {tab === 'Bulk Upload'          && '📤 '}
+            {tab === 'Daily Mock'           && '📅 '}
+            {tab}
+          </button>
         ))}
       </div>
 
-      {tab === 'schools'    && <SchoolsTab    toast={toast} onSchoolsChanged={reloadSchools} />}
-      {tab === 'add_single' && <AddSingleTab  toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
-      {tab === 'daily_mock' && <DailyMockTab  toast={toast} />}
+      {/* Panels */}
+      {activeTab === 'Question Bank'       && <QuestionBankPanel />}
+      {activeTab === 'Manage Schools'      && <ManageSchoolsPanel />}
+      {activeTab === 'Add Single Question' && <AddSingleQuestionPanel />}
+      {activeTab === 'Bulk Upload'         && <BulkUploadPanel />}
+      {activeTab === 'Daily Mock'          && <DailyMockPanel />}
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// TAB 1 — Manage Schools
-// ═════════════════════════════════════════════════════════════════════════════
-function SchoolsTab({ toast, onSchoolsChanged }) {
-  const [schools, setSchools]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [showModal, setModal]     = useState(false);
-  const [editing, setEditing]     = useState(null);
-  const [form, setForm]           = useState({ name: '', shortName: '', state: '', isActive: true });
-  const [saving, setSaving]       = useState(false);
+// ════════════════════════════════════════════════════════════════
+// QUESTION BANK PANEL — with bulk delete matching QuestionsManager
+// ════════════════════════════════════════════════════════════════
+function QuestionBankPanel() {
+  const [questions,   setQuestions]   = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState('');
+  const [filterSchool,setFilterSchool]= useState(ALL);
+  const [filterYear,  setFilterYear]  = useState(ALL);
+  const [filterType,  setFilterType]  = useState(ALL);
+  const [filterBank,  setFilterBank]  = useState(ALL);           // All / Daily / Non-Daily
+  const [selected,    setSelected]    = useState(new Set());
+  const [deleting,    setDeleting]    = useState(false);
+  const [confirmDel,  setConfirmDel]  = useState(false);
 
-  const load = async () => {
+  // Stats
+  const totalQ     = questions.length;
+  const inDaily    = questions.filter(q => q.inDailyBank).length;
+  const notInBank  = totalQ - inDaily;
+
+  // Derived lists for filters
+  const schools = [ALL, ...new Set(questions.map(q => q.school).filter(Boolean))].sort();
+  const years   = [ALL, ...new Set(questions.map(q => String(q.year)).filter(Boolean))].sort((a,b) => b-a);
+  const types   = [ALL, ...new Set(questions.map(q => q.subject || q.type).filter(Boolean))].sort();
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')));
-      const list = await Promise.all(snap.docs.map(async d => {
-        const data = { id: d.id, ...d.data() };
-        try {
-          const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', d.id)));
-          data.questionCount = qSnap.data().count;
-        } catch { data.questionCount = data.questionCount || 0; }
-        return data;
-      }));
-      setSchools(list);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const openAdd  = () => { setEditing(null); setForm({ name: '', shortName: '', state: '', isActive: true }); setModal(true); };
-  const openEdit = s  => { setEditing(s); setForm({ name: s.name, shortName: s.shortName||'', state: s.state||'', isActive: s.isActive !== false }); setModal(true); };
-
-  const handleSave = async () => {
-    if (!form.name.trim()) { toast('School name is required', 'error'); return; }
-    setSaving(true);
-    try {
-      const data = { name: form.name.trim(), shortName: form.shortName.trim()||form.name.trim().split(' ').slice(-2).join(' '), state: form.state.trim(), isActive: form.isActive, updatedAt: serverTimestamp() };
-      if (editing) { await updateDoc(doc(db, 'entranceExamSchools', editing.id), data); toast('School updated ✅', 'success'); }
-      else { await addDoc(collection(db, 'entranceExamSchools'), { ...data, questionCount: 0, createdAt: serverTimestamp() }); toast('School added ✅', 'success'); }
-      setModal(false); load(); onSchoolsChanged();
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async s => {
-    if (!window.confirm(`Delete "${s.name}"? This will NOT delete its questions.`)) return;
-    try { await deleteDoc(doc(db, 'entranceExamSchools', s.id)); toast('Deleted', 'success'); load(); onSchoolsChanged(); }
-    catch (e) { toast('Error: ' + e.message, 'error'); }
-  };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{schools.length} school{schools.length !== 1 ? 's' : ''}</div>
-        <button className="btn btn-primary" onClick={openAdd}>➕ Add New School</button>
-      </div>
-      {loading ? <Spinner /> : schools.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No schools yet. Add one to get started!</div>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>School Name</th><th>Short Name</th><th>State</th><th>Questions</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {schools.map((s, i) => (
-                <tr key={s.id}>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{i + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td style={{ fontSize: 12 }}>{s.shortName || '—'}</td>
-                  <td style={{ fontSize: 12 }}>{s.state || '—'}</td>
-                  <td><span className="badge badge-teal">{s.questionCount || 0}</span></td>
-                  <td><span className={`badge ${s.isActive !== false ? 'badge-green' : 'badge-grey'}`}>{s.isActive !== false ? 'Active' : 'Hidden'}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>✏️</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(s)} style={{ color: '#EF4444' }}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showModal && (
-        <Modal title={editing ? '✏️ Edit School' : '➕ Add New School'} onClose={() => setModal(false)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {[
-              { label: 'School Full Name *', key: 'name',      placeholder: 'e.g. Lagos University Teaching Hospital School of Nursing' },
-              { label: 'Short Name',         key: 'shortName', placeholder: 'e.g. LASUTH SoN' },
-              { label: 'State',              key: 'state',     placeholder: 'e.g. Lagos' },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={S.label}>{f.label}</label>
-                <input className="form-input" placeholder={f.placeholder} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
-              </div>
-            ))}
-            <div>
-              <label style={S.label}>Status</label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {[{ v: true, l: '✅ Active' }, { v: false, l: '🙈 Hidden' }].map(o => (
-                  <button key={String(o.v)} onClick={() => setForm(p => ({ ...p, isActive: o.v }))} style={{ padding: '8px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: form.isActive === o.v ? 'var(--teal)' : 'var(--border)', background: form.isActive === o.v ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: form.isActive === o.v ? 'var(--teal)' : 'var(--text-secondary)' }}>{o.l}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1 }}>{saving ? '💾 Saving…' : '💾 Save School'}</button>
-            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// TAB 2 — Add Single Question
-// ═════════════════════════════════════════════════════════════════════════════
-function AddSingleTab({ toast, schools, schoolsReady }) {
-  const [schoolId, setSchoolId] = useState('');
-  const [year,     setYear]     = useState('2024');
-  const [subject,  setSubject]  = useState('Biology');
-  const [addToDailyBank, setAddToDailyBank] = useState(false);
-  // mode: 'paste' or 'form'
-  const [mode, setMode]         = useState('form');
-  // form fields
-  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
-  // paste mode
-  const [rawText,  setRawText]  = useState('');
-  const [parsed,   setParsed]   = useState(null);
-  const [parseErr, setParseErr] = useState('');
-  const [saving,   setSaving]   = useState(false);
-
-  const handleParse = () => {
-    setParseErr('');
-    const { results, warnings } = parseEntranceQuestions(rawText);
-    if (!results.length) { setParseErr('No question detected.'); return; }
-    if (warnings.length && !results[0].correctAnswer) {
-      setParseErr('⚠️ No answer found — please add the correct answer manually before saving.');
-    }
-    setParsed(results[0]);
-  };
-
-  const saveQuestion = async (qData) => {
-    if (!schoolId && !addToDailyBank) { toast('Select a school or add to Daily Mock Bank', 'error'); return; }
-    setSaving(true);
-    try {
-      const school = schools.find(s => s.id === schoolId);
-      const payload = {
-        schoolId: schoolId || null,
-        schoolName: school?.name || '',
-        year, subject,
-        questionType: qData.diagramUrl ? 'diagram' : 'text',
-        diagramUrl:   qData.diagramUrl || '',
-        questionText: qData.questionText,
-        options:      qData.options,
-        correctAnswer: qData.correctAnswer,
-        explanation:  qData.explanation || '',
-        active: true,
-        inDailyBank: addToDailyBank,
-        createdAt: serverTimestamp(),
-      };
-      await addDoc(collection(db, 'entranceExamQuestions'), payload);
-      if (schoolId) {
-        try {
-          const c = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
-          await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: c.data().count });
-        } catch {}
-      }
-      toast('Question saved ✅' + (addToDailyBank ? ' — added to Daily Mock Bank' : ''), 'success');
-      setRawText(''); setParsed(null); setParseErr('');
-      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div style={{ maxWidth: 760 }}>
-      {/* Meta row */}
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Question Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={S.label}>🏫 School</label>
-            <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">{schoolsReady ? (schools.length === 0 ? 'No schools yet' : 'Select school…') : 'Loading…'}</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📅 Year</label>
-            <select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>
-              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📚 Subject</label>
-            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
-              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-        {/* Daily bank toggle */}
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={() => setAddToDailyBank(v => !v)}
-            style={{
-              width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative',
-              background: addToDailyBank ? 'var(--teal)' : 'var(--bg-tertiary)', transition: 'background .2s',
-            }}
-          >
-            <span style={{ position: 'absolute', top: 3, left: addToDailyBank ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', display: 'block' }} />
-          </button>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-            📅 Add to <strong style={{ color: 'var(--teal)' }}>Daily Mock Bank</strong> (question will be eligible for daily rotation)
-          </span>
-        </div>
-      </div>
-
-      {/* Mode toggle */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {[{ id: 'form', label: '🖊️ Form Entry' }, { id: 'paste', label: '📋 Paste & Parse' }].map(m => (
-          <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: mode === m.id ? 'var(--teal)' : 'var(--border)', background: mode === m.id ? 'rgba(13,148,136,0.12)' : 'var(--bg-card)', color: mode === m.id ? 'var(--teal)' : 'var(--text-muted)' }}>{m.label}</button>
-        ))}
-      </div>
-
-      {mode === 'form' && (
-        <div style={{ ...S.card }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={S.label}>🖼️ Diagram URL (optional)</label>
-              <input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={S.label}>📝 Question Text *</label>
-              <textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} placeholder="Type the question here…" />
-            </div>
-            {['A','B','C','D'].map(letter => (
-              <div key={letter} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div
-                  onClick={() => setForm(p => ({ ...p, correctAnswer: letter }))}
-                  style={{ width: 30, height: 30, borderRadius: 6, flexShrink: 0, background: form.correctAnswer === letter ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)', border: `2px solid ${form.correctAnswer === letter ? 'var(--green)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: form.correctAnswer === letter ? 'var(--green)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >{letter}</div>
-                <input className="form-input" value={form.options[letter]||''} onChange={e => setForm(p => ({ ...p, options: { ...p.options, [letter]: e.target.value } }))} style={{ flex: 1 }} placeholder={`Option ${letter}`} />
-                {form.correctAnswer === letter && <span style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>✅</span>}
-              </div>
-            ))}
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>👆 Click a letter to mark as correct answer</p>
-            <div>
-              <label style={S.label}>💡 Explanation (optional)</label>
-              <textarea className="form-input" rows={2} value={form.explanation} onChange={e => setForm(p => ({ ...p, explanation: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
-            </div>
-            <button className="btn btn-primary" onClick={() => saveQuestion(form)} disabled={saving || !form.questionText.trim()}>
-              {saving ? '💾 Saving…' : '💾 Save Question'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {mode === 'paste' && (
-        <>
-          <FormatGuide />
-          <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📝 Paste Question</div>
-            <textarea className="form-input" rows={12} placeholder="Paste your question here…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed(null); setParseErr(''); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }} />
-            <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button>
-          </div>
-          {parseErr && <ParseError msg={parseErr} />}
-          {parsed && (
-            <QuestionPreview q={parsed}>
-              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn btn-primary" onClick={() => saveQuestion(parsed)} disabled={saving}>{saving ? '💾 Saving…' : '💾 Save Question'}</button>
-                <button className="btn btn-ghost" onClick={() => { setParsed(null); setRawText(''); }}>🗑️ Discard</button>
-              </div>
-            </QuestionPreview>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// TAB 3 — Bulk Upload
-// ═════════════════════════════════════════════════════════════════════════════
-function BulkUploadTab({ toast, schools, schoolsReady }) {
-  const [schoolId,  setSchoolId]  = useState('');
-  const [year,      setYear]      = useState('2024');
-  const [subject,   setSubject]   = useState('Biology');
-  const [addToDailyBank, setAddToDailyBank] = useState(false);
-  const [rawText,   setRawText]   = useState('');
-  const [parsed,    setParsed]    = useState([]);
-  const [warnings,  setWarnings]  = useState([]);
-  const [importing, setImporting] = useState(false);
-  const [imported,  setImported]  = useState(null);
-
-  const handleParse = () => {
-    const { results, warnings: warns } = parseEntranceQuestions(rawText);
-    setParsed(results); setWarnings(warns); setImported(null);
-  };
-
-  const handleImport = async () => {
-    if (!schoolId && !addToDailyBank) { toast('Select a school or enable Daily Mock Bank', 'error'); return; }
-    if (!parsed.length) { toast('Nothing to import', 'error'); return; }
-    setImporting(true);
-    try {
-      const school = schools.find(s => s.id === schoolId);
-      const batch = writeBatch(db);
-      parsed.forEach(q => {
-        const ref = doc(collection(db, 'entranceExamQuestions'));
-        batch.set(ref, {
-          schoolId: schoolId || null, schoolName: school?.name || '',
-          year, subject,
-          questionType: q.questionType, diagramUrl: q.diagramUrl || '',
-          questionText: q.questionText, options: q.options,
-          correctAnswer: q.correctAnswer, explanation: q.explanation || '',
-          needsReview: q.needsReview || false,
-          active: true, inDailyBank: addToDailyBank,
-          createdAt: serverTimestamp(),
-        });
-      });
-      await batch.commit();
-      if (schoolId) {
-        try {
-          const c = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId)));
-          await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: c.data().count });
-        } catch {}
-      }
-      const reviewCount = parsed.filter(q => q.needsReview).length;
-      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length, reviewCount });
-      setParsed([]); setRawText(''); setWarnings([]);
-      toast(`Imported ${parsed.length} questions ✅${reviewCount ? ` (${reviewCount} need answer review)` : ''}`, reviewCount ? 'warning' : 'success');
-    } catch (e) { toast('Import failed: ' + e.message, 'error'); }
-    finally { setImporting(false); }
-  };
-
-  const reviewNeeded = parsed.filter(q => q.needsReview).length;
-  const withAnswer   = parsed.filter(q => !q.needsReview).length;
-  const diagrams     = parsed.filter(q => q.questionType === 'diagram').length;
-  const texts        = parsed.filter(q => q.questionType === 'text').length;
-
-  return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 14 }}>📋 Batch Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={S.label}>🏫 School</label>
-            <select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">{schoolsReady ? (schools.length === 0 ? 'No schools yet' : 'Select school…') : 'Loading…'}</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📅 Year (default)</label>
-            <select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>
-              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={S.label}>📚 Subject (default)</label>
-            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
-              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-        {/* Daily bank toggle */}
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => setAddToDailyBank(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', background: addToDailyBank ? 'var(--teal)' : 'var(--bg-tertiary)', transition: 'background .2s' }}>
-            <span style={{ position: 'absolute', top: 3, left: addToDailyBank ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', display: 'block' }} />
-          </button>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-            📅 Add all to <strong style={{ color: 'var(--teal)' }}>Daily Mock Bank</strong>
-          </span>
-        </div>
-      </div>
-
-      <FormatGuide bulk />
-
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📝 Paste All Questions</div>
-        <textarea className="form-input" rows={16} placeholder="Paste all your questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setWarnings([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />
-        <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview All</button>
-      </div>
-
-      {/* Warnings (soft — questions still parsed, just missing answers) */}
-      {warnings.length > 0 && (
-        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>
-            ⚠️ {warnings.length} question{warnings.length !== 1 ? 's' : ''} have no answer — they will be saved and flagged for review
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
-            You can fill in their correct answers later in the Question Bank tab.
-          </div>
-          <details>
-            <summary style={{ fontSize: 12, color: '#F59E0B', cursor: 'pointer' }}>Show details</summary>
-            <div style={{ marginTop: 8 }}>
-              {warnings.map((w, i) => <div key={i} style={{ fontSize: 11, color: '#F59E0B', lineHeight: 1.6 }}>{w}</div>)}
-            </div>
-          </details>
-        </div>
-      )}
-
-      {parsed.length > 0 && (
-        <div style={{ ...S.card, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>✅ Parsed: {parsed.length} questions</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                📝 {texts} text · 🖼️ {diagrams} diagram
-                {reviewNeeded > 0 && <span style={{ color: '#F59E0B', marginLeft: 8 }}>· ⚠️ {reviewNeeded} need answer · ✅ {withAnswer} complete</span>}
-              </div>
-            </div>
-            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>{importing ? '⬆️ Importing…' : `⬆️ Import All (${parsed.length})`}</button>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Question Preview</th><th>Ans</th><th>Type</th></tr></thead>
-              <tbody>
-                {parsed.slice(0, 25).map((q, i) => (
-                  <tr key={i} style={q.needsReview ? { background: 'rgba(245,158,11,0.05)' } : {}}>
-                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
-                    <td style={{ fontSize: 12 }}>{q.questionText.slice(0, 60)}{q.questionText.length > 60 ? '…' : ''}</td>
-                    <td>
-                      {q.correctAnswer
-                        ? <span className="badge badge-teal">{q.correctAnswer}</span>
-                        : <span style={{ fontSize: 11, color: '#F59E0B' }}>⚠️ review</span>}
-                    </td>
-                    <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
-                  </tr>
-                ))}
-                {parsed.length > 25 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 25} more</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {imported && (
-        <div style={{ background: imported.reviewCount ? 'rgba(245,158,11,0.07)' : 'rgba(22,163,74,0.08)', border: `1.5px solid ${imported.reviewCount ? 'rgba(245,158,11,0.3)' : 'rgba(22,163,74,0.3)'}`, borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>{imported.reviewCount ? '⚠️' : '✅'}</div>
-          <div style={{ fontWeight: 800, fontSize: 16, color: imported.reviewCount ? '#F59E0B' : 'var(--green)', marginBottom: 4 }}>Import Complete!</div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-            Imported {imported.count} questions · {imported.diagrams} with diagrams
-            {imported.reviewCount > 0 && <span style={{ color: '#F59E0B' }}> · {imported.reviewCount} flagged for answer review</span>}
-          </div>
-          {imported.reviewCount > 0 && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-              Go to the <strong>Question Bank</strong> tab to add missing answers.
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// TAB 4 — Question Bank
-// ═════════════════════════════════════════════════════════════════════════════
-function QuestionBankTab({ toast, schools, schoolsReady }) {
-  const [questions, setQuestions]       = useState([]);
-  const [loading,   setLoading]         = useState(true);
-  const [filterSchool, setFilterSchool] = useState('');
-  const [filterYear,   setFilterYear]   = useState('');
-  const [filterType,   setFilterType]   = useState('');
-  const [filterDaily,  setFilterDaily]  = useState('');
-  const [search, setSearch]             = useState('');
-  const [editing, setEditing]           = useState(null);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const constraints = [];
-      if (filterSchool) constraints.push(where('schoolId', '==', filterSchool));
-      if (filterYear)   constraints.push(where('year', '==', filterYear));
-      if (filterType)   constraints.push(where('questionType', '==', filterType));
-      if (filterDaily === 'yes') constraints.push(where('inDailyBank', '==', true));
-      if (filterDaily === 'no')  constraints.push(where('inDailyBank', '==', false));
-      constraints.push(orderBy('createdAt', 'desc'));
-      const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
+      const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), orderBy('createdAt', 'desc')));
       setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch {
+      // fallback without orderBy if index missing
+      const snap = await getDocs(collection(db, 'entranceExamQuestions'));
+      setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Filtered list
+  const filtered = questions.filter(q => {
+    const matchSearch = !search ||
+      (q.question || '').toLowerCase().includes(search.toLowerCase());
+    const matchSchool = filterSchool === ALL || q.school === filterSchool;
+    const matchYear   = filterYear   === ALL || String(q.year) === filterYear;
+    const matchType   = filterType   === ALL || (q.subject || q.type) === filterType;
+    const matchBank   =
+      filterBank === ALL         ? true :
+      filterBank === 'Daily'     ? q.inDailyBank :
+      filterBank === 'Non-Daily' ? !q.inDailyBank : true;
+    return matchSearch && matchSchool && matchYear && matchType && matchBank;
+  });
+
+  // ── selection helpers ──
+  const allFilteredIds  = filtered.map(q => q.id);
+  const allSelected     = allFilteredIds.length > 0 && allFilteredIds.every(id => selected.has(id));
+  const someSelected    = selected.size > 0;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(prev => {
+        const next = new Set(prev);
+        allFilteredIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev);
+        allFilteredIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
   };
 
-  useEffect(() => { load(); }, [filterSchool, filterYear, filterType, filterDaily]);
-
-  const handleDelete = async q => {
-    if (!window.confirm('Delete this question?')) return;
-    try { await deleteDoc(doc(db, 'entranceExamQuestions', q.id)); toast('Deleted ✅', 'success'); load(); }
-    catch (e) { toast('Error: ' + e.message, 'error'); }
+  const toggleOne = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
-  const toggleDailyBank = async q => {
+  // ── bulk delete ──
+  const handleDelete = async () => {
+    if (!confirmDel) { setConfirmDel(true); return; }
+    setDeleting(true);
     try {
-      await updateDoc(doc(db, 'entranceExamQuestions', q.id), { inDailyBank: !q.inDailyBank });
-      toast(!q.inDailyBank ? '📅 Added to Daily Bank' : '❌ Removed from Daily Bank', 'success');
-      load();
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
+      const ids   = [...selected];
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.delete(doc(db, 'entranceExamQuestions', id)));
+      await batch.commit();
+      setSelected(new Set());
+      setConfirmDel(false);
+      await load();
+    } catch (e) {
+      alert('Delete failed: ' + e.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const filtered = search ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase())) : questions;
-  const dailyCount = questions.filter(q => q.inDailyBank).length;
+  const cancelDelete = () => setConfirmDel(false);
+
+  // ── single question delete ──
+  const deleteSingle = async (id) => {
+    if (!window.confirm('Delete this question?')) return;
+    await deleteDoc(doc(db, 'entranceExamQuestions', id));
+    setQuestions(prev => prev.filter(q => q.id !== id));
+    setSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+  };
 
   return (
     <div>
-      {/* Stats bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12, marginBottom: 20 }}>
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Total Questions', value: questions.length, icon: '📋', color: 'var(--teal)' },
-          { label: 'In Daily Bank',   value: dailyCount,       icon: '📅', color: '#8B5CF6' },
-          { label: 'Not in Bank',     value: questions.length - dailyCount, icon: '📁', color: 'var(--text-muted)' },
-        ].map(s => (
-          <div key={s.label} style={{ ...S.card, textAlign: 'center', padding: '14px 12px' }}>
-            <div style={{ fontSize: 22 }}>{s.icon}</div>
-            <div style={{ fontWeight: 800, fontSize: 22, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.label}</div>
+          ['📋', totalQ,    'Total Questions', '#F59E0B'],
+          ['📅', inDaily,   'In Daily Bank',   '#8B5CF6'],
+          ['📁', notInBank, 'Not in Bank',     '#F59E0B'],
+        ].map(([icon, val, label, color]) => (
+          <div key={label} style={{
+            background: 'var(--bg-secondary)', borderRadius: 12,
+            padding: '16px 14px', border: '1px solid var(--border)', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 22 }}>{icon}</div>
+            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 26, color, margin: '4px 0 2px' }}>{val}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select className="form-input form-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)} style={{ maxWidth: 200 }}>
-          <option value="">All Schools</option>
-          {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <select value={filterSchool} onChange={e => setFilterSchool(e.target.value)} className="form-input form-select" style={{ fontFamily: F, fontWeight: 700, fontSize: 13 }}>
+          {schools.map(s => <option key={s} value={s}>{s === ALL ? 'All Schools' : s}</option>)}
         </select>
-        <select className="form-input form-select" value={filterYear} onChange={e => setFilterYear(e.target.value)} style={{ maxWidth: 110 }}>
-          <option value="">All Years</option>
-          {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="form-input form-select" style={{ fontFamily: F, fontWeight: 700, fontSize: 13 }}>
+          {years.map(y => <option key={y} value={y}>{y === ALL ? 'All Years' : y}</option>)}
         </select>
-        <select className="form-input form-select" value={filterType} onChange={e => setFilterType(e.target.value)} style={{ maxWidth: 130 }}>
-          <option value="">All Types</option>
-          <option value="text">📝 Text</option>
-          <option value="diagram">🖼️ Diagram</option>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="form-input form-select" style={{ fontFamily: F, fontWeight: 700, fontSize: 13 }}>
+          {types.map(t => <option key={t} value={t}>{t === ALL ? 'All Types' : t}</option>)}
         </select>
-        <select className="form-input form-select" value={filterDaily} onChange={e => setFilterDaily(e.target.value)} style={{ maxWidth: 160 }}>
-          <option value="">All (Daily + Non)</option>
-          <option value="yes">📅 Daily Bank Only</option>
-          <option value="no">📁 Non-Daily Only</option>
+        <select value={filterBank} onChange={e => setFilterBank(e.target.value)} className="form-input form-select" style={{ fontFamily: F, fontWeight: 700, fontSize: 13 }}>
+          {['All (Daily + Non)', 'Daily', 'Non-Daily'].map(b => <option key={b} value={b === 'All (Daily + Non)' ? ALL : b}>{b}</option>)}
         </select>
-        <input className="form-input" placeholder="🔍 Search questions…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
-        <button className="btn btn-ghost" onClick={load}>🔄</button>
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{filtered.length} question{filtered.length !== 1 ? 's' : ''} found</div>
+      {/* Search + refresh */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>🔍</span>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search questions..."
+            className="form-input"
+            style={{ paddingLeft: 36, fontFamily: F, fontWeight: 700, fontSize: 13, width: '100%', boxSizing: 'border-box' }}
+          />
+        </div>
+        <button onClick={load} style={{
+          padding: '0 16px', borderRadius: 10, cursor: 'pointer',
+          background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
+          color: 'var(--text-secondary)', fontWeight: 700, fontSize: 13, fontFamily: F,
+        }}>↻ Refresh</button>
+      </div>
 
-      {loading ? <Spinner /> : (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>Question</th><th>School</th><th>Year</th><th>Subject</th><th>Daily Bank</th><th>Type</th><th>Actions</th></tr></thead>
+      {/* ── DELETE BUTTON — matches QuestionsManager style ── */}
+      {someSelected && (
+        <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {!confirmDel ? (
+            <button
+              onClick={handleDelete}
+              style={{
+                padding: '10px 22px', borderRadius: 10, cursor: 'pointer',
+                background: 'rgba(239,68,68,0.15)',
+                border: '1.5px solid rgba(239,68,68,0.5)',
+                color: '#EF4444', fontWeight: 900, fontSize: 14, fontFamily: F,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              🗑️ Delete {selected.size}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  padding: '10px 22px', borderRadius: 10, cursor: deleting ? 'wait' : 'pointer',
+                  background: '#EF4444', border: 'none',
+                  color: '#fff', fontWeight: 900, fontSize: 14, fontFamily: F,
+                }}
+              >
+                {deleting ? 'Deleting…' : `⚠️ Confirm Delete ${selected.size}`}
+              </button>
+              <button
+                onClick={cancelDelete}
+                style={{
+                  padding: '10px 18px', borderRadius: 10, cursor: 'pointer',
+                  background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
+                  color: 'var(--text-secondary)', fontWeight: 700, fontSize: 13, fontFamily: F,
+                }}
+              >Cancel</button>
+            </>
+          )}
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
+            {selected.size} selected
+          </span>
+        </div>
+      )}
+
+      {/* Count */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, fontFamily: F }}>
+        {filtered.length} questions found
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontWeight: 700 }}>Loading…</div>
+      ) : (
+        <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: F }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                {/* Select-all checkbox */}
+                <th style={{ padding: '12px 10px', textAlign: 'center', width: 40 }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--teal)' }}
+                  />
+                </th>
+                {['#', 'QUESTION', 'SCHOOL', 'YEAR', 'SUBJECT', 'BANK', ''].map(h => (
+                  <th key={h} style={{
+                    padding: '12px 10px', textAlign: 'left', fontWeight: 900,
+                    fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
+                    color: 'var(--text-muted)', whiteSpace: 'nowrap',
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {filtered.slice(0, 50).map((q, i) => (
-                <tr key={q.id}>
-                  <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
-                  <td style={{ fontSize: 12, maxWidth: 280 }}>{q.questionText?.slice(0, 60)}…</td>
-                  <td style={{ fontSize: 11 }}>{q.schoolName?.split(' ').slice(-2).join(' ') || '—'}</td>
-                  <td style={{ fontSize: 12 }}>{q.year || '—'}</td>
-                  <td style={{ fontSize: 11 }}>{q.subject || '—'}</td>
-                  <td>
-                    <button
-                      onClick={() => toggleDailyBank(q)}
-                      title={q.inDailyBank ? 'Remove from Daily Bank' : 'Add to Daily Bank'}
-                      style={{ padding: '3px 10px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 11, transition: 'all .15s', borderColor: q.inDailyBank ? '#8B5CF6' : 'var(--border)', background: q.inDailyBank ? 'rgba(139,92,246,0.12)' : 'var(--bg-tertiary)', color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)' }}>
-                      {q.inDailyBank ? '📅 In Bank' : '➕ Add'}
-                    </button>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    No questions found
                   </td>
-                  <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(q)} style={{ color: '#EF4444' }}>🗑️</button>
+                </tr>
+              )}
+              {filtered.map((q, i) => (
+                <tr
+                  key={q.id}
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    background: selected.has(q.id)
+                      ? 'rgba(239,68,68,0.06)'
+                      : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {/* Row checkbox */}
+                  <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(q.id)}
+                      onChange={() => toggleOne(q.id)}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#EF4444' }}
+                    />
+                  </td>
+                  <td style={{ padding: '12px 10px', color: 'var(--text-muted)', fontWeight: 700 }}>{i + 1}</td>
+                  <td style={{ padding: '12px 10px', maxWidth: 200 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {q.question || '—'}
                     </div>
+                    {q.options?.length > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, fontWeight: 700 }}>
+                        {q.options.length} options
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                    {q.school || '—'}
+                  </td>
+                  <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {q.year || '—'}
+                  </td>
+                  <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--teal)', fontSize: 12 }}>
+                    {q.subject || q.type || '—'}
+                  </td>
+                  <td style={{ padding: '12px 10px' }}>
+                    <span style={{
+                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900,
+                      background: q.inDailyBank ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)',
+                      border: `1px solid ${q.inDailyBank ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                    }}>
+                      {q.inDailyBank ? '📅 Daily' : 'Non'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 10px' }}>
+                    <button
+                      onClick={() => deleteSingle(q.id)}
+                      style={{
+                        padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                        color: '#EF4444', fontWeight: 700, fontFamily: F,
+                      }}
+                    >🗑️</button>
                   </td>
                 </tr>
               ))}
-              {filtered.length > 50 && <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 12 }}>Showing first 50 of {filtered.length} — use filters to narrow down</td></tr>}
             </tbody>
           </table>
         </div>
-      )}
-
-      {editing && (
-        <EditQuestionModal question={editing} schools={schools}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }}
-          toast={toast} />
       )}
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// TAB 5 — Daily Mock (Settings + Question Bank Upload + Rotation Logic)
-// ═════════════════════════════════════════════════════════════════════════════
-function DailyMockTab({ toast }) {
-  const [subTab, setSubTab] = useState('settings');
+// ════════════════════════════════════════════════════════════════
+// MANAGE SCHOOLS PANEL
+// ════════════════════════════════════════════════════════════════
+function ManageSchoolsPanel() {
+  const [schools,  setSchools]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [newName,  setNewName]  = useState('');
+  const [saving,   setSaving]   = useState(false);
 
-  const SUB_TABS = [
-    { id: 'settings',  label: '⚙️ Settings'        },
-    { id: 'upload',    label: '📤 Upload Questions' },
-    { id: 'schedule',  label: '🗓️ Schedule & History' },
-  ];
+  const load = async () => {
+    setLoading(true);
+    const snap = await getDocs(collection(db, 'entranceExamSchools'));
+    setSchools(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const { setDoc, doc: firestoreDoc, serverTimestamp } = {};
+
+  const addSchool = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      const { setDoc, doc: fDoc, serverTimestamp: sTs } = await import('firebase/firestore');
+      const id = newName.trim().toLowerCase().replace(/\s+/g, '_');
+      await setDoc(fDoc(db, 'entranceExamSchools', id), {
+        name: newName.trim(), createdAt: sTs(),
+      });
+      setNewName('');
+      await load();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSaving(false); }
+  };
+
+  const deleteSchool = async (id) => {
+    if (!window.confirm('Delete this school?')) return;
+    await deleteDoc(doc(db, 'entranceExamSchools', id));
+    setSchools(prev => prev.filter(s => s.id !== id));
+  };
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {SUB_TABS.map(t => (
-          <button key={t.id} onClick={() => setSubTab(t.id)} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .2s', borderColor: subTab === t.id ? '#8B5CF6' : 'var(--border)', background: subTab === t.id ? 'rgba(139,92,246,0.12)' : 'var(--bg-card)', color: subTab === t.id ? '#8B5CF6' : 'var(--text-muted)' }}>{t.label}</button>
-        ))}
-      </div>
-
-      {subTab === 'settings' && <DailyMockSettings toast={toast} />}
-      {subTab === 'upload'   && <DailyMockUpload   toast={toast} />}
-      {subTab === 'schedule' && <DailyMockSchedule toast={toast} />}
-    </div>
-  );
-}
-
-// ── Daily Mock: Settings ──────────────────────────────────────────────────────
-function DailyMockSettings({ toast }) {
-  const [config,  setConfig]  = useState({ questionCount: 30, timeLimit: 30, repeatThreshold: 50, passMark: 50 });
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [stats,   setStats]   = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
-        if (snap.exists()) setConfig(c => ({ ...c, ...snap.data() }));
-        const countSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true)));
-        setStats({ totalQuestions: countSnap.data().count });
-      } catch (e) { console.error(e); }
-      setLoading(false);
-    })();
-  }, []);
-
-  const save = async () => {
-    setSaving(true); setSaved(false);
-    try {
-      await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), { ...config, updatedAt: new Date().toISOString() });
-      setSaved(true); toast('Daily Mock settings saved ✅', 'success');
-      setTimeout(() => setSaved(false), 3000);
-    } catch (e) { toast('Save failed: ' + e.message, 'error'); }
-    setSaving(false);
-  };
-
-  if (loading) return <Spinner />;
-
-  const bankSize  = stats?.totalQuestions || 0;
-  const maxAllowed = Math.max(bankSize, 5);
-
-  return (
-    <div style={{ maxWidth: 600 }}>
-      {/* Info banner */}
-      <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 12, padding: '16px 20px', marginBottom: 24, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 24 }}>📅</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 6 }}>How Smart Daily Mock Works</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-            Every 24 hours, a new question set is selected from the <strong>Daily Mock Bank</strong>. The system tracks which questions each student has seen and <strong>never repeats</strong> them — unless the pass rate was below the threshold you set. Once all questions are exhausted, the cycle resets automatically.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#8B5CF6' }}>
-            📦 {bankSize} questions currently in Daily Mock Bank
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-
-        {/* Question Count */}
-        <div style={S.card}>
-          <label style={{ ...S.label, fontSize: 13 }}>❓ Questions Per Mock</label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>How many questions per daily session. Capped at your bank size ({bankSize}).</div>
-          <SliderWithPresets value={config.questionCount} min={5} max={Math.min(60, maxAllowed)} step={5} presets={[10,20,30,40,50].filter(n => n <= maxAllowed)} onChange={v => setConfig(c => ({ ...c, questionCount: v }))} displayFn={v => String(v)} color="var(--teal)" />
-        </div>
-
-        {/* Time Limit */}
-        <div style={S.card}>
-          <label style={{ ...S.label, fontSize: 13 }}>⏱ Time Limit</label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Set to 0 for untimed. Mock auto-submits when time runs out.</div>
-          <SliderWithPresets value={config.timeLimit} min={0} max={120} step={5} presets={[{ v: 0, l: 'Untimed' }, { v: 20, l: '20m' }, { v: 30, l: '30m' }, { v: 45, l: '45m' }, { v: 60, l: '60m' }]} onChange={v => setConfig(c => ({ ...c, timeLimit: v }))} displayFn={v => v === 0 ? '∞' : `${v}m`} color="#F59E0B" />
-        </div>
-
-        {/* Pass Mark */}
-        <div style={S.card}>
-          <label style={{ ...S.label, fontSize: 13 }}>🎯 Pass Mark (%)</label>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Score percentage a student must reach to be considered "passed" on a question set.</div>
-          <SliderWithPresets value={config.passMark} min={30} max={80} step={5} presets={[40,50,60,70]} onChange={v => setConfig(c => ({ ...c, passMark: v }))} displayFn={v => `${v}%`} color="#10B981" />
-        </div>
-
-        {/* Repeat Threshold */}
-        <div style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <label style={{ ...S.label, fontSize: 13, marginBottom: 0 }}>🔁 Repeat Threshold (Pass Rate %)</label>
-            <span style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Smart Repeat</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-            If a question's overall pass rate falls <strong>below this threshold</strong>, it gets re-queued and shown again to students who failed it. Set to 0 to disable repeats entirely.
-          </div>
-          <SliderWithPresets value={config.repeatThreshold} min={0} max={80} step={5} presets={[{ v: 0, l: 'Off' }, { v: 30, l: '30%' }, { v: 50, l: '50%' }, { v: 60, l: '60%' }]} onChange={v => setConfig(c => ({ ...c, repeatThreshold: v }))} displayFn={v => v === 0 ? 'Off' : `${v}%`} color="#EF4444" />
-          {config.repeatThreshold > 0 && (
-            <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-              ⚠️ Questions where fewer than <strong style={{ color: '#EF4444' }}>{config.repeatThreshold}%</strong> of students passed will be re-assigned to those who failed.
-            </div>
-          )}
-        </div>
-
-        {/* Preview */}
-        <div style={{ background: 'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(13,148,136,0.08))', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 14, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Preview — What students will see</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 2 }}>
-            📅 Daily Mock: <strong style={{ color: 'var(--text-primary)' }}>{Math.min(config.questionCount, bankSize || config.questionCount)} questions</strong>
-            {' '}·{' '}
-            {config.timeLimit > 0 ? <><strong style={{ color: '#F59E0B' }}>{config.timeLimit} minutes</strong></> : <strong style={{ color: '#10B981' }}>Untimed</strong>}<br />
-            ✅ Pass mark: <strong>{config.passMark}%</strong><br />
-            🔁 No question repeats unless pass rate {'<'} <strong style={{ color: '#EF4444' }}>{config.repeatThreshold > 0 ? `${config.repeatThreshold}%` : 'disabled'}</strong><br />
-            ⚠️ Each student: <strong>one attempt per day</strong>
-          </div>
-        </div>
-
-        <button onClick={save} disabled={saving} style={{ background: saved ? 'linear-gradient(135deg,#10B981,#059669)' : 'linear-gradient(135deg,#8B5CF6,#6D28D9)', border: 'none', color: '#fff', padding: '14px 32px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 15, fontWeight: 700, alignSelf: 'flex-start', opacity: saving ? 0.7 : 1, transition: 'all 0.2s' }}>
-          {saving ? '💾 Saving…' : saved ? '✅ Saved!' : '💾 Save Settings'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Daily Mock: Upload Questions to Daily Bank ────────────────────────────────
-function DailyMockUpload({ toast }) {
-  const [mode, setMode] = useState('form');
-  // form fields
-  const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
-  // paste mode
-  const [rawText,  setRawText]  = useState('');
-  const [parsed,   setParsed]   = useState([]);
-  const [errors,   setErrors]   = useState([]);
-  const [saving,   setSaving]   = useState(false);
-  const [imported, setImported] = useState(null);
-
-  const handleParse = () => {
-    const { results, errors: errs } = parseEntranceQuestions(rawText);
-    setParsed(results); setErrors(errs); setImported(null);
-  };
-
-  const saveSingle = async () => {
-    if (!form.questionText.trim()) { toast('Question text is required', 'error'); return; }
-    setSaving(true);
-    try {
-      await addDoc(collection(db, 'entranceExamQuestions'), {
-        schoolId: null, schoolName: '',
-        year: '', subject: '',
-        questionType: form.diagramUrl ? 'diagram' : 'text',
-        diagramUrl: form.diagramUrl || '',
-        questionText: form.questionText,
-        options: form.options,
-        correctAnswer: form.correctAnswer,
-        explanation: form.explanation || '',
-        active: true,
-        inDailyBank: true,
-        createdAt: serverTimestamp(),
-      });
-      toast('Question added to Daily Mock Bank ✅', 'success');
-      setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const saveBulk = async () => {
-    if (!parsed.length) { toast('Nothing to import', 'error'); return; }
-    setSaving(true);
-    try {
-      const batch = writeBatch(db);
-      parsed.forEach(q => {
-        const ref = doc(collection(db, 'entranceExamQuestions'));
-        batch.set(ref, {
-          schoolId: null, schoolName: '',
-          year: '', subject: '',
-          questionType: q.questionType, diagramUrl: q.diagramUrl || '',
-          questionText: q.questionText, options: q.options,
-          correctAnswer: q.correctAnswer, explanation: q.explanation || '',
-          active: true, inDailyBank: true,
-          createdAt: serverTimestamp(),
-        });
-      });
-      await batch.commit();
-      setImported({ count: parsed.length });
-      setParsed([]); setRawText('');
-      toast(`${parsed.length} questions added to Daily Mock Bank ✅`, 'success');
-    } catch (e) { toast('Import failed: ' + e.message, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div style={{ maxWidth: 800 }}>
-      {/* Header info */}
-      <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span style={{ fontSize: 22 }}>📅</span>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          Questions added here go <strong style={{ color: '#8B5CF6' }}>directly into the Daily Mock Bank</strong>. The system will select from them automatically every 24 hours. You can add questions at any time — they'll be included in upcoming rotations.
-        </div>
-      </div>
-
-      {/* Mode toggle */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {[{ id: 'form', label: '🖊️ Single (Form)' }, { id: 'paste_single', label: '📋 Single (Paste)' }, { id: 'paste_bulk', label: '📦 Bulk Paste' }].map(m => (
-          <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .2s', borderColor: mode === m.id ? '#8B5CF6' : 'var(--border)', background: mode === m.id ? 'rgba(139,92,246,0.12)' : 'var(--bg-card)', color: mode === m.id ? '#8B5CF6' : 'var(--text-muted)' }}>{m.label}</button>
-        ))}
-      </div>
-
-      {/* Form entry */}
-      {mode === 'form' && (
-        <div style={S.card}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={S.label}>🖼️ Diagram URL (optional)</label>
-              <input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={S.label}>📝 Question Text *</label>
-              <textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} placeholder="Type the question here…" />
-            </div>
-            {['A','B','C','D'].map(letter => (
-              <div key={letter} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div onClick={() => setForm(p => ({ ...p, correctAnswer: letter }))} style={{ width: 30, height: 30, borderRadius: 6, flexShrink: 0, background: form.correctAnswer === letter ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)', border: `2px solid ${form.correctAnswer === letter ? 'var(--green)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: form.correctAnswer === letter ? 'var(--green)' : 'var(--text-muted)', cursor: 'pointer' }}>{letter}</div>
-                <input className="form-input" value={form.options[letter]||''} onChange={e => setForm(p => ({ ...p, options: { ...p.options, [letter]: e.target.value } }))} style={{ flex: 1 }} placeholder={`Option ${letter}`} />
-                {form.correctAnswer === letter && <span style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700 }}>✅</span>}
-              </div>
-            ))}
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>👆 Click a letter to mark as correct answer</p>
-            <div>
-              <label style={S.label}>💡 Explanation (optional)</label>
-              <textarea className="form-input" rows={2} value={form.explanation} onChange={e => setForm(p => ({ ...p, explanation: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
-            </div>
-            <button className="btn btn-primary" onClick={saveSingle} disabled={saving || !form.questionText.trim()} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>
-              {saving ? '💾 Saving…' : '📅 Add to Daily Mock Bank'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Single paste */}
-      {mode === 'paste_single' && (
-        <SinglePasteUpload
-          onSave={async qData => {
-            setSaving(true);
-            try {
-              await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, createdAt: serverTimestamp() });
-              toast('Added to Daily Mock Bank ✅', 'success');
-            } catch (e) { toast('Error: ' + e.message, 'error'); }
-            finally { setSaving(false); }
-          }}
-          saving={saving}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <input
+          value={newName} onChange={e => setNewName(e.target.value)}
+          placeholder="School name..."
+          className="form-input" style={{ flex: 1, fontFamily: F, fontWeight: 700 }}
+          onKeyDown={e => e.key === 'Enter' && addSchool()}
         />
-      )}
-
-      {/* Bulk paste */}
-      {mode === 'paste_bulk' && (
-        <>
-          <FormatGuide bulk />
-          <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📦 Paste Multiple Questions</div>
-            <textarea className="form-input" rows={16} placeholder="Paste all questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setErrors([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />
-            <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button>
-          </div>
-          {errors.length > 0 && (
-            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>⚠️ {errors.length} parse error{errors.length !== 1 ? 's' : ''}</div>
-              {errors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#EF4444' }}>{e}</div>)}
-            </div>
-          )}
-          {parsed.length > 0 && (
-            <div style={{ ...S.card, marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>✅ {parsed.length} questions ready</div>
-                <button className="btn btn-primary" onClick={saveBulk} disabled={saving} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>
-                  {saving ? '📅 Importing…' : `📅 Add All to Daily Bank (${parsed.length})`}
-                </button>
-              </div>
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>#</th><th>Question Preview</th><th>Ans</th><th>Type</th></tr></thead>
-                  <tbody>
-                    {parsed.slice(0, 15).map((q, i) => (
-                      <tr key={i}>
-                        <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
-                        <td style={{ fontSize: 12 }}>{q.questionText.slice(0, 70)}{q.questionText.length > 70 ? '…' : ''}</td>
-                        <td><span className="badge badge-teal">{q.correctAnswer}</span></td>
-                        <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
-                      </tr>
-                    ))}
-                    {parsed.length > 15 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 15} more</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {imported && (
-            <div style={{ background: 'rgba(139,92,246,0.08)', border: '1.5px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📅</div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#8B5CF6', marginBottom: 4 }}>Added to Daily Mock Bank!</div>
-              <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>{imported.count} questions are now eligible for daily rotation</div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Daily Mock: Schedule & History ────────────────────────────────────────────
-function DailyMockSchedule({ toast }) {
-  const [config,   setConfig]   = useState(null);
-  const [bankIds,  setBankIds]  = useState([]);
-  const [history,  setHistory]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [preview,  setPreview]  = useState(null);
-  const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [cfgSnap, bankSnap, histSnap] = await Promise.all([
-          getDoc(doc(db, 'entranceExamConfig', 'dailyMock')),
-          getDocs(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true), orderBy('createdAt', 'asc'))),
-          getDocs(query(collection(db, 'dailyMockSchedule'), orderBy('date', 'desc'))),
-        ]);
-        const cfg = cfgSnap.exists() ? cfgSnap.data() : { questionCount: 30, timeLimit: 30, repeatThreshold: 50, passMark: 50 };
-        setConfig(cfg);
-        const ids = bankSnap.docs.map(d => d.id);
-        setBankIds(ids);
-        setHistory(histSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) { console.error(e); }
-      setLoading(false);
-    })();
-  }, []);
-
-  // Compute which question IDs have been used (no repeat unless fail rate < threshold)
-  const computeUsedIds = useCallback((hist, repeatThreshold) => {
-    const usedMap = {};
-    hist.forEach(day => {
-      if (!day.questionIds) return;
-      const passRate = day.passRate ?? 100;
-      if (passRate >= (repeatThreshold ?? 50)) {
-        // Questions passed well — mark as fully used
-        day.questionIds.forEach(id => { usedMap[id] = (usedMap[id] || 0) + 1; });
-      }
-      // else: pass rate too low → these questions are eligible to recur
-    });
-    return usedMap;
-  }, []);
-
-  const generatePreview = () => {
-    if (!config || !bankIds.length) return;
-    const today = todayKey();
-    const alreadyScheduled = history.find(h => h.date === today);
-    if (alreadyScheduled) {
-      toast('Today already has a scheduled set!', 'warning');
-      setPreview({ date: today, questionIds: alreadyScheduled.questionIds, alreadyExists: true });
-      return;
-    }
-
-    const usedMap = computeUsedIds(history, config.repeatThreshold ?? 50);
-    // Eligible = not used, OR repeat-eligible (those not in usedMap)
-    const eligible = bankIds.filter(id => !usedMap[id]);
-
-    let pool = eligible.length >= (config.questionCount || 30) ? eligible : bankIds; // fallback: full reset
-    const shuffled = seededShuffle(pool, dateSeed(today));
-    const selected = shuffled.slice(0, config.questionCount || 30);
-
-    setPreview({ date: today, questionIds: selected, alreadyExists: false, isReset: eligible.length < (config.questionCount || 30) });
-  };
-
-  const publishToday = async () => {
-    if (!preview || preview.alreadyExists) return;
-    setGenerating(true);
-    try {
-      await setDoc(doc(db, 'dailyMockSchedule', preview.date), {
-        date: preview.date,
-        questionIds: preview.questionIds,
-        questionCount: preview.questionIds.length,
-        publishedAt: serverTimestamp(),
-        passRate: null,
-        attemptCount: 0,
-        isReset: preview.isReset || false,
-      });
-      toast(`Daily Mock published for ${preview.date} ✅`, 'success');
-      setPreview(null);
-      // Reload history
-      const snap = await getDocs(query(collection(db, 'dailyMockSchedule'), orderBy('date', 'desc')));
-      setHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-    finally { setGenerating(false); }
-  };
-
-  if (loading) return <Spinner />;
-
-  const usedCount  = Object.keys(computeUsedIds(history, config?.repeatThreshold ?? 50)).length;
-  const freshCount = bankIds.length - usedCount;
-
-  return (
-    <div style={{ maxWidth: 900 }}>
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 24 }}>
-        {[
-          { icon: '📦', label: 'Bank Size',       value: bankIds.length,    color: '#8B5CF6' },
-          { icon: '✅', label: 'Questions Used',   value: usedCount,         color: 'var(--teal)' },
-          { icon: '🆕', label: 'Fresh Questions',  value: freshCount,        color: '#10B981' },
-          { icon: '📅', label: 'Days Scheduled',   value: history.length,    color: '#F59E0B' },
-        ].map(s => (
-          <div key={s.label} style={{ ...S.card, textAlign: 'center', padding: '14px 12px' }}>
-            <div style={{ fontSize: 20 }}>{s.icon}</div>
-            <div style={{ fontWeight: 800, fontSize: 24, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
+        <button onClick={addSchool} disabled={saving} style={{
+          padding: '0 20px', borderRadius: 10, cursor: 'pointer',
+          background: 'var(--teal)', border: 'none', color: '#fff',
+          fontWeight: 700, fontFamily: F,
+        }}>{saving ? 'Adding…' : '+ Add'}</button>
       </div>
-
-      {/* Generate today's mock */}
-      <div style={{ ...S.card, marginBottom: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 6 }}>📅 Today's Mock — {todayKey()}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-          Preview the question set the system will serve today. This respects the no-repeat and smart-repeat rules. Publishing locks in today's set.
-          {freshCount < (config?.questionCount || 30) && (
-            <span style={{ color: '#F59E0B', fontWeight: 700 }}> ⚠️ Only {freshCount} fresh questions available — system will recycle from full bank.</span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" onClick={generatePreview}>🔍 Preview Today's Set</button>
-          {preview && !preview.alreadyExists && (
-            <button className="btn btn-primary" onClick={publishToday} disabled={generating} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>
-              {generating ? '📤 Publishing…' : '📤 Publish Today\'s Mock'}
-            </button>
-          )}
-        </div>
-
-        {preview && (
-          <div style={{ marginTop: 16, padding: '14px 16px', background: preview.alreadyExists ? 'rgba(245,158,11,0.08)' : 'rgba(139,92,246,0.08)', border: `1px solid ${preview.alreadyExists ? 'rgba(245,158,11,0.25)' : 'rgba(139,92,246,0.25)'}`, borderRadius: 10 }}>
-            {preview.alreadyExists ? (
-              <div style={{ fontSize: 13, color: '#F59E0B', fontWeight: 700 }}>⚠️ Today's mock is already published with {preview.questionIds.length} questions.</div>
-            ) : (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#8B5CF6', marginBottom: 6 }}>
-                  ✅ Preview: {preview.questionIds.length} questions selected
-                  {preview.isReset && <span style={{ marginLeft: 8, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>🔄 Cycle Reset</span>}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Question IDs: {preview.questionIds.slice(0, 5).join(', ')}{preview.questionIds.length > 5 ? ` … +${preview.questionIds.length - 5} more` : ''}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* History table */}
-      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 12 }}>📜 Schedule History</div>
-      {history.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No history yet. Publish today's mock to start.</div>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading…</div>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Date</th><th>Questions</th><th>Attempts</th><th>Pass Rate</th><th>Status</th></tr></thead>
-            <tbody>
-              {history.map(h => {
-                const passRate = h.passRate != null ? h.passRate : null;
-                const threshold = config?.repeatThreshold ?? 50;
-                const flagRepeat = passRate !== null && passRate < threshold;
-                return (
-                  <tr key={h.id}>
-                    <td style={{ fontWeight: 700 }}>{h.date}</td>
-                    <td><span className="badge badge-teal">{h.questionCount || h.questionIds?.length || '—'}</span></td>
-                    <td>{h.attemptCount ?? '—'}</td>
-                    <td>
-                      {passRate !== null ? (
-                        <span style={{ fontWeight: 700, color: flagRepeat ? '#EF4444' : '#10B981' }}>
-                          {passRate}% {flagRepeat ? '🔁' : '✅'}
-                        </span>
-                      ) : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Pending</span>}
-                    </td>
-                    <td>
-                      {h.isReset
-                        ? <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}>🔄 Reset</span>
-                        : <span className="badge badge-green">✅ Active</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// EDIT QUESTION MODAL
-// ═════════════════════════════════════════════════════════════════════════════
-function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
-  const [form, setForm] = useState({
-    schoolId: question.schoolId || '', year: question.year || '2024', subject: question.subject || 'Biology',
-    questionText: question.questionText || '', options: question.options || { A:'', B:'', C:'', D:'' },
-    correctAnswer: question.correctAnswer || 'A', explanation: question.explanation || '',
-    diagramUrl: question.diagramUrl || '', inDailyBank: question.inDailyBank || false,
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const school = schools.find(s => s.id === form.schoolId);
-      await updateDoc(doc(db, 'entranceExamQuestions', question.id), {
-        schoolId: form.schoolId || null, schoolName: school?.name || question.schoolName,
-        year: form.year, subject: form.subject,
-        questionText: form.questionText, options: form.options,
-        correctAnswer: form.correctAnswer, explanation: form.explanation,
-        diagramUrl: form.diagramUrl, questionType: form.diagramUrl ? 'diagram' : 'text',
-        inDailyBank: form.inDailyBank, updatedAt: serverTimestamp(),
-      });
-      onSaved();
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title="✏️ Edit Question" onClose={onClose} wide>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[
-            { label: '🏫 School', key: 'schoolId', options: [{ value: '', label: 'None' }, ...schools.map(s => ({ value: s.id, label: s.shortName || s.name }))] },
-            { label: '📅 Year',   key: 'year',     options: ENTRANCE_YEARS.map(y => ({ value: y, label: y })) },
-            { label: '📚 Subject',key: 'subject',  options: SUBJECTS.map(s => ({ value: s, label: s })) },
-          ].map(f => (
-            <div key={f.key}>
-              <label style={{ ...S.label, fontSize: 11 }}>{f.label}</label>
-              <select className="form-input form-select" value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%' }}>
-                {f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {schools.map(s => (
+            <div key={s.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', background: 'var(--bg-secondary)',
+              borderRadius: 10, border: '1px solid var(--border)',
+            }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontFamily: F }}>🏫 {s.name}</span>
+              <button onClick={() => deleteSchool(s.id)} style={{
+                padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                color: '#EF4444', fontWeight: 700, fontSize: 12, fontFamily: F,
+              }}>🗑️ Remove</button>
             </div>
           ))}
-        </div>
-        <div>
-          <label style={{ ...S.label, fontSize: 11 }}>🖼️ Diagram URL (optional)</label>
-          <input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} />
-        </div>
-        <div>
-          <label style={{ ...S.label, fontSize: 11 }}>📝 Question Text</label>
-          <textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
-        </div>
-        {['A','B','C','D'].map(letter => (
-          <div key={letter} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div onClick={() => setForm(p => ({ ...p, correctAnswer: letter }))} style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0, background: form.correctAnswer === letter ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)', border: `2px solid ${form.correctAnswer === letter ? 'var(--green)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: form.correctAnswer === letter ? 'var(--green)' : 'var(--text-muted)', cursor: 'pointer' }}>{letter}</div>
-            <input className="form-input" value={form.options[letter]||''} onChange={e => setForm(p => ({ ...p, options: { ...p.options, [letter]: e.target.value } }))} style={{ flex: 1 }} />
-            {form.correctAnswer === letter && <span style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>✅ Correct</span>}
-          </div>
-        ))}
-        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>👆 Click the letter to set correct answer</p>
-        <div>
-          <label style={{ ...S.label, fontSize: 11 }}>💡 Explanation (optional)</label>
-          <textarea className="form-input" rows={2} value={form.explanation} onChange={e => setForm(p => ({ ...p, explanation: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} />
-        </div>
-        {/* Daily bank toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 8, border: '1px solid rgba(139,92,246,0.2)' }}>
-          <button onClick={() => setForm(p => ({ ...p, inDailyBank: !p.inDailyBank }))} style={{ width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', position: 'relative', background: form.inDailyBank ? '#8B5CF6' : 'var(--bg-tertiary)', transition: 'background .2s' }}>
-            <span style={{ position: 'absolute', top: 2, left: form.inDailyBank ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', display: 'block' }} />
-          </button>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>📅 Include in Daily Mock Bank</span>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1 }}>{saving ? '💾 Saving…' : '💾 Save Changes'}</button>
-        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-      </div>
-    </Modal>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// SHARED COMPONENTS
-// ═════════════════════════════════════════════════════════════════════════════
-
-function Modal({ title, onClose, children, wide }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 28, width: '100%', maxWidth: wide ? 600 : 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)' }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700 }}>✕</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-      <div className="spinner" style={{ margin: '0 auto 12px' }} />Loading…
-    </div>
-  );
-}
-
-function FormatGuide({ bulk }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#60A5FA' }}>
-          📋 Format Guide{bulk ? ' — separate questions with a blank line' : ''}
-        </div>
-        <button onClick={() => setExpanded(p => !p)} style={{ fontSize: 11, background: 'none', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', color: '#60A5FA' }}>
-          {expanded ? '▲ Less' : '▼ All formats'}
-        </button>
-      </div>
-
-      {/* Basic example always visible */}
-      <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`What is the functional unit of the kidney?
-A. Nephron
-B. Neuron
-C. Nodule
-D. Nucleus
-*A
-Explanation: The nephron filters blood...${bulk ? `\n\nhttps://i.imgur.com/abc123.png\nDiagram question here\nA. Bowman capsule\nB. Nephron\nC. Pyramid\nD. Calyx\n*C` : ''}`}</pre>
-
-      {/* Expanded: all formats */}
-      {expanded && (
-        <div style={{ marginTop: 12, borderTop: '1px solid rgba(37,99,235,0.15)', paddingTop: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', marginBottom: 6 }}>✅ All supported option styles:</div>
-          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.9, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`A. text   A) text   a. text   a) text      ← standard
-1. text   2. text   3. text   4. text      ← numbered (1=A, 2=B…)
-{a} text  {b} text  {c} text  {d} text     ← curly-brace style
-A  text   (tab-separated)                  ← MCQ table style`}</pre>
-
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', margin: '10px 0 6px' }}>✅ All supported answer formats:</div>
-          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.9, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`*A                          ← star prefix
-(A)  or  [A]               ← bracketed letter
-Answer: A                  ← with colon
-Answer: A) Nephron         ← letter + option text
-**Answer: A) Nephron**     ← bold markdown
-Ans: A   Ans:A   ANS A     ← short forms
-ANSWER A   ANSWER: A       ← uppercase
-Ans : D  (end of any line) ← inline / trailing
-a) text   ANS:B   Ans: C   ← inline within last line`}</pre>
-
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', margin: '10px 0 6px' }}>✅ Optional extras:</div>
-          <pre style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`Explanation: Your rationale here
-Rationale: Your rationale here
-https://i.imgur.com/abc.png  ← diagram URL on first line`}</pre>
+          {schools.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', padding: 24 }}>No schools yet</p>
+          )}
         </div>
       )}
-
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-        ✅ Answer formats accepted: <code>*A</code> · <code>Answer: A</code> · <code>Ans: A</code> · <code>ANS A</code> · <code>ANSWER A</code> · <code>(A)</code> · <code>[A]</code> · <code>**Answer: A)**</code>
-      </div>
     </div>
   );
 }
 
-function ParseError({ msg }) {
-  return (
-    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-      <div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 4 }}>❌ Parse Error</div>
-      <pre style={{ margin: 0, fontSize: 12, color: '#EF4444', whiteSpace: 'pre-wrap' }}>{msg}</pre>
-    </div>
-  );
-}
+// ════════════════════════════════════════════════════════════════
+// ADD SINGLE QUESTION PANEL
+// ════════════════════════════════════════════════════════════════
+function AddSingleQuestionPanel() {
+  const blank = { question: '', options: ['','','',''], answer: '', school: '', year: '', subject: '', inDailyBank: false };
+  const [form, setForm] = useState(blank);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
 
-function QuestionPreview({ q, children }) {
-  return (
-    <div style={{ ...S.card, border: '1.5px solid rgba(13,148,136,0.4)', marginBottom: 16 }}>
-      <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 12 }}>
-        ✅ Parsed — {q.questionType === 'diagram' ? '🖼️ Diagram' : '📝 Text'} Question
-      </div>
-      {q.diagramUrl && (
-        <div style={{ marginBottom: 12 }}>
-          <img src={q.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} />
-        </div>
-      )}
-      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>{q.questionText}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-        {Object.entries(q.options).map(([letter, text]) => (
-          <div key={letter} style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, background: q.correctAnswer === letter ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)', border: `1.5px solid ${q.correctAnswer === letter ? 'rgba(22,163,74,0.4)' : 'var(--border)'}`, color: q.correctAnswer === letter ? 'var(--green)' : 'var(--text-secondary)', fontWeight: q.correctAnswer === letter ? 700 : 400 }}>
-            {letter}. {text} {q.correctAnswer === letter && '✅'}
-          </div>
-        ))}
-      </div>
-      {q.explanation && (
-        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
-          💡 <strong>Explanation:</strong> {q.explanation}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function SinglePasteUpload({ onSave, saving }) {
-  const [rawText, setRawText]   = useState('');
-  const [parsed,  setParsed]    = useState(null);
-  const [parseErr, setParseErr] = useState('');
-
-  const handleParse = () => {
-    setParseErr('');
-    const { results, warnings } = parseEntranceQuestions(rawText);
-    if (!results.length) { setParseErr('No question detected.'); return; }
-    if (warnings.length && !results[0].correctAnswer) {
-      setParseErr('⚠️ No answer found in text — please set the correct answer manually.');
+  const save = async () => {
+    if (!form.question.trim() || !form.answer.trim()) {
+      setMsg('❌ Question and answer are required.'); return;
     }
-    setParsed(results[0]);
+    setSaving(true);
+    try {
+      const { addDoc, serverTimestamp } = await import('firebase/firestore');
+      await addDoc(collection(db, 'entranceExamQuestions'), {
+        ...form,
+        options: form.options.filter(Boolean),
+        createdAt: serverTimestamp(),
+      });
+      setMsg('✅ Question added!');
+      setForm(blank);
+    } catch (e) { setMsg('❌ ' + e.message); }
+    finally { setSaving(false); }
   };
 
   return (
-    <>
-      <FormatGuide />
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10 }}>📝 Paste Question</div>
-        <textarea className="form-input" rows={12} placeholder="Paste your question here…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed(null); setParseErr(''); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }} />
-        <button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 600 }}>
+      <h3 style={{ fontFamily: H, fontWeight: 900, margin: 0, color: 'var(--text-primary)' }}>➕ Add Single Question</h3>
+
+      <textarea
+        value={form.question} onChange={e => setForm(f => ({ ...f, question: e.target.value }))}
+        placeholder="Question text..."
+        className="form-input" rows={3}
+        style={{ fontFamily: F, fontWeight: 700, resize: 'vertical' }}
+      />
+
+      {form.options.map((opt, i) => (
+        <input key={i} value={opt}
+          onChange={e => setForm(f => { const o = [...f.options]; o[i] = e.target.value; return { ...f, options: o }; })}
+          placeholder={`Option ${String.fromCharCode(65 + i)}`}
+          className="form-input" style={{ fontFamily: F, fontWeight: 700 }}
+        />
+      ))}
+
+      <input value={form.answer} onChange={e => setForm(f => ({ ...f, answer: e.target.value }))}
+        placeholder="Correct answer (e.g. A or full text)"
+        className="form-input" style={{ fontFamily: F, fontWeight: 700 }}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <input value={form.school} onChange={e => setForm(f => ({ ...f, school: e.target.value }))}
+          placeholder="School" className="form-input" style={{ fontFamily: F, fontWeight: 700 }} />
+        <input value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
+          placeholder="Year (e.g. 2023)" className="form-input" style={{ fontFamily: F, fontWeight: 700 }} />
+        <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+          placeholder="Subject" className="form-input" style={{ fontFamily: F, fontWeight: 700 }} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontFamily: F, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={form.inDailyBank} onChange={e => setForm(f => ({ ...f, inDailyBank: e.target.checked }))}
+            style={{ width: 16, height: 16, accentColor: 'var(--teal)' }} />
+          Add to Daily Bank
+        </label>
       </div>
-      {parseErr && <ParseError msg={parseErr} />}
-      {parsed && (
-        <QuestionPreview q={parsed}>
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <button className="btn btn-primary" onClick={() => { onSave(parsed); setParsed(null); setRawText(''); }} disabled={saving} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>
-              {saving ? '📅 Saving…' : '📅 Add to Daily Bank'}
-            </button>
-            <button className="btn btn-ghost" onClick={() => { setParsed(null); setRawText(''); }}>🗑️ Discard</button>
-          </div>
-        </QuestionPreview>
-      )}
-    </>
+
+      {msg && <div style={{ fontWeight: 700, fontSize: 14, fontFamily: F, color: msg.startsWith('✅') ? '#16A34A' : '#EF4444' }}>{msg}</div>}
+
+      <button onClick={save} disabled={saving} style={{
+        padding: '12px 28px', borderRadius: 10, cursor: saving ? 'wait' : 'pointer',
+        background: 'var(--teal)', border: 'none', color: '#fff',
+        fontWeight: 700, fontSize: 14, fontFamily: F, alignSelf: 'flex-start',
+      }}>
+        {saving ? 'Saving…' : '💾 Save Question'}
+      </button>
+    </div>
   );
 }
 
-function SliderWithPresets({ value, min, max, step, presets, onChange, displayFn, color }) {
+// ════════════════════════════════════════════════════════════════
+// BULK UPLOAD PANEL
+// ════════════════════════════════════════════════════════════════
+function BulkUploadPanel() {
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: color }} />
-        <div style={{ minWidth: 58, textAlign: 'center', fontWeight: 800, fontSize: 22, color, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px' }}>
-          {displayFn(value)}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        {presets.map(p => {
-          const v = typeof p === 'object' ? p.v : p;
-          const l = typeof p === 'object' ? p.l : String(p);
-          return (
-            <button key={v} onClick={() => onChange(v)} style={{ padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .15s', borderColor: value === v ? color : 'var(--border)', background: value === v ? `${color}22` : 'var(--bg-tertiary)', color: value === v ? color : 'var(--text-muted)' }}>{l}</button>
-          );
-        })}
-      </div>
-    </>
+    <div style={{ padding: 24, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
+      <h3 style={{ fontFamily: H, fontWeight: 900, margin: '0 0 12px', color: 'var(--text-primary)' }}>📤 Bulk Upload</h3>
+      <p style={{ color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
+        Use the <strong style={{ color: 'var(--text-primary)' }}>EntranceDailyMockUpload</strong> page at{' '}
+        <code style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>
+          /admin/entrance-exam/daily-mock-upload
+        </code>{' '}
+        for bulk question uploads.
+      </p>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// DAILY MOCK PANEL
+// ════════════════════════════════════════════════════════════════
+function DailyMockPanel() {
+  return (
+    <div style={{ padding: 24, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
+      <h3 style={{ fontFamily: H, fontWeight: 900, margin: '0 0 12px', color: 'var(--text-primary)' }}>📅 Daily Mock Config</h3>
+      <p style={{ color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
+        Daily mock rotation settings — coming soon.
+      </p>
+    </div>
   );
 }
