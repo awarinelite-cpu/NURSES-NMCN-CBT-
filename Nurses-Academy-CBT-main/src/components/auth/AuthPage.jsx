@@ -1,6 +1,6 @@
 // src/components/auth/AuthPage.jsx
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -21,6 +21,8 @@ export default function AuthPage() {
 
   const { login, register, resetPassword, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || '/dashboard';
 
   // Load schools from Firestore when register mode is active
   useEffect(() => {
@@ -58,13 +60,13 @@ export default function AuthPage() {
     try {
       if (mode === 'login') {
         await login(email, password);
-        setTimeout(() => navigate('/dashboard'), 100);
+        setTimeout(() => navigate(redirectPath, { replace: true }), 100);
       } else if (mode === 'register') {
         if (password !== confirm) throw new Error('Passwords do not match.');
         if (password.length < 6)  throw new Error('Password must be at least 6 characters.');
         if (!school)               throw new Error('Please select your school.');
         await register(email, password, name, 'student', school);
-        navigate('/dashboard');
+        navigate(redirectPath, { replace: true });
       } else {
         await resetPassword(email);
         setSuccess('Password reset email sent! Check your inbox.');
@@ -84,7 +86,7 @@ export default function AuthPage() {
     setError(''); setLoading(true);
     try {
       await googleLogin();
-      navigate('/dashboard');
+      navigate(redirectPath, { replace: true });
     } catch (err) {
       if (err.code === 'auth/popup-blocked' || (err.message && err.message.includes('popup-blocked'))) {
         await googleLogin(true);
