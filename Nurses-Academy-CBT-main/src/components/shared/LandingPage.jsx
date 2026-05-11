@@ -1,15 +1,120 @@
 // src/components/shared/LandingPage.jsx
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { NURSING_CATEGORIES, ACCESS_PLANS } from '../../data/categories';
 
-export default function LandingPage() {
+function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accentColor, borderColor, glowColor, delay }) {
   const navigate = useNavigate();
-  const [hovNmcn, setHovNmcn] = useState(false);
-  const [hovEntrance, setHovEntrance] = useState(false);
+  const [hov, setHov] = useState(false);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#020B18', color: '#fff', display: 'flex', flexDirection: 'column' }}>
-      {/* ── Navbar ── */}
+    <div
+      onClick={() => navigate(`/auth?platform=${platform}`)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flex: '1 1 300px',
+        background: hov ? gradient.hover : gradient.base,
+        border: `2px solid ${hov ? borderColor.hover : borderColor.base}`,
+        borderRadius: 20,
+        padding: 'clamp(24px, 4vw, 36px)',
+        cursor: 'pointer',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: hov ? `0 12px 48px ${glowColor}` : '0 4px 24px rgba(0,0,0,0.3)',
+        transition: 'all 0.3s ease',
+        minHeight: 280,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      {/* Glow overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: `radial-gradient(ellipse at 80% 30%, ${glowColor} 0%, transparent 60%)`,
+        opacity: hov ? 1 : 0.5,
+        transition: 'opacity 0.3s',
+      }} />
+
+      {/* Top section */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {/* Icon + Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: 16, flexShrink: 0,
+            background: `${accentColor}25`,
+            border: `2px solid ${accentColor}55`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 28,
+            boxShadow: hov ? `0 0 20px ${accentColor}44` : 'none',
+            transition: 'box-shadow 0.3s',
+          }}>
+            {icon}
+          </div>
+          <div>
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontWeight: 900, fontSize: 'clamp(1.2rem, 3vw, 1.7rem)',
+              color: '#fff', margin: 0, lineHeight: 1.2,
+            }}>
+              {title}
+            </h2>
+          </div>
+        </div>
+
+        {/* Subtitle */}
+        <p style={{
+          fontSize: 14, color: 'rgba(255,255,255,0.75)',
+          lineHeight: 1.7, margin: '0 0 20px',
+          fontFamily: "'Times New Roman', Times, serif",
+          fontWeight: 700,
+        }}>
+          {subtitle}
+        </p>
+
+        {/* Tags */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+          {tags.map(tag => (
+            <span key={tag} style={{
+              fontSize: 11, fontWeight: 700,
+              color: accentColor,
+              background: `${accentColor}18`,
+              border: `1px solid ${accentColor}40`,
+              borderRadius: 20, padding: '4px 12px',
+              fontFamily: "'Times New Roman', Times, serif",
+            }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA Button */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          background: accentColor,
+          color: platform === 'nmcn' ? '#fff' : '#000',
+          fontWeight: 800, fontSize: 15,
+          padding: '13px 28px', borderRadius: 12,
+          fontFamily: "'Times New Roman', Times, serif",
+          boxShadow: hov ? `0 6px 20px ${accentColor}55` : 'none',
+          transform: hov ? 'translateX(4px)' : 'translateX(0)',
+          transition: 'all 0.25s ease',
+        }}>
+          {platform === 'nmcn' ? '🚀 Start NMCN Prep' : '🏫 Start Entrance Prep'}
+          <span style={{ fontSize: 18, fontWeight: 900 }}>→</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#020B18', color: '#fff' }}>
+      {/* Navbar */}
       <nav style={{
         padding: '0 24px', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -21,211 +126,203 @@ export default function LandingPage() {
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <span style={{ fontSize: 24 }}>📚</span>
-          Nurses<span style={{ color: '#14B8A8' }}>Academy</span>
+          NMCN<span style={{ color: '#14B8A8' }}>CBT</span>
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
-          🏥 Nigeria's #1 Nursing Exam Prep
+        <div style={{ display: 'flex', gap: 10 }}>
+          <a href="/auth" className="btn btn-outline btn-sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}>Sign In</a>
+          <a href="/auth" className="btn btn-primary btn-sm">Get Started</a>
         </div>
       </nav>
 
-      {/* ── Main Content: Two Big Banners ── */}
-      <main style={{
-        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '40px 24px',
-        background: 'radial-gradient(ellipse at 30% 50%, rgba(13,148,136,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(30,58,138,0.18) 0%, transparent 60%)',
+      {/* ── Platform Selection Hero ── */}
+      <section style={{
+        minHeight: '90vh',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: 'clamp(40px, 8vw, 80px) clamp(16px, 4vw, 40px)',
+        background: 'radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, rgba(30,58,138,0.18) 0%, transparent 55%)',
+        position: 'relative',
       }}>
+        {/* Background decoration */}
         <div style={{
-          maxWidth: 900, width: '100%',
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 28,
-        }}>
+          position: 'absolute', top: '10%', left: '5%',
+          width: 320, height: 320, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(13,148,136,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '10%', right: '5%',
+          width: 280, height: 280, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
 
-          {/* ═══════════════════════════════════════════════════════════
-              BANNER 1: NMCN CBT
-          ═══════════════════════════════════════════════════════════ */}
-          <div
-            onClick={() => navigate('/auth?redirect=/dashboard')}
-            onMouseEnter={() => setHovNmcn(true)}
-            onMouseLeave={() => setHovNmcn(false)}
-            style={{
-              background: hovNmcn
-                ? 'linear-gradient(135deg, #0F3460 0%, #0D5C45 100%)'
-                : 'linear-gradient(135deg, #0C2340 0%, #064534 100%)',
-              border: `2px solid ${hovNmcn ? 'rgba(13,148,136,0.6)' : 'rgba(13,148,136,0.25)'}`,
-              borderRadius: 24, padding: '36px 32px',
-              cursor: 'pointer', position: 'relative', overflow: 'hidden',
-              transition: 'all .35s ease',
-              boxShadow: hovNmcn ? '0 12px 40px rgba(13,148,136,0.25)' : '0 4px 16px rgba(0,0,0,0.3)',
-              transform: hovNmcn ? 'translateY(-6px)' : 'translateY(0)',
-              display: 'flex', flexDirection: 'column', gap: 16,
-            }}
-          >
-            {/* Glow */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none',
-              background: 'radial-gradient(ellipse at 85% 50%, rgba(13,148,136,0.22) 0%, transparent 60%)',
-            }} />
-
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              {/* Badge */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'rgba(245,158,11,0.15)', border: '1px solid #F59E0B',
-                color: '#FCD34D', fontSize: 11, fontWeight: 700,
-                letterSpacing: 1, textTransform: 'uppercase',
-                padding: '5px 14px', borderRadius: 20, marginBottom: 14,
-              }}>
-                🏥 NMCN CBT
-              </div>
-
-              <h2 style={{
-                fontFamily: "'Playfair Display',serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)',
-                fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0,
-              }}>
-                NMCN CBT <span style={{ color: '#14B8A8' }}>Platform</span>
-              </h2>
-
-              <p style={{
-                color: 'rgba(255,255,255,0.65)', fontSize: 14,
-                lineHeight: 1.7, marginTop: 10, maxWidth: 340,
-              }}>
-                Thousands of past questions (2020–2025), AI-powered explanations, timed mock exams, and real-time performance analytics — all 17 nursing specialties covered.
-              </p>
-
-              {/* Stats pills */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-                {['10,000+ Questions', '17 Specialties', 'AI Explanations'].map(tag => (
-                  <span key={tag} style={{
-                    fontSize: 11, fontWeight: 700, color: '#5EEAD4',
-                    background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)',
-                    borderRadius: 20, padding: '4px 10px',
-                  }}>{tag}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            <div style={{
-              position: 'relative', zIndex: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginTop: 'auto', paddingTop: 8,
-            }}>
-              <span style={{
-                fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)',
-              }}>
-                For NMCN-registered nursing students
-              </span>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'rgba(13,148,136,0.2)', border: '1.5px solid rgba(13,148,136,0.4)',
-                borderRadius: 12, padding: '10px 18px',
-                color: '#5EEAD4', fontWeight: 800, fontSize: 14,
-                transform: hovNmcn ? 'translateX(4px)' : 'translateX(0)',
-                transition: 'transform .25s',
-              }}>
-                Enter →
-              </div>
-            </div>
+        {/* Header text */}
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 56px)', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: 'rgba(245,158,11,0.12)', border: '1px solid #F59E0B',
+            color: '#FCD34D', fontSize: 12, fontWeight: 700,
+            letterSpacing: 1.5, textTransform: 'uppercase',
+            padding: '6px 18px', borderRadius: 20, marginBottom: 20,
+          }}>
+            🏥 Nigeria's #1 Nursing Exam Platform
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════
-              BANNER 2: ENTRANCE EXAM
-          ═══════════════════════════════════════════════════════════ */}
-          <div
-            onClick={() => navigate('/auth?redirect=/entrance-exam')}
-            onMouseEnter={() => setHovEntrance(true)}
-            onMouseLeave={() => setHovEntrance(false)}
-            style={{
-              background: hovEntrance
-                ? 'linear-gradient(135deg, #3D0C60 0%, #5C0D45 100%)'
-                : 'linear-gradient(135deg, #240C40 0%, #450634 100%)',
-              border: `2px solid ${hovEntrance ? 'rgba(168,85,247,0.6)' : 'rgba(168,85,247,0.25)'}`,
-              borderRadius: 24, padding: '36px 32px',
-              cursor: 'pointer', position: 'relative', overflow: 'hidden',
-              transition: 'all .35s ease',
-              boxShadow: hovEntrance ? '0 12px 40px rgba(168,85,247,0.25)' : '0 4px 16px rgba(0,0,0,0.3)',
-              transform: hovEntrance ? 'translateY(-6px)' : 'translateY(0)',
-              display: 'flex', flexDirection: 'column', gap: 16,
-            }}
-          >
-            {/* Glow */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none',
-              background: 'radial-gradient(ellipse at 85% 50%, rgba(168,85,247,0.22) 0%, transparent 60%)',
-            }} />
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            color: '#fff', fontSize: 'clamp(1.8rem, 5vw, 3rem)',
+            lineHeight: 1.25, marginBottom: 16, fontWeight: 900,
+          }}>
+            Choose Your <span style={{ color: '#14B8A8' }}>Exam Path</span>
+          </h1>
 
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              {/* Badge */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'rgba(168,85,247,0.15)', border: '1px solid #A855F7',
-                color: '#C4B5FD', fontSize: 11, fontWeight: 700,
-                letterSpacing: 1, textTransform: 'uppercase',
-                padding: '5px 14px', borderRadius: 20, marginBottom: 14,
-              }}>
-                🏫 ENTRANCE EXAM
-              </div>
-
-              <h2 style={{
-                fontFamily: "'Playfair Display',serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)',
-                fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0,
-              }}>
-                Nursing Schools <span style={{ color: '#C4B5FD' }}>Entrance Exam</span>
-              </h2>
-
-              <p style={{
-                color: 'rgba(255,255,255,0.65)', fontSize: 14,
-                lineHeight: 1.7, marginTop: 10, maxWidth: 340,
-              }}>
-                Past questions & daily mock exams for nursing school entrance. Practice smart, pass first, and enter your dream school with confidence.
-              </p>
-
-              {/* Stats pills */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-                {['7+ Schools', '3,168+ Questions', 'Updated 2025'].map(tag => (
-                  <span key={tag} style={{
-                    fontSize: 11, fontWeight: 700, color: '#C4B5FD',
-                    background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)',
-                    borderRadius: 20, padding: '4px 10px',
-                  }}>{tag}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            <div style={{
-              position: 'relative', zIndex: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginTop: 'auto', paddingTop: 8,
-            }}>
-              <span style={{
-                fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)',
-              }}>
-                For aspiring nursing school students
-              </span>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'rgba(168,85,247,0.2)', border: '1.5px solid rgba(168,85,247,0.4)',
-                borderRadius: 12, padding: '10px 18px',
-                color: '#C4B5FD', fontWeight: 800, fontSize: 14,
-                transform: hovEntrance ? 'translateX(4px)' : 'translateX(0)',
-                transition: 'transform .25s',
-              }}>
-                Enter →
-              </div>
-            </div>
-          </div>
-
+          <p style={{
+            color: 'rgba(255,255,255,0.6)', fontSize: 'clamp(14px, 2vw, 16px)',
+            lineHeight: 1.7, maxWidth: 520, margin: '0 auto',
+            fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+          }}>
+            Select the platform that matches your goal. Each platform is fully independent with its own questions, analytics, and experience.
+          </p>
         </div>
-      </main>
 
-      {/* ── Footer ── */}
+        {/* ── Two Banners ── */}
+        <div style={{
+          display: 'flex', gap: 'clamp(16px, 3vw, 28px)',
+          flexWrap: 'wrap', width: '100%', maxWidth: 960,
+          position: 'relative', zIndex: 1,
+        }}>
+          {/* NMCN CBT Banner */}
+          <PlatformBanner
+            platform="nmcn"
+            icon="📚"
+            title="NMCN CBT — Nursing Council Exams"
+            subtitle="Study real NMCN past questions from 2020–2025. AI-powered explanations, timed mock exams, course drills, topic drills and real-time analytics. All 17 nursing specialties covered."
+            tags={['10,000+ Questions', '17 Specialties', '2020–2025', 'AI Explanations', 'Mock Exams']}
+            accentColor="#14B8A8"
+            gradient={{
+              base: 'linear-gradient(145deg, #051428 0%, #0A2540 100%)',
+              hover: 'linear-gradient(145deg, #071C38 0%, #0D2F50 100%)',
+            }}
+            borderColor={{ base: 'rgba(13,148,136,0.25)', hover: 'rgba(13,148,136,0.65)' }}
+            glowColor="rgba(13,148,136,0.2)"
+          />
+
+          {/* Entrance Exam Banner */}
+          <PlatformBanner
+            platform="entrance"
+            icon="🏫"
+            title="Nursing Schools Entrance Exam"
+            subtitle="Prepare for nursing school entrance exams and Post-UTME. School-specific past questions, subject drills and daily mock exams to help you pass and enter your dream school."
+            tags={['7+ Schools', '3,000+ Questions', 'Post-UTME', 'Daily Mocks', 'Updated 2025']}
+            accentColor="#F59E0B"
+            gradient={{
+              base: 'linear-gradient(145deg, #0C1F08 0%, #142B0A 100%)',
+              hover: 'linear-gradient(145deg, #112508 0%, #1A360C 100%)',
+            }}
+            borderColor={{ base: 'rgba(245,158,11,0.25)', hover: 'rgba(245,158,11,0.65)' }}
+            glowColor="rgba(245,158,11,0.18)"
+          />
+        </div>
+
+        {/* Small note */}
+        <p style={{
+          marginTop: 28, fontSize: 13,
+          color: 'rgba(255,255,255,0.35)',
+          fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+          textAlign: 'center', position: 'relative', zIndex: 1,
+        }}>
+          Already have an account? <a href="/auth" style={{ color: '#14B8A8', textDecoration: 'underline' }}>Sign in here</a>
+        </p>
+      </section>
+
+      {/* Categories */}
+      <section style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>17 Nursing Specialties Covered</h2>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>General Nursing + all Post-Basic specialties</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 12 }}>
+            {NURSING_CATEGORIES.map(c => (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 14px',
+                background: `${c.color}12`, border: `1px solid ${c.color}30`,
+                borderRadius: 10,
+              }}>
+                <span style={{ fontSize: 20 }}>{c.icon}</span>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.shortLabel}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Simple, Affordable Plans</h2>
+            <p style={{ color: 'rgba(255,255,255,0.55)' }}>Pay once via bank transfer — no recurring charges</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 18 }}>
+            {ACCESS_PLANS.map(p => (
+              <div key={p.id} style={{
+                background: p.popular ? `${p.color}15` : 'rgba(255,255,255,0.04)',
+                border: `2px solid ${p.popular ? p.color : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 16, padding: '24px 20px', position: 'relative',
+              }}>
+                {p.popular && (
+                  <div style={{
+                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                    background: p.color, color: '#fff', fontSize: 10, fontWeight: 700,
+                    padding: '3px 12px', borderRadius: 20, whiteSpace: 'nowrap',
+                  }}>⭐ POPULAR</div>
+                )}
+                <div style={{ fontWeight: 900, fontSize: 15, color: '#fff', marginBottom: 6 }}>{p.label}</div>
+                <div style={{
+                  fontFamily: "'Playfair Display',serif",
+                  fontSize: p.price === 0 ? '1.6rem' : '1.9rem',
+                  fontWeight: 900, color: p.color, marginBottom: 4,
+                }}>
+                  {p.price === 0 ? 'FREE' : `₦${p.price.toLocaleString()}`}
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{p.duration}</div>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {p.features.map(f => (
+                    <li key={f} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', display: 'flex', gap: 6 }}>
+                      <span style={{ color: p.color }}>✓</span>{f}
+                    </li>
+                  ))}
+                </ul>
+                <a href="/auth" className="btn btn-sm btn-full" style={{ marginTop: 16, background: p.color, color: '#fff', border: 'none', fontFamily: 'inherit', display: 'block', textAlign: 'center' }}>
+                  {p.id === 'free' ? 'Start Free' : 'Get Plan'}
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{ padding: '80px 24px', textAlign: 'center' }}>
+        <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff', marginBottom: 12 }}>
+          Ready to Pass Your Exam?
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>
+          Join thousands of Nigerian nursing students who trust this platform
+        </p>
+        <a href="/auth" className="btn btn-primary btn-lg">🚀 Start Preparing Today — It's Free</a>
+      </section>
+
+      {/* Footer */}
       <footer style={{
         borderTop: '1px solid rgba(13,148,136,0.3)',
-        padding: '20px 24px', textAlign: 'center',
+        padding: '24px', textAlign: 'center',
         color: 'rgba(255,255,255,0.35)', fontSize: 13,
       }}>
-        © {new Date().getFullYear()} Nurses Academy · Built for Nigerian Nursing Students
+        © {new Date().getFullYear()} NMCN CBT Platform · Built for Nigerian Nursing Students
       </footer>
     </div>
   );

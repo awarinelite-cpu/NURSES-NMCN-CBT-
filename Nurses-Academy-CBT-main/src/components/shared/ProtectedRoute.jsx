@@ -1,6 +1,7 @@
 // src/components/shared/ProtectedRoute.jsx
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getChosenPlatform } from '../auth/AuthPage';
 
 /* ── Loading spinner shown while auth/profile is resolving ── */
 function LoadingScreen() {
@@ -35,11 +36,8 @@ export function SubscribedRoute({ children }) {
 
   if (loading) return <LoadingScreen />;
   if (!user)   return <Navigate to="/auth" replace />;
-
-  // Wait until profile has loaded from Firestore
   if (!profile) return <LoadingScreen />;
 
-  // Check subscription flag AND expiry date
   const now    = new Date();
   const expiry = profile.subscriptionExpiry
     ? new Date(profile.subscriptionExpiry)
@@ -57,11 +55,8 @@ export function SubscribedRoute({ children }) {
 
 /* ── FreeTrialRoute — subscribed users pass through freely.
      Free users pass through ONCE per exam mode (10 Qs cap enforced
-     inside each page via useFreeTrialGate). If a free user has already
-     used their trial for every mode they try to access, they are sent
-     to /subscription.
-     This wrapper just ensures the user is logged in and the profile is
-     loaded. The per-mode gate lives in useFreeTrialGate.js.           ── */
+     inside each page via useFreeTrialGate). This wrapper just ensures
+     the user is logged in and the profile is loaded.                  ── */
 export function FreeTrialRoute({ children }) {
   const { user, profile, loading } = useAuth();
 
@@ -75,16 +70,20 @@ export function FreeTrialRoute({ children }) {
 /* ── AdminRoute — must be logged in AND have admin role ── */
 export function AdminRoute({ children }) {
   const { user, profile, loading } = useAuth();
-  if (loading)              return <LoadingScreen />;
-  if (!user)                return <Navigate to="/auth"      replace />;
-  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (loading)                    return <LoadingScreen />;
+  if (!user)                      return <Navigate to="/auth"      replace />;
+  if (profile?.role !== 'admin')  return <Navigate to="/dashboard" replace />;
   return children;
 }
 
-/* ── GuestRoute — redirects logged-in users away from auth pages ── */
+/* ── GuestRoute — redirects logged-in users to their chosen platform ── */
 export function GuestRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  if (user)    return <Navigate to="/dashboard" replace />;
+  if (user) {
+    const platform = getChosenPlatform();
+    const dest = platform === 'entrance' ? '/entrance-exam' : '/dashboard';
+    return <Navigate to={dest} replace />;
+  }
   return children;
 }
