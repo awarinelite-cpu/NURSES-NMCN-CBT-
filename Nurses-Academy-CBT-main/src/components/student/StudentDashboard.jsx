@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Entrance exam banner click handler uses useNavigate (already imported)
 import {
   collection, query, where, orderBy, limit,
-  getDocs, deleteDoc, doc, getCountFromServer,
+  getDocs, deleteDoc, doc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -449,87 +449,6 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
   );
 }
 
-// ── Entrance Exam Banner ─────────────────────────────────────────────────────
-// Now accepts live `stats` and falls back to static strings while data loads
-function EntranceExamBanner({ stats }) {
-  const navigate = useNavigate();
-  const [hov, setHov] = useState(false);
-  const [vis, setVis] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), 350); return () => clearTimeout(t); }, []);
-
-  // Dynamic tags: use live counts once available, otherwise show placeholder dashes
-  const bannerTags = [
-    stats?.schools != null ? `${stats.schools}+ Schools` : '20+ Schools',
-    stats?.questions != null ? `${stats.questions.toLocaleString()}+ Questions` : '500+ Questions',
-    'Updated 2025',
-  ];
-
-  return (
-    <div
-      onClick={() => navigate('/entrance-exam')}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: hov
-          ? 'linear-gradient(135deg, #0F3460 0%, #0D5C45 100%)'
-          : 'linear-gradient(135deg, #0C2340 0%, #064534 100%)',
-        border: `1.5px solid ${hov ? 'rgba(13,148,136,0.6)' : 'rgba(13,148,136,0.25)'}`,
-        borderRadius: 16, marginBottom: 20, padding: '16px 20px',
-        cursor: 'pointer', position: 'relative', overflow: 'hidden',
-        opacity: vis ? 1 : 0,
-        transform: vis ? 'translateY(0)' : 'translateY(12px)',
-        transition: 'opacity .5s ease, transform .5s ease, background .3s, border-color .3s',
-        boxShadow: hov ? '0 6px 28px rgba(13,148,136,0.2)' : 'none',
-      }}
-    >
-      {/* Glow */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at 85% 50%, rgba(13,148,136,0.22) 0%, transparent 60%)',
-      }} />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        {/* Icon */}
-        <div style={{
-          width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-          background: 'rgba(13,148,136,0.2)', border: '1.5px solid rgba(13,148,136,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
-        }}>🏫</div>
-
-        {/* Text */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', marginBottom: 2 }}>
-            Nursing Schools Entrance Exam
-          </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4 }}>
-            Past Questions &amp; Daily Mock · Practice Smart. Pass First. Enter Your Dream School.
-          </div>
-          <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-            {bannerTags.map(tag => (
-              <span key={tag} style={{
-                fontSize: 10, fontWeight: 700, color: '#5EEAD4',
-                background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)',
-                borderRadius: 20, padding: '2px 8px',
-              }}>{tag}</span>
-            ))}
-          </div>
-        </div>
-
-        {/* Arrow */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
-          color: '#5EEAD4', fontWeight: 800, fontSize: 14,
-          background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.3)',
-          borderRadius: 10, padding: '8px 14px',
-          transform: hov ? 'translateX(4px)' : 'translateX(0)',
-          transition: 'transform .2s',
-        }}>
-          Enter →
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -544,8 +463,6 @@ export default function StudentDashboard() {
   const [slideIdx,    setSlideIdx]    = useState(0);
   const [slideFade,   setSlideFade]   = useState(true);
 
-  // ── Live dashboard stats (schools, questions counts from Firestore) ──────────
-  const [stats, setStats] = useState({ schools: null, questions: null, exams: 0 });
 
   // swipe tracking
   const swipeStartX  = useRef(null);
@@ -605,23 +522,6 @@ export default function StudentDashboard() {
     if (!user) { setLoading(false); return; }
 
     const loadData = async () => {
-      // ── 1. Fetch live Firestore counts for the EntranceExamBanner ──────────
-      try {
-        const [schoolsSnap, questionsSnap] = await Promise.all([
-          getCountFromServer(collection(db, 'entranceExamSchools')),
-          getCountFromServer(collection(db, 'questions')),
-        ]);
-        setStats({
-          schools:   schoolsSnap.data().count,
-          questions: questionsSnap.data().count,
-          exams:     profile?.totalExams || 0,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-        // Non-fatal — banner falls back to static strings
-        setStats(prev => ({ ...prev, exams: profile?.totalExams || 0 }));
-      }
-
       // ── 2. Recent exam sessions ────────────────────────────────────────────
       try {
         const sessSnap = await getDocs(query(
@@ -682,12 +582,6 @@ export default function StudentDashboard() {
     } catch (e) { console.error('Delete paused exam error:', e); }
   }, []);
 
-  // ── Handler: navigate to the Entrance Exam Daily Mock session ────────────────
-  const handleDailyMock = useCallback(() => {
-    navigate('/entrance-exam/daily-mock', {
-      state: { mode: 'daily-mock', isEntrance: true },
-    });
-  }, [navigate]);
 
   const totalExams = profile?.totalExams || 0;
   const totalScore = profile?.totalScore || 0;
@@ -849,8 +743,6 @@ export default function StudentDashboard() {
         />
       </div>{/* end banner */}
 
-      {/* ── Entrance Exam Banner — receives live stats ── */}
-      <EntranceExamBanner stats={stats} />
 
       {/* ── Stats row ── */}
       <div style={S.statsGrid}>
