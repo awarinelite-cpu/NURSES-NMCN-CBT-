@@ -7,9 +7,6 @@ import { ToastProvider }         from './components/shared/Toast';
 import { AccessibilityProvider } from './context/AccessibilityContext';
 import { useAuth }               from './context/AuthContext';
 
-// ── Static Firebase import (fixes dynamic import path bug) ──────
-import { db } from './firebase/config';
-
 import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
 import AppLayout      from './components/shared/AppLayout';
 import LandingPage    from './components/shared/LandingPage';
@@ -46,7 +43,7 @@ import EntranceExamHub          from './components/entrance/EntranceExamHub';
 import EntranceSchoolList       from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup        from './components/entrance/EntranceExamSetup';
 import EntranceSubjectDrill     from './components/entrance/EntranceSubjectDrill';
-import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';
+import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';   // ← NEW
 import EntranceDailyMockUpload  from './components/entrance/EntranceDailyMockUpload';
 import {
   EntranceMyResults,
@@ -71,9 +68,6 @@ import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
 import CoursesManager        from './components/admin/CoursesManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
 
-// ── Firestore functions (used in ProfilePage) ───────────────────
-import { collection, getDocs } from 'firebase/firestore';
-
 import './styles/global.css';
 
 // ── Register PWA service worker (web only) ───────────────────────
@@ -90,6 +84,8 @@ const isCapacitor = () =>
   window.Capacitor.isNativePlatform?.();
 
 // ── SW Navigation Handler ────────────────────────────────────────
+// Listens for NAVIGATE messages posted by the service worker when
+// the user taps a push notification while the app is already open.
 function SwNavigationHandler() {
   const navigate = useNavigate();
 
@@ -205,6 +201,7 @@ export default function App() {
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<LandingPage />} />
+                {/* Auth page reads ?redirect= from URL to route users after login */}
                 <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
                 {/* Full-screen exam session — free trial users allowed (10Q cap enforced in ExamSession) */}
@@ -245,7 +242,7 @@ export default function App() {
                   <Route path="/entrance-exam/schools"         element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/setup"           element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/subject-drill"   element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/subject-session" element={<FreeTrialRoute><EntranceSubjectSession /></FreeTrialRoute>} />
+                  <Route path="/entrance-exam/subject-session" element={<FreeTrialRoute><EntranceSubjectSession /></FreeTrialRoute>} />  {/* ← NEW */}
                   <Route path="/entrance-exam/my-results"      element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/exams-taken"     element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/bookmarks"       element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
@@ -308,15 +305,17 @@ function ProfilePage() {
   const [saving,      setSaving]      = useState(false);
   const [saveMsg,     setSaveMsg]     = useState('');
 
-  // ── Fixed: uses static db import instead of broken dynamic import chain ──
+  // Load schools for dropdown
   useEffect(() => {
     if (!editing) return;
-    getDocs(collection(db, 'entranceExamSchools'))
-      .then(snap => {
-        const list = snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort();
-        setSchools(list);
-      })
-      .catch(() => {});
+    import('firebase/firestore').then(({ collection, getDocs, query, orderBy }) => {
+      import('../firebase/config').then(({ db }) => {
+        getDocs(collection(db, 'entranceExamSchools')).then(snap => {
+          const list = snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort();
+          setSchools(list);
+        }).catch(() => {});
+      });
+    });
   }, [editing]);
 
   const startEdit = () => {
