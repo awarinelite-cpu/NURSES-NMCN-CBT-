@@ -15,11 +15,19 @@ export default function AnalyticsPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(query(
-          collection(db, 'examSessions'),
-          where('userId', '==', user.uid),
-          orderBy('completedAt', 'desc'),
-        ));
+const snap = await getDocs(query(
+  collection(db, 'examSessions'),
+  where('userId', '==', user.uid),
+));
+setSessions(
+  snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
+      const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
+      return tb - ta;
+    })
+);
         setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
