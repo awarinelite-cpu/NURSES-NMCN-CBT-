@@ -12,7 +12,7 @@ const STUDENT_NAV = [
   { to: '/mock-reviews',    icon: '🗂️', label: 'Mock Reviews' },
   { to: '/bookmarks',       icon: '🔖', label: 'Bookmarked' },
   { to: '/results',         icon: '📊', label: 'My Results' },
-  { icon: '📈', label: 'Analysis',  sub: 'See your weak areas', color: '#0891B2', to: '/performance', delay: 770 },
+  sub: 'See your weak areas', color: '#0891B2', to: '/performance', delay: 770 },
   { to: '/leaderboard',     icon: '🏆', label: 'Leaderboard' },
   { to: '/subscription',    icon: '💳', label: 'Subscription' },
   { to: '/profile',         icon: '👤', label: 'Profile' },
