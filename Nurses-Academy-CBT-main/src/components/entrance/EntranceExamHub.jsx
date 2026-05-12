@@ -266,7 +266,7 @@ export default function EntranceExamHub() {
     { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent session${completedExams.length !== 1 ? 's' : ''}`, color: '#7C3AED', to: '/entrance-exam/exams-taken', delay: 560 },
     { icon: '🔖', label: 'Bookmarks',              sub: 'Your saved questions',                                color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
     { icon: '📊', label: 'My Results',             sub: avgScore > 0 ? `Avg score: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
-    { icon: '📈', label: 'Analysis',  sub: 'See your weak areas', color: '#0891B2', to: '/performance', delay: 770 },                                 color: '#0891B2', to: '/entrance-exam/analysis',      delay: 770 },
+    { icon: '📈', label: 'Analysis',               sub: 'See your weak areas',                                color: '#0891B2', to: '/entrance-exam/analysis',      delay: 770 },
     { icon: '🏆', label: 'Leaderboard',            sub: 'See top students',                                    color: '#EF4444', to: '/entrance-exam/leaderboard',   delay: 840 },
   ];
 
