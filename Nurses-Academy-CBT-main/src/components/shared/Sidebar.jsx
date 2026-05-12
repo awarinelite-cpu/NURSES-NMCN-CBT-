@@ -12,7 +12,7 @@ const STUDENT_NAV = [
   { to: '/mock-reviews',    icon: '🗂️', label: 'Mock Reviews' },
   { to: '/bookmarks',       icon: '🔖', label: 'Bookmarked' },
   { to: '/results',         icon: '📊', label: 'My Results' },
-  { to: '/performance',     icon: '🎯', label: 'Performance' },
+  { to: '/performance', icon: '📈', label: 'Analysis' },
   { to: '/leaderboard',     icon: '🏆', label: 'Leaderboard' },
   { to: '/subscription',    icon: '💳', label: 'Subscription' },
   { to: '/profile',         icon: '👤', label: 'Profile' },
