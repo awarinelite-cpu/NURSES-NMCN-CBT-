@@ -74,14 +74,9 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
         fontFamily: F,
       }}
     >
-      {/* Left accent bar */}
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: color, borderRadius: '4px 0 0 4px' }} />
-
       <div style={{ paddingLeft: 10 }}>
-        {/* Icon */}
         <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
-
-        {/* Label — Times New Roman Bold, large */}
         <div style={{
           fontWeight: 700, fontSize: 16,
           color: 'var(--text-primary)',
@@ -90,8 +85,6 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
         }}>
           {label}
         </div>
-
-        {/* Sub — Times New Roman Bold, muted */}
         <div style={{
           fontSize: 13, fontWeight: 700,
           color: 'var(--text-muted)',
@@ -100,8 +93,6 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
           {sub}
         </div>
       </div>
-
-      {/* Arrow */}
       <div style={{
         position: 'absolute', right: 14, bottom: 14,
         color, fontWeight: 900, fontSize: 20,
@@ -170,7 +161,6 @@ export default function EntranceExamHub() {
     setTimeout(() => setBannerVis(true), 60);
     if (!user) { setLoading(false); return; }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const load = async () => {
@@ -258,7 +248,6 @@ export default function EntranceExamHub() {
     } catch (e) { console.error('Discard error:', e); }
   };
 
-  // ── Feature cards — routes verified against App.jsx ──────────────────────
   const FEATURE_CARDS = [
     { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                              color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
     { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools available`,             color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
@@ -273,6 +262,7 @@ export default function EntranceExamHub() {
   return (
     <div style={{ padding: '24px 20px', maxWidth: 1100, fontFamily: F, color: 'var(--text-primary)' }}>
 
+      {/* NO "Back to Dashboard" button — Entrance Exam is its own isolated site */}
 
       {/* Load error */}
       {loadError && (
@@ -300,10 +290,9 @@ export default function EntranceExamHub() {
         <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,36px)' }}>
 
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>
-            🏥 NMCN CBT Platform
+            🏥 Nurses Academy — Entrance Exam
           </div>
 
-          {/* Banner heading → Arial Black */}
           <h2 style={{
             fontFamily: H, fontWeight: 900,
             fontSize: 'clamp(1.5rem, 4vw, 2.4rem)',
@@ -312,7 +301,6 @@ export default function EntranceExamHub() {
             🏫 Nursing Schools Entrance Exam
           </h2>
 
-          {/* Banner sub → Times New Roman Bold */}
           <p style={{
             fontFamily: F, fontWeight: 700, fontSize: 15,
             color: 'rgba(255,255,255,0.82)', margin: '0 0 24px', lineHeight: 1.6,
@@ -320,7 +308,6 @@ export default function EntranceExamHub() {
             Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
           </p>
 
-          {/* Stat pills */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 24 : 0 }}>
             {[
               { label: 'Schools',    value: loading ? '…' : animSchools,           icon: '🏫' },
@@ -344,7 +331,6 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* Continue cards */}
           {pausedExams.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -363,7 +349,6 @@ export default function EntranceExamHub() {
 
       {/* ── Feature Cards ── */}
       <ACard delay={280} style={{ marginBottom: 32 }}>
-        {/* Section heading → Arial Black */}
         <h2 style={{
           fontFamily: H, fontWeight: 900,
           fontSize: 'clamp(1.4rem, 3vw, 2rem)',
@@ -383,7 +368,6 @@ export default function EntranceExamHub() {
           border: '1.5px solid rgba(13,148,136,0.25)',
           borderRadius: 14, padding: '18px 22px',
         }}>
-          {/* Subheading → Arial Black */}
           <h3 style={{
             fontFamily: H, fontWeight: 900,
             fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
