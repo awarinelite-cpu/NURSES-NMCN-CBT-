@@ -5,7 +5,7 @@
 // Colors : CSS variables throughout → works in light AND dark mode
 // Routes : all feature cards verified against App.jsx routes
 
-import { useState, useEffect } from 'react';
+
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
