@@ -89,6 +89,25 @@ function examTypeLabel(type) {
   }
 }
 
+// ── Entrance exam type check ──────────────────────────────────────────────────
+// ── FIX: Any paused exam that belongs to the entrance exam site must be
+//         excluded from the main CBT dashboard. These are identified by their
+//         examType value. The entrance exam session saves to the separate
+//         `entrancePausedExams` collection, but school past-question flows may
+//         still write to `pausedExams` with an entrance-style examType.
+//         This guard catches both cases.
+function isEntranceExamType(examType) {
+  if (!examType) return false;
+  const t = examType.toLowerCase();
+  return (
+    t.includes('entrance') ||
+    t === 'entrance_daily_mock' ||
+    t === 'entrance_past_questions' ||
+    t === 'entrance_subject_drill' ||
+    t === 'school_past_questions'
+  );
+}
+
 // ── Paused Exams Modal ────────────────────────────────────────────────────────
 function PausedExamsModal({ paused, onResume, onDelete, onClose }) {
   const [vis, setVis] = useState(false);
@@ -479,13 +498,18 @@ export default function StudentDashboard() {
         setRecentSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.warn('examSessions load failed (non-fatal):', e.message); }
 
-      // Paused exams
+      // Paused exams — FIX: filter out any entrance exam types that may have
+      // been accidentally written to the main `pausedExams` collection.
+      // Entrance exam paused exams belong only on the entrance exam dashboard.
       try {
         const pausedSnap = await getDocs(query(
           collection(db, 'pausedExams'),
           where('userId', '==', user.uid),
         ));
-        const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const paused = pausedSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => !isEntranceExamType(p.examType)); // ← KEY FIX
+
         paused.sort((a, b) => {
           const ta = a.savedAt?.toDate?.()?.getTime?.() || 0;
           const tb = b.savedAt?.toDate?.()?.getTime?.() || 0;

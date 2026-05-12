@@ -1,6 +1,6 @@
 // src/components/student/AnalyticsPage.jsx
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
@@ -15,20 +15,21 @@ export default function AnalyticsPage() {
     const load = async () => {
       setLoading(true);
       try {
-const snap = await getDocs(query(
-  collection(db, 'examSessions'),
-  where('userId', '==', user.uid),
-));
-setSessions(
-  snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => {
-      const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
-      const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
-      return tb - ta;
-    })
-);
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // ── FIX: removed orderBy('completedAt','desc') which requires a composite
+        //         Firestore index and silently fails when the index is missing,
+        //         causing sessions to stay empty and the page to show "No data yet".
+        //         We fetch all user sessions and sort client-side instead.
+        const snap = await getDocs(query(
+          collection(db, 'examSessions'),
+          where('userId', '==', user.uid),
+        ));
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        docs.sort((a, b) => {
+          const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
+          const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
+          return tb - ta;
+        });
+        setSessions(docs);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
@@ -36,13 +37,13 @@ setSessions(
   }, [user]);
 
   // Compute stats
-  const total       = sessions.length;
-  const avgScore    = total ? Math.round(sessions.reduce((s, x) => s + (x.scorePercent || 0), 0) / total) : 0;
-  const bestScore   = total ? Math.max(...sessions.map(s => s.scorePercent || 0)) : 0;
-  const passCount   = sessions.filter(s => (s.scorePercent || 0) >= 50).length;
-  const passRate    = total ? Math.round((passCount / total) * 100) : 0;
-  const totalQs     = sessions.reduce((s, x) => s + (x.totalQuestions || 0), 0);
-  const totalCorrect= sessions.reduce((s, x) => s + (x.correct || 0), 0);
+  const total        = sessions.length;
+  const avgScore     = total ? Math.round(sessions.reduce((s, x) => s + (x.scorePercent || 0), 0) / total) : 0;
+  const bestScore    = total ? Math.max(...sessions.map(s => s.scorePercent || 0)) : 0;
+  const passCount    = sessions.filter(s => (s.scorePercent || 0) >= 50).length;
+  const passRate     = total ? Math.round((passCount / total) * 100) : 0;
+  const totalQs      = sessions.reduce((s, x) => s + (x.totalQuestions || 0), 0);
+  const totalCorrect = sessions.reduce((s, x) => s + (x.correct || 0), 0);
 
   // Per category breakdown
   const catStats = NURSING_CATEGORIES.map(cat => {
@@ -54,7 +55,7 @@ setSessions(
   // Trend (last 10 exams for sparkline)
   const trend = sessions.slice(0, 10).reverse().map(s => s.scorePercent || 0);
 
-  const weakAreas = catStats.filter(c => c.avgScore !== null && c.avgScore < 60);
+  const weakAreas   = catStats.filter(c => c.avgScore !== null && c.avgScore < 60);
   const strongAreas = catStats.filter(c => c.avgScore !== null && c.avgScore >= 70);
 
   if (loading) return (
@@ -82,12 +83,12 @@ setSessions(
       {/* Top stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 32 }}>
         {[
-          { label: 'Exams Taken',   value: total,        icon: '📝', color: '#0D9488', bg: 'rgba(13,148,136,0.12)' },
-          { label: 'Average Score', value: `${avgScore}%`, icon: '📊', color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
-          { label: 'Best Score',    value: `${bestScore}%`,icon: '🏆', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-          { label: 'Pass Rate',     value: `${passRate}%`, icon: '✅', color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },
-          { label: 'Questions Done',value: totalQs,       icon: '❓', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
-          { label: 'Correct Answers',value: totalCorrect, icon: '✔️', color: '#0891B2', bg: 'rgba(8,145,178,0.12)' },
+          { label: 'Exams Taken',    value: total,           icon: '📝', color: '#0D9488', bg: 'rgba(13,148,136,0.12)' },
+          { label: 'Average Score',  value: `${avgScore}%`,  icon: '📊', color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
+          { label: 'Best Score',     value: `${bestScore}%`, icon: '🏆', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+          { label: 'Pass Rate',      value: `${passRate}%`,  icon: '✅', color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },
+          { label: 'Questions Done', value: totalQs,         icon: '❓', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
+          { label: 'Correct Answers',value: totalCorrect,    icon: '✔️', color: '#0891B2', bg: 'rgba(8,145,178,0.12)' },
         ].map(s => (
           <div key={s.label} className="stat-card">
             <div className="stat-icon" style={{ background: s.bg }}><span>{s.icon}</span></div>
