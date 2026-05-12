@@ -29,7 +29,6 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
         justifyContent: 'space-between',
       }}
     >
-      {/* Glow overlay */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: `radial-gradient(ellipse at 80% 30%, ${glowColor} 0%, transparent 60%)`,
@@ -37,9 +36,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
         transition: 'opacity 0.3s',
       }} />
 
-      {/* Top section */}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Icon + Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
           <div style={{
             width: 60, height: 60, borderRadius: 16, flexShrink: 0,
@@ -63,7 +60,6 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
           </div>
         </div>
 
-        {/* Subtitle */}
         <p style={{
           fontSize: 14, color: 'rgba(255,255,255,0.75)',
           lineHeight: 1.7, margin: '0 0 20px',
@@ -73,7 +69,6 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
           {subtitle}
         </p>
 
-        {/* Tags */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
           {tags.map(tag => (
             <span key={tag} style={{
@@ -90,7 +85,6 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
         </div>
       </div>
 
-      {/* CTA Button */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -114,7 +108,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
 export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#020B18', color: '#fff' }}>
-      {/* Navbar */}
+      {/* Navbar — NO buttons, unified brand */}
       <nav style={{
         padding: '0 24px', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -128,7 +122,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 24 }}>📚</span>
           Nurses<span style={{ color: '#14B8A8' }}>Academy</span>
         </div>
-
+        {/* Right side intentionally empty — no Sign In / Get Started buttons */}
       </nav>
 
       {/* ── Platform Selection Hero ── */}
@@ -140,7 +134,6 @@ export default function LandingPage() {
         background: 'radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, rgba(30,58,138,0.18) 0%, transparent 55%)',
         position: 'relative',
       }}>
-        {/* Background decoration */}
         <div style={{
           position: 'absolute', top: '10%', left: '5%',
           width: 320, height: 320, borderRadius: '50%',
@@ -154,7 +147,6 @@ export default function LandingPage() {
           pointerEvents: 'none',
         }} />
 
-        {/* Header text */}
         <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 56px)', position: 'relative', zIndex: 1 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -189,7 +181,6 @@ export default function LandingPage() {
           flexWrap: 'wrap', width: '100%', maxWidth: 960,
           position: 'relative', zIndex: 1,
         }}>
-          {/* NMCN CBT Banner */}
           <PlatformBanner
             platform="nmcn"
             icon="📚"
@@ -205,7 +196,6 @@ export default function LandingPage() {
             glowColor="rgba(13,148,136,0.2)"
           />
 
-          {/* Entrance Exam Banner */}
           <PlatformBanner
             platform="entrance"
             icon="🏫"
@@ -222,7 +212,7 @@ export default function LandingPage() {
           />
         </div>
 
-
+        {/* NO "Already have an account?" text here */}
       </section>
 
       {/* Categories */}
