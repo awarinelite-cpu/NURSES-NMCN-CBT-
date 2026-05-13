@@ -1,3 +1,6 @@
+// src/components/shared/Toast.jsx
+import { createContext, useContext, useState, useCallback } from 'react';
+
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
