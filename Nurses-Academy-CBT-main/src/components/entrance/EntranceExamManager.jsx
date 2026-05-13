@@ -1,5 +1,9 @@
-// src/components/entrance/EntranceExamManager.jsx
+// src/components/admin/EntranceExamManager.jsx
 // Route: /admin/entrance-exam
+// CHANGES: QuestionBankTab now has:
+//   - Per-row checkboxes + Select All
+//   - Bulk delete selected button
+//   - Delete All (filtered results) button with confirmation
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -418,7 +422,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TAB 4 — Question Bank
+// TAB 4 — Question Bank  ← BULK DELETE + CHECKBOXES ADDED HERE
 // ═════════════════════════════════════════════════════════════════════════════
 function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [questions,    setQuestions]    = useState([]);
@@ -429,13 +433,15 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [filterDaily,  setFilterDaily]  = useState('');
   const [search,       setSearch]       = useState('');
   const [editing,      setEditing]      = useState(null);
-  const [selected,      setSelected]      = useState(new Set());
-  const [bulkDeleting,  setBulkDeleting]  = useState(false);
+
+  // ── Selection state ──────────────────────────────────────────────────────
+  const [selected,     setSelected]     = useState(new Set()); // Set of question IDs
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteAllBusy, setDeleteAllBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    setSelected(new Set());
+    setSelected(new Set()); // clear selection on reload
     try {
       const constraints = [];
       if (filterSchool) constraints.push(where('schoolId', '==', filterSchool));
@@ -452,39 +458,61 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
 
   useEffect(() => { load(); }, [filterSchool, filterYear, filterType, filterDaily]);
 
-  const filtered  = search
+  const filtered = search
     ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase()))
     : questions;
 
-  const displayed = filtered.slice(0, 100);
+  const displayed = filtered.slice(0, 100); // show up to 100
 
+  // ── Checkbox helpers ─────────────────────────────────────────────────────
   const allDisplayedSelected = displayed.length > 0 && displayed.every(q => selected.has(q.id));
   const someSelected         = selected.size > 0;
 
   const toggleSelectAll = () => {
     if (allDisplayedSelected) {
-      setSelected(prev => { const next = new Set(prev); displayed.forEach(q => next.delete(q.id)); return next; });
+      // Deselect all displayed
+      setSelected(prev => {
+        const next = new Set(prev);
+        displayed.forEach(q => next.delete(q.id));
+        return next;
+      });
     } else {
-      setSelected(prev => { const next = new Set(prev); displayed.forEach(q => next.add(q.id)); return next; });
+      // Select all displayed
+      setSelected(prev => {
+        const next = new Set(prev);
+        displayed.forEach(q => next.add(q.id));
+        return next;
+      });
     }
   };
 
   const toggleOne = (id) => {
-    setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
+  // ── Delete single ─────────────────────────────────────────────────────────
   const handleDelete = async q => {
     if (!window.confirm('Delete this question?')) return;
-    try { await deleteDoc(doc(db, 'entranceExamQuestions', q.id)); toast('Deleted ✅', 'success'); load(); }
-    catch (e) { toast('Error: ' + e.message, 'error'); }
+    try {
+      await deleteDoc(doc(db, 'entranceExamQuestions', q.id));
+      toast('Deleted ✅', 'success');
+      load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
   };
 
+  // ── Delete selected ───────────────────────────────────────────────────────
   const handleDeleteSelected = async () => {
     if (selected.size === 0) return;
     if (!window.confirm(`Delete ${selected.size} selected question${selected.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     setBulkDeleting(true);
     try {
-      const ids = [...selected];
+      // Firestore batch limit is 500 writes
+      const ids  = [...selected];
       const size = 400;
       for (let i = 0; i < ids.length; i += size) {
         const batch = writeBatch(db);
@@ -497,14 +525,17 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
     finally { setBulkDeleting(false); }
   };
 
+  // ── Delete ALL filtered ───────────────────────────────────────────────────
   const handleDeleteAllFiltered = async () => {
     const count = filtered.length;
     if (count === 0) { toast('No questions to delete', 'error'); return; }
-    const input = window.prompt(`⚠️ DELETE ALL ${count} QUESTIONS?\n\nThis will permanently delete all ${count} questions matching the current filters.\n\nType "DELETE" to confirm.`);
+    const confirmMsg = `⚠️ DELETE ALL ${count} QUESTIONS?\n\nThis will permanently delete all ${count} questions matching the current filters.\n\nType "DELETE" to confirm.`;
+    const input = window.prompt(confirmMsg);
     if (input?.trim().toUpperCase() !== 'DELETE') { toast('Delete cancelled', 'info'); return; }
+
     setDeleteAllBusy(true);
     try {
-      const ids = filtered.map(q => q.id);
+      const ids  = filtered.map(q => q.id);
       const size = 400;
       for (let i = 0; i < ids.length; i += size) {
         const batch = writeBatch(db);
@@ -529,6 +560,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
 
   return (
     <div>
+      {/* Stats bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Questions', value: questions.length,              icon: '📋', color: 'var(--teal)'       },
@@ -543,6 +575,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         ))}
       </div>
 
+      {/* Filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
         <select className="form-input form-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)} style={{ maxWidth: 200 }}>
           <option value="">All Schools</option>
@@ -566,72 +599,149 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         <button className="btn btn-ghost" onClick={load} title="Reload">🔄</button>
       </div>
 
+      {/* Results count + Delete All filtered button */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
           {filtered.length} question{filtered.length !== 1 ? 's' : ''} found
           {filtered.length > 100 && <span style={{ color: '#F59E0B', marginLeft: 8 }}>(showing first 100)</span>}
         </div>
-        <button onClick={handleDeleteAllFiltered} disabled={deleteAllBusy || filtered.length === 0} style={{ padding: '8px 18px', borderRadius: 10, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 700, fontSize: 13, fontFamily: F, opacity: filtered.length === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button
+          onClick={handleDeleteAllFiltered}
+          disabled={deleteAllBusy || filtered.length === 0}
+          style={{
+            padding: '8px 18px', borderRadius: 10, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
+            background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.4)',
+            color: '#EF4444', fontWeight: 700, fontSize: 13, fontFamily: F,
+            opacity: filtered.length === 0 ? 0.4 : 1,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
           🗑️ {deleteAllBusy ? 'Deleting…' : `Delete All ${filtered.length} (Filtered)`}
         </button>
       </div>
 
+      {/* ── Bulk action bar — appears when items are selected ── */}
       {someSelected && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderRadius: 12, marginBottom: 12, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.3)', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#EF4444', fontFamily: F, flex: 1 }}>☑️ {selected.size} question{selected.size !== 1 ? 's' : ''} selected</div>
-          <button onClick={handleDeleteSelected} disabled={bulkDeleting} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#EF4444', color: '#fff', cursor: bulkDeleting ? 'wait' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          padding: '12px 18px', borderRadius: 12, marginBottom: 12,
+          background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.3)',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#EF4444', fontFamily: F, flex: 1 }}>
+            ☑️ {selected.size} question{selected.size !== 1 ? 's' : ''} selected
+          </div>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={bulkDeleting}
+            style={{
+              padding: '9px 22px', borderRadius: 10, border: 'none',
+              background: '#EF4444', color: '#fff', cursor: bulkDeleting ? 'wait' : 'pointer',
+              fontWeight: 700, fontSize: 14, fontFamily: F,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
             🗑️ {bulkDeleting ? 'Deleting…' : `Delete Selected (${selected.size})`}
           </button>
-          <button onClick={() => setSelected(new Set())} disabled={bulkDeleting} style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: F }}>✕ Clear</button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={bulkDeleting}
+            style={{
+              padding: '9px 16px', borderRadius: 10,
+              background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)',
+              color: 'var(--text-muted)', cursor: 'pointer',
+              fontWeight: 700, fontSize: 13, fontFamily: F,
+            }}
+          >
+            ✕ Clear
+          </button>
         </div>
       )}
 
+      {/* Select All bar */}
       {!loading && displayed.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 10, marginBottom: 10 }}>
-          <input type="checkbox" checked={allDisplayedSelected} onChange={toggleSelectAll} style={{ width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--teal)' }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>{allDisplayedSelected ? 'Deselect All' : 'Select All'} ({displayed.length})</span>
+          <input
+            type="checkbox"
+            checked={allDisplayedSelected}
+            onChange={toggleSelectAll}
+            style={{ width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--teal)' }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
+            {allDisplayedSelected ? 'Deselect All' : 'Select All'} ({displayed.length})
+          </span>
         </div>
       )}
 
       {loading ? <Spinner /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {displayed.map((q, i) => {
-            const isSelected = selected.has(q.id);
-            return (
-              <div key={q.id} style={{ background: isSelected ? 'rgba(239,68,68,0.06)' : 'var(--bg-card)', border: isSelected ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid var(--border)', borderRadius: 12, padding: '12px 14px', transition: 'all 0.15s' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleOne(q.id)} style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#EF4444', flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: F, lineHeight: 1.5 }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 6 }}>#{i + 1}</span>
-                    {q.questionText?.slice(0, 80)}{q.questionText?.length > 80 ? '…' : ''}
+              {displayed.map((q, i) => {
+                const isSelected = selected.has(q.id);
+                return (
+                  <div
+                    key={q.id}
+                    style={{
+                      background: isSelected ? 'rgba(239,68,68,0.06)' : 'var(--bg-card)',
+                      border: isSelected ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid var(--border)',
+                      borderRadius: 12, padding: '12px 14px',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {/* Top row: checkbox + question text + delete */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(q.id)}
+                        style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#EF4444', flexShrink: 0, marginTop: 2 }}
+                      />
+                      <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: F, lineHeight: 1.5 }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 6 }}>#{i + 1}</span>
+                        {q.questionText?.slice(0, 80)}{q.questionText?.length > 80 ? '…' : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(q)} style={{ color: '#EF4444' }}>🗑️</button>
+                      </div>
+                    </div>
+
+                    {/* Bottom row: badges */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', paddingLeft: 28 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        📅 {q.year || '—'}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        📚 {q.subject || '—'}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>
+                        🏫 {q.schoolName?.split(' ').slice(-2).join(' ') || '—'}
+                      </span>
+                      <button
+                        onClick={() => toggleDailyBank(q)}
+                        style={{ padding: '2px 10px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 11, transition: 'all .15s', borderColor: q.inDailyBank ? '#8B5CF6' : 'var(--border)', background: q.inDailyBank ? 'rgba(139,92,246,0.12)' : 'var(--bg-tertiary)', color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)' }}>
+                        {q.inDailyBank ? '📅 In Bank' : '➕ Add to Bank'}
+                      </button>
+                      <span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(q)} style={{ color: '#EF4444' }}>🗑️</button>
+                );
+              })}
+              {filtered.length > 100 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 14, fontFamily: F }}>
+                    Showing 100 of {filtered.length} — use filters to narrow down
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', paddingLeft: 28 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>📅 {q.year || '—'}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>📚 {q.subject || '—'}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '2px 8px', fontFamily: F }}>🏫 {q.schoolName?.split(' ').slice(-2).join(' ') || '—'}</span>
-                  <button onClick={() => toggleDailyBank(q)} style={{ padding: '2px 10px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 11, transition: 'all .15s', borderColor: q.inDailyBank ? '#8B5CF6' : 'var(--border)', background: q.inDailyBank ? 'rgba(139,92,246,0.12)' : 'var(--bg-tertiary)', color: q.inDailyBank ? '#8B5CF6' : 'var(--text-muted)' }}>
-                    {q.inDailyBank ? '📅 In Bank' : '➕ Add to Bank'}
-                  </button>
-                  <span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span>
-                </div>
-              </div>
-            );
-          })}
-          {filtered.length > 100 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 14, fontFamily: F }}>
-              Showing 100 of {filtered.length} — use filters to narrow down
-            </div>
-          )}
+              )}
         </div>
+                );
+              })}
+              {filtered.length > 100 && (
       )}
 
       {editing && (
-        <EditQuestionModal question={editing} schools={schools} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }} toast={toast} />
+        <EditQuestionModal question={editing} schools={schools}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }}
+          toast={toast} />
       )}
     </div>
   );
@@ -808,11 +918,11 @@ function DailyMockUpload({ toast }) {
 
 // ── Daily Mock: Schedule ──────────────────────────────────────────────────────
 function DailyMockSchedule({ toast }) {
-  const [config,     setConfig]     = useState(null);
-  const [bankIds,    setBankIds]    = useState([]);
-  const [history,    setHistory]    = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [preview,    setPreview]    = useState(null);
+  const [config,   setConfig]     = useState(null);
+  const [bankIds,  setBankIds]    = useState([]);
+  const [history,  setHistory]    = useState([]);
+  const [loading,  setLoading]    = useState(true);
+  const [preview,  setPreview]    = useState(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -995,8 +1105,8 @@ function QuestionPreview({ q, children }) {
 }
 
 function SinglePasteUpload({ onSave, saving }) {
-  const [rawText,  setRawText]  = useState('');
-  const [parsed,   setParsed]   = useState(null);
+  const [rawText, setRawText]  = useState('');
+  const [parsed,  setParsed]   = useState(null);
   const [parseErr, setParseErr] = useState('');
   const handleParse = () => { setParseErr(''); const { results, errors } = parseEntranceQuestions(rawText); if (errors.length) { setParseErr(errors.join('\n')); setParsed(null); return; } if (!results.length) { setParseErr('No question detected.'); return; } setParsed(results[0]); };
   return (<><FormatGuide /><div style={{ ...S.card, marginBottom: 16 }}><div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10, fontFamily: H }}>📝 Paste Question</div><textarea className="form-input" rows={12} placeholder="Paste your question here…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed(null); setParseErr(''); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }} /><button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button></div>{parseErr && <ParseError msg={parseErr} />}{parsed && (<QuestionPreview q={parsed}><div style={{ display: 'flex', gap: 10, marginTop: 14 }}><button className="btn btn-primary" onClick={() => { onSave(parsed); setParsed(null); setRawText(''); }} disabled={saving} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>{saving ? '📅 Saving…' : '📅 Add to Daily Bank'}</button><button className="btn btn-ghost" onClick={() => { setParsed(null); setRawText(''); }}>🗑️ Discard</button></div></QuestionPreview>)}</>);
