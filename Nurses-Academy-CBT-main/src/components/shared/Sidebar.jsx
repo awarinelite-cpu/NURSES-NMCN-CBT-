@@ -1,39 +1,67 @@
 // src/components/shared/Sidebar.jsx
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const STUDENT_NAV = [
-  { to: '/dashboard',       icon: '🏠', label: 'Dashboard' },
-  { to: '/exams',           icon: '📝', label: 'Start Exam' },
-  { to: '/daily-practice',  icon: '⚡', label: 'Daily Practice' },
-  { to: '/course-drill',    icon: '📖', label: 'Course Drill' },
-  { to: '/topic-drill',     icon: '🎯', label: 'Topic Drill' },
-  { to: '/mock-exams',      icon: '📋', label: 'Mock Exams' },
-  { to: '/mock-reviews',    icon: '🗂️', label: 'Mock Reviews' },
-  { to: '/bookmarks',       icon: '🔖', label: 'Bookmarked' },
-  { to: '/results',         icon: '📊', label: 'My Results' },
-  { icon: '📈', label: 'Analysis',  sub: 'See your weak areas', color: '#0891B2', to: '/performance', delay: 770 },
-  { to: '/leaderboard',     icon: '🏆', label: 'Leaderboard' },
-  { to: '/subscription',    icon: '💳', label: 'Subscription' },
-  { to: '/profile',         icon: '👤', label: 'Profile' },
+  { to: '/dashboard',      icon: '🏠', label: 'Dashboard'      },
+  { to: '/exams',          icon: '📝', label: 'Start Exam'     },
+  { to: '/daily-practice', icon: '⚡', label: 'Daily Practice' },
+  { to: '/course-drill',   icon: '📖', label: 'Course Drill'   },
+  { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
+  { to: '/mock-exams',     icon: '📋', label: 'Mock Exams'     },
+  { to: '/mock-reviews',   icon: '🗂️', label: 'Mock Reviews'  },
+  { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
+  { to: '/results',        icon: '📊', label: 'My Results'     },
+  { to: '/performance',    icon: '📈', label: 'Analysis'       },
+  { to: '/leaderboard',    icon: '🏆', label: 'Leaderboard'    },
+  { to: '/subscription',   icon: '💳', label: 'Subscription'   },
+  { to: '/profile',        icon: '👤', label: 'Profile'        },
+];
+
+const ENTRANCE_NAV = [
+  { to: '/entrance-exam',                 icon: '🏠', label: 'Dashboard'            },
+  { to: '/entrance-exam/daily-mock',      icon: '📅', label: 'Daily Mock Exam'      },
+  { to: '/entrance-exam/schools',         icon: '🏫', label: 'School Past Questions' },
+  { to: '/entrance-exam/subject-drill',   icon: '📚', label: 'Subject Drill'        },
+  { to: '/entrance-exam/exams-taken',     icon: '📋', label: 'Exams Taken'          },
+  { to: '/entrance-exam/bookmarks',       icon: '🔖', label: 'Bookmarks'            },
+  { to: '/entrance-exam/my-results',      icon: '📊', label: 'My Results'           },
+  { to: '/entrance-exam/analysis',        icon: '📈', label: 'Analysis'             },
+  { to: '/entrance-exam/leaderboard',     icon: '🏆', label: 'Leaderboard'          },
+  { to: '/subscription',                  icon: '💳', label: 'Subscription'         },
+  { to: '/profile',                       icon: '👤', label: 'Profile'              },
 ];
 
 const ADMIN_NAV = [
-  { to: '/admin',                 icon: '🛡️',  label: 'Admin Overview' },
-  { to: '/admin/questions',       icon: '❓',  label: 'Questions' },
-  { to: '/admin/users',           icon: '👥',  label: 'Users' },
-  { to: '/admin/payments',        icon: '💰',  label: 'Payments' },
-  { to: '/admin/access-codes',    icon: '🔑',  label: 'Access Codes' },
-  { to: '/admin/announcements',   icon: '📢',  label: 'Announcements' },
-  { to: '/admin/analytics',       icon: '📈',  label: 'Analytics' },
-  { to: '/dashboard',             icon: '🏠',  label: 'Student View' },
+  { to: '/admin',                  icon: '🛡️', label: 'Admin Overview'  },
+  { to: '/admin/questions',        icon: '❓',  label: 'Questions'       },
+  { to: '/admin/users',            icon: '👥',  label: 'Users'           },
+  { to: '/admin/payments',         icon: '💰',  label: 'Payments'        },
+  { to: '/admin/access-codes',     icon: '🔑',  label: 'Access Codes'    },
+  { to: '/admin/announcements',    icon: '📢',  label: 'Announcements'   },
+  { to: '/admin/analytics',        icon: '📈',  label: 'Analytics'       },
+  { to: '/admin/entrance-exam',    icon: '🏫',  label: 'Entrance Exam'   },
+  { to: '/dashboard',              icon: '🏠',  label: 'Student View'    },
 ];
 
 export default function Sidebar({ open, onClose }) {
   const { profile, logout, isAdmin } = useAuth();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  const navItems = isAdmin ? ADMIN_NAV : STUDENT_NAV;
+  const isEntranceRoute = location.pathname.startsWith('/entrance-exam');
+
+  const navItems = isAdmin
+    ? ADMIN_NAV
+    : isEntranceRoute
+      ? ENTRANCE_NAV
+      : STUDENT_NAV;
+
+  const brandLabel = isEntranceRoute && !isAdmin
+    ? '🏫 Entrance Exam'
+    : isAdmin
+      ? '🛡️ Admin Mode'
+      : '🎓 Student Mode';
 
   return (
     <>
@@ -64,7 +92,7 @@ export default function Sidebar({ open, onClose }) {
                 NMCN CBT
               </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
-                {isAdmin ? '🛡️ Admin Mode' : '🎓 Student Mode'}
+                {brandLabel}
               </div>
             </div>
           </div>
@@ -99,7 +127,11 @@ export default function Sidebar({ open, onClose }) {
               <li key={item.to}>
                 <NavLink
                   to={item.to}
-                  end={item.to === '/dashboard' || item.to === '/admin'}
+                  end={
+                    item.to === '/dashboard' ||
+                    item.to === '/admin' ||
+                    item.to === '/entrance-exam'
+                  }
                   className={({ isActive }) => isActive ? 'active' : ''}
                   onClick={onClose}
                 >
@@ -109,6 +141,48 @@ export default function Sidebar({ open, onClose }) {
               </li>
             ))}
           </ul>
+
+          {/* Switch section — lets user jump between sections */}
+          {!isAdmin && (
+            <div style={{ marginTop: 16, padding: '0 6px' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 8 }}>
+                Switch to
+              </div>
+              {isEntranceRoute ? (
+                <NavLink
+                  to="/dashboard"
+                  onClick={onClose}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
+                    fontWeight: 700, textDecoration: 'none',
+                    transition: 'all .2s',
+                  }}
+                >
+                  <span>📝</span> NMCN CBT Exams
+                </NavLink>
+              ) : (
+                <NavLink
+                  to="/entrance-exam"
+                  onClick={onClose}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
+                    fontWeight: 700, textDecoration: 'none',
+                    transition: 'all .2s',
+                  }}
+                >
+                  <span>🏫</span> Entrance Exams
+                </NavLink>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
