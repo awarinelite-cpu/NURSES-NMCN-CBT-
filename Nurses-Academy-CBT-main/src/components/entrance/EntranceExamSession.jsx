@@ -343,18 +343,22 @@ export default function EntranceExamSession() {
   }, [submitting, submitted, examType, examName, subject, schoolMode, schoolId, schoolName, user, profile]);
 
   // ── Save & Exit (pause) ─────────────────────────────────────────────────────
-  const handleSaveExit = useCallback(async () => {
+  const handleSaveExit = useCallback(() => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
 
-    const qs  = questionsRef.current;
-    const ans = answersRef.current;
-    if (!qs.length) { navigate(-1); return; }
-    if (!user?.uid) { navigate(-1); return; }
+    // Snapshot refs NOW before navigating — refs stay valid but good practice
+    const qs       = questionsRef.current;
+    const ans      = answersRef.current;
+    const flagSnap = { ...flaggedRef.current };
+    const idxSnap  = currentIndexRef.current;
 
-    setExitSaving(true);
-    setSaveError('');
-    try {
+    // Navigate immediately — no await, no double-back toast
+    setShowExitModal(false);
+    navigate('/entrance-exam');
+
+    // Fire-and-forget background save
+    if (qs.length && user?.uid) {
       const payload = {
         userId:         user.uid,
         userName:       profile?.name || user.displayName || user.email?.split('@')[0] || 'Student',
@@ -364,22 +368,16 @@ export default function EntranceExamSession() {
         subject,
         ...(schoolMode ? { schoolId, schoolName } : {}),
         questionIds:    qs.map(q => q.id),
-        answers:        ans,
-        flagged:        flaggedRef.current,
-        currentIndex:   currentIndexRef.current,
+        answers:        { ...ans },
+        flagged:        flagSnap,
+        currentIndex:   idxSnap,
         answeredCount:  Object.keys(ans).length,
         totalQuestions: qs.length,
         savedAt:        serverTimestamp(),
       };
-
-      await addDoc(collection(db, 'entrancePausedExams'), payload);
-      setShowExitModal(false);
-      navigate(-1);
-    } catch (err) {
-      console.error('Save+Exit error:', err.code, err.message);
-      setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
-      isSavingRef.current = false;
-      setExitSaving(false);
+      addDoc(collection(db, 'entrancePausedExams'), payload).catch(err => {
+        console.error('Background save failed:', err.code, err.message);
+      });
     }
   }, [user, profile, examType, examName, subject, schoolMode, schoolId, schoolName, navigate]);
 
