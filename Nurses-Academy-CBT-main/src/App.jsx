@@ -43,14 +43,14 @@ import EntranceExamHub          from './components/entrance/EntranceExamHub';
 import EntranceSchoolList       from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup        from './components/entrance/EntranceExamSetup';
 import EntranceSubjectDrill     from './components/entrance/EntranceSubjectDrill';
-import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';   // ← NEW
+import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';
 import EntranceDailyMockUpload  from './components/entrance/EntranceDailyMockUpload';
+import EntranceLeaderboard      from './components/entrance/EntranceLeaderboard';   // ← standalone file
 import {
   EntranceMyResults,
   EntranceExamsTaken,
   EntranceBookmarks,
   EntranceAnalysis,
-  EntranceLeaderboard,
 } from './components/entrance/EntranceResultsPages';
 
 // ── NEW: Daily Mock Hub + Session ───────────────────────────────
@@ -245,7 +245,7 @@ export default function App() {
                   <Route path="/entrance-exam/schools"         element={<FreeTrialRoute><EntranceSchoolList /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/setup"           element={<FreeTrialRoute><EntranceExamSetup /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/subject-drill"   element={<FreeTrialRoute><EntranceSubjectDrill /></FreeTrialRoute>} />
-                  <Route path="/entrance-exam/subject-session" element={<FreeTrialRoute><EntranceSubjectSession /></FreeTrialRoute>} />  {/* ← NEW */}
+                  <Route path="/entrance-exam/subject-session" element={<FreeTrialRoute><EntranceSubjectSession /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/my-results"      element={<FreeTrialRoute><EntranceMyResults /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/exams-taken"     element={<FreeTrialRoute><EntranceExamsTaken /></FreeTrialRoute>} />
                   <Route path="/entrance-exam/bookmarks"       element={<FreeTrialRoute><EntranceBookmarks /></FreeTrialRoute>} />
@@ -312,7 +312,7 @@ function ProfilePage() {
   useEffect(() => {
     if (!editing) return;
     import('firebase/firestore').then(({ collection, getDocs, query, orderBy }) => {
-      import('./firebase/config').then(({ db }) => {  // ← FIXED: was '../firebase/config'
+      import('./firebase/config').then(({ db }) => {
         getDocs(collection(db, 'entranceExamSchools')).then(snap => {
           const list = snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort();
           setSchools(list);
