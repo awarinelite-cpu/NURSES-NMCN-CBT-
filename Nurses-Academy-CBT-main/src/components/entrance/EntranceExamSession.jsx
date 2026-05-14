@@ -5,6 +5,7 @@
 //  - Added schoolMode: loads questions by schoolId (from EntranceExamSetup)
 //  - handleSubmit saves userName + userSchool for leaderboard
 //  - handleSaveExit also saves userName + userSchool
+//  - Fixed: Save happens only once on first Exit click, then navigates immediately
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -56,7 +57,6 @@ export default function EntranceExamSession() {
   const [submitting,    setSubmitting]    = useState(false);
   const [submitted,     setSubmitted]     = useState(false);
   const [result,        setResult]        = useState(null);
-  const [showExitModal, setShowExitModal] = useState(false);
   const [exitSaving,    setExitSaving]    = useState(false);
   const [saveError,     setSaveError]     = useState('');
 
@@ -64,6 +64,7 @@ export default function EntranceExamSession() {
   const answersRef      = useRef({});
   const currentIndexRef = useRef(0);
   const flaggedRef      = useRef({});
+  const isSavingRef     = useRef(false);  // Prevent multiple save calls
   questionsRef.current    = questions;
   answersRef.current      = answers;
   currentIndexRef.current = currentIndex;
@@ -231,8 +232,12 @@ export default function EntranceExamSession() {
     }
   }, [submitting, submitted, examType, examName, subject, schoolMode, schoolId, schoolName, user, profile]);
 
-  // ── Save & Exit ──────────────────────────────────────────────────────────
+  // ── Save & Exit – Called directly on Exit button click ────────────────────
   const handleSaveExit = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
     const qs  = questionsRef.current;
     const ans = answersRef.current;
     if (!qs.length) { navigate(-1); return; }
@@ -259,11 +264,11 @@ export default function EntranceExamSession() {
       };
 
       await addDoc(collection(db, 'entrancePausedExams'), payload);
-      setExitSaving(false);
       navigate(-1);
     } catch (err) {
       console.error('Save+Exit error:', err.code, err.message, err);
       setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
+      isSavingRef.current = false;
       setExitSaving(false);
     }
   }, [user, profile, examType, examName, subject, schoolMode, schoolId, schoolName, navigate]);
@@ -479,45 +484,9 @@ export default function EntranceExamSession() {
     );
   }
 
-  // ── Exit Modal ─────────────────────────────────────────────────────────–[...]
-  const ExitModal = () => (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
-        <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
-        <h3 style={{ textAlign: 'center', color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: "'Arial Black',Arial,sans-serif", fontWeight: 900 }}>Exit Exam?</h3>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, margin: '0 0 4px', lineHeight: 1.6, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
-          Save your progress and continue later, or exit without saving.
-        </p>
-
-        {saveError ? (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#EF4444', lineHeight: 1.5 }}>
-            ⚠️ {saveError}
-          </div>
-        ) : <div style={{ marginBottom: 24 }} />}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={handleSaveExit} disabled={exitSaving}
-            style={{ padding: '13px', borderRadius: 12, cursor: exitSaving ? 'not-allowed' : 'pointer', fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: exitSaving ? 0.7 : 1 }}>
-            {exitSaving ? '💾 Saving…' : '💾 Save & Exit'}
-          </button>
-          <button onClick={() => { setShowExitModal(false); navigate(-1); }} disabled={exitSaving}
-            style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>
-            🗑 Exit Without Saving
-          </button>
-          <button onClick={() => { setShowExitModal(false); setSaveError(''); }} disabled={exitSaving}
-            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-            ← Keep Taking Exam
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   // ── Main UI ──────────────────────────────────────────────────────────–[...]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: "'Times New Roman',Times,serif" }}>
-
-      {showExitModal && <ExitModal />}
 
       {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', padding: '0 16px' }}>
@@ -536,9 +505,10 @@ export default function EntranceExamSession() {
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => reviewMode ? navigate(-1) : setShowExitModal(true)}
-              style={{ padding: '7px 14px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--text-primary)' }}
-            >🚪 Exit</button>
+              onClick={() => reviewMode ? navigate(-1) : handleSaveExit()}
+              disabled={exitSaving}
+              style={{ padding: '7px 14px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13, cursor: exitSaving ? 'not-allowed' : 'pointer', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--text-primary)', opacity: exitSaving ? 0.7 : 1 }}
+            >{exitSaving ? '💾 Saving…' : '🚪 Exit'}</button>
 
             {!reviewMode && !submitted && (
               <button
@@ -557,7 +527,7 @@ export default function EntranceExamSession() {
         </div>
       </div>
 
-      {saveError && !showExitModal && (
+      {saveError && (
         <div style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 16px', fontSize: 13, color: '#EF4444', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
           ⚠️ {saveError}
           <button onClick={() => setSaveError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: 16 }}>×</button>
