@@ -1,22 +1,24 @@
 // src/components/entrance/EntranceSubjectSession.jsx
 // Route: /entrance-exam/subject-session
 //
-// Full-screen exam session — uses position:fixed overlay to cover
-// AppLayout navbar completely, matching the NACON 2019 screenshot.
-//
-// Header: SubjectName + meta | ⏱ Timer | Exit | Submit
-// Body:   Question Navigator (toggle) + Question card
-// Footer: Previous | counter | Next / Finish
+// CHANGES:
+//  - Added Save & Exit modal (saves to entrancePausedExams)
+//  - Added resume logic (resumeMode reads from pausedExamId)
+//  - Timer pauses when exit modal is open
+//  - Fonts: Arial Black headings, Times New Roman body
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
 import { useAuth }                                   from '../../context/AuthContext';
 import {
-  collection, getDocs, query, where, addDoc, serverTimestamp,
+  collection, getDocs, query, where, addDoc,
+  serverTimestamp, deleteDoc, doc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtTime(s) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
@@ -40,28 +42,40 @@ export default function EntranceSubjectSession() {
     year         = 'All Years',
     count        = 20,
     timeLimitMin = 20,
+    // resume fields
+    resumeMode   = false,
+    pausedExamId = null,
+    resumeData   = null,
   } = location.state || {};
 
-  const [questions,  setQuestions]  = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [loadError,  setLoadError]  = useState('');
-  const [answers,    setAnswers]    = useState({});
-  const [bookmarks,  setBookmarks]  = useState({});
-  const [flagged,    setFlagged]    = useState({});
-  const [current,    setCurrent]    = useState(0);
-  const [navOpen,    setNavOpen]    = useState(false);
-  const [timeLeft,   setTimeLeft]   = useState(timeLimitMin * 60);
-  const [submitted,  setSubmitted]  = useState(false);
-  const [result,     setResult]     = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [showReview, setShowReview] = useState(false);
+  const [questions,     setQuestions]     = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [loadError,     setLoadError]     = useState('');
+  const [answers,       setAnswers]       = useState({});
+  const [bookmarks,     setBookmarks]     = useState({});
+  const [flagged,       setFlagged]       = useState({});
+  const [current,       setCurrent]       = useState(0);
+  const [navOpen,       setNavOpen]       = useState(false);
+  const [timeLeft,      setTimeLeft]      = useState(timeLimitMin * 60);
+  const [submitted,     setSubmitted]     = useState(false);
+  const [result,        setResult]        = useState(null);
+  const [submitting,    setSubmitting]    = useState(false);
+  const [isSpeaking,    setIsSpeaking]    = useState(false);
+  const [showReview,    setShowReview]    = useState(false);
+  // pause/exit modal
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitSaving,    setExitSaving]    = useState(false);
+  const [saveError,     setSaveError]     = useState('');
 
   const timerRef     = useRef(null);
   const questionsRef = useRef([]);
   const answersRef   = useRef({});
+  const currentRef   = useRef(0);
+  const flaggedRef   = useRef({});
   questionsRef.current = questions;
   answersRef.current   = answers;
+  currentRef.current   = current;
+  flaggedRef.current   = flagged;
 
   // Lock body scroll
   useEffect(() => {
@@ -70,12 +84,38 @@ export default function EntranceSubjectSession() {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Load questions
+  // ── Load questions ─────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        // Build Firestore query — filter by subject + optional year
+
+        // ── RESUME MODE ──────────────────────────────────────────────────────
+        if (resumeMode && resumeData?.questionIds?.length) {
+          const ids    = resumeData.questionIds;
+          const chunks = [];
+          for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+          const snaps  = await Promise.all(chunks.map(ch =>
+            getDocs(query(collection(db, 'entranceExamQuestions'), where('__name__', 'in', ch)))
+          ));
+          const byId = {};
+          snaps.forEach(s => s.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
+          const loaded = ids.map(id => byId[id]).filter(Boolean);
+          setQuestions(loaded);
+          if (resumeData.answers)      setAnswers(resumeData.answers);
+          if (resumeData.currentIndex != null) setCurrent(resumeData.currentIndex);
+          if (resumeData.flagged)      setFlagged(resumeData.flagged);
+          if (resumeData.timeLeft != null) setTimeLeft(resumeData.timeLeft);
+          // delete the paused doc
+          if (pausedExamId) {
+            deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(e =>
+              console.warn('Could not delete paused drill doc:', e)
+            );
+          }
+          return;
+        }
+
+        // ── FRESH START ──────────────────────────────────────────────────────
         const constraints = [where('subject', '==', subject.name)];
         if (year && year !== 'All Years') {
           constraints.push(where('year', '==', year));
@@ -92,6 +132,7 @@ export default function EntranceSubjectSession() {
         }
         all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(count, all.length));
         setQuestions(all);
+
       } catch (e) {
         setLoadError('Failed to load: ' + e.message);
       } finally {
@@ -102,9 +143,13 @@ export default function EntranceSubjectSession() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Countdown timer
+  // ── Countdown timer — pauses when exit modal is open ──────────────────────
   useEffect(() => {
-    if (loading || submitted || questions.length === 0) return;
+    if (loading || submitted || questions.length === 0 || timeLimitMin === 0) return;
+    if (showExitModal) {
+      clearInterval(timerRef.current);
+      return;
+    }
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) { clearInterval(timerRef.current); doSubmit(); return 0; }
@@ -113,11 +158,11 @@ export default function EntranceSubjectSession() {
     }, 1000);
     return () => clearInterval(timerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, submitted, questions.length]);
+  }, [loading, submitted, questions.length, showExitModal]);
 
   const timerColor = timeLeft < 60 ? '#EF4444' : timeLeft < 120 ? '#F59E0B' : '#0D9488';
 
-  // Submit
+  // ── Submit ─────────────────────────────────────────────────────────────────
   const doSubmit = useCallback(async () => {
     if (submitting || submitted) return;
     setSubmitting(true);
@@ -138,38 +183,73 @@ export default function EntranceSubjectSession() {
     if (user?.uid) {
       try {
         await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
-          subject: subject.name, score, correct,
+          subject:        subject.name,
+          subjectIcon:    subject.icon || '📚',
+          subjectColor:   subject.color || '#0D9488',
+          year:           year || 'All Years',
+          score,
+          correct,
           totalQuestions: qs.length,
-          answers: ans,
-          questionIds: qs.map(q => q.id),
-          createdAt: serverTimestamp(),
+          answers:        ans,
+          questionIds:    qs.map(q => q.id),
+          createdAt:      serverTimestamp(),
         });
-      } catch (e) { console.warn('Save error:', e); }
+      } catch (e) { console.warn('Save drill error:', e); }
     }
 
     setResult({ subject: subject.name, score, correct, total: qs.length, breakdown });
     setSubmitted(true);
     setSubmitting(false);
-  }, [submitting, submitted, subject, user]);
+  }, [submitting, submitted, subject, year, user]);
 
   const handleSubmit = useCallback(() => {
     const unanswered = questions.length - Object.keys(answers).length;
     const msg = unanswered > 0
       ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?`
-      : 'Submit exam now?';
+      : 'Submit drill now?';
     if (window.confirm(msg)) doSubmit();
   }, [questions, answers, doSubmit]);
+
+  // ── Save & Exit (pause) ────────────────────────────────────────────────────
+  const handleSaveExit = useCallback(async () => {
+    const qs  = questionsRef.current;
+    const ans = answersRef.current;
+    if (!qs.length) { navigate(-1); return; }
+    if (!user?.uid) { navigate(-1); return; }
+
+    setExitSaving(true);
+    setSaveError('');
+    try {
+      await addDoc(collection(db, 'entrancePausedExams'), {
+        userId:         user.uid,
+        examType:       'entrance_subject_drill',
+        examName:       `${subject.name} Drill`,
+        subject:        subject.name,
+        subjectIcon:    subject.icon   || '📚',
+        subjectColor:   subject.color  || '#0D9488',
+        year:           year || 'All Years',
+        timeLimitMin,
+        questionIds:    qs.map(q => q.id),
+        answers:        ans,
+        flagged:        flaggedRef.current,
+        currentIndex:   currentRef.current,
+        timeLeft,
+        answeredCount:  Object.keys(ans).length,
+        totalQuestions: qs.length,
+        savedAt:        serverTimestamp(),
+      });
+      navigate(-1);
+    } catch (err) {
+      console.error('Save+Exit error:', err);
+      setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
+      setExitSaving(false);
+    }
+  }, [user, subject, year, timeLimitMin, timeLeft, navigate]);
 
   const handleSelect = (key) => {
     if (submitted) return;
     const qId = questions[current]?.id;
     if (qId) setAnswers(prev => ({ ...prev, [qId]: key }));
-  };
-
-  const handleExit = () => {
-    if (window.confirm('Exit drill? Progress will be lost.')) {
-      stopSpeech(); clearInterval(timerRef.current); navigate(-1);
-    }
   };
 
   const handleReadQuestion = () => {
@@ -227,7 +307,9 @@ export default function EntranceSubjectSession() {
     <div style={S.overlay}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 44, height: 44, margin: '0 auto 16px', border: `3px solid ${subject.color}33`, borderTop: `3px solid ${subject.color}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading {subject.name} questions…</p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: F, fontWeight: 700 }}>
+          {resumeMode ? 'Restoring your drill…' : `Loading ${subject.name} questions…`}
+        </p>
       </div>
     </div>
   );
@@ -235,9 +317,9 @@ export default function EntranceSubjectSession() {
   if (loadError) return (
     <div style={{ ...S.overlay, flexDirection: 'column', gap: 16, padding: 32, textAlign: 'center' }}>
       <div style={{ fontSize: 48 }}>😕</div>
-      <h3 style={{ color: '#fff', margin: 0 }}>Could not load questions</h3>
-      <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0 }}>{loadError}</p>
-      <button onClick={() => navigate(-1)} style={{ padding: '10px 24px', background: subject.color, border: 'none', color: '#fff', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>← Go Back</button>
+      <h3 style={{ color: '#fff', margin: 0, fontFamily: H }}>Could not load questions</h3>
+      <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontFamily: F, fontWeight: 700 }}>{loadError}</p>
+      <button onClick={() => navigate(-1)} style={{ padding: '10px 24px', background: subject.color, border: 'none', color: '#fff', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontFamily: F }}>← Go Back</button>
     </div>
   );
 
@@ -252,15 +334,14 @@ export default function EntranceSubjectSession() {
     return (
       <div style={{ ...S.overlay, alignItems: 'flex-start', overflowY: 'auto' }}>
         <div style={{ width: '100%', maxWidth: 680, margin: '0 auto', padding: '28px 16px 64px' }}>
-
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>
               {result.score >= 70 ? '🏆' : result.score >= 50 ? '🎯' : '💪'}
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: '0 0 4px', fontSize: 26 }}>
+            <h2 style={{ fontFamily: H, fontWeight: 900, color: '#fff', margin: '0 0 4px', fontSize: 26 }}>
               {passed ? 'Well Done!' : 'Keep Practising'}
             </h2>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: 20, fontFamily: F, fontWeight: 700 }}>
               {subject.icon} {result.subject} Drill
             </div>
 
@@ -270,21 +351,21 @@ export default function EntranceSubjectSession() {
               border: `2px solid ${scoreColor}55`, borderRadius: 20,
               padding: '20px 44px', marginBottom: 20,
             }}>
-              <div style={{ fontSize: 56, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{result.score}%</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>
+              <div style={{ fontSize: 56, fontWeight: 900, color: scoreColor, lineHeight: 1, fontFamily: H }}>{result.score}%</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontFamily: F, fontWeight: 700 }}>
                 {result.correct} / {result.total} correct
               </div>
-              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: scoreColor, textTransform: 'uppercase' }}>
+              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: scoreColor, textTransform: 'uppercase', fontFamily: H }}>
                 {passed ? '✓ PASS' : '✗ FAIL'}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
               {[
-                { label: 'Correct',  v: correctC,     color: '#10B981', bg: 'rgba(16,185,129,0.08)',  icon: '✅' },
-                { label: 'Wrong',    v: wrongC,        color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: '❌' },
-                { label: 'Skipped',  v: skippedC,      color: '#F59E0B', bg: 'rgba(245,158,11,0.09)',  icon: '⏭' },
-                { label: 'Total',    v: result.total,  color: subject.color, bg: subject.color + '12', icon: '📝' },
+                { label: 'Correct',  v: correctC,    color: '#10B981', bg: 'rgba(16,185,129,0.08)',  icon: '✅' },
+                { label: 'Wrong',    v: wrongC,       color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: '❌' },
+                { label: 'Skipped',  v: skippedC,     color: '#F59E0B', bg: 'rgba(245,158,11,0.09)',  icon: '⏭' },
+                { label: 'Total',    v: result.total, color: subject.color, bg: subject.color + '12', icon: '📝' },
               ].map(st => (
                 <div key={st.label} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -292,8 +373,8 @@ export default function EntranceSubjectSession() {
                   borderRadius: 12, padding: '10px 16px', minWidth: 72,
                 }}>
                   <div style={{ fontSize: 16 }}>{st.icon}</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: st.color, lineHeight: 1.2 }}>{st.v}</div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700 }}>{st.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: st.color, lineHeight: 1.2, fontFamily: H }}>{st.v}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, fontFamily: F }}>{st.label}</div>
                 </div>
               ))}
             </div>
@@ -311,7 +392,7 @@ export default function EntranceSubjectSession() {
 
           {showReview && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4, fontFamily: H }}>
                 📋 Question-by-Question Breakdown
               </div>
               {result.breakdown.map(({ q, i, chosen, correct, isCorrect }) => (
@@ -326,10 +407,10 @@ export default function EntranceSubjectSession() {
                       flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
                       background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800,
+                      fontSize: 11, fontWeight: 800, fontFamily: H,
                       color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B',
                     }}>{i + 1}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1 }}>{q.questionText}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1, fontFamily: F }}>{q.questionText}</div>
                     <span style={{ fontSize: 15 }}>{isCorrect ? '✅' : chosen ? '❌' : '⏭'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 34, marginBottom: 8 }}>
@@ -341,14 +422,14 @@ export default function EntranceSubjectSession() {
                       if (isCorr)            { bg = 'rgba(22,163,74,0.13)'; border = '#16A34A'; color = '#16A34A'; weight = 700; }
                       if (isChos && !isCorr) { bg = 'rgba(239,68,68,0.1)';  border = '#EF4444'; color = '#EF4444'; weight = 700; }
                       return (
-                        <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight }}>
+                        <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}>
                           <span style={{ fontWeight: 800 }}>{key}.</span> {text}
                           {isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}
                         </div>
                       );
                     })}
                   </div>
-                  <div style={{ paddingLeft: 34, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                  <div style={{ paddingLeft: 34, fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700 }}>
                     {!chosen
                       ? <span style={{ color: '#F59E0B' }}>⏭ Skipped — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>
                       : isCorrect
@@ -357,7 +438,7 @@ export default function EntranceSubjectSession() {
                     }
                   </div>
                   {q.explanation && (
-                    <div style={{ marginTop: 10, marginLeft: 34, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.18)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.55 }}>
+                    <div style={{ marginTop: 10, marginLeft: 34, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.18)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.55, fontFamily: F, fontWeight: 700 }}>
                       💡 {q.explanation}
                     </div>
                   )}
@@ -374,46 +455,113 @@ export default function EntranceSubjectSession() {
     );
   }
 
+  // ── Exit Modal ─────────────────────────────────────────────────────────────
+  const ExitModal = () => (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#0F1E35', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}>
+        <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
+        <h3 style={{ textAlign: 'center', color: '#fff', margin: '0 0 8px', fontFamily: H, fontWeight: 900 }}>Exit Drill?</h3>
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 4px', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>
+          Save your progress and continue later, or exit without saving.
+        </p>
+
+        {/* Progress preview */}
+        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 16px', margin: '14px 0', display: 'flex', gap: 14, alignItems: 'center' }}>
+          <span style={{ fontSize: 22 }}>{subject.icon}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 4, fontFamily: F }}>{subject.name}</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, marginBottom: 6 }}>
+              {answered}/{total} answered · Q{current + 1} of {total}
+              {timeLimitMin > 0 && ` · ⏱ ${fmtTime(timeLeft)} left`}
+            </div>
+            <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${total > 0 ? (answered / total) * 100 : 0}%`, background: subject.color, borderRadius: 2 }} />
+            </div>
+          </div>
+        </div>
+
+        {saveError && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#EF4444', lineHeight: 1.5, fontFamily: F, fontWeight: 700 }}>
+            ⚠️ {saveError}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={handleSaveExit}
+            disabled={exitSaving}
+            style={{ padding: '13px', borderRadius: 12, cursor: exitSaving ? 'not-allowed' : 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: subject.color, color: '#fff', opacity: exitSaving ? 0.7 : 1 }}
+          >
+            {exitSaving ? '💾 Saving…' : '💾 Save & Continue Later'}
+          </button>
+          <button
+            onClick={() => { stopSpeech(); clearInterval(timerRef.current); setShowExitModal(false); navigate(-1); }}
+            disabled={exitSaving}
+            style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}
+          >
+            🗑 Exit Without Saving
+          </button>
+          <button
+            onClick={() => { setShowExitModal(false); setSaveError(''); }}
+            disabled={exitSaving}
+            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}
+          >
+            ← Keep Drilling
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ── Exam UI ──────────────────────────────────────────────────────────────
   return (
     <div style={S.overlay}>
+      {showExitModal && <ExitModal />}
+
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
 
         {/* Header */}
         <div style={{ flexShrink: 0, background: '#0A1628', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', height: 58, gap: 10, padding: '0 14px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: H }}>
                 {subject.icon} {subject.name}
                 {year && year !== 'All Years' && (
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 20 }}>
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>
                     📅 {year}
                   </span>
                 )}
+                {resumeMode && (
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#8B5CF6', background: 'rgba(139,92,246,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>
+                    ▶ Resumed
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1, fontFamily: F, fontWeight: 700 }}>
                 Q{current + 1} of {total} · {answered} answered
               </div>
             </div>
 
-            {/* Timer */}
-            <div style={{
-              fontFamily: 'monospace', fontSize: 20, fontWeight: 900,
-              color: timerColor, background: timerColor + '18',
-              border: `1.5px solid ${timerColor}44`,
-              padding: '5px 11px', borderRadius: 10, flexShrink: 0,
-              display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-              <span style={{ fontSize: 13 }}>⏱</span>
-              {fmtTime(timeLeft)}
-            </div>
+            {/* Timer (only if timed) */}
+            {timeLimitMin > 0 && (
+              <div style={{
+                fontFamily: 'monospace', fontSize: 20, fontWeight: 900,
+                color: timerColor, background: timerColor + '18',
+                border: `1.5px solid ${timerColor}44`,
+                padding: '5px 11px', borderRadius: 10, flexShrink: 0,
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}>
+                <span style={{ fontSize: 13 }}>⏱</span>
+                {fmtTime(timeLeft)}
+              </div>
+            )}
 
-            {/* Exit */}
-            <button onClick={handleExit} style={{
+            {/* Exit → opens Save modal */}
+            <button onClick={() => setShowExitModal(true)} style={{
               padding: '7px 13px', borderRadius: 10,
               background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.35)',
               color: '#F59E0B', fontWeight: 700, fontSize: 13,
-              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+              cursor: 'pointer', fontFamily: F, flexShrink: 0,
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
               🚪 Exit
@@ -425,7 +573,7 @@ export default function EntranceSubjectSession() {
                 padding: '7px 15px', borderRadius: 10,
                 background: '#EF4444', border: 'none',
                 color: '#fff', fontWeight: 800, fontSize: 13,
-                cursor: submitting ? 'wait' : 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                cursor: submitting ? 'wait' : 'pointer', fontFamily: F, flexShrink: 0,
               }}>
                 {submitting ? 'Saving…' : 'Submit'}
               </button>
@@ -447,7 +595,7 @@ export default function EntranceSubjectSession() {
             style={{
               width: '100%', padding: '10px 16px', borderRadius: 12,
               background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.08)',
-              fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+              fontFamily: F, fontWeight: 700, fontSize: 13,
               color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
             }}
@@ -463,7 +611,7 @@ export default function EntranceSubjectSession() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {questions.map((_, idx) => (
                   <button key={idx} onClick={() => { setCurrent(idx); setNavOpen(false); }}
-                    style={{ width: 40, height: 40, borderRadius: 10, fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', ...navTileStyle(idx) }}>
+                    style={{ width: 40, height: 40, borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', ...navTileStyle(idx) }}>
                     {idx + 1}
                   </button>
                 ))}
@@ -475,10 +623,9 @@ export default function EntranceSubjectSession() {
           {currentQ && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.09)', borderRadius: 18, padding: '18px 16px', marginBottom: 12 }}>
 
-              {/* Badge row */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: subject.color + '18', border: `1px solid ${subject.color}44`, borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: subject.color }}>
-                  entrance exam
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: subject.color + '18', border: `1px solid ${subject.color}44`, borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: subject.color, fontFamily: F }}>
+                  {subject.name}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button onClick={() => setFlagged(f => ({ ...f, [currentQ.id]: !f[currentQ.id] }))}
@@ -486,14 +633,13 @@ export default function EntranceSubjectSession() {
                     🚩
                   </button>
                   <button onClick={() => setBookmarks(b => ({ ...b, [currentQ.id]: !b[currentQ.id] }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, fontSize: 12 }}>
                     🔖 Bookmark
                   </button>
                 </div>
               </div>
 
-              {/* Q counter */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>
                 Q{current + 1} / {total}
               </div>
 
@@ -503,34 +649,32 @@ export default function EntranceSubjectSession() {
                 </div>
               )}
 
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}>
                 {currentQ.questionText}
               </div>
 
-              {/* Read Question */}
               <button onClick={handleReadQuestion} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '7px 16px', borderRadius: 20, marginBottom: 18, cursor: 'pointer',
                 background: isSpeaking ? subject.color + '22' : 'rgba(255,255,255,0.05)',
                 border: `1.5px solid ${isSpeaking ? subject.color : 'rgba(255,255,255,0.1)'}`,
                 color: isSpeaking ? subject.color : 'rgba(255,255,255,0.5)',
-                fontFamily: 'inherit', fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
+                fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all 0.2s',
               }}>
                 <span style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔉'}</span>
                 {isSpeaking ? 'Stop Reading' : 'Read Question'}
               </button>
 
-              {/* Options */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {OPT_KEYS.map(key => {
                   const text = currentQ.options?.[key];
                   if (!text) return null;
                   return (
-                    <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: 'inherit', cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
+                    <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, transition: 'all 0.15s', ...getLetterStyle(key) }}>
                         {key}
                       </div>
-                      <span style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.4, flex: 1 }}>{text}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}>{text}</span>
                       {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
                       {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
                     </button>
@@ -540,8 +684,8 @@ export default function EntranceSubjectSession() {
 
               {submitted && currentQ.explanation && (
                 <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.07)', border: '1.5px solid rgba(13,148,136,0.2)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0D9488', marginBottom: 6 }}>💡 Explanation</div>
-                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>{currentQ.explanation}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0D9488', marginBottom: 6, fontFamily: F }}>💡 Explanation</div>
+                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>{currentQ.explanation}</div>
                 </div>
               )}
             </div>
@@ -553,21 +697,21 @@ export default function EntranceSubjectSession() {
           <button
             onClick={() => setCurrent(i => Math.max(0, i - 1))}
             disabled={current === 0}
-            style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: current === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: current === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)' }}
+            style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: current === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: current === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)' }}
           >← Previous</button>
 
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.35)' }}>{current + 1} / {total}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.35)', fontFamily: F }}>{current + 1} / {total}</span>
 
           {current < total - 1 ? (
-            <button onClick={() => setCurrent(i => i + 1)} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>
+            <button onClick={() => setCurrent(i => i + 1)} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>
               Next →
             </button>
           ) : !submitted ? (
-            <button onClick={handleSubmit} disabled={submitting} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>
+            <button onClick={handleSubmit} disabled={submitting} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>
               ✅ Finish
             </button>
           ) : (
-            <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.6)' }}>
+            <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.6)' }}>
               ← Back
             </button>
           )}
@@ -578,21 +722,20 @@ export default function EntranceSubjectSession() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
 const S = {
   overlay: {
     position: 'fixed', inset: 0, zIndex: 9999,
     background: '#0A1628', color: '#fff',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: F,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   btnGhost: {
     padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
     background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+    color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: F,
   },
   btnPrimary: {
     padding: '10px 22px', borderRadius: 10, cursor: 'pointer',
-    border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+    border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: F,
   },
 };
