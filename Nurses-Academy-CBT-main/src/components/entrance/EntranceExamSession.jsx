@@ -167,7 +167,7 @@ export default function EntranceExamSession() {
   const currentQ   = questions[currentIndex] || null;
   const progress   = total > 0 ? (answered / total) * 100 : 0;
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────[...]
   const handleSelect = (key) => {
     if (submitted || !currentQ) return;
     setAnswers(prev => ({ ...prev, [currentQ.id]: key }));
@@ -187,7 +187,7 @@ export default function EntranceExamSession() {
   const handleBookmark = () => currentQ && setBookmarks(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
   const handleFlag     = () => currentQ && setFlagged(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Submit ────────────────────────────────────────────────────────────[...]
   const handleSubmit = useCallback(async () => {
     if (submitting || submitted) return;
     const qs  = questionsRef.current;
@@ -231,7 +231,7 @@ export default function EntranceExamSession() {
     }
   }, [submitting, submitted, examType, examName, subject, schoolMode, schoolId, schoolName, user, profile]);
 
-  // ── Save & Exit ────────────────────────────────────────────────────────────
+  // ── Save & Exit ──────────────────────────────────────────────────────────
   const handleSaveExit = useCallback(async () => {
     const qs  = questionsRef.current;
     const ans = answersRef.current;
@@ -259,6 +259,7 @@ export default function EntranceExamSession() {
       };
 
       await addDoc(collection(db, 'entrancePausedExams'), payload);
+      setExitSaving(false);
       navigate(-1);
     } catch (err) {
       console.error('Save+Exit error:', err.code, err.message, err);
@@ -267,7 +268,7 @@ export default function EntranceExamSession() {
     }
   }, [user, profile, examType, examName, subject, schoolMode, schoolId, schoolName, navigate]);
 
-  // ── Option styles ──────────────────────────────────────────────────────────
+  // ── Option styles ────────────────────────────────────────────────────────–[...]
   const getOptionStyle = (key) => {
     const chosen  = answers[currentQ?.id];
     const correct = currentQ?.correctAnswer;
@@ -304,7 +305,7 @@ export default function EntranceExamSession() {
 
   const voiceOptions = currentQ ? OPTION_KEYS.map(k => currentQ.options?.[k] || '').filter(Boolean) : [];
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────────–[...]
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
       <div className="spinner" style={{ width: 40, height: 40 }} />
@@ -325,7 +326,7 @@ export default function EntranceExamSession() {
     </div>
   );
 
-  // ── Result screen ──────────────────────────────────────────────────────────
+  // ── Result screen ────────────────────────────────────────────────────────–[...]
   if (submitted && result && !reviewMode) {
     const passed       = result.scorePercent >= 50;
     const breakdown    = questions.map((q, i) => {
@@ -478,7 +479,7 @@ export default function EntranceExamSession() {
     );
   }
 
-  // ── Exit Modal ─────────────────────────────────────────────────────────────
+  // ── Exit Modal ─────────────────────────────────────────────────────────–[...]
   const ExitModal = () => (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
@@ -489,7 +490,7 @@ export default function EntranceExamSession() {
         </p>
 
         {saveError ? (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#EF4444', lineHeight: 1.5, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#EF4444', lineHeight: 1.5 }}>
             ⚠️ {saveError}
           </div>
         ) : <div style={{ marginBottom: 24 }} />}
@@ -504,7 +505,7 @@ export default function EntranceExamSession() {
             🗑 Exit Without Saving
           </button>
           <button onClick={() => { setShowExitModal(false); setSaveError(''); }} disabled={exitSaving}
-            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
             ← Keep Taking Exam
           </button>
         </div>
@@ -512,7 +513,7 @@ export default function EntranceExamSession() {
     </div>
   );
 
-  // ── Main UI ────────────────────────────────────────────────────────────────
+  // ── Main UI ──────────────────────────────────────────────────────────–[...]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: "'Times New Roman',Times,serif" }}>
 
@@ -536,14 +537,14 @@ export default function EntranceExamSession() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => reviewMode ? navigate(-1) : setShowExitModal(true)}
-              style={{ padding: '7px 14px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.4)', color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 5 }}
+              style={{ padding: '7px 14px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--text-primary)' }}
             >🚪 Exit</button>
 
             {!reviewMode && !submitted && (
               <button
                 onClick={() => { if (window.confirm(`Submit?${unanswered > 0 ? ` ${unanswered} unanswered.` : ''}`)) handleSubmit(); }}
                 disabled={submitting}
-                style={{ padding: '7px 16px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 13, cursor: submitting ? 'wait' : 'pointer', background: '#EF4444', border: 'none', color: '#fff' }}
+                style={{ padding: '7px 16px', borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 13, cursor: submitting ? 'wait' : 'pointer', background: '#16A34A', border: 'none', color: '#fff', opacity: submitting ? 0.7 : 1 }}
               >
                 {submitting ? 'Saving…' : 'Submit'}
               </button>
@@ -557,7 +558,7 @@ export default function EntranceExamSession() {
       </div>
 
       {saveError && !showExitModal && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 16px', fontSize: 13, color: '#EF4444', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 16px', fontSize: 13, color: '#EF4444', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
           ⚠️ {saveError}
           <button onClick={() => setSaveError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: 16 }}>×</button>
         </div>
@@ -567,7 +568,7 @@ export default function EntranceExamSession() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 100px' }}>
 
         {submitted && !result && (
-          <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', marginBottom: 14, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', marginBottom: 14, display: 'flex', gap: 16, alignItems: 'center' }}>
             {(() => {
               const correct = questions.reduce((a, q) => a + (answers[q.id] === q.correctAnswer ? 1 : 0), 0);
               const p       = Math.round((correct / total) * 100);
@@ -589,7 +590,7 @@ export default function EntranceExamSession() {
         {/* Navigator toggle */}
         <button
           onClick={() => setNavOpen(v => !v)}
-          style={{ width: '100%', padding: '10px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1.5px solid var(--border)', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, textAlign: 'left' }}
+          style={{ width: '100%', padding: '10px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1.5px solid var(--border)', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--text-primary)' }}
         >
           {navOpen ? '▲' : '▼'} {navOpen ? 'Hide' : 'Show'} Question Navigator
         </button>
@@ -598,7 +599,7 @@ export default function EntranceExamSession() {
           <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 12px', marginBottom: 14 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {questions.map((_, idx) => (
-                <button key={idx} onClick={() => setCurrentIndex(idx)} style={{ width: 42, height: 42, borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', ...navTileStyle(idx) }}>
+                <button key={idx} onClick={() => setCurrentIndex(idx)} style={{ width: 42, height: 42, borderRadius: 10, fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 13, cursor: 'pointer', ...navTileStyle(idx) }}>
                   {idx + 1}
                 </button>
               ))}
@@ -610,12 +611,12 @@ export default function EntranceExamSession() {
         {currentQ ? (
           <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '20px 18px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700, color: 'var(--teal)', fontFamily: "'Times New Roman',Times,serif" }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: 'var(--teal)' }}>
                 {examType.replace(/_/g, ' ')}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={handleFlag} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: flagged[currentQ.id] ? 1 : 0.35, transition: 'opacity 0.15s' }} title="Flag">🚩</button>
-                <button onClick={handleBookmark} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'var(--bg-tertiary)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'var(--border)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'var(--text-muted)', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13 }}>
+                <button onClick={handleFlag} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: flagged[currentQ.id] ? 1 : 0.35, transition: 'opacity 0.15s' }}>🚩</button>
+                <button onClick={handleBookmark} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(59,130,246,0.2)' : 'var(--bg-tertiary)', border: bookmarks[currentQ.id] ? '1px solid #3B82F6' : '1px solid var(--border)', color: 'var(--text-primary)', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 13 }}>
                   🔖 Bookmark
                 </button>
               </div>
@@ -654,7 +655,7 @@ export default function EntranceExamSession() {
                     key={key}
                     id={`vem-opt-${idx}`}
                     onClick={() => handleSelect(key)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptionStyle(key) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", cursor: submitted ? 'default' : 'pointer', ...getOptionStyle(key) }}
                   >
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, ...getLetterStyle(key) }}>
                       {key}
@@ -680,11 +681,11 @@ export default function EntranceExamSession() {
       </div>
 
       {/* Bottom nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-primary)', borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 40 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-primary)', borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <button
           onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}
           disabled={currentIndex === 0}
-          style={{ padding: '12px 20px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, cursor: currentIndex === 0 ? 'default' : 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: currentIndex === 0 ? 'var(--text-muted)' : 'var(--text-secondary)', opacity: currentIndex === 0 ? 0.5 : 1 }}
+          style={{ padding: '12px 20px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, cursor: currentIndex === 0 ? 'default' : 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', opacity: currentIndex === 0 ? 0.5 : 1 }}
         >← Previous</button>
 
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', fontFamily: "'Times New Roman',Times,serif" }}>{currentIndex + 1} / {total}</span>
@@ -699,7 +700,7 @@ export default function EntranceExamSession() {
             style={{ padding: '12px 20px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}
           >✅ Finish</button>
         ) : (
-          <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)' }}>
+          <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
             ← Back
           </button>
         )}
