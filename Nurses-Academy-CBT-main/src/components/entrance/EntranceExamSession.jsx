@@ -2,9 +2,9 @@
 // Route: /entrance-exam/session
 //
 // CHANGES:
-//  - handleSubmit now saves userName + userSchool for leaderboard
+//  - Added schoolMode: loads questions by schoolId (from EntranceExamSetup)
+//  - handleSubmit saves userName + userSchool for leaderboard
 //  - handleSaveExit also saves userName + userSchool
-//  - Fonts updated: Arial Black for headings, Times New Roman Bold for body
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -21,21 +21,29 @@ const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 export default function EntranceExamSession() {
   const navigate          = useNavigate();
   const location          = useLocation();
-  const { user, profile } = useAuth();           // ← profile added
+  const { user, profile } = useAuth();
   const state             = location.state || {};
 
   const {
+    // existing modes
     poolMode     = false,
     reviewMode   = false,
+    resumeMode   = false,
+    pausedExamId = null,
+    resumeData   = null,
+    savedSession,
+    // NEW: school past questions mode
+    schoolMode   = false,
+    schoolId     = null,
+    schoolName   = '',
+    examYear     = 'all',
+    // common
     examType     = 'entrance_daily_mock',
     examName     = 'Entrance Exam — Daily Mock',
     subject      = 'entrance_general',
     count        = 20,
     doShuffle    = true,
-    savedSession,
-    resumeMode   = false,
-    pausedExamId = null,
-    resumeData   = null,
+    timeLimitMin = 0,
   } = state;
 
   const [questions,     setQuestions]     = useState([]);
@@ -66,6 +74,8 @@ export default function EntranceExamSession() {
     const load = async () => {
       setLoading(true);
       try {
+
+        // ── RESUME MODE ────────────────────────────────────────────────────
         if (resumeMode && resumeData?.questionIds?.length) {
           const ids    = resumeData.questionIds;
           const chunks = [];
@@ -87,6 +97,7 @@ export default function EntranceExamSession() {
           return;
         }
 
+        // ── REVIEW MODE ────────────────────────────────────────────────────
         if (reviewMode && savedSession?.questionIds?.length) {
           const ids    = savedSession.questionIds;
           const chunks = [];
@@ -103,6 +114,34 @@ export default function EntranceExamSession() {
           return;
         }
 
+        // ── SCHOOL MODE (School Past Questions) ────────────────────────────
+        // Loads questions filtered by schoolId (and optional year)
+        if (schoolMode && schoolId) {
+          const constraints = [where('schoolId', '==', schoolId)];
+          if (examYear && examYear !== 'all') {
+            constraints.push(where('year', '==', examYear));
+          }
+          const snap = await getDocs(
+            query(collection(db, 'entranceExamQuestions'), ...constraints)
+          );
+          let pool = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // fallback: if no results by schoolId, try schoolName
+          if (!pool.length && schoolName) {
+            const fallbackConstraints = [where('schoolName', '==', schoolName)];
+            if (examYear && examYear !== 'all') {
+              fallbackConstraints.push(where('year', '==', examYear));
+            }
+            const fallbackSnap = await getDocs(
+              query(collection(db, 'entranceExamQuestions'), ...fallbackConstraints)
+            );
+            pool = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
+          if (doShuffle) pool = pool.sort(() => Math.random() - 0.5);
+          setQuestions(pool.slice(0, count));
+          return;
+        }
+
+        // ── DAILY MOCK POOL MODE ───────────────────────────────────────────
         if (poolMode) {
           const snap = await getDocs(
             query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true))
@@ -111,6 +150,7 @@ export default function EntranceExamSession() {
           if (doShuffle) pool = pool.sort(() => Math.random() - 0.5);
           setQuestions(pool.slice(0, count));
         }
+
       } catch (err) {
         console.error('EntranceExamSession load error:', err);
       } finally {
@@ -164,13 +204,13 @@ export default function EntranceExamSession() {
 
       const payload = {
         userId:         user.uid,
-        // ── LEADERBOARD FIELDS ──────────────────────────────────────
         userName:       profile?.name || user.displayName || user.email?.split('@')[0] || 'Student',
         userSchool:     profile?.school || '',
-        // ────────────────────────────────────────────────────────────
         examType,
         examName,
         subject,
+        // school exam extra fields (ignored for daily mock)
+        ...(schoolMode ? { schoolId, schoolName } : {}),
         questionIds:    qs.map(q => q.id),
         answers:        ans,
         correct,
@@ -179,9 +219,7 @@ export default function EntranceExamSession() {
         completedAt:    serverTimestamp(),
       };
 
-      console.log('Submitting exam session:', payload);
       await addDoc(collection(db, 'entranceExamSessions'), payload);
-      console.log('Exam session saved successfully');
 
       setResult({ correct, total: qs.length, scorePercent });
       setSubmitted(true);
@@ -191,7 +229,7 @@ export default function EntranceExamSession() {
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, submitted, examType, examName, subject, user, profile]);
+  }, [submitting, submitted, examType, examName, subject, schoolMode, schoolId, schoolName, user, profile]);
 
   // ── Save & Exit ────────────────────────────────────────────────────────────
   const handleSaveExit = useCallback(async () => {
@@ -210,6 +248,7 @@ export default function EntranceExamSession() {
         examType,
         examName,
         subject,
+        ...(schoolMode ? { schoolId, schoolName } : {}),
         questionIds:    qs.map(q => q.id),
         answers:        ans,
         flagged:        flaggedRef.current,
@@ -226,7 +265,7 @@ export default function EntranceExamSession() {
       setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
       setExitSaving(false);
     }
-  }, [user, profile, examType, examName, subject, navigate]);
+  }, [user, profile, examType, examName, subject, schoolMode, schoolId, schoolName, navigate]);
 
   // ── Option styles ──────────────────────────────────────────────────────────
   const getOptionStyle = (key) => {
@@ -277,7 +316,11 @@ export default function EntranceExamSession() {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
       <h3 style={{ color: 'var(--text-primary)', marginBottom: 8, fontFamily: "'Arial Black',Arial,sans-serif" }}>No questions found</h3>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 20, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>No questions are in the Daily Mock Bank yet.</p>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 20, fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+        {schoolMode
+          ? `No questions found for ${schoolName}${examYear && examYear !== 'all' ? ` (${examYear})` : ''}.`
+          : 'No questions are in the Daily Mock Bank yet.'}
+      </p>
       <button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button>
     </div>
   );
@@ -480,7 +523,7 @@ export default function EntranceExamSession() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 58 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 16 }}>⚡</span>
+              <span style={{ fontSize: 16 }}>{schoolMode ? '🏫' : '⚡'}</span>
               <span style={{ fontWeight: 900, fontSize: 16, color: 'var(--text-primary)', fontFamily: "'Arial Black',Arial,sans-serif" }}>
                 {reviewMode ? 'Review' : examName}
               </span>
@@ -577,8 +620,6 @@ export default function EntranceExamSession() {
                 </button>
               </div>
             </div>
-
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.3 }}>· {currentQ.id}</div>
 
             {currentQ.diagramUrl && (
               <div style={{ marginBottom: 14, textAlign: 'center' }}>
