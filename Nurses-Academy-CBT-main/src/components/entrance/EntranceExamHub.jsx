@@ -111,40 +111,116 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
   );
 }
 
-/* ── Continue Card ─────────────────────────────────────────────────────────── */
-function ContinueCard({ exam, onContinue, onDiscard }) {
-  const pct  = exam.answeredCount && exam.totalQuestions
-    ? Math.round((exam.answeredCount / exam.totalQuestions) * 100) : 0;
-  const date = exam.savedAt?.toDate
-    ? exam.savedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })
-    : 'Recently';
+/* ── Paused Exams Modal ─────────────────────────────────────────────────────── */
+function PausedModal({ exams, onContinue, onDiscard, onClose }) {
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.12)',
-      backdropFilter: 'blur(8px)',
-      border: '1.5px solid rgba(255,255,255,0.25)',
-      borderRadius: 14, padding: '14px 16px',
-      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
-      <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: 'rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📋</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 2, fontFamily: F }}>
-          {exam.examName || 'Daily Mock Exam'}
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 20, padding: 24, maxWidth: 480, width: '100%',
+        maxHeight: '80vh', overflowY: 'auto',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+            }}>▶</div>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--text-primary)', fontFamily: H }}>
+                Continue an Exam
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
+                {exams.length} paused exam{exams.length !== 1 ? 's' : ''} waiting
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+              borderRadius: 10, width: 34, height: 34, cursor: 'pointer',
+              color: 'var(--text-primary)', fontSize: 20, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >×</button>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontFamily: F, fontWeight: 700 }}>
-          {exam.answeredCount || 0}/{exam.totalQuestions || '?'} answered · {date}
+
+        {/* Exam list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {exams.map(exam => {
+            const pct  = exam.answeredCount && exam.totalQuestions
+              ? Math.round((exam.answeredCount / exam.totalQuestions) * 100) : 0;
+            const date = exam.savedAt?.toDate
+              ? exam.savedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
+              : 'Recently';
+            const time = exam.savedAt?.toDate
+              ? exam.savedAt.toDate().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+              : '';
+            return (
+              <div key={exam.id} style={{
+                background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)',
+                borderRadius: 14, padding: '14px 16px',
+              }}>
+                {/* Title row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                    background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                  }}>📋</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontFamily: F, marginBottom: 2 }}>
+                      {exam.examName || 'Entrance Exam'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
+                      Q{(exam.currentIndex || 0) + 1} of {exam.totalQuestions || '?'} · {exam.answeredCount || 0} answered
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: 'var(--teal)', borderRadius: 3, transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
+                    🕐 Saved {date}{time ? ` · ${time}` : ''}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700, fontFamily: F }}>{pct}%</span>
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => onContinue(exam)}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 10, border: 'none',
+                      cursor: 'pointer', background: 'var(--teal)', color: '#fff',
+                      fontFamily: F, fontWeight: 800, fontSize: 14,
+                    }}
+                  >▶ Resume</button>
+                  <button
+                    onClick={() => onDiscard(exam)}
+                    style={{
+                      padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)',
+                      color: '#EF4444', fontFamily: F, fontWeight: 700, fontSize: 13,
+                    }}
+                  >🗑 Discard</button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: '#F59E0B', borderRadius: 3, transition: 'width 0.4s' }} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button onClick={onContinue} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#F59E0B', color: '#000', fontFamily: F, fontWeight: 800, fontSize: 14 }}>
-          ▶ Continue
-        </button>
-        <button onClick={onDiscard} style={{ padding: '9px 12px', borderRadius: 10, cursor: 'pointer', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#EF4444', fontFamily: F, fontWeight: 700, fontSize: 13 }}>
-          ✕
-        </button>
       </div>
     </div>
   );
@@ -155,13 +231,14 @@ export default function EntranceExamHub() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [stats,          setStats]          = useState({ schools: 0, questions: 0 });
-  const [completedExams, setCompletedExams] = useState([]);
-  const [pausedExams,    setPausedExams]    = useState([]);
-  const [avgScore,       setAvgScore]       = useState(0);
-  const [bannerVis,      setBannerVis]      = useState(false);
-  const [loading,        setLoading]        = useState(true);
-  const [loadError,      setLoadError]      = useState('');
+  const [stats,           setStats]           = useState({ schools: 0, questions: 0 });
+  const [completedExams,  setCompletedExams]  = useState([]);
+  const [pausedExams,     setPausedExams]     = useState([]);
+  const [avgScore,        setAvgScore]        = useState(0);
+  const [bannerVis,       setBannerVis]       = useState(false);
+  const [loading,         setLoading]         = useState(true);
+  const [loadError,       setLoadError]       = useState('');
+  const [showPausedModal, setShowPausedModal] = useState(false);
 
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
@@ -234,6 +311,7 @@ export default function EntranceExamHub() {
   };
 
   const handleContinue = (exam) => {
+    setShowPausedModal(false);
     navigate('/entrance-exam/session', {
       state: {
         resumeMode:   true,
@@ -254,7 +332,11 @@ export default function EntranceExamHub() {
     if (!window.confirm('Discard this paused exam?')) return;
     try {
       await deleteDoc(doc(db, 'entrancePausedExams', exam.id));
-      setPausedExams(prev => prev.filter(e => e.id !== exam.id));
+      setPausedExams(prev => {
+        const updated = prev.filter(e => e.id !== exam.id);
+        if (updated.length === 0) setShowPausedModal(false);
+        return updated;
+      });
     } catch (e) { console.error('Discard error:', e); }
   };
 
@@ -273,6 +355,15 @@ export default function EntranceExamHub() {
   return (
     <div style={{ padding: '24px 20px', maxWidth: 1100, fontFamily: F, color: 'var(--text-primary)' }}>
 
+      {/* Paused Exams Modal */}
+      {showPausedModal && (
+        <PausedModal
+          exams={pausedExams}
+          onContinue={handleContinue}
+          onDiscard={handleDiscard}
+          onClose={() => setShowPausedModal(false)}
+        />
+      )}
 
       {/* Load error */}
       {loadError && (
@@ -321,7 +412,7 @@ export default function EntranceExamHub() {
           </p>
 
           {/* Stat pills */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 24 : 0 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 16 : 0 }}>
             {[
               { label: 'Schools',    value: loading ? '…' : animSchools,           icon: '🏫' },
               { label: 'Questions',  value: loading ? '…' : animQuestions,         icon: '❓' },
@@ -344,20 +435,46 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* Continue cards */}
+          {/* ── Single summary card → opens modal ── */}
           {pausedExams.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', fontFamily: F }}>▶ Continue Exam</div>
-                <div style={{ background: '#F59E0B', color: '#000', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 800, fontFamily: F }}>{pausedExams.length}</div>
+            <div
+              onClick={() => setShowPausedModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                background: 'rgba(245,158,11,0.15)',
+                border: '1.5px solid rgba(245,158,11,0.45)',
+                borderRadius: 14, padding: '14px 18px',
+                cursor: 'pointer', marginTop: 16,
+                transition: 'background 0.2s, border-color 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.25)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.15)'}
+            >
+              <span style={{ fontSize: 22 }}>▶</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: F }}>
+                  Continue an Exam
+                </div>
+                <div style={{
+                  fontSize: 12, color: 'rgba(255,255,255,0.75)',
+                  fontWeight: 700, fontFamily: F, marginTop: 2,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {pausedExams[0].examName || 'Entrance Exam'} · click to resume
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {pausedExams.map(exam => (
-                  <ContinueCard key={exam.id} exam={exam} onContinue={() => handleContinue(exam)} onDiscard={() => handleDiscard(exam)} />
-                ))}
+              <div style={{
+                background: '#F59E0B', color: '#000',
+                borderRadius: '50%', width: 28, height: 28,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 900, fontSize: 14, fontFamily: H, flexShrink: 0,
+              }}>
+                {pausedExams.length}
               </div>
+              <span style={{ color: '#F59E0B', fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
             </div>
           )}
+
         </div>
       </div>
 
