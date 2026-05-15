@@ -6,6 +6,8 @@
 //  - Added resume logic (resumeMode reads from pausedExamId)
 //  - Timer pauses when exit modal is open
 //  - Fonts: Arial Black headings, Times New Roman body
+//  - FIX: handleSaveExit now navigates immediately (fire-and-forget save)
+//         instead of awaiting — prevents "Saving…" stuck state
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -64,18 +66,21 @@ export default function EntranceSubjectSession() {
   const [showReview,    setShowReview]    = useState(false);
   // pause/exit modal
   const [showExitModal, setShowExitModal] = useState(false);
-  const [exitSaving,    setExitSaving]    = useState(false);
   const [saveError,     setSaveError]     = useState('');
 
   const timerRef     = useRef(null);
+  const isSavingRef  = useRef(false);
   const questionsRef = useRef([]);
   const answersRef   = useRef({});
   const currentRef   = useRef(0);
   const flaggedRef   = useRef({});
+  const timeLeftRef  = useRef(timeLimitMin * 60);
+
   questionsRef.current = questions;
   answersRef.current   = answers;
   currentRef.current   = current;
   flaggedRef.current   = flagged;
+  timeLeftRef.current  = timeLeft;
 
   // Lock body scroll
   useEffect(() => {
@@ -102,10 +107,10 @@ export default function EntranceSubjectSession() {
           snaps.forEach(s => s.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
           const loaded = ids.map(id => byId[id]).filter(Boolean);
           setQuestions(loaded);
-          if (resumeData.answers)      setAnswers(resumeData.answers);
-          if (resumeData.currentIndex != null) setCurrent(resumeData.currentIndex);
-          if (resumeData.flagged)      setFlagged(resumeData.flagged);
-          if (resumeData.timeLeft != null) setTimeLeft(resumeData.timeLeft);
+          if (resumeData.answers)           { setAnswers(resumeData.answers); answersRef.current = resumeData.answers; }
+          if (resumeData.currentIndex != null) { setCurrent(resumeData.currentIndex); currentRef.current = resumeData.currentIndex; }
+          if (resumeData.flagged)           { setFlagged(resumeData.flagged); flaggedRef.current = resumeData.flagged; }
+          if (resumeData.timeLeft != null)  { setTimeLeft(resumeData.timeLeft); timeLeftRef.current = resumeData.timeLeft; }
           // delete the paused doc
           if (pausedExamId) {
             deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(e =>
@@ -210,17 +215,29 @@ export default function EntranceSubjectSession() {
     if (window.confirm(msg)) doSubmit();
   }, [questions, answers, doSubmit]);
 
-  // ── Save & Exit (pause) ────────────────────────────────────────────────────
-  const handleSaveExit = useCallback(async () => {
-    const qs  = questionsRef.current;
-    const ans = answersRef.current;
-    if (!qs.length) { navigate(-1); return; }
-    if (!user?.uid) { navigate(-1); return; }
+  // ── Save & Exit (pause) — navigate immediately, save in background ─────────
+  const handleSaveExit = useCallback(() => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
 
-    setExitSaving(true);
-    setSaveError('');
-    try {
-      await addDoc(collection(db, 'entrancePausedExams'), {
+    // Snapshot refs NOW before navigating
+    const qs       = questionsRef.current;
+    const ans      = { ...answersRef.current };
+    const flagSnap = { ...flaggedRef.current };
+    const idxSnap  = currentRef.current;
+    const timeSnap = timeLeftRef.current;
+
+    // Stop timer and speech
+    clearInterval(timerRef.current);
+    stopSpeech();
+
+    // Navigate immediately — don't await the save
+    setShowExitModal(false);
+    navigate('/entrance-exam');
+
+    // Fire-and-forget background save
+    if (qs.length && user?.uid) {
+      addDoc(collection(db, 'entrancePausedExams'), {
         userId:         user.uid,
         examType:       'entrance_subject_drill',
         examName:       `${subject.name} Drill`,
@@ -231,20 +248,17 @@ export default function EntranceSubjectSession() {
         timeLimitMin,
         questionIds:    qs.map(q => q.id),
         answers:        ans,
-        flagged:        flaggedRef.current,
-        currentIndex:   currentRef.current,
-        timeLeft,
+        flagged:        flagSnap,
+        currentIndex:   idxSnap,
+        timeLeft:       timeSnap,
         answeredCount:  Object.keys(ans).length,
         totalQuestions: qs.length,
         savedAt:        serverTimestamp(),
+      }).catch(err => {
+        console.error('Background save failed:', err.code, err.message);
       });
-      navigate(-1);
-    } catch (err) {
-      console.error('Save+Exit error:', err);
-      setSaveError(`Could not save progress (${err.code || err.message}). Check connection.`);
-      setExitSaving(false);
     }
-  }, [user, subject, year, timeLimitMin, timeLeft, navigate]);
+  }, [user, subject, year, timeLimitMin, navigate]);
 
   const handleSelect = (key) => {
     if (submitted) return;
@@ -489,21 +503,22 @@ export default function EntranceSubjectSession() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             onClick={handleSaveExit}
-            disabled={exitSaving}
-            style={{ padding: '13px', borderRadius: 12, cursor: exitSaving ? 'not-allowed' : 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: subject.color, color: '#fff', opacity: exitSaving ? 0.7 : 1 }}
+            style={{
+              padding: '13px', borderRadius: 12, cursor: 'pointer',
+              fontFamily: F, fontWeight: 800, fontSize: 15,
+              border: 'none', background: subject.color, color: '#fff',
+            }}
           >
-            {exitSaving ? '💾 Saving…' : '💾 Save & Continue Later'}
+            💾 Save & Continue Later
           </button>
           <button
-            onClick={() => { stopSpeech(); clearInterval(timerRef.current); setShowExitModal(false); navigate(-1); }}
-            disabled={exitSaving}
+            onClick={() => { stopSpeech(); clearInterval(timerRef.current); setShowExitModal(false); navigate('/entrance-exam'); }}
             style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}
           >
             🗑 Exit Without Saving
           </button>
           <button
-            onClick={() => { setShowExitModal(false); setSaveError(''); }}
-            disabled={exitSaving}
+            onClick={() => { setShowExitModal(false); setSaveError(''); isSavingRef.current = false; }}
             style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}
           >
             ← Keep Drilling
