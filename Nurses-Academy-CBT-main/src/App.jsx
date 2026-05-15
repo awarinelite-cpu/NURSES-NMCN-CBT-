@@ -42,6 +42,7 @@ import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 import EntranceExamHub          from './components/entrance/EntranceExamHub';
 import EntranceSchoolList       from './components/entrance/EntranceSchoolList';
 import EntranceExamSetup        from './components/entrance/EntranceExamSetup';
+import EntranceSubjectDrill     from './components/entrance/EntranceSubjectDrill';
 import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';
 import EntranceDailyMockUpload  from './components/entrance/EntranceDailyMockUpload';
 import EntranceLeaderboard      from './components/entrance/EntranceLeaderboard';   // ← standalone file
@@ -51,9 +52,6 @@ import {
   EntranceBookmarks,
   EntranceAnalysis,
 } from './components/entrance/EntranceResultsPages';
-
-// ── FIX: EntranceSubjectDrill lives in EntranceExamStubs as a named export ──
-import { EntranceSubjectDrill } from './components/entrance/EntranceExamStubs';
 
 // ── NEW: Daily Mock Hub + Session ───────────────────────────────
 import EntranceExamDailyMockHub from './components/entrance/EntranceExamDailyMockHub';
