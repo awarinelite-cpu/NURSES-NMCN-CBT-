@@ -1,5 +1,10 @@
-// src/components/entrance/EntranceExamManager.jsx
+// src/components/admin/EntranceExamManager.jsx
 // Route: /admin/entrance-exam
+//
+// CHANGES (latest):
+//   - Added "Subjects" tab — full CRUD for `entranceExamSubjects` collection
+//   - Each subject has: name, icon (emoji), color, order (drag sort order)
+//   - Subject Drill reads from this collection via subject.name matching questions
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -28,6 +33,23 @@ const S = {
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
 
+// Preset colour palette for subject cards
+const COLOR_PALETTE = [
+  '#0D9488', // teal
+  '#3B82F6', // blue
+  '#8B5CF6', // purple
+  '#EC4899', // pink
+  '#F59E0B', // amber
+  '#10B981', // emerald
+  '#EF4444', // red
+  '#06B6D4', // cyan
+  '#F97316', // orange
+  '#6366F1', // indigo
+];
+
+// Popular emoji picks for quick selection
+const EMOJI_PICKS = ['📚','🔬','⚗️','🧬','🧪','🫀','🫁','💊','🩺','🧠','🦷','👁️','🩻','📐','📊','🔭','🌡️','🩹','💉','🧫'];
+
 // ═════════════════════════════════════════════════════════════════════════════
 // ROOT
 // ═════════════════════════════════════════════════════════════════════════════
@@ -49,6 +71,7 @@ export default function EntranceExamManager() {
 
   const TABS = [
     { id: 'schools',    label: '🏫 Manage Schools'    },
+    { id: 'subjects',   label: '📚 Manage Subjects'   },   // ← NEW
     { id: 'add_single', label: '➕ Add Single Question' },
     { id: 'bulk',       label: '📤 Bulk Upload'        },
     { id: 'bank',       label: '📋 Question Bank'      },
@@ -69,7 +92,7 @@ export default function EntranceExamManager() {
             🏫 Entrance Exam Manager
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.65)', margin: 0, fontSize: 14, fontFamily: F, fontWeight: 700 }}>
-            Manage schools · upload questions · configure smart daily mock rotation
+            Manage schools · subjects · upload questions · configure smart daily mock rotation
           </p>
         </div>
       </div>
@@ -89,10 +112,393 @@ export default function EntranceExamManager() {
       </div>
 
       {tab === 'schools'    && <SchoolsTab    toast={toast} onSchoolsChanged={reloadSchools} />}
+      {tab === 'subjects'   && <SubjectsTab   toast={toast} />}
       {tab === 'add_single' && <AddSingleTab  toast={toast} schools={schools} schoolsReady={schoolsReady} />}
       {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
       {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
       {tab === 'daily_mock' && <DailyMockTab  toast={toast} />}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB — Manage Subjects  (NEW)
+// ═════════════════════════════════════════════════════════════════════════════
+function SubjectsTab({ toast }) {
+  const [subjects,  setSubjects]  = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showModal, setModal]     = useState(false);
+  const [editing,   setEditing]   = useState(null);
+  const [form, setForm] = useState({
+    name: '', icon: '📚', color: COLOR_PALETTE[0], order: 0,
+  });
+  const [saving,    setSaving]    = useState(false);
+  const [counts,    setCounts]    = useState({});  // name → questionCount
+
+  // Load subjects + question counts
+  const load = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc'))
+      ).catch(() => getDocs(collection(db, 'entranceExamSubjects')));
+
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSubjects(list);
+
+      // Fetch question counts in parallel
+      const countEntries = await Promise.all(
+        list.map(async subj => {
+          try {
+            const c = await getCountFromServer(
+              query(collection(db, 'entranceExamQuestions'), where('subject', '==', subj.name))
+            );
+            return [subj.name, c.data().count];
+          } catch {
+            return [subj.name, 0];
+          }
+        })
+      );
+      setCounts(Object.fromEntries(countEntries));
+    } catch (e) { console.error('SubjectsTab load:', e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openAdd = () => {
+    const nextOrder = subjects.length > 0
+      ? Math.max(...subjects.map(s => s.order ?? 0)) + 1
+      : 0;
+    setEditing(null);
+    setForm({ name: '', icon: '📚', color: COLOR_PALETTE[subjects.length % COLOR_PALETTE.length], order: nextOrder });
+    setModal(true);
+  };
+
+  const openEdit = s => {
+    setEditing(s);
+    setForm({ name: s.name, icon: s.icon || '📚', color: s.color || COLOR_PALETTE[0], order: s.order ?? 0 });
+    setModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast('Subject name is required', 'error'); return; }
+    // Check for duplicate name (excluding current edit)
+    const duplicate = subjects.find(
+      s => s.name.toLowerCase() === form.name.trim().toLowerCase() && s.id !== editing?.id
+    );
+    if (duplicate) { toast('A subject with this name already exists', 'error'); return; }
+
+    setSaving(true);
+    try {
+      const data = {
+        name:      form.name.trim(),
+        icon:      form.icon || '📚',
+        color:     form.color || COLOR_PALETTE[0],
+        order:     Number(form.order) || 0,
+        updatedAt: serverTimestamp(),
+      };
+      if (editing) {
+        await updateDoc(doc(db, 'entranceExamSubjects', editing.id), data);
+        toast('Subject updated ✅', 'success');
+      } else {
+        await addDoc(collection(db, 'entranceExamSubjects'), { ...data, createdAt: serverTimestamp() });
+        toast('Subject added ✅', 'success');
+      }
+      setModal(false);
+      load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async s => {
+    const qCount = counts[s.name] || 0;
+    const msg = qCount > 0
+      ? `Delete "${s.name}"? This will NOT delete its ${qCount} questions, but they will be invisible in Subject Drill until a new subject with this name is created.`
+      : `Delete subject "${s.name}"?`;
+    if (!window.confirm(msg)) return;
+    try {
+      await deleteDoc(doc(db, 'entranceExamSubjects', s.id));
+      toast('Subject deleted', 'success');
+      load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  };
+
+  // Move up/down in order
+  const moveOrder = async (subj, direction) => {
+    const sorted = [...subjects].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const idx = sorted.findIndex(s => s.id === subj.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const other = sorted[swapIdx];
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'entranceExamSubjects', subj.id),  { order: other.order ?? swapIdx });
+      batch.update(doc(db, 'entranceExamSubjects', other.id), { order: subj.order  ?? idx     });
+      await batch.commit();
+      load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  };
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+
+      {/* Info banner */}
+      <div style={{
+        background: 'rgba(13,148,136,0.07)',
+        border: '1px solid rgba(13,148,136,0.25)',
+        borderRadius: 12, padding: '14px 18px', marginBottom: 20,
+        display: 'flex', gap: 12, alignItems: 'flex-start',
+      }}>
+        <span style={{ fontSize: 20 }}>📌</span>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, fontFamily: F, fontWeight: 700 }}>
+          Subjects defined here appear in the <strong style={{ color: 'var(--teal)' }}>Subject Drill</strong> section.
+          When uploading questions, set the <code>subject</code> field to <strong>exactly match</strong> the name you define here.
+          The drill will automatically show question counts and available years.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontFamily: F }}>
+          {subjects.length} subject{subjects.length !== 1 ? 's' : ''} defined
+        </div>
+        <button className="btn btn-primary" onClick={openAdd}>➕ Add New Subject</button>
+      </div>
+
+      {loading ? <Spinner /> : subjects.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '48px 24px',
+          background: 'var(--bg-card)', borderRadius: 16,
+          border: '1.5px dashed var(--border)',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📚</div>
+          <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>
+            No subjects yet
+          </h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 20px' }}>
+            Add your first subject — students will see these in Subject Drill.
+          </p>
+          <button className="btn btn-primary" onClick={openAdd}>➕ Add First Subject</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[...subjects]
+            .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+            .map((s, idx, arr) => (
+              <div key={s.id} style={{
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border)',
+                borderRadius: 14, padding: '14px 18px',
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}>
+                {/* Colour swatch + icon */}
+                <div style={{
+                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                  background: s.color || 'var(--teal)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22,
+                }}>
+                  {s.icon || '📚'}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', fontFamily: F }}>
+                    {s.name}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, fontFamily: F,
+                      padding: '2px 8px', borderRadius: 20,
+                      background: `${s.color || '#0D9488'}18`,
+                      color: s.color || '#0D9488',
+                      border: `1px solid ${s.color || '#0D9488'}33`,
+                    }}>
+                      {counts[s.name] ?? '…'} question{counts[s.name] !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>
+                      Order: {s.order ?? 0}
+                    </span>
+                    <span style={{
+                      fontSize: 11, fontFamily: 'monospace',
+                      color: 'var(--text-muted)', padding: '2px 6px',
+                      background: 'var(--bg-tertiary)', borderRadius: 4,
+                    }}>
+                      {s.color || '#0D9488'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Order controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => moveOrder(s, 'up')}
+                    disabled={idx === 0}
+                    title="Move up"
+                    style={{ padding: '3px 8px', opacity: idx === 0 ? 0.3 : 1 }}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => moveOrder(s, 'down')}
+                    disabled={idx === arr.length - 1}
+                    title="Move down"
+                    style={{ padding: '3px 8px', opacity: idx === arr.length - 1 ? 0.3 : 1 }}
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>✏️ Edit</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(s)} style={{ color: '#EF4444' }}>🗑️</button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* Add / Edit Modal */}
+      {showModal && (
+        <Modal title={editing ? '✏️ Edit Subject' : '➕ Add New Subject'} onClose={() => setModal(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {/* Name */}
+            <div>
+              <label style={S.label}>Subject Name *</label>
+              <input
+                className="form-input"
+                placeholder="e.g. Biology, Chemistry, Physics…"
+                value={form.name}
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: F }}>
+                ⚠️ Must match the <code>subject</code> field in uploaded questions exactly (case-sensitive).
+              </p>
+            </div>
+
+            {/* Icon */}
+            <div>
+              <label style={S.label}>Icon (emoji)</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <input
+                  className="form-input"
+                  value={form.icon}
+                  onChange={e => setForm(p => ({ ...p, icon: e.target.value }))}
+                  placeholder="📚"
+                  style={{ width: 80, textAlign: 'center', fontSize: 22 }}
+                  maxLength={4}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: F }}>or pick below:</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {EMOJI_PICKS.map(e => (
+                  <button
+                    key={e}
+                    onClick={() => setForm(p => ({ ...p, icon: e }))}
+                    style={{
+                      width: 36, height: 36, borderRadius: 8, fontSize: 18,
+                      border: `2px solid ${form.icon === e ? 'var(--teal)' : 'var(--border)'}`,
+                      background: form.icon === e ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Colour */}
+            <div>
+              <label style={S.label}>Accent Colour</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {COLOR_PALETTE.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setForm(p => ({ ...p, color: c }))}
+                    title={c}
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      background: c, cursor: 'pointer', flexShrink: 0,
+                      border: form.color === c ? '3px solid #fff' : '2px solid transparent',
+                      outline: form.color === c ? `3px solid ${c}` : 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  />
+                ))}
+                {/* Custom hex */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="color"
+                    value={form.color}
+                    onChange={e => setForm(p => ({ ...p, color: e.target.value }))}
+                    style={{ width: 28, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer', padding: 0 }}
+                    title="Custom colour"
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{form.color}</span>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div style={{
+                marginTop: 12, padding: '10px 14px', borderRadius: 10,
+                background: `${form.color}18`,
+                border: `2px solid ${form.color}55`,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8,
+                  background: form.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>
+                  {form.icon || '📚'}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontFamily: F }}>
+                    {form.name || 'Subject Name'}
+                  </div>
+                  <div style={{ fontSize: 12, color: form.color, fontWeight: 700, fontFamily: F }}>
+                    Preview
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Order */}
+            <div>
+              <label style={S.label}>Display Order</label>
+              <input
+                type="number"
+                className="form-input"
+                value={form.order}
+                onChange={e => setForm(p => ({ ...p, order: Number(e.target.value) || 0 }))}
+                style={{ width: 100 }}
+                min={0}
+              />
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: F }}>
+                Lower number = appears first. You can also reorder using ▲ ▼ buttons.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={saving || !form.name.trim()}
+              style={{ flex: 1 }}
+            >
+              {saving ? '💾 Saving…' : editing ? '💾 Save Changes' : '➕ Add Subject'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -220,7 +626,8 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
 function AddSingleTab({ toast, schools, schoolsReady }) {
   const [schoolId, setSchoolId] = useState('');
   const [year,     setYear]     = useState('2024');
-  const [subject,  setSubject]  = useState('Biology');
+  const [subject,  setSubject]  = useState('');
+  const [customSubjects, setCustomSubjects] = useState([]);
   const [addToDailyBank, setAddToDailyBank] = useState(false);
   const [mode, setMode]         = useState('form');
   const [form, setForm] = useState({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
@@ -228,6 +635,23 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
   const [parsed,   setParsed]   = useState(null);
   const [parseErr, setParseErr] = useState('');
   const [saving,   setSaving]   = useState(false);
+
+  // Load admin-defined subjects
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc')))
+      .catch(() => getDocs(collection(db, 'entranceExamSubjects')))
+      .then(snap => {
+        const names = snap.docs.map(d => d.data().name).filter(Boolean);
+        setCustomSubjects(names);
+        if (names.length > 0 && !subject) setSubject(names[0]);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Merged subject list: admin-defined first, then legacy SUBJECTS fallback
+  const subjectOptions = customSubjects.length > 0
+    ? [...new Set([...customSubjects, ...SUBJECTS])]
+    : SUBJECTS;
 
   const handleParse = () => {
     setParseErr('');
@@ -261,7 +685,13 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div><label style={S.label}>🏫 School</label><select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}><option value="">{schoolsReady ? (schools.length === 0 ? 'No schools yet' : 'Select school…') : 'Loading…'}</option>{schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}</select></div>
           <div><label style={S.label}>📅 Year</label><select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>{ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
-          <div><label style={S.label}>📚 Subject</label><select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+          <div>
+            <label style={S.label}>📚 Subject</label>
+            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
+              <option value="">Select subject…</option>
+              {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={() => setAddToDailyBank(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', background: addToDailyBank ? 'var(--teal)' : 'var(--bg-tertiary)', transition: 'background .2s' }}><span style={{ position: 'absolute', top: 3, left: addToDailyBank ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', display: 'block' }} /></button>
@@ -320,13 +750,29 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
 function BulkUploadTab({ toast, schools, schoolsReady }) {
   const [schoolId,  setSchoolId]  = useState('');
   const [year,      setYear]      = useState('2024');
-  const [subject,   setSubject]   = useState('Biology');
+  const [subject,   setSubject]   = useState('');
+  const [customSubjects, setCustomSubjects] = useState([]);
   const [addToDailyBank, setAddToDailyBank] = useState(false);
   const [rawText,   setRawText]   = useState('');
   const [parsed,    setParsed]    = useState([]);
   const [errors,    setErrors]    = useState([]);
   const [importing, setImporting] = useState(false);
   const [imported,  setImported]  = useState(null);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc')))
+      .catch(() => getDocs(collection(db, 'entranceExamSubjects')))
+      .then(snap => {
+        const names = snap.docs.map(d => d.data().name).filter(Boolean);
+        setCustomSubjects(names);
+        if (names.length > 0 && !subject) setSubject(names[0]);
+      })
+      .catch(() => {});
+  }, []);
+
+  const subjectOptions = customSubjects.length > 0
+    ? [...new Set([...customSubjects, ...SUBJECTS])]
+    : SUBJECTS;
 
   const handleParse = () => {
     const { results, errors: errs } = parseEntranceQuestions(rawText);
@@ -365,7 +811,13 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div><label style={S.label}>🏫 School</label><select className="form-input form-select" value={schoolId} onChange={e => setSchoolId(e.target.value)} style={{ width: '100%' }}><option value="">{schoolsReady ? (schools.length === 0 ? 'No schools yet' : 'Select school…') : 'Loading…'}</option>{schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}</select></div>
           <div><label style={S.label}>📅 Year (default)</label><select className="form-input form-select" value={year} onChange={e => setYear(e.target.value)} style={{ width: '100%' }}>{ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
-          <div><label style={S.label}>📚 Subject (default)</label><select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+          <div>
+            <label style={S.label}>📚 Subject (default)</label>
+            <select className="form-input form-select" value={subject} onChange={e => setSubject(e.target.value)} style={{ width: '100%' }}>
+              <option value="">Select subject…</option>
+              {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={() => setAddToDailyBank(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', background: addToDailyBank ? 'var(--teal)' : 'var(--bg-tertiary)', transition: 'background .2s' }}><span style={{ position: 'absolute', top: 3, left: addToDailyBank ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', display: 'block' }} /></button>
@@ -425,6 +877,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [loading,      setLoading]      = useState(true);
   const [filterSchool, setFilterSchool] = useState('');
   const [filterYear,   setFilterYear]   = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
   const [filterType,   setFilterType]   = useState('');
   const [filterDaily,  setFilterDaily]  = useState('');
   const [search,       setSearch]       = useState('');
@@ -432,15 +885,24 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [selected,      setSelected]      = useState(new Set());
   const [bulkDeleting,  setBulkDeleting]  = useState(false);
   const [deleteAllBusy, setDeleteAllBusy] = useState(false);
+  const [adminSubjects, setAdminSubjects] = useState([]);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc')))
+      .catch(() => getDocs(collection(db, 'entranceExamSubjects')))
+      .then(snap => setAdminSubjects(snap.docs.map(d => d.data().name).filter(Boolean)))
+      .catch(() => {});
+  }, []);
 
   const load = async () => {
     setLoading(true);
     setSelected(new Set());
     try {
       const constraints = [];
-      if (filterSchool) constraints.push(where('schoolId', '==', filterSchool));
-      if (filterYear)   constraints.push(where('year', '==', filterYear));
-      if (filterType)   constraints.push(where('questionType', '==', filterType));
+      if (filterSchool)  constraints.push(where('schoolId', '==', filterSchool));
+      if (filterYear)    constraints.push(where('year', '==', filterYear));
+      if (filterSubject) constraints.push(where('subject', '==', filterSubject));
+      if (filterType)    constraints.push(where('questionType', '==', filterType));
       if (filterDaily === 'yes') constraints.push(where('inDailyBank', '==', true));
       if (filterDaily === 'no')  constraints.push(where('inDailyBank', '==', false));
       constraints.push(orderBy('createdAt', 'desc'));
@@ -450,7 +912,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [filterSchool, filterYear, filterType, filterDaily]);
+  useEffect(() => { load(); }, [filterSchool, filterYear, filterSubject, filterType, filterDaily]);
 
   const filtered  = search
     ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase()))
@@ -527,6 +989,10 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
 
   const dailyCount = questions.filter(q => q.inDailyBank).length;
 
+  // Build subject filter options: union of admin subjects + unique subjects in loaded questions
+  const questionSubjects = [...new Set(questions.map(q => q.subject).filter(Boolean))];
+  const allSubjectOptions = [...new Set([...adminSubjects, ...questionSubjects])].sort();
+
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12, marginBottom: 20 }}>
@@ -547,6 +1013,10 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         <select className="form-input form-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)} style={{ maxWidth: 200 }}>
           <option value="">All Schools</option>
           {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+        </select>
+        <select className="form-input form-select" value={filterSubject} onChange={e => setFilterSubject(e.target.value)} style={{ maxWidth: 160 }}>
+          <option value="">All Subjects</option>
+          {allSubjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className="form-input form-select" value={filterYear} onChange={e => setFilterYear(e.target.value)} style={{ maxWidth: 110 }}>
           <option value="">All Years</option>
@@ -631,7 +1101,13 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
       )}
 
       {editing && (
-        <EditQuestionModal question={editing} schools={schools} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }} toast={toast} />
+        <EditQuestionModal
+          question={editing}
+          schools={schools}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); toast('Updated ✅', 'success'); }}
+          toast={toast}
+        />
       )}
     </div>
   );
@@ -906,8 +1382,20 @@ function DailyMockSchedule({ toast }) {
 // EDIT QUESTION MODAL
 // ═════════════════════════════════════════════════════════════════════════════
 function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
-  const [form, setForm] = useState({ schoolId: question.schoolId || '', year: question.year || '2024', subject: question.subject || 'Biology', questionText: question.questionText || '', options: question.options || { A:'', B:'', C:'', D:'' }, correctAnswer: question.correctAnswer || 'A', explanation: question.explanation || '', diagramUrl: question.diagramUrl || '', inDailyBank: question.inDailyBank || false });
+  const [form, setForm] = useState({ schoolId: question.schoolId || '', year: question.year || '2024', subject: question.subject || '', questionText: question.questionText || '', options: question.options || { A:'', B:'', C:'', D:'' }, correctAnswer: question.correctAnswer || 'A', explanation: question.explanation || '', diagramUrl: question.diagramUrl || '', inDailyBank: question.inDailyBank || false });
   const [saving, setSaving] = useState(false);
+  const [adminSubjects, setAdminSubjects] = useState([]);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc')))
+      .catch(() => getDocs(collection(db, 'entranceExamSubjects')))
+      .then(snap => setAdminSubjects(snap.docs.map(d => d.data().name).filter(Boolean)))
+      .catch(() => {});
+  }, []);
+
+  const subjectOptions = adminSubjects.length > 0
+    ? [...new Set([...adminSubjects, ...SUBJECTS])]
+    : SUBJECTS;
 
   const handleSave = async () => {
     setSaving(true);
@@ -923,9 +1411,26 @@ function EditQuestionModal({ question, schools, onClose, onSaved, toast }) {
     <Modal title="✏️ Edit Question" onClose={onClose} wide>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[{ label: '🏫 School', key: 'schoolId', options: [{ value: '', label: 'None' }, ...schools.map(s => ({ value: s.id, label: s.shortName || s.name }))] }, { label: '📅 Year', key: 'year', options: ENTRANCE_YEARS.map(y => ({ value: y, label: y })) }, { label: '📚 Subject', key: 'subject', options: SUBJECTS.map(s => ({ value: s, label: s })) }].map(f => (
-            <div key={f.key}><label style={{ ...S.label, fontSize: 11 }}>{f.label}</label><select className="form-input form-select" value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%' }}>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-          ))}
+          <div>
+            <label style={{ ...S.label, fontSize: 11 }}>🏫 School</label>
+            <select className="form-input form-select" value={form.schoolId} onChange={e => setForm(p => ({ ...p, schoolId: e.target.value }))} style={{ width: '100%' }}>
+              <option value="">None</option>
+              {schools.map(s => <option key={s.id} value={s.id}>{s.shortName || s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ ...S.label, fontSize: 11 }}>📅 Year</label>
+            <select className="form-input form-select" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} style={{ width: '100%' }}>
+              {ENTRANCE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ ...S.label, fontSize: 11 }}>📚 Subject</label>
+            <select className="form-input form-select" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} style={{ width: '100%' }}>
+              <option value="">Select subject…</option>
+              {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
         <div><label style={{ ...S.label, fontSize: 11 }}>🖼️ Diagram URL (optional)</label><input className="form-input" value={form.diagramUrl} onChange={e => setForm(p => ({ ...p, diagramUrl: e.target.value }))} placeholder="https://…" style={{ width: '100%', boxSizing: 'border-box' }} /></div>
         <div><label style={{ ...S.label, fontSize: 11 }}>📝 Question Text</label><textarea className="form-input" rows={3} value={form.questionText} onChange={e => setForm(p => ({ ...p, questionText: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }} /></div>
