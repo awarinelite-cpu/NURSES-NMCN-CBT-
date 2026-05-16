@@ -3,13 +3,13 @@
 // Guards ALL /entrance-exam/* routes.
 //
 // Logic:
-//   - Not logged in         → /auth?redirect=...
-//   - Admin                 → full access (bypass everything)
-//   - entranceExamPaid=true → full access (all questions)
-//   - Otherwise             → redirect to /entrance-exam/payment
+//   - Not logged in  → /auth?redirect=...
+//   - Logged in      → render children always
 //
-// The 10-question free cap is enforced inside each session component
-// via the isPaid flag read from profile.
+// The paid/unpaid gate is handled INSIDE EntranceExamHub itself
+// (shows upgrade card for unpaid users, full hub for paid/admin).
+// Sub-routes like /schools, /session etc. enforce isPaid inside
+// each component via profile.entranceExamPaid.
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth }               from '../../context/AuthContext';
@@ -17,7 +17,7 @@ import { useAuth }               from '../../context/AuthContext';
 export const ENTRANCE_FREE_CAP = 10;
 
 export default function EntranceExamRoute({ children }) {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   // Wait for Firebase auth to resolve before making decisions
@@ -48,12 +48,6 @@ export default function EntranceExamRoute({ children }) {
     );
   }
 
-  // Admin → full access always
-  if (profile?.role === 'admin') return children;
-
-  // Paid → full access
-  if (profile?.entranceExamPaid) return children;
-
-  // Unpaid → redirect to payment page
-  return <Navigate to="/entrance-exam/payment" replace />;
+  // Logged in → always render; paid/unpaid gate is inside each component
+  return children;
 }
