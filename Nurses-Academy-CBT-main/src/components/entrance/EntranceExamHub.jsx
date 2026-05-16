@@ -189,7 +189,7 @@ export default function EntranceExamHub() {
     if (!user) { setLoading(false); return; }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   const load = async () => {
     setLoading(true);
@@ -261,83 +261,6 @@ export default function EntranceExamHub() {
     } catch (e) { console.error('Discard error:', e); }
   };
 
-  // ── Payment gate — redirect unpaid users ──────────────────────────────────
-  if (!loading && !authLoading && !profile?.entranceExamPaid) {
-    return (
-      <div style={{ padding: '24px 20px', maxWidth: 600, fontFamily: F, color: 'var(--text-primary)' }}>
-
-        {/* Hero */}
-        <div style={{
-          background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
-          borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
-          opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
-          transition: 'opacity .6s ease, transform .6s ease',
-        }}>
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.35) 0%, transparent 60%)' }} />
-          <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,36px)' }}>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>🏥 NMCN CBT Platform</div>
-            <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.5rem,4vw,2.2rem)', color: '#fff', margin: '0 0 10px', lineHeight: 1.2 }}>
-              🏫 Nursing Schools Entrance Exam
-            </h2>
-            <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.82)', margin: 0, lineHeight: 1.6 }}>
-              Past Questions · Daily Mock · Subject Drill · Leaderboard
-            </p>
-          </div>
-        </div>
-
-        {/* Gate card */}
-        <div style={{
-          background: 'var(--bg-card)', border: '2px solid rgba(13,148,136,0.35)',
-          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 52, marginBottom: 16 }}>🔐</div>
-          <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.2rem,3vw,1.7rem)', color: 'var(--text-primary)', margin: '0 0 12px' }}>
-            Registration Required
-          </h3>
-          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'var(--text-muted)', margin: '0 0 8px', lineHeight: 1.7 }}>
-            A one-time registration fee of <strong style={{ color: 'var(--teal)', fontSize: 18 }}>₦3,000</strong> unlocks full access to all entrance exam features.
-          </p>
-          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>
-            Pay once · Access forever · Paystack or Bank Transfer
-          </p>
-
-          {/* What's included */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 28, textAlign: 'left' }}>
-            {[
-              ['🏫','School Past Questions'],
-              ['🗓️','Daily Mock Exams'],
-              ['📚','Subject Drills'],
-              ['📊','Results & Analysis'],
-              ['🔖','Bookmarks'],
-              ['🏆','Leaderboard'],
-            ].map(([icon, label]) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 18 }}>{icon}</span>
-                <span style={{ fontFamily: F, fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={() => navigate('/entrance-exam/payment')}
-            style={{
-              width: '100%', padding: '16px', border: 'none', borderRadius: 12,
-              background: 'linear-gradient(135deg,#0D9488,#0891B2)',
-              color: '#fff', fontWeight: 900, fontSize: 16,
-              fontFamily: H, letterSpacing: 0.3, cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-          >
-            💳 Pay ₦3,000 Registration Fee →
-          </button>
-          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', marginTop: 12 }}>
-            Secure payment via Paystack · Bank transfer also accepted
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ── Feature cards ─────────────────────────────────────────────────────────
   const FEATURE_CARDS = [
     { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                              color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
@@ -398,42 +321,33 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* ── Upgrade / subscription banner ── */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 14, flexWrap: 'wrap',
-            background: 'rgba(13,148,136,0.18)',
-            border: '1.5px solid rgba(13,148,136,0.45)',
-            borderRadius: 14, padding: '14px 18px',
-            marginBottom: pausedExams.length > 0 ? 16 : 0,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 28 }}>⭐</div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: F }}>
-                  Unlock Full NMCN Access
+          {/* ── Upgrade card — only for unpaid non-admin users ── */}
+          {!authLoading && !profile?.entranceExamPaid && profile?.role !== 'admin' && (
+            <div
+              onClick={() => navigate('/entrance-exam/payment')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'rgba(245,158,11,0.15)',
+                border: '1.5px solid rgba(245,158,11,0.5)',
+                borderRadius: 12, padding: '11px 16px',
+                marginBottom: pausedExams.length > 0 ? 16 : 0,
+                cursor: 'pointer', transition: 'background 0.2s, border-color 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.25)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.8)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.15)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)'; }}
+            >
+              <span style={{ fontSize: 20, flexShrink: 0 }}>🔐</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#F59E0B', fontFamily: F }}>
+                  Unlock Full Access — ₦3,000
                 </div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
-                  Subscribe to access all past questions, AI explanations &amp; analytics
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
+                  Past questions · Daily mock · Subject drill · Tap to register
                 </div>
               </div>
+              <span style={{ color: '#F59E0B', fontSize: 18, fontWeight: 900, flexShrink: 0 }}>→</span>
             </div>
-            <button
-              onClick={() => navigate('/subscription')}
-              style={{
-                padding: '10px 20px', borderRadius: 20, border: 'none',
-                background: 'linear-gradient(135deg,#0D9488,#0891B2)',
-                color: '#fff', fontWeight: 800, fontSize: 13,
-                fontFamily: H, cursor: 'pointer', whiteSpace: 'nowrap',
-                boxShadow: '0 4px 14px rgba(13,148,136,0.4)',
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              💎 Upgrade Now →
-            </button>
-          </div>
+          )}
 
           {pausedExams.length > 0 && (
             <div
