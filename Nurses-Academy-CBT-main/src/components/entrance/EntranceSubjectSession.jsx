@@ -2,12 +2,9 @@
 // Route: /entrance-exam/subject-session
 //
 // CHANGES:
-//  - Added Save & Exit modal (saves to entrancePausedExams)
-//  - Added resume logic (resumeMode reads from pausedExamId)
-//  - Timer pauses when exit modal is open
-//  - Fonts: Arial Black headings, Times New Roman body
-//  - FIX: handleSaveExit now navigates immediately (fire-and-forget save)
-//         instead of awaiting — prevents "Saving…" stuck state
+//  - FREE_CAP (10 questions) enforced for unpaid users on fresh start
+//  - Upgrade banner shown in exam header for unpaid users
+//  - All other logic (pause/resume, timer, submit) unchanged
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -19,32 +16,28 @@ import {
 import { db } from '../../firebase/config';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F        = "'Times New Roman', Times, serif";
+const H        = "'Arial Black', Arial, sans-serif";
+const FREE_CAP = 10; // max questions for unpaid users
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtTime(s) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
-
-function speakText(text) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.92;
-  window.speechSynthesis.speak(u);
-}
+function speakText(text) { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.92; window.speechSynthesis.speak(u); }
 function stopSpeech() { window.speechSynthesis?.cancel(); }
 
 export default function EntranceSubjectSession() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
+  const navigate             = useNavigate();
+  const location             = useLocation();
+  const { user, profile }    = useAuth();
+
+  // ── Paid / cap logic ───────────────────────────────────────────────────────
+  const isPaid = profile?.entranceExamPaid || profile?.role === 'admin';
 
   const {
     subject      = { name: 'Subject Drill', icon: '📚', color: '#0D9488' },
     year         = 'All Years',
     count        = 20,
     timeLimitMin = 20,
-    // resume fields
     resumeMode   = false,
     pausedExamId = null,
     resumeData   = null,
@@ -64,7 +57,6 @@ export default function EntranceSubjectSession() {
   const [submitting,    setSubmitting]    = useState(false);
   const [isSpeaking,    setIsSpeaking]    = useState(false);
   const [showReview,    setShowReview]    = useState(false);
-  // pause/exit modal
   const [showExitModal, setShowExitModal] = useState(false);
   const [saveError,     setSaveError]     = useState('');
 
@@ -82,7 +74,6 @@ export default function EntranceSubjectSession() {
   flaggedRef.current   = flagged;
   timeLeftRef.current  = timeLeft;
 
-  // Lock body scroll
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -94,50 +85,33 @@ export default function EntranceSubjectSession() {
     (async () => {
       setLoading(true);
       try {
-
-        // ── RESUME MODE ──────────────────────────────────────────────────────
+        // RESUME MODE
         if (resumeMode && resumeData?.questionIds?.length) {
-          const ids    = resumeData.questionIds;
+          const ids = resumeData.questionIds;
           const chunks = [];
           for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
-          const snaps  = await Promise.all(chunks.map(ch =>
-            getDocs(query(collection(db, 'entranceExamQuestions'), where('__name__', 'in', ch)))
-          ));
+          const snaps = await Promise.all(chunks.map(ch => getDocs(query(collection(db, 'entranceExamQuestions'), where('__name__', 'in', ch)))));
           const byId = {};
           snaps.forEach(s => s.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
           const loaded = ids.map(id => byId[id]).filter(Boolean);
           setQuestions(loaded);
-          if (resumeData.answers)           { setAnswers(resumeData.answers); answersRef.current = resumeData.answers; }
-          if (resumeData.currentIndex != null) { setCurrent(resumeData.currentIndex); currentRef.current = resumeData.currentIndex; }
-          if (resumeData.flagged)           { setFlagged(resumeData.flagged); flaggedRef.current = resumeData.flagged; }
-          if (resumeData.timeLeft != null)  { setTimeLeft(resumeData.timeLeft); timeLeftRef.current = resumeData.timeLeft; }
-          // delete the paused doc
-          if (pausedExamId) {
-            deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(e =>
-              console.warn('Could not delete paused drill doc:', e)
-            );
-          }
+          if (resumeData.answers)              { setAnswers(resumeData.answers);            answersRef.current = resumeData.answers; }
+          if (resumeData.currentIndex != null) { setCurrent(resumeData.currentIndex);      currentRef.current = resumeData.currentIndex; }
+          if (resumeData.flagged)              { setFlagged(resumeData.flagged);            flaggedRef.current = resumeData.flagged; }
+          if (resumeData.timeLeft != null)     { setTimeLeft(resumeData.timeLeft);          timeLeftRef.current = resumeData.timeLeft; }
+          if (pausedExamId) deleteDoc(doc(db, 'entrancePausedExams', pausedExamId)).catch(e => console.warn(e));
           return;
         }
 
-        // ── FRESH START ──────────────────────────────────────────────────────
+        // FRESH START — apply FREE_CAP for unpaid users
         const constraints = [where('subject', '==', subject.name)];
-        if (year && year !== 'All Years') {
-          constraints.push(where('year', '==', year));
-        }
+        if (year && year !== 'All Years') constraints.push(where('year', '==', year));
         const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
         let all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!all.length) {
-          setLoadError(
-            year && year !== 'All Years'
-              ? `No ${subject.name} questions found for ${year}.`
-              : `No questions found for ${subject.name}.`
-          );
-          return;
-        }
-        all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(count, all.length));
+        if (!all.length) { setLoadError(year && year !== 'All Years' ? `No ${subject.name} questions found for ${year}.` : `No questions found for ${subject.name}.`); return; }
+        const effectiveCount = isPaid ? count : Math.min(count, FREE_CAP);
+        all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(effectiveCount, all.length));
         setQuestions(all);
-
       } catch (e) {
         setLoadError('Failed to load: ' + e.message);
       } finally {
@@ -148,18 +122,12 @@ export default function EntranceSubjectSession() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Countdown timer — pauses when exit modal is open ──────────────────────
+  // ── Timer ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (loading || submitted || questions.length === 0 || timeLimitMin === 0) return;
-    if (showExitModal) {
-      clearInterval(timerRef.current);
-      return;
-    }
+    if (showExitModal) { clearInterval(timerRef.current); return; }
     timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(timerRef.current); doSubmit(); return 0; }
-        return t - 1;
-      });
+      setTimeLeft(t => { if (t <= 1) { clearInterval(timerRef.current); doSubmit(); return 0; } return t - 1; });
     }, 1000);
     return () => clearInterval(timerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,35 +141,23 @@ export default function EntranceSubjectSession() {
     setSubmitting(true);
     clearInterval(timerRef.current);
     stopSpeech();
-
-    const qs  = questionsRef.current;
-    const ans = answersRef.current;
+    const qs = questionsRef.current, ans = answersRef.current;
     let correct = 0;
     const breakdown = qs.map((q, i) => {
-      const chosen    = ans[q.id] || null;
-      const isCorrect = chosen === q.correctAnswer;
+      const chosen = ans[q.id] || null, isCorrect = chosen === q.correctAnswer;
       if (isCorrect) correct++;
       return { q, i, chosen, correct: q.correctAnswer, isCorrect };
     });
     const score = qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0;
-
     if (user?.uid) {
       try {
         await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
-          subject:        subject.name,
-          subjectIcon:    subject.icon || '📚',
-          subjectColor:   subject.color || '#0D9488',
-          year:           year || 'All Years',
-          score,
-          correct,
-          totalQuestions: qs.length,
-          answers:        ans,
-          questionIds:    qs.map(q => q.id),
-          createdAt:      serverTimestamp(),
+          subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#0D9488',
+          year: year || 'All Years', score, correct, totalQuestions: qs.length,
+          answers: ans, questionIds: qs.map(q => q.id), createdAt: serverTimestamp(),
         });
       } catch (e) { console.warn('Save drill error:', e); }
     }
-
     setResult({ subject: subject.name, score, correct, total: qs.length, breakdown });
     setSubmitted(true);
     setSubmitting(false);
@@ -209,54 +165,26 @@ export default function EntranceSubjectSession() {
 
   const handleSubmit = useCallback(() => {
     const unanswered = questions.length - Object.keys(answers).length;
-    const msg = unanswered > 0
-      ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?`
-      : 'Submit drill now?';
-    if (window.confirm(msg)) doSubmit();
+    if (window.confirm(unanswered > 0 ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?` : 'Submit drill now?')) doSubmit();
   }, [questions, answers, doSubmit]);
 
-  // ── Save & Exit (pause) — navigate immediately, save in background ─────────
+  // ── Save & Exit ────────────────────────────────────────────────────────────
   const handleSaveExit = useCallback(() => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
-
-    // Snapshot refs NOW before navigating
-    const qs       = questionsRef.current;
-    const ans      = { ...answersRef.current };
-    const flagSnap = { ...flaggedRef.current };
-    const idxSnap  = currentRef.current;
-    const timeSnap = timeLeftRef.current;
-
-    // Stop timer and speech
-    clearInterval(timerRef.current);
-    stopSpeech();
-
-    // Navigate immediately — don't await the save
+    const qs = questionsRef.current, ans = { ...answersRef.current };
+    const flagSnap = { ...flaggedRef.current }, idxSnap = currentRef.current, timeSnap = timeLeftRef.current;
+    clearInterval(timerRef.current); stopSpeech();
     setShowExitModal(false);
     navigate('/entrance-exam');
-
-    // Fire-and-forget background save
     if (qs.length && user?.uid) {
       addDoc(collection(db, 'entrancePausedExams'), {
-        userId:         user.uid,
-        examType:       'entrance_subject_drill',
-        examName:       `${subject.name} Drill`,
-        subject:        subject.name,
-        subjectIcon:    subject.icon   || '📚',
-        subjectColor:   subject.color  || '#0D9488',
-        year:           year || 'All Years',
-        timeLimitMin,
-        questionIds:    qs.map(q => q.id),
-        answers:        ans,
-        flagged:        flagSnap,
-        currentIndex:   idxSnap,
-        timeLeft:       timeSnap,
-        answeredCount:  Object.keys(ans).length,
-        totalQuestions: qs.length,
-        savedAt:        serverTimestamp(),
-      }).catch(err => {
-        console.error('Background save failed:', err.code, err.message);
-      });
+        userId: user.uid, examType: 'entrance_subject_drill', examName: `${subject.name} Drill`,
+        subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#0D9488',
+        year: year || 'All Years', timeLimitMin, questionIds: qs.map(q => q.id),
+        answers: ans, flagged: flagSnap, currentIndex: idxSnap, timeLeft: timeSnap,
+        answeredCount: Object.keys(ans).length, totalQuestions: qs.length, savedAt: serverTimestamp(),
+      }).catch(err => console.error('Background save failed:', err.code, err.message));
     }
   }, [user, subject, year, timeLimitMin, navigate]);
 
@@ -267,8 +195,7 @@ export default function EntranceSubjectSession() {
   };
 
   const handleReadQuestion = () => {
-    const q = questions[current];
-    if (!q) return;
+    const q = questions[current]; if (!q) return;
     if (isSpeaking) { stopSpeech(); setIsSpeaking(false); return; }
     const opts = OPT_KEYS.map(k => q.options?.[k] ? `Option ${k}: ${q.options[k]}` : '').filter(Boolean).join('. ');
     speakText(`${q.questionText}. ${opts}`);
@@ -283,47 +210,34 @@ export default function EntranceSubjectSession() {
 
   const getOptStyle = (key) => {
     if (!currentQ) return {};
-    const chosen  = answers[currentQ.id];
-    const correct = currentQ.correctAnswer;
-    if (!submitted) {
-      return chosen === key
-        ? { background: subject.color + '25', border: `2px solid ${subject.color}`, color: '#fff' }
-        : { background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.85)' };
-    }
-    if (key === correct)                   return { background: 'rgba(22,163,74,0.15)',  border: '2px solid #16A34A', color: '#fff' };
+    const chosen = answers[currentQ.id], correct = currentQ.correctAnswer;
+    if (!submitted) return chosen === key ? { background: subject.color + '25', border: `2px solid ${subject.color}`, color: '#fff' } : { background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.85)' };
+    if (key === correct) return { background: 'rgba(22,163,74,0.15)', border: '2px solid #16A34A', color: '#fff' };
     if (key === chosen && key !== correct) return { background: 'rgba(239,68,68,0.12)', border: '2px solid #EF4444', color: '#fff' };
     return { background: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' };
   };
 
   const getLetterStyle = (key) => {
     if (!currentQ) return {};
-    const chosen  = answers[currentQ.id];
-    const correct = currentQ.correctAnswer;
-    if (!submitted) return {
-      background: chosen === key ? subject.color : 'rgba(255,255,255,0.1)',
-      color:      chosen === key ? '#fff' : 'rgba(255,255,255,0.45)',
-    };
-    if (key === correct)                   return { background: '#16A34A', color: '#fff' };
+    const chosen = answers[currentQ.id], correct = currentQ.correctAnswer;
+    if (!submitted) return { background: chosen === key ? subject.color : 'rgba(255,255,255,0.1)', color: chosen === key ? '#fff' : 'rgba(255,255,255,0.45)' };
+    if (key === correct) return { background: '#16A34A', color: '#fff' };
     if (key === chosen && key !== correct) return { background: '#EF4444', color: '#fff' };
     return { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' };
   };
 
   const navTileStyle = (idx) => {
-    const q   = questions[idx];
-    const ans = q ? answers[q.id] : undefined;
+    const q = questions[idx], ans = q ? answers[q.id] : undefined;
     if (idx === current) return { background: subject.color, color: '#fff', border: `2px solid ${subject.color}` };
-    if (ans)             return { background: subject.color + '22', color: subject.color, border: `2px solid ${subject.color}55` };
+    if (ans) return { background: subject.color + '22', color: subject.color, border: `2px solid ${subject.color}55` };
     return { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '2px solid rgba(255,255,255,0.08)' };
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={S.overlay}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 44, height: 44, margin: '0 auto 16px', border: `3px solid ${subject.color}33`, borderTop: `3px solid ${subject.color}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: F, fontWeight: 700 }}>
-          {resumeMode ? 'Restoring your drill…' : `Loading ${subject.name} questions…`}
-        </p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: F, fontWeight: 700 }}>{resumeMode ? 'Restoring your drill…' : `Loading ${subject.name} questions…`}</p>
       </div>
     </div>
   );
@@ -337,55 +251,27 @@ export default function EntranceSubjectSession() {
     </div>
   );
 
-  // ── Result screen ────────────────────────────────────────────────────────
+  // Result screen
   if (submitted && result) {
-    const passed     = result.score >= 50;
-    const scoreColor = result.score >= 70 ? '#10B981' : result.score >= 50 ? '#F59E0B' : '#EF4444';
-    const correctC   = result.breakdown.filter(b => b.isCorrect).length;
-    const wrongC     = result.breakdown.filter(b => b.chosen && !b.isCorrect).length;
-    const skippedC   = result.breakdown.filter(b => !b.chosen).length;
-
+    const passed = result.score >= 50, scoreColor = result.score >= 70 ? '#10B981' : result.score >= 50 ? '#F59E0B' : '#EF4444';
+    const correctC = result.breakdown.filter(b => b.isCorrect).length;
+    const wrongC   = result.breakdown.filter(b => b.chosen && !b.isCorrect).length;
+    const skippedC = result.breakdown.filter(b => !b.chosen).length;
     return (
       <div style={{ ...S.overlay, alignItems: 'flex-start', overflowY: 'auto' }}>
         <div style={{ width: '100%', maxWidth: 680, margin: '0 auto', padding: '28px 16px 64px' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ fontSize: 52, marginBottom: 8 }}>
-              {result.score >= 70 ? '🏆' : result.score >= 50 ? '🎯' : '💪'}
-            </div>
-            <h2 style={{ fontFamily: H, fontWeight: 900, color: '#fff', margin: '0 0 4px', fontSize: 26 }}>
-              {passed ? 'Well Done!' : 'Keep Practising'}
-            </h2>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: 20, fontFamily: F, fontWeight: 700 }}>
-              {subject.icon} {result.subject} Drill
-            </div>
-
-            <div style={{
-              display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
-              background: passed ? 'rgba(22,163,74,0.09)' : 'rgba(239,68,68,0.07)',
-              border: `2px solid ${scoreColor}55`, borderRadius: 20,
-              padding: '20px 44px', marginBottom: 20,
-            }}>
+            <div style={{ fontSize: 52, marginBottom: 8 }}>{result.score >= 70 ? '🏆' : result.score >= 50 ? '🎯' : '💪'}</div>
+            <h2 style={{ fontFamily: H, fontWeight: 900, color: '#fff', margin: '0 0 4px', fontSize: 26 }}>{passed ? 'Well Done!' : 'Keep Practising'}</h2>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: 20, fontFamily: F, fontWeight: 700 }}>{subject.icon} {result.subject} Drill</div>
+            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: passed ? 'rgba(22,163,74,0.09)' : 'rgba(239,68,68,0.07)', border: `2px solid ${scoreColor}55`, borderRadius: 20, padding: '20px 44px', marginBottom: 20 }}>
               <div style={{ fontSize: 56, fontWeight: 900, color: scoreColor, lineHeight: 1, fontFamily: H }}>{result.score}%</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontFamily: F, fontWeight: 700 }}>
-                {result.correct} / {result.total} correct
-              </div>
-              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: scoreColor, textTransform: 'uppercase', fontFamily: H }}>
-                {passed ? '✓ PASS' : '✗ FAIL'}
-              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontFamily: F, fontWeight: 700 }}>{result.correct} / {result.total} correct</div>
+              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: scoreColor, textTransform: 'uppercase', fontFamily: H }}>{passed ? '✓ PASS' : '✗ FAIL'}</div>
             </div>
-
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
-              {[
-                { label: 'Correct',  v: correctC,    color: '#10B981', bg: 'rgba(16,185,129,0.08)',  icon: '✅' },
-                { label: 'Wrong',    v: wrongC,       color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: '❌' },
-                { label: 'Skipped',  v: skippedC,     color: '#F59E0B', bg: 'rgba(245,158,11,0.09)',  icon: '⏭' },
-                { label: 'Total',    v: result.total, color: subject.color, bg: subject.color + '12', icon: '📝' },
-              ].map(st => (
-                <div key={st.label} style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  background: st.bg, border: `1.5px solid ${st.color}33`,
-                  borderRadius: 12, padding: '10px 16px', minWidth: 72,
-                }}>
+              {[{ label: 'Correct', v: correctC, color: '#10B981', bg: 'rgba(16,185,129,0.08)', icon: '✅' }, { label: 'Wrong', v: wrongC, color: '#EF4444', bg: 'rgba(239,68,68,0.08)', icon: '❌' }, { label: 'Skipped', v: skippedC, color: '#F59E0B', bg: 'rgba(245,158,11,0.09)', icon: '⏭' }, { label: 'Total', v: result.total, color: subject.color, bg: subject.color + '12', icon: '📝' }].map(st => (
+                <div key={st.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: st.bg, border: `1.5px solid ${st.color}33`, borderRadius: 12, padding: '10px 16px', minWidth: 72 }}>
                   <div style={{ fontSize: 16 }}>{st.icon}</div>
                   <div style={{ fontSize: 20, fontWeight: 900, color: st.color, lineHeight: 1.2, fontFamily: H }}>{st.v}</div>
                   <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, fontFamily: F }}>{st.label}</div>
@@ -393,74 +279,54 @@ export default function EntranceSubjectSession() {
               ))}
             </div>
 
+            {/* Upgrade prompt for unpaid users */}
+            {!isPaid && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1.5px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#F59E0B', fontFamily: F }}>⚡ Free preview used — {FREE_CAP} questions only</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700, marginTop: 2 }}>Pay ₦3,000 once to unlock all questions</div>
+                </div>
+                <button onClick={() => navigate('/entrance-exam/payment')} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#F59E0B', color: '#000', fontWeight: 800, fontSize: 13, fontFamily: F, cursor: 'pointer', whiteSpace: 'nowrap' }}>Upgrade Now →</button>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 32 }}>
               <button onClick={() => navigate(-1)} style={S.btnGhost}>← Back</button>
-              <button onClick={() => setShowReview(v => !v)} style={{ ...S.btnPrimary, background: subject.color }}>
-                {showReview ? 'Hide Review' : '📋 Review Answers'}
-              </button>
-              <button onClick={() => { stopSpeech(); navigate('/entrance-exam/subject-drill'); }} style={S.btnGhost}>
-                🔄 Drill Again
-              </button>
+              <button onClick={() => setShowReview(v => !v)} style={{ ...S.btnPrimary, background: subject.color }}>{showReview ? 'Hide Review' : '📋 Review Answers'}</button>
+              <button onClick={() => { stopSpeech(); navigate('/entrance-exam/subject-drill'); }} style={S.btnGhost}>🔄 Drill Again</button>
             </div>
           </div>
 
           {showReview && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4, fontFamily: H }}>
-                📋 Question-by-Question Breakdown
-              </div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4, fontFamily: H }}>📋 Question-by-Question Breakdown</div>
               {result.breakdown.map(({ q, i, chosen, correct, isCorrect }) => (
-                <div key={q.id} style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: `1.5px solid ${isCorrect ? 'rgba(22,163,74,0.2)' : chosen ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
-                  borderLeft: `4px solid ${isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`,
-                  borderRadius: 12, padding: '14px 16px',
-                }}>
+                <div key={q.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1.5px solid ${isCorrect ? 'rgba(22,163,74,0.2)' : chosen ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderLeft: `4px solid ${isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
-                    <div style={{
-                      flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
-                      background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800, fontFamily: H,
-                      color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B',
-                    }}>{i + 1}</div>
+                    <div style={{ flexShrink: 0, width: 24, height: 24, borderRadius: '50%', background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, fontFamily: H, color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B' }}>{i + 1}</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1, fontFamily: F }}>{q.questionText}</div>
                     <span style={{ fontSize: 15 }}>{isCorrect ? '✅' : chosen ? '❌' : '⏭'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 34, marginBottom: 8 }}>
                     {OPT_KEYS.map(key => {
-                      const text = q.options?.[key];
-                      if (!text) return null;
+                      const text = q.options?.[key]; if (!text) return null;
                       const isCorr = key === correct, isChos = key === chosen;
                       let bg = 'rgba(255,255,255,0.04)', border = 'rgba(255,255,255,0.08)', color = 'rgba(255,255,255,0.35)', weight = 400;
-                      if (isCorr)            { bg = 'rgba(22,163,74,0.13)'; border = '#16A34A'; color = '#16A34A'; weight = 700; }
-                      if (isChos && !isCorr) { bg = 'rgba(239,68,68,0.1)';  border = '#EF4444'; color = '#EF4444'; weight = 700; }
-                      return (
-                        <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}>
-                          <span style={{ fontWeight: 800 }}>{key}.</span> {text}
-                          {isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}
-                        </div>
-                      );
+                      if (isCorr) { bg = 'rgba(22,163,74,0.13)'; border = '#16A34A'; color = '#16A34A'; weight = 700; }
+                      if (isChos && !isCorr) { bg = 'rgba(239,68,68,0.1)'; border = '#EF4444'; color = '#EF4444'; weight = 700; }
+                      return <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}><span style={{ fontWeight: 800 }}>{key}.</span> {text}{isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}</div>;
                     })}
                   </div>
                   <div style={{ paddingLeft: 34, fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700 }}>
-                    {!chosen
-                      ? <span style={{ color: '#F59E0B' }}>⏭ Skipped — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>
-                      : isCorrect
-                        ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
-                        : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>
-                    }
+                    {!chosen ? <span style={{ color: '#F59E0B' }}>⏭ Skipped — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>
+                      : isCorrect ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
+                      : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
                   </div>
-                  {q.explanation && (
-                    <div style={{ marginTop: 10, marginLeft: 34, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.18)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.55, fontFamily: F, fontWeight: 700 }}>
-                      💡 {q.explanation}
-                    </div>
-                  )}
+                  {q.explanation && <div style={{ marginTop: 10, marginLeft: 34, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.18)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.55, fontFamily: F, fontWeight: 700 }}>💡 {q.explanation}</div>}
                 </div>
               ))}
             </div>
           )}
-
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 24 }}>
             <button onClick={() => navigate(-1)} style={S.btnGhost}>← Back to Dashboard</button>
           </div>
@@ -469,70 +335,36 @@ export default function EntranceSubjectSession() {
     );
   }
 
-  // ── Exit Modal ─────────────────────────────────────────────────────────────
+  // Exit Modal
   const ExitModal = () => (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#0F1E35', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}>
         <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
         <h3 style={{ textAlign: 'center', color: '#fff', margin: '0 0 8px', fontFamily: H, fontWeight: 900 }}>Exit Drill?</h3>
-        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 4px', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>
-          Save your progress and continue later, or exit without saving.
-        </p>
-
-        {/* Progress preview */}
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 4px', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>Save your progress and continue later, or exit without saving.</p>
         <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 16px', margin: '14px 0', display: 'flex', gap: 14, alignItems: 'center' }}>
           <span style={{ fontSize: 22 }}>{subject.icon}</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 4, fontFamily: F }}>{subject.name}</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, marginBottom: 6 }}>
-              {answered}/{total} answered · Q{current + 1} of {total}
-              {timeLimitMin > 0 && ` · ⏱ ${fmtTime(timeLeft)} left`}
-            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, marginBottom: 6 }}>{answered}/{total} answered · Q{current + 1} of {total}{timeLimitMin > 0 && ` · ⏱ ${fmtTime(timeLeft)} left`}</div>
             <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${total > 0 ? (answered / total) * 100 : 0}%`, background: subject.color, borderRadius: 2 }} />
             </div>
           </div>
         </div>
-
-        {saveError && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#EF4444', lineHeight: 1.5, fontFamily: F, fontWeight: 700 }}>
-            ⚠️ {saveError}
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button
-            onClick={handleSaveExit}
-            style={{
-              padding: '13px', borderRadius: 12, cursor: 'pointer',
-              fontFamily: F, fontWeight: 800, fontSize: 15,
-              border: 'none', background: subject.color, color: '#fff',
-            }}
-          >
-            💾 Save & Continue Later
-          </button>
-          <button
-            onClick={() => { stopSpeech(); clearInterval(timerRef.current); setShowExitModal(false); navigate('/entrance-exam'); }}
-            style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}
-          >
-            🗑 Exit Without Saving
-          </button>
-          <button
-            onClick={() => { setShowExitModal(false); setSaveError(''); isSavingRef.current = false; }}
-            style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}
-          >
-            ← Keep Drilling
-          </button>
+          <button onClick={handleSaveExit} style={{ padding: '13px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: subject.color, color: '#fff' }}>💾 Save & Continue Later</button>
+          <button onClick={() => { stopSpeech(); clearInterval(timerRef.current); setShowExitModal(false); navigate('/entrance-exam'); }} style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>🗑 Exit Without Saving</button>
+          <button onClick={() => { setShowExitModal(false); setSaveError(''); isSavingRef.current = false; }} style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}>← Keep Drilling</button>
         </div>
       </div>
     </div>
   );
 
-  // ── Exam UI ──────────────────────────────────────────────────────────────
+  // Main Exam UI
   return (
     <div style={S.overlay}>
       {showExitModal && <ExitModal />}
-
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
 
         {/* Header */}
@@ -541,216 +373,95 @@ export default function EntranceSubjectSession() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: H }}>
                 {subject.icon} {subject.name}
-                {year && year !== 'All Years' && (
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>
-                    📅 {year}
-                  </span>
-                )}
-                {resumeMode && (
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#8B5CF6', background: 'rgba(139,92,246,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>
-                    ▶ Resumed
-                  </span>
-                )}
+                {year && year !== 'All Years' && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>📅 {year}</span>}
+                {resumeMode && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#8B5CF6', background: 'rgba(139,92,246,0.12)', padding: '2px 7px', borderRadius: 20, fontFamily: F }}>▶ Resumed</span>}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1, fontFamily: F, fontWeight: 700 }}>
-                Q{current + 1} of {total} · {answered} answered
-              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1, fontFamily: F, fontWeight: 700 }}>Q{current + 1} of {total} · {answered} answered</div>
             </div>
-
-            {/* Timer (only if timed) */}
             {timeLimitMin > 0 && (
-              <div style={{
-                fontFamily: 'monospace', fontSize: 20, fontWeight: 900,
-                color: timerColor, background: timerColor + '18',
-                border: `1.5px solid ${timerColor}44`,
-                padding: '5px 11px', borderRadius: 10, flexShrink: 0,
-                display: 'flex', alignItems: 'center', gap: 5,
-              }}>
-                <span style={{ fontSize: 13 }}>⏱</span>
-                {fmtTime(timeLeft)}
+              <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 900, color: timerColor, background: timerColor + '18', border: `1.5px solid ${timerColor}44`, padding: '5px 11px', borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 13 }}>⏱</span>{fmtTime(timeLeft)}
               </div>
             )}
-
-            {/* Exit → opens Save modal */}
-            <button onClick={() => setShowExitModal(true)} style={{
-              padding: '7px 13px', borderRadius: 10,
-              background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.35)',
-              color: '#F59E0B', fontWeight: 700, fontSize: 13,
-              cursor: 'pointer', fontFamily: F, flexShrink: 0,
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}>
-              🚪 Exit
-            </button>
-
-            {/* Submit */}
-            {!submitted && (
-              <button onClick={handleSubmit} disabled={submitting} style={{
-                padding: '7px 15px', borderRadius: 10,
-                background: '#EF4444', border: 'none',
-                color: '#fff', fontWeight: 800, fontSize: 13,
-                cursor: submitting ? 'wait' : 'pointer', fontFamily: F, flexShrink: 0,
-              }}>
-                {submitting ? 'Saving…' : 'Submit'}
-              </button>
-            )}
+            <button onClick={() => setShowExitModal(true)} style={{ padding: '7px 13px', borderRadius: 10, background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.35)', color: '#F59E0B', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: F, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>🚪 Exit</button>
+            {!submitted && <button onClick={handleSubmit} disabled={submitting} style={{ padding: '7px 15px', borderRadius: 10, background: '#EF4444', border: 'none', color: '#fff', fontWeight: 800, fontSize: 13, cursor: submitting ? 'wait' : 'pointer', fontFamily: F, flexShrink: 0 }}>{submitting ? 'Saving…' : 'Submit'}</button>}
           </div>
-
           {/* Progress bar */}
           <div style={{ height: 3, background: 'rgba(255,255,255,0.07)' }}>
             <div style={{ height: '100%', width: `${progress}%`, background: subject.color, borderRadius: 2, transition: 'width 0.3s' }} />
           </div>
+          {/* ── Free preview banner ── */}
+          {!isPaid && (
+            <div style={{ background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.25)', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#F59E0B', fontFamily: F }}>⚡ Free preview — {FREE_CAP} questions only</span>
+              <button onClick={() => { stopSpeech(); clearInterval(timerRef.current); navigate('/entrance-exam/payment'); }} style={{ padding: '3px 12px', borderRadius: 20, border: '1.5px solid #F59E0B', background: 'transparent', color: '#F59E0B', fontSize: 11, fontWeight: 700, fontFamily: F, cursor: 'pointer' }}>Upgrade →</button>
+            </div>
+          )}
         </div>
 
-        {/* Scrollable body */}
+        {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 100px' }}>
-
-          {/* Navigator toggle */}
-          <button
-            onClick={() => setNavOpen(v => !v)}
-            style={{
-              width: '100%', padding: '10px 16px', borderRadius: 12,
-              background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.08)',
-              fontFamily: F, fontWeight: 700, fontSize: 13,
-              color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-            }}
-          >
+          <button onClick={() => setNavOpen(v => !v)} style={{ width: '100%', padding: '10px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.08)', fontFamily: F, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             {navOpen ? '▲' : '▼'} {navOpen ? 'Hide' : 'Show'} Question Navigator
           </button>
-
           {navOpen && (
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.07)',
-              borderRadius: 14, padding: '14px 12px', marginBottom: 12,
-            }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '14px 12px', marginBottom: 12 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {questions.map((_, idx) => (
-                  <button key={idx} onClick={() => { setCurrent(idx); setNavOpen(false); }}
-                    style={{ width: 40, height: 40, borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', ...navTileStyle(idx) }}>
-                    {idx + 1}
-                  </button>
-                ))}
+                {questions.map((_, idx) => <button key={idx} onClick={() => { setCurrent(idx); setNavOpen(false); }} style={{ width: 40, height: 40, borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', ...navTileStyle(idx) }}>{idx + 1}</button>)}
               </div>
             </div>
           )}
 
-          {/* Question card */}
           {currentQ && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.09)', borderRadius: 18, padding: '18px 16px', marginBottom: 12 }}>
-
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: subject.color + '18', border: `1px solid ${subject.color}44`, borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: subject.color, fontFamily: F }}>
-                  {subject.name}
-                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: subject.color + '18', border: `1px solid ${subject.color}44`, borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: subject.color, fontFamily: F }}>{subject.name}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button onClick={() => setFlagged(f => ({ ...f, [currentQ.id]: !f[currentQ.id] }))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, opacity: flagged[currentQ.id] ? 1 : 0.28, transition: 'opacity 0.15s' }}>
-                    🚩
-                  </button>
-                  <button onClick={() => setBookmarks(b => ({ ...b, [currentQ.id]: !b[currentQ.id] }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, fontSize: 12 }}>
-                    🔖 Bookmark
-                  </button>
+                  <button onClick={() => setFlagged(f => ({ ...f, [currentQ.id]: !f[currentQ.id] }))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, opacity: flagged[currentQ.id] ? 1 : 0.28, transition: 'opacity 0.15s' }}>🚩</button>
+                  <button onClick={() => setBookmarks(b => ({ ...b, [currentQ.id]: !b[currentQ.id] }))} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, fontSize: 12 }}>🔖 Bookmark</button>
                 </div>
               </div>
-
-              <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>
-                Q{current + 1} / {total}
-              </div>
-
-              {currentQ.diagramUrl && (
-                <div style={{ marginBottom: 14, textAlign: 'center' }}>
-                  <img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => { e.target.style.display = 'none'; }} />
-                </div>
-              )}
-
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}>
-                {currentQ.questionText}
-              </div>
-
-              <button onClick={handleReadQuestion} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                padding: '7px 16px', borderRadius: 20, marginBottom: 18, cursor: 'pointer',
-                background: isSpeaking ? subject.color + '22' : 'rgba(255,255,255,0.05)',
-                border: `1.5px solid ${isSpeaking ? subject.color : 'rgba(255,255,255,0.1)'}`,
-                color: isSpeaking ? subject.color : 'rgba(255,255,255,0.5)',
-                fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all 0.2s',
-              }}>
-                <span style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔉'}</span>
-                {isSpeaking ? 'Stop Reading' : 'Read Question'}
+              <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>Q{current + 1} / {total}</div>
+              {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}>{currentQ.questionText}</div>
+              <button onClick={handleReadQuestion} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 20, marginBottom: 18, cursor: 'pointer', background: isSpeaking ? subject.color + '22' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${isSpeaking ? subject.color : 'rgba(255,255,255,0.1)'}`, color: isSpeaking ? subject.color : 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all 0.2s' }}>
+                <span style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔉'}</span>{isSpeaking ? 'Stop Reading' : 'Read Question'}
               </button>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {OPT_KEYS.map(key => {
-                  const text = currentQ.options?.[key];
-                  if (!text) return null;
-                  return (
-                    <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
-                      <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, transition: 'all 0.15s', ...getLetterStyle(key) }}>
-                        {key}
-                      </div>
-                      <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}>{text}</span>
-                      {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
-                      {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
-                    </button>
-                  );
+                  const text = currentQ.options?.[key]; if (!text) return null;
+                  return <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, transition: 'all 0.15s', ...getLetterStyle(key) }}>{key}</div>
+                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}>{text}</span>
+                    {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
+                    {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
+                  </button>;
                 })}
               </div>
-
-              {submitted && currentQ.explanation && (
-                <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.07)', border: '1.5px solid rgba(13,148,136,0.2)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0D9488', marginBottom: 6, fontFamily: F }}>💡 Explanation</div>
-                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>{currentQ.explanation}</div>
-                </div>
-              )}
+              {submitted && currentQ.explanation && <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.07)', border: '1.5px solid rgba(13,148,136,0.2)' }}><div style={{ fontSize: 12, fontWeight: 700, color: '#0D9488', marginBottom: 6, fontFamily: F }}>💡 Explanation</div><div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>{currentQ.explanation}</div></div>}
             </div>
           )}
         </div>
 
         {/* Bottom nav */}
         <div style={{ flexShrink: 0, background: '#0A1628', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            onClick={() => setCurrent(i => Math.max(0, i - 1))}
-            disabled={current === 0}
-            style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: current === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: current === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)' }}
-          >← Previous</button>
-
+          <button onClick={() => setCurrent(i => Math.max(0, i - 1))} disabled={current === 0} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: current === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: current === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)' }}>← Previous</button>
           <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.35)', fontFamily: F }}>{current + 1} / {total}</span>
-
           {current < total - 1 ? (
-            <button onClick={() => setCurrent(i => i + 1)} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>
-              Next →
-            </button>
+            <button onClick={() => setCurrent(i => i + 1)} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>Next →</button>
           ) : !submitted ? (
-            <button onClick={handleSubmit} disabled={submitting} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>
-              ✅ Finish
-            </button>
+            <button onClick={handleSubmit} disabled={submitting} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>✅ Finish</button>
           ) : (
-            <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.6)' }}>
-              ← Back
-            </button>
+            <button onClick={() => navigate(-1)} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.6)' }}>← Back</button>
           )}
         </div>
-
       </div>
     </div>
   );
 }
 
 const S = {
-  overlay: {
-    position: 'fixed', inset: 0, zIndex: 9999,
-    background: '#0A1628', color: '#fff',
-    fontFamily: F,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  btnGhost: {
-    padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: F,
-  },
-  btnPrimary: {
-    padding: '10px 22px', borderRadius: 10, cursor: 'pointer',
-    border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: F,
-  },
+  overlay: { position: 'fixed', inset: 0, zIndex: 9999, background: '#0A1628', color: '#fff', fontFamily: "'Times New Roman', Times, serif", display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  btnGhost: { padding: '10px 20px', borderRadius: 10, cursor: 'pointer', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" },
+  btnPrimary: { padding: '10px 22px', borderRadius: 10, cursor: 'pointer', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" },
 };
