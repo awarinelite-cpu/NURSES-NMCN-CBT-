@@ -74,34 +74,16 @@ function FeatureCard({ icon, label, sub, color, to, delay }) {
         fontFamily: F,
       }}
     >
-      {/* Left accent bar */}
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: color, borderRadius: '4px 0 0 4px' }} />
-
       <div style={{ paddingLeft: 10 }}>
-        {/* Icon */}
         <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
-
-        {/* Label — Times New Roman Bold, large */}
-        <div style={{
-          fontWeight: 700, fontSize: 16,
-          color: 'var(--text-primary)',
-          fontFamily: F, marginBottom: 4,
-          lineHeight: 1.3,
-        }}>
+        <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', fontFamily: F, marginBottom: 4, lineHeight: 1.3 }}>
           {label}
         </div>
-
-        {/* Sub — Times New Roman Bold, muted */}
-        <div style={{
-          fontSize: 13, fontWeight: 700,
-          color: 'var(--text-muted)',
-          fontFamily: F,
-        }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
           {sub}
         </div>
       </div>
-
-      {/* Arrow */}
       <div style={{
         position: 'absolute', right: 14, bottom: 14,
         color, fontWeight: 900, fontSize: 20,
@@ -125,7 +107,6 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
         maxHeight: '80vh', overflowY: 'auto',
         boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
       }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
@@ -134,27 +115,19 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
             }}>▶</div>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--text-primary)', fontFamily: H }}>
-                Continue an Exam
-              </div>
+              <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--text-primary)', fontFamily: H }}>Continue an Exam</div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
                 {exams.length} paused exam{exams.length !== 1 ? 's' : ''} waiting
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-              borderRadius: 10, width: 34, height: 34, cursor: 'pointer',
-              color: 'var(--text-primary)', fontSize: 20, fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >×</button>
+          <button onClick={onClose} style={{
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            borderRadius: 10, width: 34, height: 34, cursor: 'pointer',
+            color: 'var(--text-primary)', fontSize: 20, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>×</button>
         </div>
-
-        {/* Exam list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {exams.map(exam => {
             const pct  = exam.answeredCount && exam.totalQuestions
@@ -166,56 +139,24 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
               ? exam.savedAt.toDate().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
               : '';
             return (
-              <div key={exam.id} style={{
-                background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)',
-                borderRadius: 14, padding: '14px 16px',
-              }}>
-                {/* Title row */}
+              <div key={exam.id} style={{ background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                    background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                  }}>📋</div>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📋</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontFamily: F, marginBottom: 2 }}>
-                      {exam.examName || 'Entrance Exam'}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
-                      Q{(exam.currentIndex || 0) + 1} of {exam.totalQuestions || '?'} · {exam.answeredCount || 0} answered
-                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontFamily: F, marginBottom: 2 }}>{exam.examName || 'Entrance Exam'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>Q{(exam.currentIndex || 0) + 1} of {exam.totalQuestions || '?'} · {exam.answeredCount || 0} answered</div>
                   </div>
                 </div>
-
-                {/* Progress bar */}
                 <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: 'var(--teal)', borderRadius: 3, transition: 'width 0.4s' }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>
-                    🕐 Saved {date}{time ? ` · ${time}` : ''}
-                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F }}>🕐 Saved {date}{time ? ` · ${time}` : ''}</span>
                   <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700, fontFamily: F }}>{pct}%</span>
                 </div>
-
-                {/* Buttons */}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => onContinue(exam)}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                      cursor: 'pointer', background: 'var(--teal)', color: '#fff',
-                      fontFamily: F, fontWeight: 800, fontSize: 14,
-                    }}
-                  >▶ Resume</button>
-                  <button
-                    onClick={() => onDiscard(exam)}
-                    style={{
-                      padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)',
-                      color: '#EF4444', fontFamily: F, fontWeight: 700, fontSize: 13,
-                    }}
-                  >🗑 Discard</button>
+                  <button onClick={() => onContinue(exam)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'var(--teal)', color: '#fff', fontFamily: F, fontWeight: 800, fontSize: 14 }}>▶ Resume</button>
+                  <button onClick={() => onDiscard(exam)} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontFamily: F, fontWeight: 700, fontSize: 13 }}>🗑 Discard</button>
                 </div>
               </div>
             );
@@ -228,7 +169,7 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
 
 /* ════════════════════════════════════════════════════════════════════════════ */
 export default function EntranceExamHub() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [stats,           setStats]           = useState({ schools: 0, questions: 0 });
@@ -253,7 +194,6 @@ export default function EntranceExamHub() {
   const load = async () => {
     setLoading(true);
     setLoadError('');
-
     try {
       const [sc, qc] = await Promise.all([
         getCountFromServer(collection(db, 'entranceExamSchools')),
@@ -265,18 +205,9 @@ export default function EntranceExamHub() {
     try {
       let snap;
       try {
-        snap = await getDocs(query(
-          collection(db, 'entranceExamSessions'),
-          where('userId', '==', user.uid),
-          orderBy('completedAt', 'desc'),
-          limit(20),
-        ));
+        snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid), orderBy('completedAt', 'desc'), limit(20)));
       } catch {
-        snap = await getDocs(query(
-          collection(db, 'entranceExamSessions'),
-          where('userId', '==', user.uid),
-          limit(20),
-        ));
+        snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid), limit(20)));
       }
       let sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       sessions.sort((a, b) => {
@@ -284,8 +215,7 @@ export default function EntranceExamHub() {
         const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
         return tb - ta;
       });
-      const avg = sessions.length
-        ? Math.round(sessions.reduce((s, a) => s + (a.scorePercent || 0), 0) / sessions.length) : 0;
+      const avg = sessions.length ? Math.round(sessions.reduce((s, a) => s + (a.scorePercent || 0), 0) / sessions.length) : 0;
       setCompletedExams(sessions.slice(0, 5));
       setAvgScore(avg);
     } catch (e) {
@@ -294,10 +224,7 @@ export default function EntranceExamHub() {
     }
 
     try {
-      const pausedSnap = await getDocs(query(
-        collection(db, 'entrancePausedExams'),
-        where('userId', '==', user.uid),
-      ));
+      const pausedSnap = await getDocs(query(collection(db, 'entrancePausedExams'), where('userId', '==', user.uid)));
       const paused = pausedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       paused.sort((a, b) => {
         const ta = a.savedAt?.toDate?.()?.getTime?.() ?? 0;
@@ -314,16 +241,10 @@ export default function EntranceExamHub() {
     setShowPausedModal(false);
     navigate('/entrance-exam/session', {
       state: {
-        resumeMode:   true,
-        pausedExamId: exam.id,
-        examType:     exam.examType || 'entrance_daily_mock',
-        examName:     exam.examName || 'Entrance Exam — Daily Mock',
-        resumeData: {
-          questionIds:  exam.questionIds,
-          answers:      exam.answers,
-          flagged:      exam.flagged,
-          currentIndex: exam.currentIndex || 0,
-        },
+        resumeMode: true, pausedExamId: exam.id,
+        examType: exam.examType || 'entrance_daily_mock',
+        examName: exam.examName || 'Entrance Exam — Daily Mock',
+        resumeData: { questionIds: exam.questionIds, answers: exam.answers, flagged: exam.flagged, currentIndex: exam.currentIndex || 0 },
       },
     });
   };
@@ -340,7 +261,84 @@ export default function EntranceExamHub() {
     } catch (e) { console.error('Discard error:', e); }
   };
 
-  // ── Feature cards — routes verified against App.jsx ──────────────────────
+  // ── Payment gate — redirect unpaid users ──────────────────────────────────
+  if (!loading && !profile?.entranceExamPaid) {
+    return (
+      <div style={{ padding: '24px 20px', maxWidth: 600, fontFamily: F, color: 'var(--text-primary)' }}>
+
+        {/* Hero */}
+        <div style={{
+          background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
+          borderRadius: 20, marginBottom: 28, overflow: 'hidden', position: 'relative',
+          opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
+          transition: 'opacity .6s ease, transform .6s ease',
+        }}>
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.35) 0%, transparent 60%)' }} />
+          <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,36px)' }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>🏥 NMCN CBT Platform</div>
+            <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.5rem,4vw,2.2rem)', color: '#fff', margin: '0 0 10px', lineHeight: 1.2 }}>
+              🏫 Nursing Schools Entrance Exam
+            </h2>
+            <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.82)', margin: 0, lineHeight: 1.6 }}>
+              Past Questions · Daily Mock · Subject Drill · Leaderboard
+            </p>
+          </div>
+        </div>
+
+        {/* Gate card */}
+        <div style={{
+          background: 'var(--bg-card)', border: '2px solid rgba(13,148,136,0.35)',
+          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>🔐</div>
+          <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.2rem,3vw,1.7rem)', color: 'var(--text-primary)', margin: '0 0 12px' }}>
+            Registration Required
+          </h3>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'var(--text-muted)', margin: '0 0 8px', lineHeight: 1.7 }}>
+            A one-time registration fee of <strong style={{ color: 'var(--teal)', fontSize: 18 }}>₦3,000</strong> unlocks full access to all entrance exam features.
+          </p>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>
+            Pay once · Access forever · Paystack or Bank Transfer
+          </p>
+
+          {/* What's included */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 28, textAlign: 'left' }}>
+            {[
+              ['🏫','School Past Questions'],
+              ['🗓️','Daily Mock Exams'],
+              ['📚','Subject Drills'],
+              ['📊','Results & Analysis'],
+              ['🔖','Bookmarks'],
+              ['🏆','Leaderboard'],
+            ].map(([icon, label]) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 18 }}>{icon}</span>
+                <span style={{ fontFamily: F, fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => navigate('/entrance-exam/payment')}
+            style={{
+              width: '100%', padding: '16px', border: 'none', borderRadius: 12,
+              background: 'linear-gradient(135deg,#0D9488,#0891B2)',
+              color: '#fff', fontWeight: 900, fontSize: 16,
+              fontFamily: H, letterSpacing: 0.3, cursor: 'pointer',
+              transition: 'opacity 0.2s',
+            }}
+          >
+            💳 Pay ₦3,000 Registration Fee →
+          </button>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', marginTop: 12 }}>
+            Secure payment via Paystack · Bank transfer also accepted
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Feature cards ─────────────────────────────────────────────────────────
   const FEATURE_CARDS = [
     { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                              color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
     { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools available`,             color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
@@ -355,77 +353,42 @@ export default function EntranceExamHub() {
   return (
     <div style={{ padding: '24px 20px', maxWidth: 1100, fontFamily: F, color: 'var(--text-primary)' }}>
 
-      {/* Paused Exams Modal */}
       {showPausedModal && (
-        <PausedModal
-          exams={pausedExams}
-          onContinue={handleContinue}
-          onDiscard={handleDiscard}
-          onClose={() => setShowPausedModal(false)}
-        />
+        <PausedModal exams={pausedExams} onContinue={handleContinue} onDiscard={handleDiscard} onClose={() => setShowPausedModal(false)} />
       )}
 
-      {/* Load error */}
       {loadError && (
-        <div style={{
-          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)',
-          borderRadius: 10, padding: '12px 16px', marginBottom: 16,
-          fontSize: 14, color: '#EF4444', fontWeight: 700, fontFamily: F,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#EF4444', fontWeight: 700, fontFamily: F, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           ⚠️ {loadError}
           <button onClick={load} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>Retry</button>
         </div>
       )}
 
-      {/* ── Welcome Banner ── */}
+      {/* Welcome Banner */}
       <div style={{
         background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
         borderRadius: 20, marginBottom: 32, overflow: 'hidden', position: 'relative',
-        opacity: bannerVis ? 1 : 0,
-        transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
+        opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
         transition: 'opacity .6s ease, transform .6s ease',
       }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.35) 0%, transparent 60%)' }} />
-
         <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,36px)' }}>
-
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>
-            🏥 NMCN CBT Platform
-          </div>
-
-          {/* Banner heading → Arial Black */}
-          <h2 style={{
-            fontFamily: H, fontWeight: 900,
-            fontSize: 'clamp(1.5rem, 4vw, 2.4rem)',
-            color: '#FFFFFF', margin: '0 0 10px', lineHeight: 1.2,
-          }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>🏥 NMCN CBT Platform</div>
+          <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.5rem, 4vw, 2.4rem)', color: '#FFFFFF', margin: '0 0 10px', lineHeight: 1.2 }}>
             🏫 Nursing Schools Entrance Exam
           </h2>
-
-          {/* Banner sub → Times New Roman Bold */}
-          <p style={{
-            fontFamily: F, fontWeight: 700, fontSize: 15,
-            color: 'rgba(255,255,255,0.82)', margin: '0 0 24px', lineHeight: 1.6,
-          }}>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.82)', margin: '0 0 24px', lineHeight: 1.6 }}>
             Past Questions &amp; Daily Mock — Practice Smart. Pass First. Enter Your Dream School.
           </p>
 
-          {/* Stat pills */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: pausedExams.length > 0 ? 16 : 0 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
             {[
               { label: 'Schools',    value: loading ? '…' : animSchools,           icon: '🏫' },
               { label: 'Questions',  value: loading ? '…' : animQuestions,         icon: '❓' },
               { label: 'Your Exams', value: loading ? '…' : completedExams.length, icon: '📝' },
               ...(avgScore > 0 ? [{ label: 'Avg Score', value: `${avgScore}%`, icon: '📊' }] : []),
             ].map(s => (
-              <div key={s.label} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: 'rgba(255,255,255,0.14)',
-                backdropFilter: 'blur(6px)',
-                border: '1px solid rgba(255,255,255,0.22)',
-                borderRadius: 12, padding: '10px 16px',
-              }}>
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 12, padding: '10px 16px' }}>
                 <span style={{ fontSize: 18 }}>{s.icon}</span>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18, color: '#fff', lineHeight: 1, fontFamily: H }}>{s.value}</div>
@@ -435,57 +398,69 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* ── Single summary card → opens modal ── */}
+          {/* ── Upgrade / subscription banner ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 14, flexWrap: 'wrap',
+            background: 'rgba(13,148,136,0.18)',
+            border: '1.5px solid rgba(13,148,136,0.45)',
+            borderRadius: 14, padding: '14px 18px',
+            marginBottom: pausedExams.length > 0 ? 16 : 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 28 }}>⭐</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: F }}>
+                  Unlock Full NMCN Access
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
+                  Subscribe to access all past questions, AI explanations &amp; analytics
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/subscription')}
+              style={{
+                padding: '10px 20px', borderRadius: 20, border: 'none',
+                background: 'linear-gradient(135deg,#0D9488,#0891B2)',
+                color: '#fff', fontWeight: 800, fontSize: 13,
+                fontFamily: H, cursor: 'pointer', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 14px rgba(13,148,136,0.4)',
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              💎 Upgrade Now →
+            </button>
+          </div>
+
           {pausedExams.length > 0 && (
             <div
               onClick={() => setShowPausedModal(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                background: 'rgba(245,158,11,0.15)',
-                border: '1.5px solid rgba(245,158,11,0.45)',
-                borderRadius: 14, padding: '14px 18px',
-                cursor: 'pointer', marginTop: 16,
-                transition: 'background 0.2s, border-color 0.2s',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(245,158,11,0.15)', border: '1.5px solid rgba(245,158,11,0.45)', borderRadius: 14, padding: '14px 18px', cursor: 'pointer', marginTop: 16, transition: 'background 0.2s, border-color 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.25)'}
               onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.15)'}
             >
               <span style={{ fontSize: 22 }}>▶</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: F }}>
-                  Continue an Exam
-                </div>
-                <div style={{
-                  fontSize: 12, color: 'rgba(255,255,255,0.75)',
-                  fontWeight: 700, fontFamily: F, marginTop: 2,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: F }}>Continue an Exam</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 700, fontFamily: F, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {pausedExams[0].examName || 'Entrance Exam'} · click to resume
                 </div>
               </div>
-              <div style={{
-                background: '#F59E0B', color: '#000',
-                borderRadius: '50%', width: 28, height: 28,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 900, fontSize: 14, fontFamily: H, flexShrink: 0,
-              }}>
+              <div style={{ background: '#F59E0B', color: '#000', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, fontFamily: H, flexShrink: 0 }}>
                 {pausedExams.length}
               </div>
               <span style={{ color: '#F59E0B', fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
             </div>
           )}
-
         </div>
       </div>
 
-      {/* ── Feature Cards ── */}
+      {/* Feature Cards */}
       <ACard delay={280} style={{ marginBottom: 32 }}>
-        {/* Section heading → Arial Black */}
-        <h2 style={{
-          fontFamily: H, fontWeight: 900,
-          fontSize: 'clamp(1.4rem, 3vw, 2rem)',
-          color: 'var(--text-primary)', margin: '0 0 16px',
-        }}>
+        <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: 'var(--text-primary)', margin: '0 0 16px' }}>
           ⚡ What do you want to do?
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
@@ -493,19 +468,10 @@ export default function EntranceExamHub() {
         </div>
       </ACard>
 
-      {/* ── Recommendation ── */}
+      {/* Recommendation */}
       <ACard delay={900} style={{ marginBottom: 24 }}>
-        <div style={{
-          background: 'var(--teal-glow)',
-          border: '1.5px solid rgba(13,148,136,0.25)',
-          borderRadius: 14, padding: '18px 22px',
-        }}>
-          {/* Subheading → Arial Black */}
-          <h3 style={{
-            fontFamily: H, fontWeight: 900,
-            fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
-            color: 'var(--text-primary)', margin: '0 0 12px',
-          }}>
+        <div style={{ background: 'var(--teal-glow)', border: '1.5px solid rgba(13,148,136,0.25)', borderRadius: 14, padding: '18px 22px' }}>
+          <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', color: 'var(--text-primary)', margin: '0 0 12px' }}>
             💡 Recommended For You
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -526,47 +492,25 @@ export default function EntranceExamHub() {
         </div>
       </ACard>
 
-      {/* ── Recent Exams ── */}
+      {/* Recent Exams */}
       {completedExams.length > 0 && (
         <ACard delay={1000} style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{
-              fontFamily: H, fontWeight: 900,
-              fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
-              color: 'var(--text-primary)', margin: 0,
-            }}>
-              🕓 Recent Exams
-            </h3>
-            <Link to="/entrance-exam/my-results" style={{ color: 'var(--teal)', fontSize: 14, fontWeight: 700, fontFamily: F }}>
-              All results →
-            </Link>
+            <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', color: 'var(--text-primary)', margin: 0 }}>🕓 Recent Exams</h3>
+            <Link to="/entrance-exam/my-results" style={{ color: 'var(--teal)', fontSize: 14, fontWeight: 700, fontFamily: F }}>All results →</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {completedExams.map(s => {
               const pct    = s.scorePercent ?? Math.round(((s.correct || 0) / (s.totalQuestions || 1)) * 100);
               const passed = pct >= 50;
-              const date   = s.completedAt?.toDate
-                ? s.completedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
-                : 'Recently';
+              const date   = s.completedAt?.toDate ? s.completedAt.toDate().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently';
               return (
-                <div key={s.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderLeft: `5px solid ${passed ? '#16A34A' : '#EF4444'}`,
-                  borderRadius: 12, padding: '12px 16px',
-                }}>
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `5px solid ${passed ? '#16A34A' : '#EF4444'}`, borderRadius: 12, padding: '12px 16px' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', fontFamily: F }}>
-                      {s.examName || 'Entrance Exam'}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
-                      {date} · {s.correct ?? '?'}/{s.totalQuestions ?? '?'} correct
-                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', fontFamily: F }}>{s.examName || 'Entrance Exam'}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>{date} · {s.correct ?? '?'}/{s.totalQuestions ?? '?'} correct</div>
                   </div>
-                  <div style={{ fontWeight: 900, fontSize: 18, color: passed ? '#16A34A' : '#EF4444', fontFamily: H }}>
-                    {pct}%
-                  </div>
+                  <div style={{ fontWeight: 900, fontSize: 18, color: passed ? '#16A34A' : '#EF4444', fontFamily: H }}>{pct}%</div>
                 </div>
               );
             })}
@@ -574,33 +518,18 @@ export default function EntranceExamHub() {
         </ACard>
       )}
 
-      {/* ── Empty state ── */}
+      {/* Empty state */}
       {!loading && completedExams.length === 0 && pausedExams.length === 0 && (
         <ACard delay={900}>
-          <div style={{
-            textAlign: 'center', padding: '40px 28px',
-            background: 'var(--bg-card)',
-            border: '2px solid var(--border)', borderRadius: 18,
-          }}>
+          <div style={{ textAlign: 'center', padding: '40px 28px', background: 'var(--bg-card)', border: '2px solid var(--border)', borderRadius: 18 }}>
             <div style={{ fontSize: 56, marginBottom: 14 }}>🏫</div>
-            <h3 style={{
-              fontFamily: H, fontWeight: 900,
-              fontSize: 'clamp(1.3rem, 3vw, 2rem)',
-              color: 'var(--text-primary)', margin: '0 0 10px',
-            }}>
+            <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.3rem, 3vw, 2rem)', color: 'var(--text-primary)', margin: '0 0 10px' }}>
               Start Your Entrance Exam Prep
             </h3>
-            <p style={{
-              fontFamily: F, fontWeight: 700, fontSize: 15,
-              color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.7,
-            }}>
+            <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.7 }}>
               Browse nursing schools and start practising with real past questions.
             </p>
-            <Link
-              to="/entrance-exam/schools"
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 15, fontFamily: F, fontWeight: 700 }}
-            >
+            <Link to="/entrance-exam/schools" className="btn btn-primary" style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 15, fontFamily: F, fontWeight: 700 }}>
               🏫 Browse Schools
             </Link>
           </div>
