@@ -1,7 +1,7 @@
 // src/components/entrance/EntranceBottomNav.jsx
 //
 // Draggable FAB with full-circle orbit menu.
-// All 9 icons appear at once, evenly spaced on a 360° ring.
+// All icons appear at once, evenly spaced on a 360° ring.
 // Radius is auto-calculated so icons never overlap.
 //
 // USAGE (AppLayout.jsx — unchanged):
@@ -11,9 +11,10 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-/* ── Nav items ───────────────────────────────────────────────────────────── */
-const NAV_ITEMS = [
+/* ── Base nav items (all users) ─────────────────────────────────────────── */
+const BASE_NAV = [
   { icon: '🏠', label: 'Home',       to: '/entrance-exam'               },
   { icon: '🗓️', label: 'Daily Mock', to: '/entrance-exam/daily-mock'    },
   { icon: '🏫', label: 'Schools',    to: '/entrance-exam/schools'       },
@@ -25,23 +26,31 @@ const NAV_ITEMS = [
   { icon: '🏆', label: 'Top',        to: '/entrance-exam/leaderboard'   },
 ];
 
-const N         = NAV_ITEMS.length;
-const FAB_SIZE  = 62;   // FAB diameter px
-const ICON_SIZE = 58;   // icon button diameter px
-const MIN_GAP   = 10;   // min px gap between icon edges on the ring
+/* ── Admin-only extra item ──────────────────────────────────────────────── */
+const ADMIN_ITEM = { icon: '🛡️', label: 'Control', to: '/admin' };
 
-// Minimum radius so no two adjacent icons ever overlap:
-//   chord = 2R·sin(π/N) ≥ ICON_SIZE + MIN_GAP
-const ARC_RADIUS = Math.ceil((ICON_SIZE + MIN_GAP) / (2 * Math.sin(Math.PI / N))) + 4;
+const FAB_SIZE  = 62;
+const ICON_SIZE = 58;
+const MIN_GAP   = 10;
 
 const DRAG_THRESHOLD = 5;
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+function calcRadius(n) {
+  return Math.ceil((ICON_SIZE + MIN_GAP) / (2 * Math.sin(Math.PI / n))) + 4;
+}
+
 /* ── Component ──────────────────────────────────────────────────────────── */
 export default function EntranceBottomNav() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location  = useLocation();
+  const navigate  = useNavigate();
+  const { isAdmin } = useAuth();
+
+  // Build nav items — admin gets Control Panel appended
+  const NAV_ITEMS = isAdmin ? [...BASE_NAV, ADMIN_ITEM] : BASE_NAV;
+  const N          = NAV_ITEMS.length;
+  const ARC_RADIUS = calcRadius(N);
 
   const [fabPos, setFabPos]   = useState({ fx: 0.88, fy: 0.84 });
   const [open, setOpen]       = useState(false);
@@ -158,12 +167,13 @@ export default function EntranceBottomNav() {
 
       {/* Icon buttons — full circle */}
       {p > 0.02 && NAV_ITEMS.map((item, i) => {
-        const angleDeg = (360 / N) * i - 90; // 0° = top, clockwise
+        const angleDeg = (360 / N) * i - 90;
         const rad  = angleDeg * Math.PI / 180;
         const dist = ARC_RADIUS * p;
         const left = fabX + Math.cos(rad) * dist - ICON_SIZE / 2;
         const top  = fabY + Math.sin(rad) * dist - ICON_SIZE / 2;
-        const active = isActive(item.to);
+        const active  = isActive(item.to);
+        const isAdmin_ = item.to === '/admin';
         const sc = 0.4 + 0.6 * p;
 
         return (
@@ -179,11 +189,21 @@ export default function EntranceBottomNav() {
               width: ICON_SIZE, height: ICON_SIZE,
               zIndex: 8100,
               borderRadius: '50%',
-              background: active ? 'rgba(13,148,136,0.25)' : 'rgba(4,18,36,0.88)',
-              border: active ? '2px solid #2dd4bf' : '1.5px solid rgba(13,148,136,0.35)',
+              background: active
+                ? 'rgba(13,148,136,0.25)'
+                : isAdmin_
+                  ? 'rgba(124,58,237,0.18)'
+                  : 'rgba(4,18,36,0.88)',
+              border: active
+                ? '2px solid #2dd4bf'
+                : isAdmin_
+                  ? '1.5px solid rgba(124,58,237,0.6)'
+                  : '1.5px solid rgba(13,148,136,0.35)',
               boxShadow: active
                 ? '0 0 14px rgba(13,148,136,0.5)'
-                : '0 3px 14px rgba(0,0,0,0.55)',
+                : isAdmin_
+                  ? '0 3px 14px rgba(124,58,237,0.3)'
+                  : '0 3px 14px rgba(0,0,0,0.55)',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
               gap: 2, padding: 0,
@@ -198,7 +218,7 @@ export default function EntranceBottomNav() {
             <span style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
             <span style={{
               fontSize: 9, fontWeight: 700, lineHeight: 1,
-              color: active ? '#2dd4bf' : 'rgba(255,255,255,0.65)',
+              color: active ? '#2dd4bf' : isAdmin_ ? '#A855F7' : 'rgba(255,255,255,0.65)',
               letterSpacing: 0.2,
             }}>
               {item.label}
