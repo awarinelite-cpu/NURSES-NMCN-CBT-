@@ -17,6 +17,7 @@ export default function Navbar({ onMenuToggle }) {
   };
 
   const isActive = (path) => location.pathname.startsWith(path);
+  const isEntrance = location.pathname.startsWith('/entrance-exam');
 
   return (
     <header style={styles.navbar}>
@@ -70,7 +71,9 @@ export default function Navbar({ onMenuToggle }) {
                   {isAdmin && (
                     <Link to="/admin" style={styles.dropItem}>🛡️ Admin Panel</Link>
                   )}
-                  <Link to="/dashboard" style={styles.dropItem}>🏠 Dashboard</Link>
+                  {!isEntrance && (
+                    <Link to="/dashboard" style={styles.dropItem}>🏠 Dashboard</Link>
+                  )}
                   <Link to="/profile" style={styles.dropItem}>👤 My Profile</Link>
                   <Link to="/results" style={styles.dropItem}>📊 My Results</Link>
                   <div style={styles.dropDivider} />
