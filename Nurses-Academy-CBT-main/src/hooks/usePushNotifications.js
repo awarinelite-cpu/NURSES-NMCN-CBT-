@@ -1,104 +1,72 @@
 // src/hooks/usePushNotifications.js
-import { useEffect, useState, useCallback } from 'react';
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+// Fixed to handle Android WebView where Notification API exists but is blocked.
+
+import { useState, useEffect } from 'react';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 
-const VAPID_PUBLIC_KEY = 'BItPTRNZmwVDBb3LbsgBvE6mu7rjsaZ3VXVZ3yYQwXwZeONPwovLqRL1MbVXeKJmFw6IhKeMufvxcxT-EdOjWkQ';
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw     = atob(base64);
-  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+function checkSupported() {
+  try {
+    if (typeof window === 'undefined') return false;
+    if (!('Notification' in window)) return false;
+    if (typeof Notification.requestPermission !== 'function') return false;
+    // Android WebView has 'wv)' in UA — Notification exists but always fails
+    const ua = navigator.userAgent || '';
+    if (/wv\)/.test(ua)) return false;
+    if (/FBAN|FBAV|Instagram|LinkedInApp/.test(ua)) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function usePushNotifications() {
   const { user } = useAuth();
+  const supported  = checkSupported();
+  const permission = supported ? Notification.permission : 'unsupported';
 
-  const [permission,    setPermission]    = useState(Notification.permission);
-  const [subscribed,    setSubscribed]    = useState(false);
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState(null);
-  const [swReady,       setSwReady]       = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState('');
 
-  // ── Check if SW is registered and subscription exists ──────────
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!user) return;
+    getDoc(doc(db, 'users', user.uid))
+      .then(snap => { if (snap.exists()) setSubscribed(!!snap.data().notificationsEnabled); })
+      .catch(() => {});
+  }, [user]);
 
-    navigator.serviceWorker.ready.then(async (reg) => {
-      setSwReady(true);
-      const existing = await reg.pushManager.getSubscription();
-      setSubscribed(!!existing);
-    });
-  }, []);
-
-  // ── Enable push notifications ───────────────────────────────────
-  const enablePush = useCallback(async () => {
-    if (!user) { setError('You must be logged in.'); return; }
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setError('Push notifications are not supported on this browser.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
+  const enablePush = async () => {
+    setLoading(true); setError('');
     try {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      if (result !== 'granted') {
-        setError('Permission denied. Enable notifications in your browser settings.');
-        setLoading(false);
-        return;
-      }
-
-      const reg = await navigator.serviceWorker.ready;
-
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-
-      const subJson = subscription.toJSON();
-      await setDoc(doc(db, 'pushSubscriptions', user.uid), {
-        userId:    user.uid,
-        endpoint:  subJson.endpoint,
-        keys:      subJson.keys,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        active:    true,
-        device:    navigator.userAgent.slice(0, 200),
-      });
-
+      if (!supported) throw new Error(
+        'Push notifications are not available in this browser. Open in Chrome to enable.'
+      );
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') throw new Error(
+        'Permission denied. Allow notifications in browser settings and try again.'
+      );
+      await updateDoc(doc(db, 'users', user.uid), { notificationsEnabled: true });
       setSubscribed(true);
     } catch (e) {
-      console.error('Push subscription error:', e);
-      setError('Failed to enable notifications: ' + e.message);
+      setError(e.message || 'Could not enable notifications.');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  };
 
-  // ── Disable push notifications ──────────────────────────────────
-  const disablePush = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
-
+  const disablePush = async () => {
+    setLoading(true); setError('');
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) await sub.unsubscribe();
-      await deleteDoc(doc(db, 'pushSubscriptions', user.uid));
+      await updateDoc(doc(db, 'users', user.uid), { notificationsEnabled: false });
       setSubscribed(false);
-    } catch (e) {
-      setError('Failed to disable notifications: ' + e.message);
+    } catch {
+      setError('Could not save preference. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  };
 
-  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-
-  return { supported, swReady, permission, subscribed, loading, error, enablePush, disablePush };
+  return { supported, permission, subscribed, loading, error, enablePush, disablePush };
 }
