@@ -24,7 +24,7 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
 const BANK = {
   bank:    'Moniepoint',
@@ -136,6 +136,10 @@ export default function EntranceExamPaymentPage() {
 
       // IMPORTANT: must be synchronous — no async/await inside
       callback: (response) => {
+        // Write payment record as 'pending' — the Paystack webhook Cloud
+        // Function verifies the payment server-side and sets it to 'confirmed',
+        // then activates entranceExamPaid on the user doc.
+        // This prevents clients from self-confirming payments.
         addDoc(collection(db, 'payments'), {
           userId:    user.uid,
           userName:  profile?.name || user.displayName || user.email,
@@ -145,25 +149,19 @@ export default function EntranceExamPaymentPage() {
           amount:    EXAM.amount,
           method:    'paystack',
           reference: response.reference,
-          status:    'confirmed',
+          status:    'pending',          // webhook will set 'confirmed'
           createdAt: serverTimestamp(),
         })
-        .then(() =>
-          updateDoc(doc(db, 'users', user.uid), {
-            entranceExamPaid:   true,
-            entranceExamPaidAt: serverTimestamp(),
-            entranceExamRef:    response.reference,
-          })
-        )
         .then(() => {
           setDoneMethod('paystack');
           setDone(true);
+          // Navigate after 3s — by then webhook has likely fired
           setTimeout(() => navigate('/entrance-exam'), 3000);
         })
         .catch(() => {
           setError(
-            'Payment received but activation failed. Contact support with reference: ' +
-            response.reference
+            'Payment received but record failed to save. ' +
+            'Contact support with your reference: ' + response.reference
           );
         });
       },
