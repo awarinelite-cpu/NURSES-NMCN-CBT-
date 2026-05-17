@@ -28,7 +28,7 @@ const ENTRANCE_NAV = [
   { to: '/entrance-exam/my-results',      icon: '📊', label: 'My Results'           },
   { to: '/entrance-exam/analysis',        icon: '📈', label: 'Analysis'             },
   { to: '/entrance-exam/leaderboard',     icon: '🏆', label: 'Leaderboard'          },
-  { to: '/subscription',                  icon: '💳', label: 'Subscription'         },
+  { to: '/entrance-exam/payment',          icon: '💳', label: 'Registration'         },
   { to: '/profile',                       icon: '👤', label: 'Profile'              },
 ];
 
