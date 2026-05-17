@@ -41,7 +41,6 @@ const ADMIN_NAV = [
   { to: '/admin/announcements',    icon: '📢',  label: 'Announcements'   },
   { to: '/admin/analytics',        icon: '📈',  label: 'Analytics'       },
   { to: '/admin/entrance-exam',    icon: '🏫',  label: 'Entrance Exam'   },
-  { to: '/dashboard',              icon: '🏠',  label: 'Student View'    },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -143,6 +142,28 @@ export default function Sidebar({ open, onClose }) {
           </ul>
 
           {/* Switch section — lets user jump between sections */}
+          {isAdmin && (
+            <div style={{ marginTop: 16, padding: '0 6px' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 8 }}>
+                Switch to
+              </div>
+              <NavLink
+                to="/dashboard"
+                onClick={onClose}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 14px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.55)', fontSize: 13,
+                  fontWeight: 700, textDecoration: 'none',
+                  transition: 'all .2s',
+                }}
+              >
+                <span>🎓</span> Student View
+              </NavLink>
+            </div>
+          )}
           {!isAdmin && (
             <div style={{ marginTop: 16, padding: '0 6px' }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 8 }}>

@@ -29,7 +29,7 @@ export default function Navbar({ onMenuToggle }) {
               ☰
             </button>
           )}
-          <Link to={user ? '/dashboard' : '/'} style={styles.brand}>
+          <Link to={user ? (isEntrance ? '/entrance-exam' : '/dashboard') : '/'} style={styles.brand}>
             <span style={styles.brandIcon}>📚</span>
             <span>NMCN<span style={styles.brandAccent}>CBT</span></span>
           </Link>
@@ -72,7 +72,7 @@ export default function Navbar({ onMenuToggle }) {
                     <Link to="/admin" style={styles.dropItem}>🛡️ Admin Panel</Link>
                   )}
                   {!isEntrance && (
-                    <Link to="/dashboard" style={styles.dropItem}>🏠 Dashboard</Link>
+                    <Link to={isEntrance ? '/entrance-exam' : '/dashboard'} style={styles.dropItem}>🏠 Dashboard</Link>
                   )}
                   <Link to="/profile" style={styles.dropItem}>👤 My Profile</Link>
                   <Link to="/results" style={styles.dropItem}>📊 My Results</Link>
