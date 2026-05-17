@@ -16,6 +16,8 @@ function useSiteContext() {
     path.startsWith('/admin/entrance-exam');
 
   // Clearly CBT pages → remember 'cbt'
+  // NOTE: /admin is intentionally excluded — admins can reach it from
+  // either site (via the FAB), so it must not overwrite the stored context.
   const isDefinitelyCBT =
     path.startsWith('/dashboard') ||
     path.startsWith('/exams') ||
@@ -26,19 +28,19 @@ function useSiteContext() {
     path.startsWith('/mock-reviews') ||
     path.startsWith('/performance') ||
     path.startsWith('/leaderboard') ||
-    path.startsWith('/subscription') ||
-    path.startsWith('/admin');
+    path.startsWith('/subscription');
 
   useEffect(() => {
     if (isDefinitelyEntrance) localStorage.setItem('nmcn_site', 'entrance');
     else if (isDefinitelyCBT)  localStorage.setItem('nmcn_site', 'cbt');
+    // /admin, /profile, /results → neutral, don't overwrite stored context
   }, [path, isDefinitelyEntrance, isDefinitelyCBT]);
 
   // Current site — from path first, then localStorage fallback
   const stored = localStorage.getItem('nmcn_site') || 'cbt';
   if (isDefinitelyEntrance) return 'entrance';
   if (isDefinitelyCBT)      return 'cbt';
-  return stored; // shared pages like /profile, /results use remembered context
+  return stored; // /admin, /profile, /results etc. use remembered context
 }
 
 export default function Navbar({ onMenuToggle }) {
