@@ -1,6 +1,6 @@
 // src/components/admin/AdminDashboard.jsx
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
@@ -128,6 +128,94 @@ const SPARKS = {
   payments:  [15, 22, 18, 28, 24, 35, 30, 40, 36, 48, 44, 56],
   sessions:  [40, 52, 46, 62, 55, 70, 62, 78, 70, 85, 78, 92],
 };
+
+// ── Floating Nav Button ───────────────────────────────────────────────────────
+function FloatingNav() {
+  const navigate = useNavigate();
+  const [open, setOpen]   = useState(false);
+  const [vis,  setVis]    = useState(false);
+
+  useEffect(() => { const t = setTimeout(() => setVis(true), 600); return () => clearTimeout(t); }, []);
+
+  const NAV_ITEMS = [
+    { label: 'Questions',   icon: '❓', to: '/admin/questions'      },
+    { label: 'Users',       icon: '👥', to: '/admin/users'          },
+    { label: 'Payments',    icon: '💰', to: '/admin/payments'       },
+    { label: 'Courses',     icon: '📖', to: '/admin/courses'        },
+    { label: 'Entrance',    icon: '🏫', to: '/admin/entrance-exam'  },
+    { label: 'Dashboard',   icon: '🛡️', to: '/admin'               },
+  ];
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(2,11,24,0.55)', backdropFilter: 'blur(3px)',
+          }}
+        />
+      )}
+
+      {/* Menu items — fan up from FAB */}
+      {open && NAV_ITEMS.map((item, i) => (
+        <div
+          key={item.to}
+          onClick={() => { setOpen(false); navigate(item.to); }}
+          style={{
+            position: 'fixed',
+            right: 20,
+            bottom: 90 + i * 56,
+            zIndex: 9999,
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: '#0D1B2E',
+            border: '1.5px solid rgba(13,148,136,0.35)',
+            borderRadius: 28, padding: '10px 18px 10px 14px',
+            cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            animation: `fabItemIn 0.25s ease ${i * 40}ms both`,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ fontSize: 18 }}>{item.icon}</span>
+          <span style={{
+            fontSize: 13, fontWeight: 700,
+            color: '#e2e8f0', fontFamily: "'Times New Roman', Times, serif",
+          }}>{item.label}</span>
+        </div>
+      ))}
+
+      {/* FAB trigger */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          position: 'fixed', right: 20, bottom: 24, zIndex: 9999,
+          width: 54, height: 54, borderRadius: '50%', border: 'none',
+          background: open
+            ? 'linear-gradient(135deg,#EF4444,#B91C1C)'
+            : 'linear-gradient(135deg,#0D9488,#065F46)',
+          color: '#fff', fontSize: 24, cursor: 'pointer',
+          boxShadow: '0 6px 24px rgba(13,148,136,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: vis ? 1 : 0,
+          transform: vis ? 'scale(1)' : 'scale(0.6)',
+          transition: 'opacity .4s ease, transform .4s ease, background .25s ease',
+        }}
+        aria-label="Admin navigation"
+      >
+        {open ? '✕' : '⚡'}
+      </button>
+
+      <style>{`
+        @keyframes fabItemIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.92); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+      `}</style>
+    </>
+  );
+}
 
 export default function AdminDashboard() {
   const [stats,   setStats]   = useState({ questions: 0, users: 0, payments: 0, sessions: 0 });
@@ -283,6 +371,10 @@ export default function AdminDashboard() {
           ))}
         </RecentCard>
       </div>
+
+      {/* ── Floating Nav ── */}
+      <FloatingNav />
+
     </div>
   );
 }
