@@ -4,7 +4,7 @@
 // Plain getDocs — no orderBy, no compound queries, no composite indexes.
 // All sorting and time-filtering done client-side.
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate }                       from 'react-router-dom';
 import { collection, getDocs }              from 'firebase/firestore';
 import { db }                               from '../../firebase/config';
@@ -15,6 +15,25 @@ const H = "'Arial Black', Arial, sans-serif";
 
 const gradeColor = (p) =>
   p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444';
+
+// Grid columns: desktop keeps original spacious layout, mobile is tighter
+function useGrid() {
+  const [cols, setCols] = React.useState(
+    window.innerWidth < 600
+      ? '36px 38px 1fr 58px 52px 40px'
+      : '52px 44px 1fr 72px 72px 52px'
+  );
+  React.useEffect(() => {
+    const update = () => setCols(
+      window.innerWidth < 600
+        ? '36px 38px 1fr 58px 52px 40px'
+        : '52px 44px 1fr 72px 72px 52px'
+    );
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return cols;
+}
 
 function Spinner() {
   return (
@@ -33,6 +52,7 @@ function Spinner() {
 export default function EntranceLeaderboard() {
   const { user }  = useAuth();
   const navigate  = useNavigate();
+  const GRID      = useGrid();
 
   const [board,   setBoard]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +66,6 @@ export default function EntranceLeaderboard() {
     setDebug('');
 
     try {
-      // ── Simplest possible read — no indexes required ──────────────────
       const snap = await getDocs(collection(db, 'entranceExamSessions'));
 
       if (snap.empty) {
@@ -56,20 +75,17 @@ export default function EntranceLeaderboard() {
         return;
       }
 
-      // ── Client-side time filter ───────────────────────────────────────
       const cutoff = new Date();
       if      (filter === 'week')  cutoff.setDate(cutoff.getDate() - 7);
       else if (filter === 'month') cutoff.setMonth(cutoff.getMonth() - 1);
       else                         cutoff.setFullYear(2000);
 
-      // ── Group sessions by userId ──────────────────────────────────────
       const userMap = {};
 
       snap.forEach(d => {
         const s = d.data();
         if (!s.userId) return;
 
-        // Support both Firestore Timestamp and plain seconds
         const completedMs =
           s.completedAt?.toDate?.()?.getTime?.() ??
           (s.completedAt?.seconds ? s.completedAt.seconds * 1000 : 0);
@@ -93,7 +109,6 @@ export default function EntranceLeaderboard() {
         userMap[s.userId].scores.push(sessionScore);
       });
 
-      // ── Build & sort rows ─────────────────────────────────────────────
       const rows = Object.values(userMap)
         .filter(u => u.scores.length > 0)
         .map(u => ({
@@ -129,8 +144,8 @@ export default function EntranceLeaderboard() {
     <button
       onClick={() => setFilter(id)}
       style={{
-        padding: '9px 22px', borderRadius: 20, border: 'none',
-        cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F,
+        padding: '9px 20px', borderRadius: 20, border: 'none',
+        cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: F,
         background: filter === id ? '#0D9488' : 'var(--bg-tertiary)',
         color:      filter === id ? '#fff'    : 'var(--text-muted)',
         transition: 'all 0.15s',
@@ -146,39 +161,39 @@ export default function EntranceLeaderboard() {
       color: 'var(--text-primary)',
     }}>
 
-      {/* ── Page header ─────────────────────────────────────────────────── */}
+      {/* ── Page header ── */}
       <div style={{
         background: 'var(--bg-card)',
         borderBottom: '1px solid var(--border)',
-        padding: '16px 24px',
-        display: 'flex', alignItems: 'center', gap: 16,
+        padding: '16px 20px',
+        display: 'flex', alignItems: 'center', gap: 14,
       }}>
         <button
           onClick={() => navigate('/entrance-exam')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 22, color: '#0D9488', padding: 4,
-            fontWeight: 700, lineHeight: 1,
+            fontWeight: 700, lineHeight: 1, flexShrink: 0,
           }}
         >←</button>
         <div>
           <h1 style={{
             margin: 0, fontFamily: H, fontWeight: 900,
-            fontSize: 'clamp(1.4rem, 3vw, 2rem)',
+            fontSize: 'clamp(1.3rem, 3vw, 1.9rem)',
             color: 'var(--text-primary)',
           }}>🏆 Leaderboard</h1>
           <p style={{
-            margin: 0, fontSize: 14, fontWeight: 700,
+            margin: 0, fontSize: 13, fontWeight: 700,
             fontFamily: F, color: 'var(--text-muted)',
           }}>Top students ranked by highest exam score</p>
         </div>
       </div>
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>
+      {/* ── Body ── */}
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '20px 12px' }}>
 
         {/* Filter buttons */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
           <FilterBtn id="week"  label="This Week"  />
           <FilterBtn id="month" label="This Month" />
           <FilterBtn id="all"   label="All Time"   />
@@ -188,19 +203,19 @@ export default function EntranceLeaderboard() {
         {myRank > 0 && (
           <div style={{
             background: 'linear-gradient(135deg, #0D9488, #0891B2)',
-            borderRadius: 14, padding: '16px 22px', marginBottom: 20,
+            borderRadius: 14, padding: '14px 20px', marginBottom: 18,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
-            <span style={{ fontWeight: 700, fontSize: 16, color: '#fff', fontFamily: F }}>
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#fff', fontFamily: F }}>
               🎯 Your Current Rank
             </span>
-            <span style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontFamily: H }}>
+            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontFamily: H }}>
               #{myRank}
             </span>
           </div>
         )}
 
-        {/* Error banner with debug info */}
+        {/* Error banner */}
         {error && (
           <div style={{
             background: 'rgba(239,68,68,0.1)',
@@ -220,7 +235,7 @@ export default function EntranceLeaderboard() {
                 }}
               >Retry</button>
             </div>
-            {debug ? (
+            {debug && (
               <div style={{
                 marginTop: 8, fontSize: 11,
                 color: 'rgba(239,68,68,0.75)',
@@ -228,7 +243,7 @@ export default function EntranceLeaderboard() {
               }}>
                 {debug}
               </div>
-            ) : null}
+            )}
           </div>
         )}
 
@@ -249,12 +264,12 @@ export default function EntranceLeaderboard() {
             }}>
               Complete entrance exams to appear on the leaderboard.
             </p>
-            {debug ? (
+            {debug && (
               <p style={{
                 fontFamily: 'monospace', fontSize: 11,
                 color: 'var(--text-muted)', marginBottom: 20,
               }}>{debug}</p>
-            ) : null}
+            )}
             <button
               onClick={() => navigate('/entrance-exam')}
               style={{
@@ -266,26 +281,27 @@ export default function EntranceLeaderboard() {
           </div>
         ) : board.length > 0 ? (
           <>
-            {/* Column headers */}
+            {/* ── Column headers ── */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '52px 44px 1fr 72px 72px 52px',
-              gap: 8, padding: '8px 16px',
-              fontSize: 11, fontWeight: 700,
+              gridTemplateColumns: GRID,
+              gap: 6,
+              padding: '6px 12px 8px',
+              fontSize: 10, fontWeight: 700,
               color: 'var(--text-muted)',
-              textTransform: 'uppercase', letterSpacing: 0.6,
+              textTransform: 'uppercase', letterSpacing: 0.5,
               fontFamily: F,
             }}>
-              <span>#</span>
+              <span style={{ textAlign: 'center'}}>#</span>
               <span />
-              <span>Student</span>
+              <span style={{ paddingLeft: 4 }}>Student</span>
               <span style={{ textAlign: 'right' }}>Best</span>
               <span style={{ textAlign: 'right' }}>Avg</span>
               <span style={{ textAlign: 'right' }}>Exams</span>
             </div>
 
-            {/* Rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* ── Rows ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {board.map((r, i) => {
                 const isMe = r.uid === user?.uid;
                 return (
@@ -293,22 +309,19 @@ export default function EntranceLeaderboard() {
                     key={r.uid}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '52px 44px 1fr 72px 72px 52px',
-                      gap: 8, alignItems: 'center',
-                      background:   isMe
-                        ? 'rgba(13,148,136,0.12)'
-                        : 'var(--bg-card)',
-                      border:       isMe
-                        ? '2px solid #0D9488'
-                        : '1.5px solid var(--border)',
-                      borderRadius: 14,
-                      padding:      '12px 16px',
+                      gridTemplateColumns: GRID,
+                      gap: 6,
+                      alignItems: 'center',
+                      background: isMe ? 'rgba(13,148,136,0.12)' : 'var(--bg-card)',
+                      border:     isMe ? '2px solid #0D9488' : '1.5px solid var(--border)',
+                      borderRadius: 12,
+                      padding: '10px 12px',
                     }}
                   >
                     {/* Rank / medal */}
                     <div style={{
                       fontWeight: 900,
-                      fontSize:   i < 3 ? 24 : 14,
+                      fontSize:   i < 3 ? 20 : 13,
                       color:      i < 3 ? 'var(--text-primary)' : 'var(--text-muted)',
                       fontFamily: H, textAlign: 'center',
                     }}>
@@ -317,39 +330,44 @@ export default function EntranceLeaderboard() {
 
                     {/* Avatar */}
                     <div style={{
-                      width: 34, height: 34, borderRadius: '50%',
+                      width: 30, height: 30, borderRadius: '50%',
                       background: isMe ? '#0D9488' : 'var(--bg-tertiary)',
                       border: `2px solid ${isMe ? '#0D9488' : 'var(--border)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 900, fontSize: 15,
+                      fontWeight: 900, fontSize: 13,
                       color: isMe ? '#fff' : 'var(--text-muted)',
-                      fontFamily: H,
+                      fontFamily: H, flexShrink: 0,
                     }}>
                       {(r.name?.[0] || '?').toUpperCase()}
                     </div>
 
-                    {/* Name + count */}
+                    {/* Name + count — full name shown, wraps if needed */}
                     <div style={{ minWidth: 0 }}>
                       <div style={{
-                        fontWeight: 700, fontSize: 14,
+                        fontWeight: 700, fontSize: 13,
                         color: 'var(--text-primary)', fontFamily: F,
-                        overflow: 'hidden', textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        display: 'flex', alignItems: 'center', gap: 6,
+                        overflow: 'hidden',
+                        textOverflow: window.innerWidth < 600 ? 'clip' : 'ellipsis',
+                        whiteSpace: window.innerWidth < 600 ? 'normal' : 'nowrap',
+                        wordBreak: window.innerWidth < 600 ? 'break-word' : 'normal',
+                        lineHeight: 1.3,
+                        display: 'flex', alignItems: 'flex-start',
+                        gap: 5, flexWrap: 'wrap',
                       }}>
                         {r.name}
                         {isMe && (
                           <span style={{
-                            fontSize: 10, fontWeight: 700, color: '#0D9488',
+                            fontSize: 9, fontWeight: 700, color: '#0D9488',
                             background: 'rgba(13,148,136,0.12)',
-                            padding: '1px 7px', borderRadius: 20,
+                            padding: '1px 6px', borderRadius: 20,
                             border: '1px solid #0D9488', flexShrink: 0,
+                            lineHeight: 1.6,
                           }}>You</span>
                         )}
                       </div>
                       <div style={{
-                        fontSize: 11, color: 'var(--text-muted)',
-                        fontWeight: 700, fontFamily: F, marginTop: 1,
+                        fontSize: 10, color: 'var(--text-muted)',
+                        fontWeight: 700, fontFamily: F, marginTop: 2,
                       }}>
                         {r.count} exam{r.count !== 1 ? 's' : ''}
                       </div>
@@ -357,7 +375,7 @@ export default function EntranceLeaderboard() {
 
                     {/* Best score */}
                     <div style={{
-                      fontFamily: H, fontWeight: 900, fontSize: 17,
+                      fontFamily: H, fontWeight: 900, fontSize: 15,
                       color: gradeColor(r.best), textAlign: 'right',
                     }}>
                       {r.best}%
@@ -365,7 +383,7 @@ export default function EntranceLeaderboard() {
 
                     {/* Avg score */}
                     <div style={{
-                      fontFamily: F, fontWeight: 700, fontSize: 13,
+                      fontFamily: F, fontWeight: 700, fontSize: 12,
                       color: 'var(--text-muted)', textAlign: 'right',
                     }}>
                       {r.avg}%
@@ -373,7 +391,7 @@ export default function EntranceLeaderboard() {
 
                     {/* Exam count */}
                     <div style={{
-                      fontFamily: F, fontWeight: 700, fontSize: 12,
+                      fontFamily: F, fontWeight: 700, fontSize: 11,
                       color: 'var(--text-muted)', textAlign: 'right',
                     }}>
                       ×{r.count}
@@ -384,7 +402,7 @@ export default function EntranceLeaderboard() {
             </div>
 
             <p style={{
-              marginTop: 16, fontSize: 12,
+              marginTop: 14, fontSize: 12,
               color: 'var(--text-muted)', fontFamily: F,
               fontWeight: 700, textAlign: 'center',
             }}>
