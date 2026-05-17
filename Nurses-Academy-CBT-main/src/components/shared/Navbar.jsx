@@ -1,43 +1,86 @@
 // src/components/shared/Navbar.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
+// Tracks which "site" the user is in across shared pages like /profile, /results
+// Written whenever the user is on a clearly-site-specific page
+function useSiteContext() {
+  const location = useLocation();
+  const path = location.pathname;
+
+  // Clearly entrance pages → remember 'entrance'
+  const isDefinitelyEntrance =
+    path.startsWith('/entrance-exam') ||
+    path.startsWith('/admin/entrance-exam');
+
+  // Clearly CBT pages → remember 'cbt'
+  const isDefinitelyCBT =
+    path.startsWith('/dashboard') ||
+    path.startsWith('/exams') ||
+    path.startsWith('/daily-practice') ||
+    path.startsWith('/course-drill') ||
+    path.startsWith('/topic-drill') ||
+    path.startsWith('/mock-exams') ||
+    path.startsWith('/mock-reviews') ||
+    path.startsWith('/performance') ||
+    path.startsWith('/leaderboard') ||
+    path.startsWith('/subscription') ||
+    path.startsWith('/admin');
+
+  useEffect(() => {
+    if (isDefinitelyEntrance) localStorage.setItem('nmcn_site', 'entrance');
+    else if (isDefinitelyCBT)  localStorage.setItem('nmcn_site', 'cbt');
+  }, [path, isDefinitelyEntrance, isDefinitelyCBT]);
+
+  // Current site — from path first, then localStorage fallback
+  const stored = localStorage.getItem('nmcn_site') || 'cbt';
+  if (isDefinitelyEntrance) return 'entrance';
+  if (isDefinitelyCBT)      return 'cbt';
+  return stored; // shared pages like /profile, /results use remembered context
+}
+
 export default function Navbar({ onMenuToggle }) {
   const { user, profile, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate   = useNavigate();
+  const location   = useLocation();
   const [dropOpen, setDropOpen] = useState(false);
 
+  const site = useSiteContext(); // 'entrance' | 'cbt'
+  const isEntrance = site === 'entrance';
+
+  // Dashboard destination — always stays within current site
+  const dashboardTo = isEntrance
+    ? '/entrance-exam'
+    : isAdmin ? '/admin' : '/dashboard';
+
   const handleLogout = async () => {
+    localStorage.removeItem('nmcn_site');
     await logout();
     navigate('/');
   };
 
-  const isActive = (path) => location.pathname.startsWith(path);
-  const isEntrance = location.pathname.startsWith('/entrance-exam');
-
   return (
     <header style={styles.navbar}>
       <div style={styles.inner}>
-        {/* Left: menu + brand */}
+
+        {/* Left: menu + brand — brand logo always goes to current site's dashboard */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {user && (
             <button style={styles.menuBtn} onClick={onMenuToggle} aria-label="Toggle sidebar">
               ☰
             </button>
           )}
-          <Link to={user ? (isEntrance ? '/entrance-exam' : '/dashboard') : '/'} style={styles.brand}>
+          <Link to={user ? dashboardTo : '/'} style={styles.brand}>
             <span style={styles.brandIcon}>📚</span>
             <span>NMCN<span style={styles.brandAccent}>CBT</span></span>
           </Link>
         </div>
 
-        {/* Right: theme toggle + user */}
+        {/* Right: theme toggle + user dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Dark mode toggle */}
           <button className="toggle-track" onClick={toggleTheme} title="Toggle dark mode">
             <div className="toggle-thumb" />
             <span style={{ position: 'absolute', left: -9999 }}>
@@ -68,12 +111,12 @@ export default function Navbar({ onMenuToggle }) {
 
               {dropOpen && (
                 <div style={styles.dropdown} onClick={() => setDropOpen(false)}>
-                  {isAdmin && (
+                  {/* Admin Panel — only for admins, only on CBT/admin side */}
+                  {isAdmin && !isEntrance && (
                     <Link to="/admin" style={styles.dropItem}>🛡️ Admin Panel</Link>
                   )}
-                  {!isEntrance && (
-                    <Link to={isEntrance ? '/entrance-exam' : '/dashboard'} style={styles.dropItem}>🏠 Dashboard</Link>
-                  )}
+                  {/* Dashboard — always goes back to current site's home */}
+                  <Link to={dashboardTo} style={styles.dropItem}>🏠 Dashboard</Link>
                   <Link to="/profile" style={styles.dropItem}>👤 My Profile</Link>
                   <Link to="/results" style={styles.dropItem}>📊 My Results</Link>
                   <div style={styles.dropDivider} />
