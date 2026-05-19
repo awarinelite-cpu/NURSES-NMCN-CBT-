@@ -14,6 +14,7 @@ import {
   serverTimestamp, deleteDoc, doc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import ItalicText from '../shared/ItalicText';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
 const F        = "'Times New Roman', Times, serif";
@@ -304,7 +305,7 @@ export default function EntranceSubjectSession() {
                 <div key={q.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1.5px solid ${isCorrect ? 'rgba(22,163,74,0.2)' : chosen ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderLeft: `4px solid ${isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
                     <div style={{ flexShrink: 0, width: 24, height: 24, borderRadius: '50%', background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, fontFamily: H, color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B' }}>{i + 1}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1, fontFamily: F }}>{q.questionText}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1, fontFamily: F }}><ItalicText text={q.questionText} /></div>
                     <span style={{ fontSize: 15 }}>{isCorrect ? '✅' : chosen ? '❌' : '⏭'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 34, marginBottom: 8 }}>
@@ -314,7 +315,7 @@ export default function EntranceSubjectSession() {
                       let bg = 'rgba(255,255,255,0.04)', border = 'rgba(255,255,255,0.08)', color = 'rgba(255,255,255,0.35)', weight = 400;
                       if (isCorr) { bg = 'rgba(22,163,74,0.13)'; border = '#16A34A'; color = '#16A34A'; weight = 700; }
                       if (isChos && !isCorr) { bg = 'rgba(239,68,68,0.1)'; border = '#EF4444'; color = '#EF4444'; weight = 700; }
-                      return <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}><span style={{ fontWeight: 800 }}>{key}.</span> {text}{isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}</div>;
+                      return <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}><span style={{ fontWeight: 800 }}>{key}.</span> <ItalicText text={text} />{isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}</div>;
                     })}
                   </div>
                   <div style={{ paddingLeft: 34, fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700 }}>
@@ -423,7 +424,7 @@ export default function EntranceSubjectSession() {
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>Q{current + 1} / {total}</div>
               {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}>{currentQ.questionText}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}><ItalicText text={currentQ.questionText} /></div>
               <button onClick={handleReadQuestion} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 20, marginBottom: 18, cursor: 'pointer', background: isSpeaking ? subject.color + '22' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${isSpeaking ? subject.color : 'rgba(255,255,255,0.1)'}`, color: isSpeaking ? subject.color : 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all 0.2s' }}>
                 <span style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔉'}</span>{isSpeaking ? 'Stop Reading' : 'Read Question'}
               </button>
@@ -432,7 +433,7 @@ export default function EntranceSubjectSession() {
                   const text = currentQ.options?.[key]; if (!text) return null;
                   return <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, transition: 'all 0.15s', ...getLetterStyle(key) }}>{key}</div>
-                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}>{text}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}><ItalicText text={text} /></span>
                     {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
                     {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
                   </button>;

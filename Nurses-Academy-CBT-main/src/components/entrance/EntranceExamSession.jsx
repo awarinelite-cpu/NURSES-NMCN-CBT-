@@ -15,6 +15,7 @@ import {
 import { db }                                        from '../../firebase/config';
 import { useAuth }                                   from '../../context/AuthContext';
 import VoiceExamMode                                 from '../shared/VoiceExamMode';
+import ItalicText from '../shared/ItalicText';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 const F           = "'Times New Roman', Times, serif";
@@ -366,7 +367,7 @@ export default function EntranceExamSession() {
             <div key={q.id} style={{ background: 'var(--bg-card)', border: `1.5px solid ${isRight ? 'rgba(22,163,74,0.3)' : chosen ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderLeft: `4px solid ${isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
                 <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: isRight ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, fontFamily: H, color: isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B' }}>{i + 1}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.55, flex: 1, fontFamily: F }}>{q.questionText}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.55, flex: 1, fontFamily: F }}><ItalicText text={q.questionText} /></div>
                 <span style={{ fontSize: 16, flexShrink: 0 }}>{isRight ? '✅' : chosen ? '❌' : '⏭'}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 36 }}>
@@ -492,7 +493,7 @@ export default function EntranceExamSession() {
               </div>
             </div>
             {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F }}>{currentQ.questionText}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F }}><ItalicText text={currentQ.questionText} /></div>
             {!submitted && <div style={{ marginBottom: 20 }}><VoiceExamMode question={currentQ.questionText || ''} options={voiceOptions} questionId={currentQ.id} onAnswer={handleVoiceAnswer} onNext={handleNext} hasNext={currentIndex < total - 1} continuousListen={true} /></div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {OPTION_KEYS.map((key, idx) => {
@@ -500,7 +501,7 @@ export default function EntranceExamSession() {
                 return (
                   <button key={key} id={`vem-opt-${idx}`} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', ...getOptionStyle(key) }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, ...getLetterStyle(key) }}>{key}</div>
-                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}>{text}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}><ItalicText text={text} /></span>
                     {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
                     {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
                   </button>
