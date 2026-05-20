@@ -274,23 +274,50 @@ function ProfilePage() {
   const [saving,  setSaving]  = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
+  // Load schools using top-level imports (already available in this file)
   useEffect(() => {
     if (!editing) return;
-    import('firebase/firestore').then(({ collection, getDocs }) => {
+    import('firebase/firestore').then(({ collection, getDocs, orderBy, query }) => {
       import('./firebase/config').then(({ db }) => {
-        getDocs(collection(db, 'entranceExamSchools')).then(snap => {
-          setSchools(snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort());
-        }).catch(() => {});
+        getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')))
+          .then(snap => {
+            const list = snap.docs.map(d => d.data().name).filter(Boolean);
+            setSchools(list.length > 0 ? list : []);
+          })
+          .catch(() => {
+            // Fallback: try without orderBy
+            import('firebase/firestore').then(({ collection, getDocs }) => {
+              import('./firebase/config').then(({ db }) => {
+                getDocs(collection(db, 'entranceExamSchools')).then(snap => {
+                  setSchools(snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort());
+                }).catch(() => {});
+              });
+            });
+          });
       });
     });
   }, [editing]);
 
-  const startEdit = () => { setName(profile?.name || user?.displayName || ''); setSchool(profile?.school || ''); setSaveMsg(''); setEditing(true); };
+  const startEdit = () => {
+    setName(profile?.name || user?.displayName || '');
+    setSchool(profile?.school || '');
+    setSaveMsg('');
+    setEditing(true);
+  };
+
   const handleSave = async () => {
+    if (!name.trim()) { setSaveMsg('❌ Name cannot be empty.'); return; }
     setSaving(true);
-    try { await updateUserProfile({ name, school }); setSaveMsg('✅ Profile updated!'); setEditing(false); }
-    catch (e) { setSaveMsg('❌ Failed to save. Try again.'); }
-    finally { setSaving(false); }
+    setSaveMsg('');
+    try {
+      await updateUserProfile({ name: name.trim(), school });
+      setSaveMsg('✅ Profile updated!');
+      setEditing(false);
+    } catch (e) {
+      setSaveMsg('❌ Failed to save: ' + (e.code || e.message || 'Unknown error'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
