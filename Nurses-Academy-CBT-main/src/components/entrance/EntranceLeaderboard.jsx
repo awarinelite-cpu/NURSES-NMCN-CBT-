@@ -50,7 +50,7 @@ function Spinner() {
 }
 
 export default function EntranceLeaderboard() {
-  const { user }  = useAuth();
+  const { user, profile }  = useAuth();
   const navigate  = useNavigate();
   const GRID      = useGrid();
 
@@ -60,10 +60,19 @@ export default function EntranceLeaderboard() {
   const [debug,   setDebug]   = useState('');
   const [filter,  setFilter]  = useState('all');
 
+  // Current user's school — leaderboard is school-specific
+  const mySchool = profile?.school || '';
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     setDebug('');
+
+    // No school assigned — cannot view leaderboard
+    if (!mySchool) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const snap = await getDocs(collection(db, 'entranceExamSessions'));
@@ -86,6 +95,10 @@ export default function EntranceLeaderboard() {
         const s = d.data();
         if (!s.userId) return;
 
+        // ── School filter — only include sessions from students
+        //    whose userSchool matches the current user's school ──────────────
+        if (s.userSchool && s.userSchool !== mySchool) return;
+
         const completedMs =
           s.completedAt?.toDate?.()?.getTime?.() ??
           (s.completedAt?.seconds ? s.completedAt.seconds * 1000 : 0);
@@ -103,6 +116,7 @@ export default function EntranceLeaderboard() {
           userMap[s.userId] = {
             uid:    s.userId,
             name:   s.userName || s.displayName || 'Student',
+            school: s.userSchool || '',
             scores: [],
           };
         }
@@ -153,6 +167,37 @@ export default function EntranceLeaderboard() {
     >{label}</button>
   );
 
+  // No school assigned — show prompt to set school
+  if (!mySchool) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: F, color: 'var(--text-primary)' }}>
+        <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button onClick={() => navigate('/entrance-exam')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#0D9488', padding: 4, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>←</button>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.3rem,3vw,1.9rem)', color: 'var(--text-primary)' }}>🏆 Leaderboard</h1>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, fontFamily: F, color: 'var(--text-muted)' }}>School rankings</p>
+          </div>
+        </div>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>🏫</div>
+          <h3 style={{ margin: '0 0 12px', fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.2rem,3vw,1.6rem)', color: 'var(--text-primary)' }}>
+            Assign Your School First
+          </h3>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.7 }}>
+            The leaderboard shows rankings for your school only.<br />
+            Go to your profile and select your school to see the leaderboard.
+          </p>
+          <button
+            onClick={() => navigate('/profile')}
+            style={{ padding: '13px 32px', background: '#0D9488', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: F }}
+          >
+            👤 Go to My Profile
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -185,7 +230,7 @@ export default function EntranceLeaderboard() {
           <p style={{
             margin: 0, fontSize: 13, fontWeight: 700,
             fontFamily: F, color: 'var(--text-muted)',
-          }}>Top students ranked by highest exam score</p>
+          }}>🏫 {mySchool} · ranked by best exam score</p>
         </div>
       </div>
 
