@@ -48,6 +48,11 @@
 //   Answer: B
 //   Explanation: Rationale text here.
 //
+// RICH TEXT SUPPORT:
+//   **word**           → bold
+//   __word__           → underline
+//   *word*  or _word_  → italic
+//
 // ─────────────────────────────────────────────────────────────────────
 
 // ── Shuffle Utilities ─────────────────────────────────────────────────
@@ -174,23 +179,11 @@ export function parseRationaleKey(answerText) {
 }
 
 // ── FORMAT G: JSON Block Pre-processor ───────────────────────────────
-//
-// Detects JSON objects (Format G) anywhere in rawText, extracts them,
-// parses them, and returns an array of normalised question objects that
-// can be merged with the line-by-line parser output.
-//
-// Handles both single objects and arrays of objects.
-// Tolerates the "q" key as well as "question" for the question text.
-// Options can be:
-//   ["A. text", "B. text", ...]  — letter-prefixed strings
-//   ["text1", "text2", ...]      — plain strings (assigned A, B, C, D…)
 
 function parseJsonBlocks(rawText) {
   const questions = [];
   const optLetters = ['A', 'B', 'C', 'D', 'E'];
 
-  // Match JSON objects that look like question objects.
-  // We use a balanced-brace scanner rather than a fragile regex.
   const segments = [];
   let depth = 0;
   let start = -1;
@@ -222,7 +215,6 @@ function parseJsonBlocks(rawText) {
     let obj;
     try { obj = JSON.parse(seg); } catch (_) { continue; }
 
-    // Must look like a question object
     const qText = obj.question || obj.q || obj.Question || obj.Q || '';
     if (!qText || typeof qText !== 'string') continue;
 
@@ -232,7 +224,6 @@ function parseJsonBlocks(rawText) {
     const answerRaw = (obj.answer || obj.Answer || obj.correct || obj.Correct || '').toString().trim();
     const explanation = (obj.explanation || obj.Explanation || obj.rationale || obj.Rationale || '').toString().trim();
 
-    // Normalise options — strip leading letter prefix if present
     const parsedOpts = rawOptions.map((o, idx) => {
       const str = (typeof o === 'string' ? o : JSON.stringify(o)).trim();
       const prefixMatch = str.match(/^([A-Ea-e])[\.\)\-:]\s*/);
@@ -242,10 +233,8 @@ function parseJsonBlocks(rawText) {
       return { letter: optLetters[idx] || String.fromCharCode(65 + idx), text: str };
     });
 
-    // Sort A→E
     parsedOpts.sort((a, b) => optLetters.indexOf(a.letter) - optLetters.indexOf(b.letter));
 
-    // Resolve correct answer
     const answerLetter = answerRaw.match(/^([A-Ea-e])\b/i)?.[1]?.toUpperCase() || null;
     const correctIdx = answerLetter !== null
       ? parsedOpts.findIndex(o => o.letter === answerLetter)
@@ -268,25 +257,12 @@ function parseJsonBlocks(rawText) {
 }
 
 // ── FORMAT H: Markdown Separator Block Pre-processor ─────────────────
-//
-// Splits text on "---" separators and parses each block independently
-// when the block does NOT start with a numbered question line.
-// Numbered blocks are left for the main line-by-line parser.
-//
-// KEY FIX: options on a single line like
-//   "A. Long text with periods. B. Another long option C. Short D. Short"
-// are split by scanning for (?:^|\s)X. positions rather than a lookahead
-// regex, because lookaheads break when option bodies contain sentences.
 
 function _splitInlineOptions(line) {
-  // Find every position where a stand-alone "X." occurs (X = A-E).
-  // "Stand-alone" means the letter is at the start of the string or
-  // preceded by whitespace — this prevents matching mid-word periods.
   const positions = [];
   const re = /(?:^|\s)([A-Ea-e])[\.]\s+/g;
   let m;
   while ((m = re.exec(line)) !== null) {
-    // m.index points to the space before the letter (or 0 at start)
     positions.push({
       letter: m[1].toUpperCase(),
       index:  m.index === 0 ? 0 : m.index + 1,
@@ -306,13 +282,10 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
   const questions  = [];
   let seqCounter   = startSeq - 1;
 
-  // Split on markdown horizontal rules (---, ***, ___ on their own line)
   const blocks = rawText.split(/^[\-\*\_]{3,}\s*$/m).map(b => b.trim()).filter(Boolean);
 
   for (const block of blocks) {
-    // Skip blocks that start with a question number — handled by main parser
     if (/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s])/.test(block)) continue;
-    // Skip pure JSON blocks — handled by parseJsonBlocks
     if (/^\s*\{/.test(block)) continue;
 
     const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
@@ -320,16 +293,15 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
 
     seqCounter++;
 
-    let questionLines = [];
-    let optionMap     = {};  // letter → text
-    let answerLetter  = null;
+    let questionLines    = [];
+    let optionMap        = {};
+    let answerLetter     = null;
     let explanationLines = [];
-    let inExplanation = false;
+    let inExplanation    = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Answer line
       if (/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(line)) {
         const cleaned = line.replace(/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i, '').trim();
         const m = cleaned.match(/^([A-Ea-e])\b/i);
@@ -338,7 +310,6 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
         continue;
       }
 
-      // Explanation line
       if (/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line)) {
         const rest = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i, '').trim();
         if (rest) explanationLines.push(rest);
@@ -351,16 +322,12 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
         continue;
       }
 
-      // ── Try inline multi-option split first ───────────────────────────
-      // Handles: "A. Long text B. More text C. Short D. Also short"
-      // even when option bodies contain sentences with periods.
       const inlineOpts = _splitInlineOptions(line);
       if (inlineOpts && inlineOpts.length >= 2) {
         inlineOpts.forEach(o => { if (!optionMap[o.letter]) optionMap[o.letter] = o.text; });
         continue;
       }
 
-      // Single option line: "A. text" or "A) text"
       const singleOpt = line.match(/^([A-Ea-e])[\.\)\-:]\s+(.+)$/i);
       if (singleOpt) {
         const letter = singleOpt[1].toUpperCase();
@@ -369,7 +336,6 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
         continue;
       }
 
-      // Otherwise this is question text (collected before any options appear)
       if (Object.keys(optionMap).length === 0) {
         questionLines.push(line);
       }
@@ -378,7 +344,6 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
     const questionText = questionLines.join(' ').trim();
     if (!questionText || Object.keys(optionMap).length < 2) continue;
 
-    // Sort options A→E
     const sortedOpts = Object.entries(optionMap)
       .sort((a, b) => optLetters.indexOf(a[0]) - optLetters.indexOf(b[0]));
 
@@ -411,13 +376,10 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const rationaleMap = parseRationaleKey(answerKeyText);
 
   // ── Pre-pass 1: Extract JSON blocks (Format G) ──────────────────────
-  // Remove JSON objects from rawText so they don't confuse the line parser.
   let cleanedText = rawText;
   const jsonQuestions = parseJsonBlocks(rawText);
 
   if (jsonQuestions.length > 0) {
-    // Strip JSON segments from the text fed to the line parser
-    // Using the same balanced-brace scanner
     let depth = 0;
     let start = -1;
     let stripped = '';
@@ -430,7 +392,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       } else if (ch === '}') {
         depth--;
         if (depth === 0 && start !== -1) {
-          // Check if the object looks like a question object (has "q" or "question" key)
           const seg = rawText.slice(start, i + 1);
           let isQ = false;
           try {
@@ -450,16 +411,12 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   }
 
   // ── Pre-pass 2: Extract --- separator blocks (Format H) ─────────────
-  // Only extract blocks that don't begin with a numbered question.
   const separatorQuestions = parseMarkdownSeparatorBlocks(cleanedText);
 
-  // Remove separator-block content from cleanedText if blocks were found
   if (separatorQuestions.length > 0) {
-    // Strip non-numbered blocks between --- markers so line parser ignores them
     cleanedText = cleanedText.replace(
       /(^|\n)[\-\*\_]{3,}\s*\n([\s\S]*?)(?=([\-\*\_]{3,}|\d+[\.\)]\s|\Z))/gm,
       (match, prefix, body) => {
-        // Keep numbered blocks intact
         if (/^\d+[\.\)]\s/.test(body.trim())) return match;
         return prefix + '\n';
       }
@@ -513,7 +470,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   };
 
   // Try to detect inline options on same line as question
-  // e.g. "1. Question text? A. Opt1 B. Opt2 C. Opt3 D. Opt4"
   const extractInlineOptions = (line) => {
     const optPattern = /\b([A-D])\.\s*([^A-D\.]{2,}?)(?=\s+[A-D]\.|$)/g;
     const opts = [];
@@ -539,10 +495,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     return null;
   };
 
-  // ── Format F detection helper ────────────────────────────────────────
-  // Detects a line that contains ONLY a letter+dot option prefix followed
-  // by a long prose body (no trailing letter-dot patterns) — characteristic
-  // of Format F where each option is on its own full line.
   const isProseParagraphOption = (line) => {
     return /^[A-Ea-e][\.\)]\s+.{10,}$/i.test(line) && !extractDoubleOptions(line);
   };
@@ -630,15 +582,11 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       }
     }
 
-    // ── Format F: prose paragraph options ─────────────────────────────
-    // A single option may span multiple lines. We collect continuation
-    // lines (not starting with another option/answer/explanation) as part
-    // of the same option body.
+    // Format F: prose paragraph options (may span multiple lines)
     if (isProseParagraphOption(line) && !isAnswerLine(line) && !isExplanationLine(line)) {
       const letter = extractOptionLetter(line);
       let text     = extractOptionText(line);
 
-      // Collect continuation lines for this option (Format F multi-line body)
       while (i + 1 < lines.length) {
         const next = lines[i + 1];
         if (
@@ -698,8 +646,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   saveQuestion();
 
   // ── Merge all sources ────────────────────────────────────────────────
-  // Assign sequential positions to JSON and separator-block questions
-  // so they sort correctly relative to line-parser questions.
   let mergedSeq = questions.length;
   jsonQuestions.forEach(q => {
     mergedSeq++;
@@ -713,8 +659,6 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   });
 
   const allQuestions = [...questions, ...jsonQuestions, ...separatorQuestions];
-
-  // Sort by sequential position
   allQuestions.sort((a, b) => (a._seq || 0) - (b._seq || 0));
 
   // ── Apply separate answer key ────────────────────────────────────────
