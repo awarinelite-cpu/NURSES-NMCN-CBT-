@@ -1,82 +1,90 @@
-// src/components/shared/ExplanationText.jsx
-//
-// Renders explanation text with:
-//   • Preserved line breaks (vertical math layout)
-//   • Larger readable font size
-//   • Rich text markers: **bold**, __underline__, *italic*, _italic_
-//
-// USAGE:
-//   import ExplanationText from '../shared/ExplanationText';
-//   <ExplanationText text={question.explanation} />
-//   <ExplanationText text={question.explanation} fontSize={15} />
-//
-// Replaces plain <p>{explanation}</p> wherever explanations are shown.
+// src/components/ExplanationText.jsx
+// ─────────────────────────────────────────────────────────────────────
+// Renders explanation text with preserved line breaks and rich text.
+// Use this instead of plain <Text> to display explanations.
+// ─────────────────────────────────────────────────────────────────────
 
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { renderWithItalics } from '../utils/entranceExamParser';
 
-// TOKEN_RE — no lookbehind; safe for all Android WebViews
-const TOKEN_RE = /(\*\*[^*\n]+\*\*|__[^_\n]+__|_[^_\n]+_|\*[^*\n]+\*)/g;
+function RichTextLine({ line }) {
+  if (!line) {
+    return <Text style={styles.blankLine}>{' '}</Text>;
+  }
 
-function getMarkerInfo(part) {
-  if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return { tag: 'strong', strip: 2 };
-  if (part.startsWith('__') && part.endsWith('__') && part.length > 4) return { tag: 'u',      strip: 2 };
-  if (part.startsWith('*')  && part.endsWith('*')  && part.length > 2) return { tag: 'em',     strip: 1 };
-  if (part.startsWith('_')  && part.endsWith('_')  && part.length > 2) return { tag: 'em',     strip: 1 };
-  return null;
-}
+  const parts = renderWithItalics(line);
 
-// Renders a single line with rich text markers
-function RichLine({ text }) {
-  const parts = text.split(TOKEN_RE).filter(p => p !== undefined && p !== '');
-  if (parts.length === 1 && !getMarkerInfo(parts[0])) return <>{text}</>;
+  if (typeof parts === 'string') {
+    return <Text style={styles.explanationLine}>{parts}</Text>;
+  }
+
   return (
-    <>
+    <Text style={styles.explanationLine}>
       {parts.map((part, i) => {
-        const info = getMarkerInfo(part);
-        if (info) {
-          const Tag = info.tag;
-          return <Tag key={i}>{part.slice(info.strip, -info.strip)}</Tag>;
+        if (typeof part === 'string') {
+          return <Text key={i}>{part}</Text>;
         }
-        return part;
+        switch (part.type) {
+          case 'strong':
+            return <Text key={part.key || i} style={styles.bold}>{part.content}</Text>;
+          case 'em':
+            return <Text key={part.key || i} style={styles.italic}>{part.content}</Text>;
+          case 'u':
+            return <Text key={part.key || i} style={styles.underline}>{part.content}</Text>;
+          default:
+            return <Text key={part.key || i}>{part.content}</Text>;
+        }
       })}
-    </>
+    </Text>
   );
 }
 
-export default function ExplanationText({ text, fontSize = 14, style = {} }) {
-  if (!text || typeof text !== 'string') return null;
+export default function ExplanationText({ text, style }) {
+  if (!text || typeof text !== 'string') {
+    return null;
+  }
 
-  // Split on \n to get each line — preserves vertical math layout
   const lines = text.split('\n');
 
   return (
-    <div style={{
-      fontSize,
-      lineHeight: 1.75,
-      color: 'var(--text-secondary)',
-      fontFamily: 'var(--font-body)',
-      ...style,
-    }}>
-      {lines.map((line, i) => {
-        const trimmed = line.trim();
-        // Empty line → small spacer gap
-        if (!trimmed) {
-          return <div key={i} style={{ height: '0.5em' }} />;
-        }
-        // Indented line (starts with spaces in original) → show with indent
-        const isIndented = line.length > trimmed.length;
-        return (
-          <div
-            key={i}
-            style={{
-              paddingLeft: isIndented ? 16 : 0,
-              marginBottom: 2,
-            }}
-          >
-            <RichLine text={trimmed} />
-          </div>
-        );
-      })}
-    </div>
+    <View style={[styles.container, style]}>
+      {lines.map((line, index) => (
+        <View key={index} style={styles.lineContainer}>
+          <RichTextLine line={line} />
+        </View>
+      ))}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'column',
+  },
+  lineContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 2,
+  },
+  explanationLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#E0E0E0',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+  },
+  blankLine: {
+    height: 12,
+  },
+  bold: {
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  italic: {
+    fontStyle: 'italic',
+  },
+  underline: {
+    textDecorationLine: 'underline',
+  },
+});
