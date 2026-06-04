@@ -1,30 +1,23 @@
 // src/components/ExplanationText.jsx
-// ─────────────────────────────────────────────────────────────────────
-// Renders explanation text with preserved line breaks and rich text.
-// Use this instead of plain <Text> to display explanations.
-// ─────────────────────────────────────────────────────────────────────
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { renderWithItalics } from '../utils/entranceExamParser';
 
-function RichTextLine({ line }) {
-  if (!line) {
-    return <Text style={styles.blankLine}>{' '}</Text>;
+function RichTextLine({ line, style }) {
+  if (!line || line === '') {
+    return <View style={styles.emptyLine} />;
   }
 
   const parts = renderWithItalics(line);
 
   if (typeof parts === 'string') {
-    return <Text style={styles.explanationLine}>{parts}</Text>;
+    return <Text style={[styles.lineText, style]}>{parts}</Text>;
   }
 
   return (
-    <Text style={styles.explanationLine}>
+    <Text style={[styles.lineText, style]}>
       {parts.map((part, i) => {
-        if (typeof part === 'string') {
-          return <Text key={i}>{part}</Text>;
-        }
+        if (typeof part === 'string') return part;
         switch (part.type) {
           case 'strong':
             return <Text key={part.key || i} style={styles.bold}>{part.content}</Text>;
@@ -33,26 +26,22 @@ function RichTextLine({ line }) {
           case 'u':
             return <Text key={part.key || i} style={styles.underline}>{part.content}</Text>;
           default:
-            return <Text key={part.key || i}>{part.content}</Text>;
+            return part.content;
         }
       })}
     </Text>
   );
 }
 
-export default function ExplanationText({ text, style }) {
-  if (!text || typeof text !== 'string') {
-    return null;
-  }
+export default function ExplanationText({ text, style, textStyle }) {
+  if (!text || typeof text !== 'string') return null;
 
   const lines = text.split('\n');
 
   return (
     <View style={[styles.container, style]}>
       {lines.map((line, index) => (
-        <View key={index} style={styles.lineContainer}>
-          <RichTextLine line={line} />
-        </View>
+        <RichTextLine key={index} line={line} style={textStyle} />
       ))}
     </View>
   );
@@ -62,20 +51,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'column',
   },
-  lineContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 2,
-  },
-  explanationLine: {
+  lineText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     color: '#E0E0E0',
-    flexShrink: 1,
-    flexWrap: 'wrap',
   },
-  blankLine: {
-    height: 12,
+  emptyLine: {
+    height: 10,
   },
   bold: {
     fontWeight: 'bold',
