@@ -2,16 +2,18 @@
 // ─────────────────────────────────────────────────────────────────────
 // Standalone parser for entrance exam questions.
 //
-// ITALIC SUPPORT:
-// Wrap words in *asterisks* when pasting to mark them as italic.
-// Example: "Choose the word nearest in meaning to *posterity*"
-// The parser preserves *word* markers in questionText and options.
-// Use the exported renderWithItalics(text) helper to display them.
+// RICH TEXT SUPPORT:
+//   **word or phrase**   → bold
+//   __word or phrase__   → underline
+//   *word or phrase*     → italic  (also _word or phrase_)
 //
-// Supported input formats: A–H (unchanged from previous version)
+// EXPLANATION LINE BREAKS:
+//   Multi-line explanations preserve \n so vertical math layout is kept.
+//   Use <ExplanationText text={q.explanation} /> to render correctly.
+//
+// Supported input formats: A–H
 // ─────────────────────────────────────────────────────────────────────
 
-// ── Constants ────────────────────────────────────────────────────────
 export const ENTRANCE_SUBJECTS = [
   'English Language', 'Biology', 'Chemistry', 'Physics',
   'Mathematics', 'General Studies', 'Nursing Aptitude', 'Current Affairs',
@@ -23,63 +25,37 @@ export const ENTRANCE_YEARS = [
 
 const OPT_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
-// ── Italic Renderer ───────────────────────────────────────────────────
-/**
- * renderWithItalics(text)
- *
- * Converts *word* and _word_ markers to React <em> spans.
- * Call this wherever questionText or option text is displayed.
- *
- * Usage (React):
- *   import { renderWithItalics } from '../../utils/entranceExamParser';
- *   <div>{renderWithItalics(question.questionText)}</div>
- *
- * Returns an array of strings and <em> elements (React-safe).
- */
+// ── Rich Text Renderer ────────────────────────────────────────────────
+
+const _TOKEN_RE = /(\*\*[^*\n]+\*\*|__[^_\n]+__|_[^_\n]+_|\*[^*\n]+\*)/g;
+
+function _getMarkerInfo(part) {
+  if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return { tag: 'strong', strip: 2 };
+  if (part.startsWith('__') && part.endsWith('__') && part.length > 4) return { tag: 'u',      strip: 2 };
+  if (part.startsWith('*')  && part.endsWith('*')  && part.length > 2) return { tag: 'em',     strip: 1 };
+  if (part.startsWith('_')  && part.endsWith('_')  && part.length > 2) return { tag: 'em',     strip: 1 };
+  return null;
+}
+
 export function renderWithItalics(text) {
   if (!text || typeof text !== 'string') return text;
-  // Match *word* or _word_ — non-greedy, no newlines inside
-  const parts = text.split(/(\*[^*\n]+\*|_[^_\n]+_)/g);
-  if (parts.length === 1) return text; // no markers — return plain string
-
+  const parts = text.split(_TOKEN_RE).filter(p => p !== undefined && p !== '');
+  if (parts.length === 1) return text;
   return parts.map((part, i) => {
-    if (/^(\*[^*\n]+\*|_[^_\n]+_)$/.test(part)) {
-      const inner = part.slice(1, -1); // strip the * or _
-      return { type: 'em', content: inner, key: i };
-    }
+    const info = _getMarkerInfo(part);
+    if (info) return { type: info.tag, content: part.slice(info.strip, -info.strip), key: i };
     return part;
   });
 }
 
-/**
- * renderWithItalicsJSX(text)
- *
- * Same as renderWithItalics but returns actual JSX.
- * Import React in the component that calls this.
- *
- * Usage:
- *   import React from 'react';
- *   import { renderWithItalicsJSX } from '../../utils/entranceExamParser';
- *   <span>{renderWithItalicsJSX(q.questionText)}</span>
- */
 export function renderWithItalicsJSX(text) {
-  const parts = renderWithItalics(text);
-  if (typeof parts === 'string') return parts;
-  return parts.map(p =>
-    typeof p === 'string'
-      ? p
-      // Return a plain object the JSX renderer can use —
-      // components call this and wrap in <em> themselves
-      : p
-  );
+  return renderWithItalics(text);
 }
 
-/**
- * hasItalics(text)
- * Returns true if the text contains *word* or _word_ italic markers.
- */
 export function hasItalics(text) {
-  return /(\*[^*\n]+\*|_[^_\n]+_)/.test(text || '');
+  // reset lastIndex since _TOKEN_RE is a shared stateful regex
+  _TOKEN_RE.lastIndex = 0;
+  return _TOKEN_RE.test(text || '');
 }
 
 // ── Shuffle Utilities ─────────────────────────────────────────────────
@@ -170,7 +146,7 @@ export function parseRationaleKey(answerText) {
       currentRationale = trimmed.replace(/^(rationale|explanation|explain|reason|note)[\s\.\:\-]*/i, '').trim();
       continue;
     }
-    if (currentNum !== null && currentRationale && trimmed) currentRationale += ' ' + trimmed;
+    if (currentNum !== null && currentRationale && trimmed) currentRationale += '\n' + trimmed;
   }
   if (currentNum !== null && currentRationale) rationaleMap[currentNum] = currentRationale.trim();
   return rationaleMap;
@@ -266,16 +242,12 @@ const isQuestionLine = line =>
 const isOptionLine = line =>
   /^([A-Da-d][\.\)\-:]|\([A-Da-d]\))\s*.+/i.test(line);
 
-// ── FIXED: Answer line must NOT match *word* italic markers ──────────
-// *B alone on a line = answer marker
-// *posterity* = italic word inside question text — NOT an answer
 const isAnswerLine = line => {
   const t = line.trim();
-  // *B — single letter after star = answer
-  if (/^\*[A-Da-d]$/.test(t)) return true;
-  // (B) alone on a line = answer
-  if (/^\([A-Da-d]\)$/.test(t)) return true;
-  // Answer: B / Ans: B etc
+  if (/^\*[A-Da-d]$/.test(t))         return true;
+  if (/^__[A-Da-d]__$/.test(t))       return true;
+  if (/^\*\*[A-Da-d]\*\*$/.test(t))   return true;
+  if (/^\([A-Da-d]\)$/.test(t))       return true;
   if (/^(answer|ans|correct(?:\s+answer)?|key|solution)[\s\.\:\-]/i.test(t)) return true;
   return false;
 };
@@ -287,10 +259,10 @@ const isDiagramUrl = line => /^https?:\/\//i.test(line.trim());
 
 function extractAnswerLetter(line) {
   const t = line.trim();
-  const star = t.match(/^\*([A-Da-d])$/i);
-  if (star) return star[1].toUpperCase();
-  const paren = t.match(/^\(([A-Da-d])\)$/i);
-  if (paren) return paren[1].toUpperCase();
+  const star   = t.match(/^\*([A-Da-d])$/i);        if (star)   return star[1].toUpperCase();
+  const dunder  = t.match(/^__([A-Da-d])__$/i);     if (dunder) return dunder[1].toUpperCase();
+  const dstar   = t.match(/^\*\*([A-Da-d])\*\*$/i); if (dstar)  return dstar[1].toUpperCase();
+  const paren   = t.match(/^\(([A-Da-d])\)$/i);     if (paren)  return paren[1].toUpperCase();
   const labelled = t.replace(/^(answer|ans|correct(?:\s+answer)?|key|solution)[\s\.\:\-]*/i, '').trim();
   const m = labelled.match(/^([A-Da-d])\b/i);
   return m ? m[1].toUpperCase() : null;
@@ -339,8 +311,10 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
     cleanedText = stripped;
   }
 
+  // Normalize \r but DO NOT strip \n — line breaks needed for explanation layout
   cleanedText = cleanedText
-    .replace(/\r/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
     .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
 
   const rawBlocks = cleanedText.trim().split(/\n\s*\n/).filter(b => b.trim());
@@ -350,7 +324,9 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
 
   for (const block of rawBlocks) {
     seqCounter++;
-    const blockLines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    // Keep original lines (untrimmed) for indentation detection in explanations
+    const rawLines   = block.split('\n');
+    const blockLines = rawLines.map(l => l.trim()).filter(Boolean);
 
     if (blockLines.length < 2) {
       errors.push(`Block ${seqCounter}: Too few lines (got ${blockLines.length})`);
@@ -394,13 +370,19 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       }
 
       if (isExplanationLine(line)) {
-        explanation = line.replace(/^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i, '').trim();
+        // First line: strip the "Explanation:" label, keep remainder if any
+        const firstPart = line.replace(/^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i, '').trim();
+        const explLines = firstPart ? [firstPart] : [];
         cursor++;
+        // Collect ALL remaining lines as explanation, preserving each as its own line
         while (cursor < blockLines.length) {
           const next = blockLines[cursor];
           if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
-          explanation += ' ' + next; cursor++;
+          explLines.push(next);
+          cursor++;
         }
+        // Join with \n — NOT space — so vertical math layout is preserved
+        explanation = explLines.join('\n').trim();
         continue;
       }
 
@@ -443,7 +425,7 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       questionText: questionText.trim(),
       options:      optionMap,
       correctAnswer,
-      explanation:  explanation.trim(),
+      explanation,   // already trimmed, \n preserved
       diagramUrl,
       questionType: diagramUrl ? 'diagram' : 'text',
       _seq:         seqCounter,
@@ -495,7 +477,7 @@ export function formatEntranceQuestionForFirestore(q, meta = {}) {
     questionText:  q.questionText.trim(),
     options,
     correctAnswer: q.correctAnswer || '',
-    explanation:   q.explanation?.trim() || '',
+    explanation:   q.explanation || '',
     diagramUrl:    q.diagramUrl || '',
     questionType:  q.diagramUrl ? 'diagram' : 'text',
     schoolId:    meta.schoolId    || null,
