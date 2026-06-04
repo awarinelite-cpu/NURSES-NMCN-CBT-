@@ -9,6 +9,8 @@
 //   • The fallback "else" branch (no examType filter) is tightened the same way.
 //   • handleRetake reuses the same strategy.
 //   • Everything else (UI, submit, save/exit, AI, bookmarks, report) is unchanged.
+//   • FIX: explanation text now splits on \n so calculation steps render
+//     on separate lines instead of collapsing into one sentence.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -24,10 +26,6 @@ import VoiceExamMode         from '../shared/VoiceExamMode';
 
 const DAILY_PRACTICE_LIMIT = 250;
 
-// Maximum questions to fetch from Firestore in a single pool query.
-// We fetch more than the user asked for so we have headroom to filter out
-// already-seen questions in JS and still hit the requested `count`.
-// 300 is generous (most sessions are 10–50 questions) and keeps reads low.
 const POOL_FETCH_LIMIT = 300;
 
 function fisherYatesShuffle(arr) {
@@ -36,6 +34,21 @@ function fisherYatesShuffle(arr) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/* ── Multi-line explanation renderer ───────────────────────────────────────
+   Splits on \n so calculation steps / numbered lists appear on separate
+   lines instead of collapsing into a single sentence node.               */
+function ExplanationText({ text = '' }) {
+  return (
+    <>
+      {text.split('\n').map((line, i) => (
+        <p key={i} style={{ margin: '0 0 4px', lineHeight: 1.6 }}>
+          {line || <>&nbsp;</>}
+        </p>
+      ))}
+    </>
+  );
 }
 
 function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
@@ -212,8 +225,6 @@ export default function ExamSession() {
           if (entranceYear && entranceYear !== 'all') {
             constraints.push(where('year', '==', entranceYear));
           }
-          // Note: no active filter — entrance questions use 'active' too but
-          // let's fetch all and filter client-side to avoid missing index issues
           const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
           let pool = snap.docs.map(d => {
             const data = d.data();
@@ -243,10 +254,8 @@ export default function ExamSession() {
         // ── Pool mode (daily practice / course drill / topic drill / mock exam) ─
         if (poolMode) {
           const seenIds  = profile?.seenQuestions || [];
-          // How many to fetch: enough to filter seen + still hit `count`.
-          // We cap at POOL_FETCH_LIMIT to prevent full-collection scans.
           const fetchLim = Math.min(
-            Math.max(count * 4, 100), // fetch 4× requested so seen-filter has room
+            Math.max(count * 4, 100),
             POOL_FETCH_LIMIT
           );
 
@@ -299,7 +308,6 @@ export default function ExamSession() {
 
           } else if (examType === 'mock_exam') {
             // ── Mock Exam ─────────────────────────────────────────────────────
-            // mockExamId is passed in state; use it if available, fall back to examId
             const mockId = state?.mockExamId || examId || '';
             const constraints = [where('active', '==', true), limit(fetchLim)];
             if (mockId) constraints.unshift(where('mockExamId', '==', mockId));
@@ -693,20 +701,30 @@ export default function ExamSession() {
                       );
                     })}
                   </div>
+
+                  {/* ── Explanation — multi-line aware ───────────────────── */}
                   {q.explanation && (
                     <div style={{ background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 4, fontSize: 12 }}>💡 Explanation</div>
-                      {q.explanation}
+                      <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 6, fontSize: 12 }}>💡 Explanation</div>
+                      <ExplanationText text={q.explanation} />
                       {q.explanationImageUrl && <div style={{ marginTop: 10, textAlign: 'center' }}><img src={q.explanationImageUrl} alt="Explanation" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'contain' }} /></div>}
                     </div>
                   )}
+
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => getAiExplain(q)} disabled={aiLoading && !aiExplain[q.id]} style={{ fontSize: 12 }}>{aiExplain[q.id] ? '🤖 AI Explained' : aiLoading ? '⏳ Loading…' : '🤖 Ask AI to Explain'}</button>
                     <button onClick={() => toggleBookmark(q)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${bookmarked.has(q.id) ? 'rgba(245,158,11,0.5)' : 'var(--border)'}`, background: bookmarked.has(q.id) ? 'rgba(245,158,11,0.12)' : 'transparent', color: bookmarked.has(q.id) ? '#F59E0B' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>🔖 {bookmarked.has(q.id) ? 'Bookmarked ✓' : 'Bookmark this Question'}</button>
                     {!reportedQs.has(q.id) && <button onClick={() => setShowReport(showReport === q.id ? null : q.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: '5px 8px' }}>🚩 Report</button>}
                     {reportedQs.has(q.id)  && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>✓ Reported</span>}
                   </div>
-                  {aiExplain[q.id] && <div style={{ marginTop: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>🤖 {aiExplain[q.id]}</div>}
+
+                  {/* ── AI explanation — also multi-line aware ───────────── */}
+                  {aiExplain[q.id] && (
+                    <div style={{ marginTop: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                      🤖 <ExplanationText text={aiExplain[q.id]} />
+                    </div>
+                  )}
+
                   {showReport === q.id && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       <input value={reportText} onChange={e => setReportText(e.target.value)} placeholder="Describe the issue (wrong answer, typo, etc.)" style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13 }} />
