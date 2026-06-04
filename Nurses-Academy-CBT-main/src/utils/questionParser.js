@@ -140,7 +140,7 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
   let seqCounter = startSeq - 1;
   const blocks = rawText.split(/^[\-\*\_]{3,}\s*$/m).map(b=>b.trim()).filter(Boolean);
   for (const block of blocks) {
-    if (/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s])/.test(block)) continue;
+    if (/^(\d+[\.\)\s\s*|Q\s*\d+[\.\):\s])/.test(block)) continue;
     if (/^\s*\{/.test(block)) continue;
     // Use raw lines — do NOT filter(Boolean) so blank explanation lines are preserved
     const rawLines = block.split('\n');
@@ -205,8 +205,8 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
   const separatorQuestions = parseMarkdownSeparatorBlocks(cleanedText);
   if (separatorQuestions.length > 0) {
-    cleanedText = cleanedText.replace(/(^|\n)[\-\*\_]{3,}\s*\n([\s\S]*?)(?=([\-\*\_]{3,}|\d+[\.\)]\s|\Z))/gm,(match,prefix,body)=>{
-      if(/^\d+[\.\)]\s/.test(body.trim()))return match; return prefix+'\n';
+    cleanedText = cleanedText.replace(/(^|\n)[\-\*\_]{3,}\s*\n([\s\S]*?)(?=([\-\*\_]{3,}|\d+[\.\)\s]|\Z))/gm,(match,prefix,body)=>{
+      if(/^\d+[\.\)\s]/.test(body.trim()))return match; return prefix+'\n';
     });
   }
 
@@ -226,7 +226,13 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
   let seqCounter = 0;
   const optLetters = ['A','B','C','D','E'];
 
-  const isQuestionLine    = l => /^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i.test(l);
+  // ═══════════════════════════════════════════════════════════════════════
+  // CRITICAL FIX: isQuestionLine regex was too broad — it matched lines
+  // starting with digits (like "35→17 r1,") as question lines, causing
+  // explanation steps to be truncated. Now requires number + punctuation.
+  // ═══════════════════════════════════════════════════════════════════════
+  const isQuestionLine    = l => /^(\d+[\.\):]\s+|Q\s*\d+[\.\):\s]\s+|Question\s*\d+[\.\):\s]\s+)/i.test(l);
+
   const isOptionLine      = l => /^([A-Ea-e][\.\)\-:]|\([A-Ea-e]\))\s*.+/i.test(l);
   const isAnswerLine      = l => {
     const t=l.trim();
@@ -282,7 +288,7 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       saveQuestion();
       seqCounter++;
       const labelNum = getQuestionNumber(line)||seqCounter;
-      let qText = line.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i,'').trim();
+      let qText = line.replace(/^(\d+[\.\)\s\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i,'').trim();
       const qImg = extractImageTag(qText); qText=qImg.text;
       const inlineOpts = extractInlineOptions(qText);
       if (inlineOpts&&inlineOpts.length>=2) {

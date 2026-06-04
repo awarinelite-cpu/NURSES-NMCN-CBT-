@@ -237,8 +237,13 @@ function extractDoubleOptions(line) {
 
 // ── Helper predicates ─────────────────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════
+// CRITICAL FIX: isQuestionLine regex was too broad — it matched lines
+// starting with digits (like "35→17 r1,") as question lines, causing
+// explanation steps to be truncated. Now requires number + punctuation.
+// ═══════════════════════════════════════════════════════════════════════
 const isQuestionLine = line =>
-  /^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i.test(line);
+  /^(\d+[\.\):]\s+|Q\s*\d+[\.\):\s]\s+|Question\s*\d+[\.\):\s]\s+)/i.test(line);
 
 const isOptionLine = line =>
   /^([A-Da-d][\.\)\-:]|\([A-Da-d]\))\s*.+/i.test(line);
@@ -349,7 +354,7 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
     let questionText = blockLines[cursor];
     if (isQuestionLine(questionText)) {
       qNumber = getQuestionNumber(questionText) || seqCounter;
-      questionText = questionText.replace(/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
+      questionText = questionText.replace(/^(\d+[\.\)\s\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
     }
     cursor++;
 
@@ -381,50 +386,42 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
         const firstPart = line.replace(/^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i, '').trim();
         const explLines = firstPart ? [firstPart] : [];
 
-        // ── Find where this blockLines cursor maps back to rawLines ──
-        // Then collect ALL remaining rawLines (including blank ones) until
-        // the next structural boundary. No word/character limit.
-        cursor++;
+        // ── FIXED: Find explanation marker in rawLines, then collect ──
+        // We search rawLines for the exact line matching our explanation marker
+        // (which is the current blockLines[cursor] before trimming)
+        const explMarkerText = rawLines.find(rl => rl.trim() === line);
+        let rawIdx = rawLines.findIndex(rl => rl === explMarkerText);
 
-        // Map blockLines[cursor] back to rawLines by matching content
-        // Strategy: scan rawLines for the next structural line that matches blockLines[cursor]
-        // Simpler: collect remaining blockLines as explanation (they're already trimmed)
-        // BUT we need blank lines too — so we must use rawLines from this point forward.
-        //
-        // Find the raw line index that corresponds to the current blockLines cursor position
-        // by counting how many non-empty blockLines we've consumed so far.
-        //
-        // Simplest correct approach: collect all remaining blockLines as explanation lines,
-        // stopping only at question/option/answer boundaries, then also scan rawLines
-        // in the same range for any blank lines between them.
-        //
-        // We rebuild from rawLines: find starting raw index by matching the explanation
-        // marker line, then collect forward.
-        const explMarkerText = line; // the "Explanation: ..." line we just matched
-        let rawIdx = rawLines.findIndex(rl => rl.trim() === explMarkerText);
         if (rawIdx === -1) {
+          // Fallback: search by trimmed content match
+          rawIdx = rawLines.findIndex(rl => rl.trim() === line);
+        }
+
+        if (rawIdx !== -1) {
+          // Walk rawLines from the line after the marker, collecting everything
+          rawIdx++;
+          while (rawIdx < rawLines.length) {
+            const nextRaw = rawLines[rawIdx];
+            const nextTrimmed = nextRaw.trim();
+            if (
+              isQuestionLine(nextTrimmed) ||
+              isAnswerLine(nextTrimmed)
+            ) break;
+            // Keep the line (trimmed), including blank ones
+            explLines.push(nextTrimmed);
+            rawIdx++;
+          }
+          // Advance blockLines cursor past all lines we consumed
+          cursor = blockLines.length; // explanation goes to end of block
+        } else {
           // Fallback: just use remaining blockLines
+          cursor++;
           while (cursor < blockLines.length) {
             const next = blockLines[cursor];
             if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
             explLines.push(next);
             cursor++;
           }
-        } else {
-          // Walk rawLines from the line after the marker, collecting everything
-          rawIdx++;
-          while (rawIdx < rawLines.length) {
-            const nextTrimmed = rawLines[rawIdx].trim();
-            if (
-              isQuestionLine(nextTrimmed) ||
-              isAnswerLine(nextTrimmed)
-            ) break;
-            // Keep line (trimmed), including blank ones
-            explLines.push(nextTrimmed);
-            rawIdx++;
-          }
-          // Advance blockLines cursor past all lines we consumed
-          cursor = blockLines.length; // explanation goes to end of block
         }
 
         // Drop trailing blank lines; keep internal blank lines
