@@ -10,6 +10,8 @@
 // EXPLANATION LINE BREAKS:
 //   Multi-line explanations preserve \n so vertical math layout is kept.
 //   Use <ExplanationText text={q.explanation} /> to render correctly.
+//   Blank lines inside explanations are preserved as empty lines.
+//   There is NO word/character limit on explanations.
 //
 // Supported input formats: A–H
 // ─────────────────────────────────────────────────────────────────────
@@ -53,7 +55,6 @@ export function renderWithItalicsJSX(text) {
 }
 
 export function hasItalics(text) {
-  // reset lastIndex since _TOKEN_RE is a shared stateful regex
   _TOKEN_RE.lastIndex = 0;
   return _TOKEN_RE.test(text || '');
 }
@@ -311,12 +312,15 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
     cleanedText = stripped;
   }
 
-  // Normalize \r but DO NOT strip \n — line breaks needed for explanation layout
+  // Normalize \r but DO NOT collapse \n — line breaks needed for explanation layout
   cleanedText = cleanedText
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
 
+  // ── KEY CHANGE: split blocks by blank lines but work with RAW lines ──
+  // We keep the full raw text per block so blank lines inside explanations
+  // can be preserved when collecting multi-line explanation text.
   const rawBlocks = cleanedText.trim().split(/\n\s*\n/).filter(b => b.trim());
   const questions = [];
   const errors    = [];
@@ -324,8 +328,10 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
 
   for (const block of rawBlocks) {
     seqCounter++;
-    // Keep original lines (untrimmed) for indentation detection in explanations
+    // rawLines preserves blank lines; blockLines is the trimmed+filtered version
+    // used only for structural detection (question, options, answer).
     const rawLines   = block.split('\n');
+    // For structure: trimmed non-empty lines
     const blockLines = rawLines.map(l => l.trim()).filter(Boolean);
 
     if (blockLines.length < 2) {
@@ -333,6 +339,7 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       continue;
     }
 
+    // We walk blockLines for structure but switch to rawLines when collecting explanation
     let cursor = 0, diagramUrl = '', qNumber = seqCounter;
 
     if (isDiagramUrl(blockLines[0])) { diagramUrl = blockLines[0].trim(); cursor = 1; }
@@ -370,19 +377,59 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       }
 
       if (isExplanationLine(line)) {
-        // First line: strip the "Explanation:" label, keep remainder if any
+        // Strip the "Explanation:" label; keep remainder of that line as first content
         const firstPart = line.replace(/^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i, '').trim();
         const explLines = firstPart ? [firstPart] : [];
+
+        // ── Find where this blockLines cursor maps back to rawLines ──
+        // Then collect ALL remaining rawLines (including blank ones) until
+        // the next structural boundary. No word/character limit.
         cursor++;
-        // Collect ALL remaining lines as explanation, preserving each as its own line
-        while (cursor < blockLines.length) {
-          const next = blockLines[cursor];
-          if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
-          explLines.push(next);
-          cursor++;
+
+        // Map blockLines[cursor] back to rawLines by matching content
+        // Strategy: scan rawLines for the next structural line that matches blockLines[cursor]
+        // Simpler: collect remaining blockLines as explanation (they're already trimmed)
+        // BUT we need blank lines too — so we must use rawLines from this point forward.
+        //
+        // Find the raw line index that corresponds to the current blockLines cursor position
+        // by counting how many non-empty blockLines we've consumed so far.
+        //
+        // Simplest correct approach: collect all remaining blockLines as explanation lines,
+        // stopping only at question/option/answer boundaries, then also scan rawLines
+        // in the same range for any blank lines between them.
+        //
+        // We rebuild from rawLines: find starting raw index by matching the explanation
+        // marker line, then collect forward.
+        const explMarkerText = line; // the "Explanation: ..." line we just matched
+        let rawIdx = rawLines.findIndex(rl => rl.trim() === explMarkerText);
+        if (rawIdx === -1) {
+          // Fallback: just use remaining blockLines
+          while (cursor < blockLines.length) {
+            const next = blockLines[cursor];
+            if (isQuestionLine(next) || isOptionLine(next) || isAnswerLine(next)) break;
+            explLines.push(next);
+            cursor++;
+          }
+        } else {
+          // Walk rawLines from the line after the marker, collecting everything
+          rawIdx++;
+          while (rawIdx < rawLines.length) {
+            const nextTrimmed = rawLines[rawIdx].trim();
+            if (
+              isQuestionLine(nextTrimmed) ||
+              isAnswerLine(nextTrimmed)
+            ) break;
+            // Keep line (trimmed), including blank ones
+            explLines.push(nextTrimmed);
+            rawIdx++;
+          }
+          // Advance blockLines cursor past all lines we consumed
+          cursor = blockLines.length; // explanation goes to end of block
         }
-        // Join with \n — NOT space — so vertical math layout is preserved
-        explanation = explLines.join('\n').trim();
+
+        // Drop trailing blank lines; keep internal blank lines
+        while (explLines.length && explLines[explLines.length - 1] === '') explLines.pop();
+        explanation = explLines.join('\n');
         continue;
       }
 
@@ -425,7 +472,7 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       questionText: questionText.trim(),
       options:      optionMap,
       correctAnswer,
-      explanation,   // already trimmed, \n preserved
+      explanation,   // \n preserved, blank internal lines kept, no length limit
       diagramUrl,
       questionType: diagramUrl ? 'diagram' : 'text',
       _seq:         seqCounter,

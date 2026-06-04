@@ -28,6 +28,8 @@
 // EXPLANATION LINE BREAKS:
 //   Multi-line explanations preserve \n so vertical math layout is kept.
 //   Use <ExplanationText text={q.explanation} /> to render correctly.
+//   Blank lines inside explanations are preserved as empty lines.
+//   There is NO word/character limit on explanations.
 //
 // ─────────────────────────────────────────────────────────────────────
 
@@ -140,33 +142,43 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
   for (const block of blocks) {
     if (/^(\d+[\.\)]\s*|Q\s*\d+[\.\):\s])/.test(block)) continue;
     if (/^\s*\{/.test(block)) continue;
-    const lines = block.split('\n').map(l=>l.trim()).filter(Boolean);
-    if (lines.length < 2) continue;
+    // Use raw lines — do NOT filter(Boolean) so blank explanation lines are preserved
+    const rawLines = block.split('\n');
+    if (rawLines.filter(l => l.trim()).length < 2) continue;
     seqCounter++;
     let questionLines=[], optionMap={}, answerLetter=null, explanationLines=[], inExplanation=false;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(line)) {
-        const cl = line.replace(/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i,'').trim();
+    for (let i = 0; i < rawLines.length; i++) {
+      const trimmed = rawLines[i].trim();
+      if (!trimmed && !inExplanation) continue;
+      if (/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(trimmed)) {
+        const cl = trimmed.replace(/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i,'').trim();
         const mm = cl.match(/^([A-Ea-e])\b/i); if (mm) answerLetter=mm[1].toUpperCase();
         inExplanation=false; continue;
       }
-      if (/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(line)) {
-        const rest=line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i,'').trim();
-        if (rest) explanationLines.push(rest); inExplanation=true; continue;
+      if (/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(trimmed)) {
+        const rest=trimmed.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i,'').trim();
+        if (rest) explanationLines.push(rest);
+        inExplanation=true; continue;
       }
-      if (inExplanation) { explanationLines.push(line); continue; }
-      const inlineOpts = _splitInlineOptions(line);
+      if (inExplanation) {
+        // Keep blank lines within explanation
+        explanationLines.push(trimmed);
+        continue;
+      }
+      const inlineOpts = _splitInlineOptions(trimmed);
       if (inlineOpts&&inlineOpts.length>=2) { inlineOpts.forEach(o=>{ if(!optionMap[o.letter]) optionMap[o.letter]=o.text; }); continue; }
-      const so = line.match(/^([A-Ea-e])[\.\)\-:]\s+(.+)$/i);
+      const so = trimmed.match(/^([A-Ea-e])[\.\)\-:]\s+(.+)$/i);
       if (so) { const lt=so[1].toUpperCase(); if(!optionMap[lt]) optionMap[lt]=so[2].trim(); continue; }
-      if (Object.keys(optionMap).length===0) questionLines.push(line);
+      if (Object.keys(optionMap).length===0) questionLines.push(trimmed);
     }
     const questionText = questionLines.join(' ').trim();
     if (!questionText||Object.keys(optionMap).length<2) continue;
     const sortedOpts = Object.entries(optionMap).sort((a,b)=>optLetters.indexOf(a[0])-optLetters.indexOf(b[0]));
     const ci = answerLetter!==null?sortedOpts.findIndex(([l])=>l===answerLetter):-1;
-    questions.push({ _fromSeparatorBlock:true, _seq:seqCounter, _qNumber:seqCounter, question:questionText, options:sortedOpts.map(([,t])=>t), correctIndex:ci>=0?ci:0, explanation:explanationLines.join('\n').trim(), imageUrl:'', explanationImageUrl:'', _hasAnswer:ci>=0, _sortedLetters:sortedOpts.map(([l])=>l) });
+    // Remove trailing blank lines only; keep all internal blank lines
+    while (explanationLines.length && explanationLines[explanationLines.length-1]==='') explanationLines.pop();
+    const explText = explanationLines.join('\n');
+    questions.push({ _fromSeparatorBlock:true, _seq:seqCounter, _qNumber:seqCounter, question:questionText, options:sortedOpts.map(([,t])=>t), correctIndex:ci>=0?ci:0, explanation:explText, imageUrl:'', explanationImageUrl:'', _hasAnswer:ci>=0, _sortedLetters:sortedOpts.map(([l])=>l) });
   }
   return questions;
 }
@@ -198,10 +210,17 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     });
   }
 
-  // Normalize line endings; preserve \n
-  cleanedText = cleanedText.replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/[\u00a0\u2000-\u200b\u3000]/g,' ');
+  // Normalize line endings; DO NOT collapse \n — needed for explanation layout
+  cleanedText = cleanedText
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\u00a0\u2000-\u200b\u3000]/g, ' ');
 
-  const lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
+  // ── KEY CHANGE: split into ALL raw lines, do NOT filter(Boolean) ──
+  // Blank lines must be visible to the explanation collector so it can
+  // preserve vertical math layout (e.g. step-by-step factorisation).
+  const allRawLines = cleanedText.split('\n');
+
   const questions = [];
   let current = null;
   let seqCounter = 0;
@@ -214,6 +233,7 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     return /^\*[A-Ea-e]$/.test(t)||/^__[A-Ea-e]__$/.test(t)||/^\*\*[A-Ea-e]\*\*$/.test(t)||/^\([A-Ea-e]\)$/.test(t)||/^(answer|ans|correct|key|solution)[\s\.\:\-]*/i.test(t);
   };
   const isExplanationLine = l => /^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i.test(l);
+  const isSeparatorLine   = l => /^[\-\*\_]{3,}\s*$/.test(l);
 
   const extractImageTag   = text => { const mm=text.match(/\[image:\s*(https?:\/\/[^\]]+)\]/i); return mm?{url:mm[1].trim(),text:text.replace(mm[0],'').trim()}:{url:'',text}; };
   const getQuestionNumber = l => { const mm=l.match(/^(\d+)/); return mm?parseInt(mm[1]):null; };
@@ -249,9 +269,14 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     questions.push({ question:current.question.trim(), options:sortedOpts.map(o=>o.text), correctIndex:ci>=0?ci:-1, explanation:current.explanation||'', imageUrl:current.imageUrl||'', explanationImageUrl:current.explanationImageUrl||'', _seq:current.seq, _qNumber:current.qNumber, _hasAnswer:ci>=0, _sortedLetters:sortedOpts.map(o=>o.letter) });
   };
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^[\-\*\_]{3,}\s*$/.test(line)) continue;
+  for (let i = 0; i < allRawLines.length; i++) {
+    const rawLine = allRawLines[i];
+    const line = rawLine.trim();
+
+    if (isSeparatorLine(line)) continue;
+
+    // Blank line outside a question context — skip
+    if (!line && !current) continue;
 
     if (isQuestionLine(line)) {
       saveQuestion();
@@ -269,15 +294,18 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
       continue;
     }
 
-    // AUTO-START: unnumbered question
+    // AUTO-START unnumbered question
     if (!current) {
-      if (!isOptionLine(line)&&!isAnswerLine(line)&&!isExplanationLine(line)) {
+      if (line && !isOptionLine(line)&&!isAnswerLine(line)&&!isExplanationLine(line)) {
         seqCounter++;
         const qImg=extractImageTag(line);
         current={question:qImg.text,options:[],answerLetter:null,explanation:'',seq:seqCounter,qNumber:seqCounter,imageUrl:qImg.url,explanationImageUrl:''};
       }
       continue;
     }
+
+    // Blank line while in a question (but not inside explanation collector) — skip
+    if (!line) continue;
 
     if (!isAnswerLine(line)&&!isExplanationLine(line)) {
       const double=extractDoubleOptions(line);
@@ -286,7 +314,11 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
 
     if (isProseParagraphOption(line)&&!isAnswerLine(line)&&!isExplanationLine(line)) {
       const letter=extractOptionLetter(line); let text=extractOptionText(line);
-      while(i+1<lines.length){const next=lines[i+1];if(isQuestionLine(next)||isOptionLine(next)||isAnswerLine(next)||isExplanationLine(next)||/^[\-\*\_]{3,}\s*$/.test(next))break;text+=' '+next;i++;}
+      while(i+1<allRawLines.length){
+        const next=allRawLines[i+1].trim();
+        if(isQuestionLine(next)||isOptionLine(next)||isAnswerLine(next)||isExplanationLine(next)||isSeparatorLine(next))break;
+        text+=' '+next; i++;
+      }
       if(letter&&text&&!current.options.find(o=>o.letter===letter))current.options.push({letter,text:text.trim()});
       continue;
     }
@@ -300,19 +332,35 @@ export function parseQuestionsFromText(rawText, answerKeyText = '') {
     if (isAnswerLine(line)) { current.answerLetter=extractAnswerLetter(line); continue; }
 
     if (isExplanationLine(line)) {
-      // Strip "Explanation:" prefix, keep rest of line as first part
+      // Strip "Explanation:" label; keep the rest of the first line as content
       const firstPart = line.replace(/^(explanation|explain|rationale|reason|note|solution)[\s\.\:\-]*/i,'').trim();
       const explLines = firstPart ? [firstPart] : [];
-      // Collect continuation lines, preserving each line separately
-      while(i+1<lines.length){
-        const next=lines[i+1];
-        if(isQuestionLine(next)||isOptionLine(next)||isAnswerLine(next)||/^[\-\*\_]{3,}/.test(next))break;
-        explLines.push(next); i++;
+
+      // ── Collect continuation lines with NO limit ──────────────────
+      // Stop ONLY when we hit a hard structural boundary.
+      // Every line — including blank ones — is kept so vertical math
+      // layout (step-by-step working) is fully preserved.
+      i++;
+      while (i < allRawLines.length) {
+        const nextRaw = allRawLines[i];
+        const nextTrimmed = nextRaw.trim();
+        if (
+          isQuestionLine(nextTrimmed) ||
+          isAnswerLine(nextTrimmed) ||
+          isSeparatorLine(nextTrimmed)
+        ) break;
+        // Keep the line (trimmed); blank lines become '' which joins as '\n\n'
+        explLines.push(nextTrimmed);
+        i++;
       }
-      // Join with \n — preserves vertical math layout
+      i--; // outer loop will i++ so we reprocess the boundary line
+
+      // Drop only trailing blank lines; preserve all internal blank lines
+      while (explLines.length && explLines[explLines.length-1]==='') explLines.pop();
+
       const explImg = extractImageTag(explLines.join('\n'));
       current.explanation = explImg.text;
-      if(explImg.url)current.explanationImageUrl=explImg.url;
+      if (explImg.url) current.explanationImageUrl = explImg.url;
       continue;
     }
 
