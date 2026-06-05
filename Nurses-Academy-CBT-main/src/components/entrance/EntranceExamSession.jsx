@@ -4,7 +4,8 @@
 // CHANGES:
 //  - FREE_CAP (10 questions) enforced for unpaid users in poolMode + schoolMode
 //  - Upgrade banner shown inside exam header for unpaid users
-//  - All other logic unchanged
+//  - FIX: ExplanationText auto-splits calculation steps into separate lines
+//    without requiring \n in Firestore data
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
@@ -15,12 +16,13 @@ import {
 import { db }                                        from '../../firebase/config';
 import { useAuth }                                   from '../../context/AuthContext';
 import VoiceExamMode                                 from '../shared/VoiceExamMode';
-import ItalicText from '../shared/ItalicText';
+import ItalicText                                    from '../shared/ItalicText';
+import ExplanationText                               from '../shared/ExplanationText';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 const F           = "'Times New Roman', Times, serif";
 const H           = "'Arial Black', Arial, sans-serif";
-const FREE_CAP    = 10; // max questions for unpaid users
+const FREE_CAP    = 10;
 
 // ── Exit / Pause Modal ────────────────────────────────────────────────────────
 function ExitModal({ onSaveExit, onAbandon, onCancel, saving, saveError, examName, answered, total, currentIndex }) {
@@ -63,7 +65,6 @@ export default function EntranceExamSession() {
   const { user, profile } = useAuth();
   const state             = location.state || {};
 
-  // ── Paid / cap logic ───────────────────────────────────────────────────────
   const isPaid = profile?.entranceExamPaid || profile?.role === 'admin';
 
   const {
@@ -115,8 +116,6 @@ export default function EntranceExamSession() {
     const load = async () => {
       setLoading(true);
       try {
-
-        // RESUME MODE
         if (resumeMode && resumeData?.questionIds?.length) {
           const ids = resumeData.questionIds;
           const chunks = [];
@@ -132,7 +131,6 @@ export default function EntranceExamSession() {
           return;
         }
 
-        // REVIEW MODE
         if (reviewMode && savedSession?.questionIds?.length) {
           const ids = savedSession.questionIds;
           const chunks = [];
@@ -147,7 +145,6 @@ export default function EntranceExamSession() {
           return;
         }
 
-        // SCHOOL MODE — cap at FREE_CAP for unpaid
         if (schoolMode && schoolId) {
           const constraints = [where('schoolId', '==', schoolId)];
           if (examYear && examYear !== 'all') constraints.push(where('year', '==', examYear));
@@ -165,7 +162,6 @@ export default function EntranceExamSession() {
           return;
         }
 
-        // DAILY MOCK POOL MODE — cap at FREE_CAP for unpaid
         if (poolMode) {
           const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true)));
           let pool = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -173,7 +169,6 @@ export default function EntranceExamSession() {
           const cap = isPaid ? count : Math.min(count, FREE_CAP);
           setQuestions(pool.slice(0, cap));
         }
-
       } catch (err) {
         console.error('EntranceExamSession load error:', err);
       } finally {
@@ -306,7 +301,7 @@ export default function EntranceExamSession() {
     </div>
   );
 
-  // Result screen
+  // ── Result screen ───────────────────────────────────────────────────────────
   if (submitted && result && !reviewMode) {
     const passed = result.scorePercent >= 50;
     const breakdown = questions.map((q, i) => {
@@ -329,9 +324,9 @@ export default function EntranceExamSession() {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             {[
-              { label: 'Correct', value: correctCount, color: '#16A34A', bg: 'rgba(22,163,74,0.1)', icon: '✅' },
-              { label: 'Wrong',   value: wrongCount,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)', icon: '❌' },
-              { label: 'Skipped', value: skippedCount, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', icon: '⏭' },
+              { label: 'Correct', value: correctCount, color: '#16A34A', bg: 'rgba(22,163,74,0.1)',    icon: '✅' },
+              { label: 'Wrong',   value: wrongCount,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: '❌' },
+              { label: 'Skipped', value: skippedCount, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',   icon: '⏭' },
               { label: 'Total',   value: result.total, color: 'var(--teal)', bg: 'rgba(13,148,136,0.08)', icon: '📝' },
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: s.bg, border: `1.5px solid ${s.color}33`, borderRadius: 12, padding: '10px 16px', minWidth: 70 }}>
@@ -342,7 +337,6 @@ export default function EntranceExamSession() {
             ))}
           </div>
 
-          {/* Upgrade prompt on result screen for unpaid users */}
           {!isPaid && (
             <div style={{ background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
@@ -385,7 +379,14 @@ export default function EntranceExamSession() {
                   : isRight ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
                   : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
               </div>
-              {q.explanation && <div style={{ marginTop: 10, marginLeft: 36, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: F }}>💡 {q.explanation}</div>}
+
+              {/* ── Explanation — smart multi-line ── */}
+              {q.explanation && (
+                <div style={{ marginTop: 10, marginLeft: 36, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 4, fontSize: 12, fontFamily: F }}>💡 Explanation</div>
+                  <ExplanationText text={q.explanation} style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: F }} />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -432,15 +433,10 @@ export default function EntranceExamSession() {
           <div style={{ height: '100%', width: `${progress}%`, background: 'var(--teal)', borderRadius: 2, transition: 'width 0.3s ease' }} />
         </div>
 
-        {/* ── Free preview banner ── */}
         {!isPaid && !reviewMode && (
           <div style={{ background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.25)', padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#F59E0B', fontFamily: F }}>
-              ⚡ Free preview — {FREE_CAP} questions only
-            </span>
-            <button onClick={() => navigate('/entrance-exam/payment')} style={{ padding: '3px 12px', borderRadius: 20, border: '1.5px solid #F59E0B', background: 'transparent', color: '#F59E0B', fontSize: 11, fontWeight: 700, fontFamily: F, cursor: 'pointer' }}>
-              Upgrade →
-            </button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#F59E0B', fontFamily: F }}>⚡ Free preview — {FREE_CAP} questions only</span>
+            <button onClick={() => navigate('/entrance-exam/payment')} style={{ padding: '3px 12px', borderRadius: 20, border: '1.5px solid #F59E0B', background: 'transparent', color: '#F59E0B', fontSize: 11, fontWeight: 700, fontFamily: F, cursor: 'pointer' }}>Upgrade →</button>
           </div>
         )}
       </div>
@@ -508,10 +504,12 @@ export default function EntranceExamSession() {
                 );
               })}
             </div>
+
+            {/* ── Per-question explanation — smart multi-line ── */}
             {submitted && currentQ.explanation && (
               <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.25)' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 6, fontFamily: F }}>💡 Explanation</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: F }}>{currentQ.explanation}</div>
+                <ExplanationText text={currentQ.explanation} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: F }} />
               </div>
             )}
           </div>
