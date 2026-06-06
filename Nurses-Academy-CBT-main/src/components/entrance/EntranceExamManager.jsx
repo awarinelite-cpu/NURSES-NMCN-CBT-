@@ -439,7 +439,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [bulkDeleting,  setBulkDeleting]  = useState(false);
   const [deleteAllBusy, setDeleteAllBusy] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setSelected(new Set());
     try {
@@ -454,9 +454,9 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
       setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  };
+  }, [filterSchool, filterYear, filterType, filterDaily]);
 
-  useEffect(() => { load(); }, [filterSchool, filterYear, filterType, filterDaily]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = search
     ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase()))
