@@ -494,8 +494,20 @@ export default function ChatPage() {
         orderBy('createdAt','asc'), limit(300),
       );
       unsub = onSnapshot(q, snap => {
-        const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-        setMessages(msgs);
+        const firestoreMsgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        // Merge: keep any optimistic messages that haven't been confirmed yet
+        setMessages(prev => {
+          const optimistics = prev.filter(m => m._optimistic);
+          // Remove optimistic messages whose text already appears in Firestore
+          const pendingOptimistics = optimistics.filter(opt =>
+            !firestoreMsgs.some(fm => fm.text === opt.text && fm.senderId === opt.senderId)
+          );
+          return [...firestoreMsgs, ...pendingOptimistics].sort((a, b) => {
+            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : Date.now());
+            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : Date.now());
+            return ta - tb;
+          });
+        });
         setLoading(false);
         snap.docs.forEach(d => {
           const m = d.data();
@@ -597,8 +609,8 @@ export default function ChatPage() {
         read: false, delivered: false,
         ...(replySnap ? { replyTo: replySnap } : {}),
       });
-      // Replace optimistic with real doc id (onSnapshot will overwrite anyway)
-      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: docRef.id, _optimistic: false } : m));
+      // Remove optimistic once Firestore confirms — onSnapshot will add the real one
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
       // Update chat metadata
       await setDoc(doc(db, 'directChats', chatId), {
         participants:[myUid, theirUid],
