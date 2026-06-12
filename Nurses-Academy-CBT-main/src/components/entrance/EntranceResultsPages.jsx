@@ -16,7 +16,8 @@ import {
   collection, doc, getDocs, query, orderBy,
   limit, deleteDoc, where, Timestamp,
 } from 'firebase/firestore';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth }          from '../../context/AuthContext';
+import ExplanationText      from '../shared/ExplanationText';
 
 /* ── Font constants ─────────────────────────────────────────────────────────── */
 const F = "'Times New Roman', Times, serif";
@@ -410,14 +411,14 @@ export function EntranceBookmarks() {
                       })}
                     </div>
                     {b.explanation && (
-                      <div style={{
-                        marginTop: 12, padding: '12px 16px',
-                        background: 'var(--gold-glow)',
-                        border: '1px solid rgba(245,158,11,0.3)',
-                        borderRadius: 10, fontSize: 14,
-                        color: 'var(--text-primary)', fontWeight: 700, fontFamily: F,
-                      }}>
-                        💡 {b.explanation}
+                      <div style={{ marginTop: 12, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
+                        <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 16 }}>💡</span>
+                          <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                        </div>
+                        <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                          <ExplanationText text={b.explanation} />
+                        </div>
                       </div>
                     )}
                   </div>

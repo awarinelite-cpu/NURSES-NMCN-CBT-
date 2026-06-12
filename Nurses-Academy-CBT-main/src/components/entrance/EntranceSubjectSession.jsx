@@ -14,7 +14,8 @@ import {
   serverTimestamp, deleteDoc, doc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import ItalicText from '../shared/ItalicText';
+import ItalicText      from '../shared/ItalicText';
+import ExplanationText from '../shared/ExplanationText';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
 const F        = "'Times New Roman', Times, serif";
@@ -323,7 +324,17 @@ export default function EntranceSubjectSession() {
                       : isCorrect ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
                       : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
                   </div>
-                  {q.explanation && <div style={{ marginTop: 10, marginLeft: 34, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.18)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.55, fontFamily: F, fontWeight: 700 }}>💡 {q.explanation}</div>}
+                  {q.explanation && (
+                    <div style={{ marginTop: 10, marginLeft: 34, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)' }}>
+                      <div style={{ background: 'var(--teal)', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 15 }}>💡</span>
+                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 13, color: '#fff' }}>Explanation</span>
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'rgba(13,148,136,0.06)' }}>
+                        <ExplanationText text={q.explanation} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -439,7 +450,17 @@ export default function EntranceSubjectSession() {
                   </button>;
                 })}
               </div>
-              {submitted && currentQ.explanation && <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.07)', border: '1.5px solid rgba(13,148,136,0.2)' }}><div style={{ fontSize: 12, fontWeight: 700, color: '#0D9488', marginBottom: 6, fontFamily: F }}>💡 Explanation</div><div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>{currentQ.explanation}</div></div>}
+              {submitted && currentQ.explanation && (
+                <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
+                  <div style={{ background: 'var(--teal)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>💡</span>
+                    <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                  </div>
+                  <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                    <ExplanationText text={currentQ.explanation} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

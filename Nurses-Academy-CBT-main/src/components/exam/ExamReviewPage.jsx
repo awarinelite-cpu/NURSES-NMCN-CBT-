@@ -15,6 +15,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import ExplanationText from '../shared/ExplanationText';
 import {
   doc, getDoc,
   collection, query, where, getDocs,
@@ -362,11 +363,15 @@ export default function ExamReviewPage() {
                   )}
 
                   {q.explanation && (
-                    <div style={{
-                      background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
-                      borderRadius: 8, padding: '10px 14px', fontSize: 13,
-                      color: 'var(--text-secondary)', marginBottom: 8,
-                    }}>💡 {q.explanation}</div>
+                    <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
+                      <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>💡</span>
+                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                      </div>
+                      <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                        <ExplanationText text={q.explanation} />
+                      </div>
+                    </div>
                   )}
 
                   <button
