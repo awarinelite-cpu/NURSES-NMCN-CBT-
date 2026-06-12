@@ -621,11 +621,30 @@ export default function ChatPage() {
   };
 
   /* ─── RENDER ─────────────────────────────────────────────── */
+  // Lock the parent <main> so it doesn't scroll while chat is open
+  useEffect(() => {
+    const main = document.querySelector('.main-content');
+    if (main) {
+      main.style.overflow = 'hidden';
+      main.style.height   = '100%';
+    }
+    return () => {
+      if (main) {
+        main.style.overflow = '';
+        main.style.height   = '';
+      }
+    };
+  }, []);
+
   return (
     <div style={{
       display:'flex', flexDirection:'column',
-      height:'calc(100vh - 60px)',
-      background:'#0B141A',   /* WhatsApp dark bg */
+      /* 100dvh accounts for mobile browser chrome (address bar shrink/grow).
+         Fallback to 100vh for older browsers.
+         Subtract navbar height (60px) via CSS variable for easy adjustment. */
+      height:'calc(100dvh - 60px)',
+      maxHeight:'calc(100dvh - 60px)',
+      background:'#0B141A',
       color:'#E9EDEF',
       overflow:'hidden', position:'relative', fontFamily:F,
     }}>
@@ -708,6 +727,7 @@ export default function ChatPage() {
         flex:1, overflowY:'auto', overflowX:'hidden',
         padding:'12px 12px 4px',
         display:'flex', flexDirection:'column',
+        minHeight:0, /* critical — prevents flex child from overflowing parent */
         backgroundImage:`url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
       }}>
         {loading ? <Spinner /> : messages.length === 0 ? (

@@ -601,12 +601,17 @@ tr:hover td { background: var(--bg-secondary); }
 /* ── Dashboard Layout ─────────────────────────────────────────────── */
 .dashboard-layout {
   display: grid; grid-template-columns: 260px 1fr;
-  min-height: 100vh;
+  min-height: calc(100vh - 60px);
+  height: calc(100vh - 60px);
 }
 .main-content {
   background: var(--bg-primary);
   overflow-x: hidden;
+  overflow-y: auto;
   color: var(--text-primary);
+  /* Allow children (like chat) to take full height */
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Stat Cards ───────────────────────────────────────────────────── */
