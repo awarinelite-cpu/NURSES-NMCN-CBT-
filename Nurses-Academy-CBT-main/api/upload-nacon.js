@@ -1,8 +1,9 @@
-// api/upload-nacon.js  — Vercel Serverless Function
-// Visit: https://your-vercel-url/api/upload-nacon  to trigger upload
-// DELETE THIS FILE after upload is confirmed.
+// api/upload-nacon.js — Vercel Serverless Function (v2: signs in as admin)
+// Visit: https://nurses-nmcn-cbt.vercel.app/api/upload-nacon?secret=nacon2021
+// DELETE this file after successful upload.
 
 import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -15,10 +16,11 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 const QUESTIONS = [
-  // ── ENGLISH LANGUAGE (Q1–20) ──────────────────────────────────────────
+  // ── ENGLISH LANGUAGE (Q1–20) ─────────────────────────────────────
   { question: "Why do you worry about such _____ matters?", options: ["Insignificant","Significant","Non-Significant","Unsignificant"], correctIndex: 0, subject: "English Language", topic: "Vocabulary" },
   { question: "It was difficult to _____ a man walking on the moon two centuries ago.", options: ["Contrive","Perceive","Conceive","Imagine"], correctIndex: 2, subject: "English Language", topic: "Vocabulary" },
   { question: "This section of the test will _____ questions on set passages.", options: ["Consist","Comprise","Contain","Carry"], correctIndex: 2, subject: "English Language", topic: "Vocabulary" },
@@ -39,7 +41,7 @@ const QUESTIONS = [
   { question: "Choose the option with the same stress pattern as: APPARENT", options: ["Paragraph","Arrested","Appetite","Telephone"], correctIndex: 1, subject: "English Language", topic: "Phonology" },
   { question: "Choose the option with the same stress pattern as: UNFAIR", options: ["First-class","Instant","Insight","Towards"], correctIndex: 3, subject: "English Language", topic: "Phonology" },
   { question: "Choose the option with the same vowel sound as the underlined letters in: HURT", options: ["Hate","Hut","Girl","Hot"], correctIndex: 1, subject: "English Language", topic: "Phonology" },
-  // ── CHEMISTRY (Q21–40) ────────────────────────────────────────────────
+  // ── CHEMISTRY (Q21–40) ───────────────────────────────────────────
   { question: "The body contains how many percent of oxygen?", options: ["65%","18%","72%","80%"], correctIndex: 0, subject: "Chemistry", topic: "Biochemistry" },
   { question: "Which of the following is a poisonous gas that if inhaled reacts with haemoglobin in blood competing with oxygen?", options: ["CO2","CO","NO2","SO2"], correctIndex: 1, subject: "Chemistry", topic: "Inorganic Chemistry" },
   { question: "Which of the following chemical structures represents formaldehyde?", options: ["HCHO","CH3CHO","CH3COCH3","CH3CoCH2COOH"], correctIndex: 0, subject: "Chemistry", topic: "Organic Chemistry" },
@@ -60,15 +62,15 @@ const QUESTIONS = [
   { question: "Acid containing only two elements are called _____.", options: ["Temperature acid","Tertiary acid","Binary acid","Saturated acid"], correctIndex: 2, subject: "Chemistry", topic: "Inorganic Chemistry" },
   { question: "Which of the following is a salt?", options: ["HCl","H2SO4","HNO3","NaCl"], correctIndex: 3, subject: "Chemistry", topic: "Inorganic Chemistry" },
   { question: "Reaction in which water is one of the reacting compounds is called _____.", options: ["Condensation","Haemolysis","Hydrolysis","Catalysis"], correctIndex: 2, subject: "Chemistry", topic: "Physical Chemistry" },
-  // ── PHYSICS (Q41–55) ─────────────────────────────────────────────────
+  // ── PHYSICS (Q41–55) ─────────────────────────────────────────────
   { question: "Which of the following is most suitable for use as an altimeter?", options: ["A mercury barometer","A Fortin barometer","A mercury manometer","An aneroid barometer"], correctIndex: 3, subject: "Physics", topic: "Pressure" },
   { question: "A body weight W N rests on a smooth plane inclined at angle theta to the horizontal. What is the resolved part of the weight in Newtons along the plane?", options: ["W sin(theta)","W cos(theta)","W sec(theta)","W tan(theta)"], correctIndex: 0, subject: "Physics", topic: "Mechanics" },
   { question: "A small metal ball thrown vertically upwards from a tower with initial velocity 20m/s takes 6s to reach ground level. Determine the height of the tower. (g=10ms-2)", options: ["60m","80m","100m","120m"], correctIndex: 1, subject: "Physics", topic: "Mechanics" },
   { question: "An object moves with uniform speed round a circle. Its acceleration has _____.", options: ["Constant magnitude and constant direction","Constant magnitude and varying direction","Varying magnitude but constant direction","Varying magnitude and varying direction"], correctIndex: 1, subject: "Physics", topic: "Mechanics" },
   { question: "A body of mass 100g moving at 10.0 m/s collides with a wall and bounces back at 2m/s. Calculate the change in momentum.", options: ["0.8 Ns","1.2 Ns","12.0 Ns","80.0 Ns"], correctIndex: 1, subject: "Physics", topic: "Mechanics" },
   { question: "Find the tension T in a diagram where the system is in Equilibrium.", options: ["200/3 N","100/3 N","300/3 N","100 N"], correctIndex: 2, subject: "Physics", topic: "Mechanics" },
-  { question: "A spring of force constant 1500 N/M is acted upon by a constant force of 75N. Calculate the potential energy stored in the spring.", options: ["1.9 J","3.2 J","3.8 J","5.0 J"], correctIndex: 0, subject: "Physics", topic: "Energy" },
-  { question: "A wheel and axle have radii 80cm and 10cm. Efficiency is 0.85 and applied force is 1200N to the wheel. What load will it raise?", options: ["8.0N","6.8N","816N","9600.0N"], correctIndex: 2, subject: "Physics", topic: "Machines" },
+  { question: "A spring of force constant 1500 N/M acted upon by a constant force of 75N. Calculate the potential energy stored in the spring.", options: ["1.9 J","3.2 J","3.8 J","5.0 J"], correctIndex: 0, subject: "Physics", topic: "Energy" },
+  { question: "A wheel and axle have radii 80cm and 10cm. Efficiency is 0.85 and applied force is 1200N. What load will it raise?", options: ["8.0N","6.8N","816N","9600.0N"], correctIndex: 2, subject: "Physics", topic: "Machines" },
   { question: "A body under a force with semi-circular force-displacement graph moves through 24 metres. What is the work done?", options: ["36 nJ","72 nJ","144 nJ","288 nJ"], correctIndex: 2, subject: "Physics", topic: "Energy" },
   { question: "A 20kg mass is pulled up a 30-degree slope with 75% efficiency. What force is required? (g=10ms-2)", options: ["13.3N","73.5N","133.3N","533.2N"], correctIndex: 2, subject: "Physics", topic: "Machines" },
   { question: "A spring balance is 25cm long with 5N and 30cm long with 10N. What is its length with 3N? (Hooke's Law)", options: ["15.0cm","17.0cm","20.0cm","23.0cm"], correctIndex: 3, subject: "Physics", topic: "Elasticity" },
@@ -76,7 +78,7 @@ const QUESTIONS = [
   { question: "A pilot records 63cm Hg and ground observer records 75cm Hg. Calculate the height of the plane. (Relative density of Hg=13.0, density of air=0.00013)", options: ["1200m","6300m","7500cm","13800m"], correctIndex: 1, subject: "Physics", topic: "Pressure" },
   { question: "In which of the following is surface tension important?", options: ["The floating of a ship in water","The floating of a dry needle in water","The floating of a balloon in air","The diffusion of sugar solution across a membrane"], correctIndex: 1, subject: "Physics", topic: "Hydrostatics" },
   { question: "A thermometer registers -30S at ice point and 90S at steam point. What is the Celsius temperature for 60S?", options: ["25.0C","50.0C","66.7C","42C"], correctIndex: 2, subject: "Physics", topic: "Heat" },
-  // ── BIOLOGY (Q56–80) ─────────────────────────────────────────────────
+  // ── BIOLOGY (Q56–80) ─────────────────────────────────────────────
   { question: "Growth in living things is brought about by the _____.", options: ["Deposition of new material from the surroundings","Synthesis of new material from within the body","Absorption of water and minerals","Elasticity of the cell"], correctIndex: 1, subject: "Biology", topic: "Cell Biology" },
   { question: "In unicellular organisms, the structure responsible for reproduction is the _____.", options: ["Cytoplasm","Lysosome","Mitochondrion","Nucleus"], correctIndex: 3, subject: "Biology", topic: "Cell Biology" },
   { question: "The head-foot is a structure mostly found in _____.", options: ["Mollusca","Reptile","Arthropoda","Amphibia"], correctIndex: 0, subject: "Biology", topic: "Classification of Living Things" },
@@ -102,7 +104,7 @@ const QUESTIONS = [
   { question: "If the gall bladder of a mammal is damaged, which will be most seriously affected?", options: ["Glycolysis","Digestion of starch","Digestion of fats","Digestion of protein"], correctIndex: 2, subject: "Biology", topic: "Nutrition and Digestion" },
   { question: "In the mammalian respiratory system, exchange of gases occurs in the _____.", options: ["Lungs","Bronchi","Bronchioles","Alveoli"], correctIndex: 3, subject: "Biology", topic: "Gaseous Exchange" },
   { question: "In mammals, the placenta performs functions similar to those of _____.", options: ["Lungs, kidney, and digestive system","Lungs, heart and nervous system","Liver, intestine and reproductive system","Intestines, heart and digestive system"], correctIndex: 0, subject: "Biology", topic: "Reproduction" },
-  // ── MATHEMATICS (Q81–87) ─────────────────────────────────────────────
+  // ── MATHEMATICS (Q81–87) ─────────────────────────────────────────
   { question: "Convert 35 to a number in base two.", options: ["1011 (base 2)","10011 (base 2)","100011 (base 2)","110010 (base 2)"], correctIndex: 1, subject: "Mathematics", topic: "Number Bases" },
   { question: "Simplify (1/4) raised to the power of negative half.", options: ["8","4","1/4","3/8"], correctIndex: 1, subject: "Mathematics", topic: "Indices" },
   { question: "A cloth measured as 6.10m but actual length is 6.35m. Find the percentage error to 2 decimal places.", options: ["3.05%","3.94%","15.00%","25.00%"], correctIndex: 1, subject: "Mathematics", topic: "Approximation and Error" },
@@ -110,7 +112,7 @@ const QUESTIONS = [
   { question: "Solve the equation 5x² - 4x - 1 = 0", options: ["1 and 1/5","-1 and 1/5","1 and 1/5","1 and -1/5"], correctIndex: 3, subject: "Mathematics", topic: "Quadratic Equations" },
   { question: "Make S the subject of the formula V = K / sqrt(T - S)", options: ["S = (T - K²)/V²","S = (K² - T)/V²","S = (T - V²)/K²","S = T(V² - K²)/V²"], correctIndex: 0, subject: "Mathematics", topic: "Algebra" },
   { question: "For what values of X is the expression (x - 5)/(x² - 2x - 3) not defined?", options: ["3 and 1","-1 and -3","-1 and 3","3 and -2"], correctIndex: 2, subject: "Mathematics", topic: "Algebra" },
-  // ── CHEMISTRY continued (Q88–100) ────────────────────────────────────
+  // ── CHEMISTRY continued (Q88–100) ────────────────────────────────
   { question: "One of these professions has no need for Chemistry.", options: ["Miners","Philosophers","Engineers","Geologists"], correctIndex: 1, subject: "Chemistry", topic: "Introduction to Chemistry" },
   { question: "One of these is NOT a chemical change.", options: ["Sublimation of solids","Rusting","Slaking of quicklime","Fermentation of glucose"], correctIndex: 0, subject: "Chemistry", topic: "Physical Chemistry" },
   { question: "Which is the odd-one-out among Air, Sand, Urine, Blood?", options: ["Air","Sand","Urine","Blood"], correctIndex: 0, subject: "Chemistry", topic: "Separation Techniques" },
@@ -127,9 +129,15 @@ const QUESTIONS = [
 ];
 
 export default async function handler(req, res) {
-  // Simple secret check — visit: /api/upload-nacon?secret=nacon2021
   if (req.query.secret !== 'nacon2021') {
     return res.status(401).json({ error: 'Unauthorized. Add ?secret=nacon2021 to the URL.' });
+  }
+
+  // Sign in as admin
+  try {
+    await signInWithEmailAndPassword(auth, 'admin123@gmail.com', 'admin123@gmail.com');
+  } catch (err) {
+    return res.status(401).json({ error: 'Admin sign-in failed: ' + err.message });
   }
 
   let success = 0, failed = 0, errors = [];
