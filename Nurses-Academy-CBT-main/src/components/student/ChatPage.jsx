@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate }       from 'react-router-dom';
 import {
   collection, doc, getDoc, addDoc, onSnapshot,
-  query, orderBy, limit, serverTimestamp, updateDoc, setDoc, deleteDoc,
+  query, orderBy, limit, serverTimestamp, updateDoc, setDoc, deleteDoc, increment,
 } from 'firebase/firestore';
 import { db, storage } from '../../firebase/config';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -795,6 +795,16 @@ export default function ChatPage() {
   const theirSchool = state?.school || theirProfile?.school || '';
   const myName      = profile?.name || user?.displayName    || 'Me';
 
+  /* ── Clear MY unread count when I open this chat ── */
+  useEffect(() => {
+    if (!chatId || !myUid) return;
+    // Reset my unread count to 0 for this chat
+    setDoc(doc(db, 'directChats', chatId),
+      { [`unreadCounts.${myUid}`]: 0 },
+      { merge: true }
+    ).catch(() => {});
+  }, [chatId, myUid]);
+
   /* ── Load their profile ── */
   useEffect(() => {
     if (!theirUid) return;
@@ -947,12 +957,13 @@ export default function ChatPage() {
       });
       // Remove optimistic once Firestore confirms — onSnapshot will add the real one
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      // Update chat metadata
+      // Update chat metadata + increment recipient's unread count
       await setDoc(doc(db, 'directChats', chatId), {
         participants:[myUid, theirUid],
         lastMessage: trimmed,
         lastSenderId: myUid,
         updatedAt: serverTimestamp(),
+        [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
     } catch(e) {
       console.error('Send failed:', e);
@@ -1005,6 +1016,7 @@ export default function ChatPage() {
         lastMessage: '🎤 Voice message',
         lastSenderId: myUid,
         updatedAt: serverTimestamp(),
+        [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
 
       setShowVoice(false);
@@ -1067,6 +1079,7 @@ export default function ChatPage() {
         lastMessage: '📷 Photo',
         lastSenderId: myUid,
         updatedAt: serverTimestamp(),
+        [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
 
     } catch(e) {

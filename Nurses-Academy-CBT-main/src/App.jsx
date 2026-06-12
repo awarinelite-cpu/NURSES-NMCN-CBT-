@@ -23,6 +23,7 @@ import PerformanceMonitorPage from './components/student/PerformanceMonitorPage'
 import NotificationSettings   from './components/student/NotificationSettings';
 import StudentPublicProfile   from './components/student/StudentPublicProfile';
 import ChatPage               from './components/student/ChatPage';
+import ChatInbox              from './components/student/ChatInbox';
 import LeaderboardPage        from './components/student/LeaderboardPage';
 
 // Payment pages
@@ -208,6 +209,7 @@ export default function App() {
                   <Route path="/profile"           element={<ProfilePage />} />
                   <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                   <Route path="/chat/:uid"          element={<ChatPage />} />
+                  <Route path="/chat-inbox"          element={<ChatInbox />} />
 
                   {/* NMCN exam modes */}
                   <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />

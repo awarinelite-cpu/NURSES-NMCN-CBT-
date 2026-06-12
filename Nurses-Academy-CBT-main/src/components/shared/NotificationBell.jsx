@@ -1,7 +1,11 @@
 // src/components/shared/NotificationBell.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInAppNotifications } from '../../hooks/useInAppNotifications';
+import { useInAppNotifications }  from '../../hooks/useInAppNotifications';
+import { useChatNotifications }   from '../../hooks/useChatNotifications';
+
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
 
 function timeAgo(date) {
   if (!date) return '';
@@ -17,11 +21,41 @@ function timeAgo(date) {
   return date.toLocaleDateString();
 }
 
+function tsToDate(ts) {
+  if (!ts) return null;
+  if (ts.toDate) return ts.toDate();
+  if (ts instanceof Date) return ts;
+  return new Date(ts);
+}
+
 export default function NotificationBell() {
   const navigate = useNavigate();
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications();
+  const { chatThreads, totalUnread: chatUnread }     = useChatNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+
+  // Profiles cache for chat senders
+  const [names, setNames] = useState({});
+
+  // Load other-user names for chat threads
+  useEffect(() => {
+    if (!chatThreads.length) return;
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      import('../../firebase/config').then(({ db }) => {
+        chatThreads.forEach(async (t) => {
+          if (!t.otherUid || names[t.otherUid]) return;
+          try {
+            const snap = await getDoc(doc(db, 'users', t.otherUid));
+            if (snap.exists()) {
+              const d = snap.data();
+              setNames(prev => ({ ...prev, [t.otherUid]: d.name || d.displayName || 'Student' }));
+            }
+          } catch {}
+        });
+      });
+    });
+  }, [chatThreads]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -42,6 +76,12 @@ export default function NotificationBell() {
     if (item.link) navigate(item.link);
   };
 
+  // Unread chat threads (those with unread > 0)
+  const unreadChats = chatThreads.filter(t => t.unread > 0);
+
+  // Total badge = exam notifications + unread chats
+  const totalBadge = unreadCount + chatUnread;
+
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       <button
@@ -53,8 +93,8 @@ export default function NotificationBell() {
         title="Notifications"
       >
         🔔
-        {unreadCount > 0 && (
-          <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+        {totalBadge > 0 && (
+          <span style={styles.badge}>{totalBadge > 9 ? '9+' : totalBadge}</span>
         )}
       </button>
 
@@ -62,9 +102,114 @@ export default function NotificationBell() {
         <div style={styles.dropdown}>
           <div style={styles.header}>Notifications</div>
 
+          {/* ── CHAT MESSAGES SECTION ── */}
+          {unreadChats.length > 0 && (
+            <>
+              <div style={styles.sectionLabel}>💬 New Messages</div>
+
+              {unreadChats.length === 1 ? (
+                /* Single unread chat → go directly to that chat */
+                <button
+                  style={{ ...styles.item, ...styles.chatItem }}
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(`/chat/${unreadChats[0].otherUid}`, {
+                      state: { name: names[unreadChats[0].otherUid] || 'Student' }
+                    });
+                  }}
+                >
+                  <div style={styles.chatRow}>
+                    <div style={styles.chatAvatar}>
+                      {(names[unreadChats[0].otherUid] || 'S')[0].toUpperCase()}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={styles.chatName}>
+                        {names[unreadChats[0].otherUid] || 'Student'}
+                      </div>
+                      <div style={styles.chatPreview}>
+                        {unreadChats[0].lastMessage === '🎤 Voice message' ? '🎤 Voice message'
+                          : unreadChats[0].lastMessage === '📷 Photo' ? '📷 Photo'
+                          : unreadChats[0].lastMessage || 'Sent you a message'}
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
+                      <div style={styles.unreadBadge}>
+                        {unreadChats[0].unread > 99 ? '99+' : unreadChats[0].unread}
+                      </div>
+                      <div style={styles.chatTime}>
+                        {timeAgo(tsToDate(unreadChats[0].updatedAt))}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                /* Multiple unread chats → show each, also offer "View all" */
+                <>
+                  {unreadChats.slice(0, 3).map(t => (
+                    <button
+                      key={t.chatId}
+                      style={{ ...styles.item, ...styles.chatItem }}
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`/chat/${t.otherUid}`, {
+                          state: { name: names[t.otherUid] || 'Student' }
+                        });
+                      }}
+                    >
+                      <div style={styles.chatRow}>
+                        <div style={styles.chatAvatar}>
+                          {(names[t.otherUid] || 'S')[0].toUpperCase()}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={styles.chatName}>
+                            {names[t.otherUid] || 'Student'}
+                          </div>
+                          <div style={styles.chatPreview}>
+                            {t.lastMessage === '🎤 Voice message' ? '🎤 Voice message'
+                              : t.lastMessage === '📷 Photo' ? '📷 Photo'
+                              : t.lastMessage || 'Sent you a message'}
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
+                          <div style={styles.unreadBadge}>
+                            {t.unread > 99 ? '99+' : t.unread}
+                          </div>
+                          <div style={styles.chatTime}>
+                            {timeAgo(tsToDate(t.updatedAt))}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    style={styles.viewAllBtn}
+                    onClick={() => { setOpen(false); navigate('/chat-inbox'); }}
+                  >
+                    View all messages →
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {/* No unread chats but has chats → show inbox link */}
+          {chatThreads.length > 0 && unreadChats.length === 0 && (
+            <button
+              style={styles.inboxLink}
+              onClick={() => { setOpen(false); navigate('/chat-inbox'); }}
+            >
+              💬 Open Messages Inbox
+            </button>
+          )}
+
+          {/* ── EXAM ANNOUNCEMENTS SECTION ── */}
+          {items.length > 0 && (
+            <div style={styles.sectionLabel}>📢 Exam Updates</div>
+          )}
+
           {loading ? (
             <div style={styles.empty}>Loading…</div>
-          ) : items.length === 0 ? (
+          ) : items.length === 0 && chatThreads.length === 0 ? (
             <div style={styles.empty}>No notifications yet</div>
           ) : (
             <div style={styles.list}>
@@ -117,21 +262,82 @@ const styles = {
   dropdown: {
     position: 'absolute', top: 'calc(100% + 6px)', right: 0,
     background: 'var(--bg-card)', border: '1px solid var(--border)',
-    borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-    minWidth: 290, maxWidth: '90vw', overflow: 'hidden', zIndex: 200,
+    borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    minWidth: 300, maxWidth: '92vw', overflow: 'hidden', zIndex: 200,
     animation: 'fadeIn 0.15s ease',
   },
   header: {
     padding: '12px 16px', fontSize: 13, fontWeight: 800,
     color: 'var(--text-primary)', borderBottom: '1px solid var(--border)',
     textTransform: 'uppercase', letterSpacing: 0.6,
+    fontFamily: H,
   },
-  list: { maxHeight: 360, overflowY: 'auto' },
+  sectionLabel: {
+    padding: '8px 16px 4px',
+    fontSize: 10, fontWeight: 800, letterSpacing: 1,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    fontFamily: H,
+    borderTop: '1px solid var(--border)',
+  },
+  list: { maxHeight: 260, overflowY: 'auto' },
   item: {
     display: 'block', width: '100%', textAlign: 'left',
     background: 'none', border: 'none', cursor: 'pointer',
-    padding: '12px 16px', borderBottom: '1px solid var(--border)',
+    padding: '11px 16px', borderBottom: '1px solid var(--border)',
     transition: 'background 0.15s',
+  },
+  chatItem: {
+    padding: '10px 14px',
+  },
+  chatRow: {
+    display: 'flex', alignItems: 'center', gap: 10,
+  },
+  chatAvatar: {
+    width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: H, fontWeight: 900, color: '#fff', fontSize: 15,
+  },
+  chatName: {
+    fontFamily: H, fontWeight: 900, fontSize: 13,
+    color: 'var(--text-primary,#F1F5F9)',
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    marginBottom: 3,
+  },
+  chatPreview: {
+    fontSize: 12, fontWeight: 700,
+    color: 'var(--text-muted,#94A3B8)',
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    fontFamily: F,
+  },
+  chatTime: {
+    fontSize: 10, fontWeight: 700,
+    color: 'var(--text-muted,#64748B)',
+    fontFamily: F,
+  },
+  unreadBadge: {
+    minWidth: 18, height: 18, borderRadius: 9,
+    background: '#0D9488', color: '#fff',
+    fontSize: 10, fontWeight: 900, fontFamily: H,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '0 4px',
+  },
+  viewAllBtn: {
+    display: 'block', width: '100%', textAlign: 'center',
+    background: 'rgba(13,148,136,0.08)', border: 'none', cursor: 'pointer',
+    padding: '10px 16px',
+    borderBottom: '1px solid var(--border)',
+    fontSize: 12, fontWeight: 800, color: '#0D9488',
+    fontFamily: F, letterSpacing: 0.3,
+    transition: 'background 0.15s',
+  },
+  inboxLink: {
+    display: 'block', width: '100%', textAlign: 'left',
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: '11px 16px', borderBottom: '1px solid var(--border)',
+    fontSize: 13, fontWeight: 700, color: 'var(--text-muted,#94A3B8)',
+    fontFamily: F, transition: 'background 0.15s',
   },
   itemTop: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -139,13 +345,14 @@ const styles = {
   },
   itemTitle: {
     fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
-    lineHeight: 1.3,
+    lineHeight: 1.3, fontFamily: F,
   },
   itemMsg: {
-    fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 4,
+    fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4,
+    marginBottom: 4, fontFamily: F,
   },
   itemTime: {
-    fontSize: 11, color: 'var(--text-muted)', opacity: 0.8,
+    fontSize: 11, color: 'var(--text-muted)', opacity: 0.8, fontFamily: F,
   },
   modeBadge: {
     fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
@@ -154,6 +361,6 @@ const styles = {
   },
   empty: {
     padding: '20px 16px', textAlign: 'center',
-    fontSize: 13, color: 'var(--text-muted)',
+    fontSize: 13, color: 'var(--text-muted)', fontFamily: F,
   },
 };
