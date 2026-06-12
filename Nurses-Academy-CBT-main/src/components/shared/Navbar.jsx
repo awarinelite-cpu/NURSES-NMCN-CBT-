@@ -14,7 +14,7 @@ const ENT_LAST   = 'nmcn_last_entrance';
 // Pages that belong unambiguously to one site
 const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
 const cbtPrefixes      = [
-  '/dashboard', '/exams', '/daily-practice', '/course-drill',
+  '/dashboard', '/admin', '/exams', '/daily-practice', '/course-drill',
   '/topic-drill', '/mock-exams', '/mock-reviews', '/performance',
   '/leaderboard', '/subscription',
 ];
@@ -78,10 +78,11 @@ export default function Navbar({ onMenuToggle }) {
   const handleSiteSwitch = () => {
     setDropOpen(false);
     if (isEntrance) {
-      // Switch to NMCN CBT — resume where we left off
+      // Switch to NMCN CBT — resume where we left off, or land on the
+      // main NMCN CBT interface (not the admin control panel) by default
       const last = localStorage.getItem(CBT_LAST);
       localStorage.setItem(SITE_KEY, 'cbt');
-      navigate(last || (isAdmin ? '/admin' : '/dashboard'));
+      navigate(last || '/dashboard');
     } else {
       // Switch to Entrance Exam — resume where we left off
       const last = localStorage.getItem(ENT_LAST);
