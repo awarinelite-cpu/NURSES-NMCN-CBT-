@@ -18,6 +18,7 @@ export default function AdminPayments() {
   const [loading,  setLoading]  = useState(true);
   const [filter,   setFilter]   = useState('all');  // 'all' | 'pending' | 'confirmed' | 'rejected'
   const [busy,     setBusy]     = useState({});      // { paymentId: true } while processing
+  const [receiptModal, setReceiptModal] = useState(null); // base64 or URL string
 
   const load = async () => {
     setLoading(true);
@@ -192,20 +193,18 @@ export default function AdminPayments() {
                     </td>
                     <td style={s.td}>
                       {(p.receiptUrl || p.receiptImage) ? (
-                        <a
-                          href={p.receiptUrl || p.receiptImage}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => setReceiptModal(p.receiptImage || p.receiptUrl)}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                             background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
-                            border: '1px solid rgba(13,148,136,0.35)', textDecoration: 'none',
+                            border: '1px solid rgba(13,148,136,0.35)', cursor: 'pointer',
                             whiteSpace: 'nowrap',
                           }}
                         >
                           🧾 View
-                        </a>
+                        </button>
                       ) : (
                         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
                       )}
@@ -272,6 +271,37 @@ export default function AdminPayments() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Receipt image modal ── */}
+      {receiptModal && (
+        <div
+          onClick={() => setReceiptModal(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>🧾 Payment Receipt</span>
+              <button
+                onClick={() => setReceiptModal(null)}
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            <img
+              src={receiptModal}
+              alt="Payment receipt"
+              style={{ width: '100%', borderRadius: 12, maxHeight: '75vh', objectFit: 'contain', background: '#111' }}
+            />
+          </div>
         </div>
       )}
     </div>
