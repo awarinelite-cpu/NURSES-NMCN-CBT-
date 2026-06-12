@@ -134,7 +134,9 @@ service cloud.firestore {
     }
 
     match /accessCodes/{id} {
-      allow read, write: if isAdmin();
+      // Auth users need read to redeem codes; only admin can create/update/delete.
+      allow read:  if isAuth();
+      allow write: if isAdmin();
     }
 
     match /scheduledExams/{id} {
@@ -168,27 +170,57 @@ service cloud.firestore {
     }
 
     // ── Direct student-to-student chat ─────────────────────────────────────
-    // chatId is always [uid1, uid2].sort().join('_')
-    // A student can only access a chat if their own UID is part of the chatId.
+    // chatId = [uid1, uid2].sort().join('_')
+    // Access is granted when the authenticated user's UID is in the
+    // participants array stored on the chat document itself.
+    // This avoids fragile regex matching on chatId strings.
+
+    function isChatParticipant(chatId) {
+      // For existing documents, check the stored participants array.
+      // exists() guard prevents errors when the doc hasn't been created yet.
+      return isAuth() && (
+        !exists(/databases/$(database)/documents/directChats/$(chatId)) ||
+        get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
+      );
+    }
+
     match /directChats/{chatId} {
-      allow read, write: if isAuth() &&
-        chatId.matches('.*' + request.auth.uid + '.*');
+      // Read: must be a participant (doc exists) or be creating the first doc
+      allow read: if isAuth() && (
+        !exists(/databases/$(database)/documents/directChats/$(chatId)) ||
+        resource.data.participants.hasAny([request.auth.uid])
+      );
+
+      // Create: allowed for any authenticated user setting up a new chat,
+      // as long as their UID is in the participants list they're writing
+      allow create: if isAuth() &&
+        request.resource.data.participants.hasAny([request.auth.uid]);
+
+      // Update: only participants can update chat metadata (lastMessage etc.)
+      allow update: if isAuth() &&
+        resource.data.participants.hasAny([request.auth.uid]);
+
+      allow delete: if isAdmin();
 
       match /messages/{msgId} {
-        allow read:   if isAuth() &&
-          chatId.matches('.*' + request.auth.uid + '.*');
+        allow read: if isAuth() && (
+          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
+        );
+        // Only the sender can create a message, and senderId must match their UID
         allow create: if isAuth() &&
-          chatId.matches('.*' + request.auth.uid + '.*') &&
+          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid]) &&
           request.resource.data.senderId == request.auth.uid;
+        // Allow update so the recipient can mark messages as read
         allow update: if isAuth() &&
-          chatId.matches('.*' + request.auth.uid + '.*');
+          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid]);
         allow delete: if isAdmin();
       }
 
       // Typing indicators sub-collection
       match /typing/{typingUid} {
-        allow read, write: if isAuth() &&
-          chatId.matches('.*' + request.auth.uid + '.*');
+        allow read, write: if isAuth() && (
+          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
+        );
       }
     }
 
