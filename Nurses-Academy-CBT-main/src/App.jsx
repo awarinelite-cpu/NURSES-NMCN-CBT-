@@ -22,6 +22,8 @@ import QuickActionsPage       from './components/student/QuickActionsPage';
 import PerformanceMonitorPage from './components/student/PerformanceMonitorPage';
 import NotificationSettings   from './components/student/NotificationSettings';
 import StudentPublicProfile   from './components/student/StudentPublicProfile';
+import ChatPage               from './components/student/ChatPage';
+import LeaderboardPage        from './components/student/LeaderboardPage';
 
 // Payment pages
 import PaymentPage from './components/payment/PaymentPage';
@@ -197,6 +199,7 @@ export default function App() {
                   <Route path="/leaderboard"       element={<LeaderboardPage />} />
                   <Route path="/profile"           element={<ProfilePage />} />
                   <Route path="/student/:uid"       element={<StudentPublicProfile />} />
+                  <Route path="/chat/:uid"          element={<ChatPage />} />
 
                   {/* NMCN exam modes */}
                   <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
@@ -255,14 +258,7 @@ export default function App() {
 
 // ── Inline pages ─────────────────────────────────────────────────
 
-function LeaderboardPage() {
-  return (
-    <div style={{ padding: 24, maxWidth: 700 }}>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>🏆 Leaderboard</h2>
-      <p style={{ color: 'var(--text-muted)' }}>Top performers coming soon — take more exams to rank!</p>
-    </div>
-  );
-}
+// LeaderboardPage → now imported from components/student/LeaderboardPage.jsx
 
 function ProfilePage() {
   const { user, profile, updateUserProfile } = useAuth();

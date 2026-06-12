@@ -29,8 +29,10 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Any logged-in user can read any profile (needed for leaderboard public profiles).
-      // Write is still strictly owner-only (with protected field guard) or admin.
+      // Any logged-in student can READ another student's public profile.
+      // This is required for: leaderboard → public profile → chat flow.
+      // Writes remain strictly owner-only (with protected field guards).
+
       allow read:   if isAuth();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if (isOwner(userId) && !isChangingProtectedFields()) || isAdmin();
@@ -163,6 +165,31 @@ service cloud.firestore {
     match /settings/{id} {
       allow read:  if isAuth();
       allow write: if isAdmin();
+    }
+
+    // ── Direct student-to-student chat ─────────────────────────────────────
+    // chatId is always [uid1, uid2].sort().join('_')
+    // A student can only access a chat if their own UID is part of the chatId.
+    match /directChats/{chatId} {
+      allow read, write: if isAuth() &&
+        chatId.matches('.*' + request.auth.uid + '.*');
+
+      match /messages/{msgId} {
+        allow read:   if isAuth() &&
+          chatId.matches('.*' + request.auth.uid + '.*');
+        allow create: if isAuth() &&
+          chatId.matches('.*' + request.auth.uid + '.*') &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth() &&
+          chatId.matches('.*' + request.auth.uid + '.*');
+        allow delete: if isAdmin();
+      }
+
+      // Typing indicators sub-collection
+      match /typing/{typingUid} {
+        allow read, write: if isAuth() &&
+          chatId.matches('.*' + request.auth.uid + '.*');
+      }
     }
 
     match /{document=**} {
