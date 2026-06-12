@@ -670,7 +670,7 @@ function VoiceRecorder({ onSend, onCancel }) {
         background:'none', border:'none', cursor:'pointer',
         color:'#EF4444', fontSize:22, lineHeight:1, padding:4, flexShrink:0,
       }}>🗑️</button>
-      <div style={{ flex:1, display:'flex', alignItems:'center', gap:10 }}>
+      <div style={{ flex:1, display:'flex', alignItems:'center', gap:10, minWidth:0, overflow:'hidden' }}>
         {state === 'recording' && (
           <div style={{ width:10, height:10, borderRadius:'50%', background:'#EF4444', flexShrink:0,
             animation:'recPulse 1s ease infinite' }} />
@@ -696,7 +696,7 @@ function VoiceRecorder({ onSend, onCancel }) {
         )}
         {state === 'stopped' && blob && (
           <audio ref={audioPreview} src={URL.createObjectURL(blob)} controls
-            style={{ flex:1, height:32, filter:'invert(1) hue-rotate(180deg)' }} />
+            style={{ flex:1, minWidth:0, width:'100%', maxWidth:'100%', height:32, filter:'invert(1) hue-rotate(180deg)' }} />
         )}
       </div>
       {state === 'recording' && (
