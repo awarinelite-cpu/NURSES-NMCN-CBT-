@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
@@ -26,6 +27,9 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
   const [plan,          setPlan]          = useState(initialPlan || PLANS[1]);
   const [method,        setMethod]        = useState(null);
   const [proof,         setProof]         = useState('');
+  const [receiptFile,   setReceiptFile]   = useState(null);
+  const [receiptPreview,setReceiptPreview]= useState('');
+  const [uploadProgress,setUploadProgress]= useState(0);
   const [uploading,     setUploading]     = useState(false);
   const [done,          setDone]          = useState(false);
   const [doneMethod,    setDoneMethod]    = useState(null); // FIX: track method at time of success
@@ -143,6 +147,21 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
     setUploading(true);
     setError('');
     try {
+      let receiptUrl = '';
+
+      // Upload receipt image if provided
+      if (receiptFile) {
+        const storageRef = ref(storage, `receipts/${currentUser.uid}/${Date.now()}_${receiptFile.name}`);
+        await new Promise((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, receiptFile);
+          task.on('state_changed',
+            snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+            reject,
+            async () => { receiptUrl = await getDownloadURL(task.snapshot.ref); resolve(); }
+          );
+        });
+      }
+
       await addDoc(collection(db, 'payments'), {
         userId:    currentUser.uid,
         userName:  currentUser.displayName || currentUser.email,
@@ -152,6 +171,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         days:      plan.days,
         method:    'manual',
         proof:     proof.trim(),
+        receiptUrl,
         status:    'pending',
         createdAt: serverTimestamp(),
       });
@@ -161,6 +181,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       setError('Failed to submit. Please try again.');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -345,6 +366,55 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               placeholder="e.g. FBN2504130001 or any note"
               style={s.input}
             />
+
+            {/* Receipt upload */}
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 8px', lineHeight: 1.6 }}>
+              📎 Upload payment receipt / screenshot <span style={{ color: 'rgba(255,255,255,0.3)' }}>(optional but speeds up confirmation)</span>
+            </p>
+            <label style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: 8, padding: '18px 12px',
+              border: '2px dashed rgba(245,158,11,0.35)', borderRadius: 12,
+              background: receiptPreview ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.02)',
+              cursor: 'pointer', marginBottom: 12, transition: 'border-color 0.2s',
+            }}>
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  setReceiptFile(file);
+                  setReceiptPreview(URL.createObjectURL(file));
+                }}
+              />
+              {receiptPreview ? (
+                <img src={receiptPreview} alt="Receipt preview" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, objectFit: 'contain' }} />
+              ) : (
+                <>
+                  <span style={{ fontSize: 28 }}>🧾</span>
+                  <span style={{ color: '#F59E0B', fontSize: 13, fontWeight: 700 }}>Tap to upload receipt</span>
+                  <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>JPG, PNG, or screenshot</span>
+                </>
+              )}
+            </label>
+            {receiptPreview && (
+              <button
+                onClick={() => { setReceiptFile(null); setReceiptPreview(''); }}
+                style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12, cursor: 'pointer', marginBottom: 8, padding: 0 }}
+              >
+                ✕ Remove receipt
+              </button>
+            )}
+            {uploading && uploadProgress > 0 && uploadProgress < 100 && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 6, overflow: 'hidden', height: 6 }}>
+                  <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#F59E0B', transition: 'width 0.3s' }} />
+                </div>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, margin: '4px 0 0', textAlign: 'center' }}>Uploading… {uploadProgress}%</p>
+              </div>
+            )}
             {error && <p style={s.error}>⚠️ {error}</p>}
             <button
               onClick={handleManual}

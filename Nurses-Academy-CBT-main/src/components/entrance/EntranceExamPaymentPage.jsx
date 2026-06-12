@@ -21,7 +21,8 @@ import {
   collection, addDoc, serverTimestamp,
   doc, updateDoc,
 } from 'firebase/firestore';
-import { db }      from '../../firebase/config';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
@@ -82,6 +83,9 @@ export default function EntranceExamPaymentPage() {
 
   const [method,        setMethod]        = useState(null);  // 'paystack' | 'manual'
   const [proof,         setProof]         = useState('');
+  const [receiptFile,   setReceiptFile]   = useState(null);
+  const [receiptPreview,setReceiptPreview]= useState('');
+  const [uploadProgress,setUploadProgress]= useState(0);
   const [fullName,      setFullName]      = useState('');
   const [submitting,    setSubmitting]    = useState(false);
   const [done,          setDone]          = useState(false);
@@ -183,6 +187,21 @@ export default function EntranceExamPaymentPage() {
     setSubmitting(true);
     setError('');
     try {
+      let receiptUrl = '';
+
+      // Upload receipt image if provided
+      if (receiptFile) {
+        const storageRef = ref(storage, `receipts/entrance/${user.uid}/${Date.now()}_${receiptFile.name}`);
+        await new Promise((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, receiptFile);
+          task.on('state_changed',
+            snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+            reject,
+            async () => { receiptUrl = await getDownloadURL(task.snapshot.ref); resolve(); }
+          );
+        });
+      }
+
       await addDoc(collection(db, 'payments'), {
         userId:    user.uid,
         userName:  fullName.trim() || profile?.name || user.displayName || user.email,
@@ -192,6 +211,7 @@ export default function EntranceExamPaymentPage() {
         amount:    EXAM.amount,
         method:    'manual',
         proof:     proof.trim(),
+        receiptUrl,
         status:    'pending',
         createdAt: serverTimestamp(),
       });
@@ -209,6 +229,7 @@ export default function EntranceExamPaymentPage() {
       setError('Submission failed. Please try again. (' + e.message + ')');
     } finally {
       setSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -471,6 +492,55 @@ export default function EntranceExamPaymentPage() {
                 <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6, fontFamily: F, fontWeight: 700 }}>
                   After transferring, enter the reference so admin can verify your payment.
                 </p>
+              </div>
+
+              {/* Receipt Upload */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={s.formLabel}>Upload Payment Receipt / Screenshot <span style={{ color: 'var(--teal)', fontWeight: 700 }}>(Recommended)</span></label>
+                <label style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 8, padding: '18px 12px',
+                  border: `2px dashed ${receiptPreview ? 'rgba(13,148,136,0.5)' : 'rgba(13,148,136,0.25)'}`,
+                  borderRadius: 12, background: receiptPreview ? 'rgba(13,148,136,0.06)' : 'transparent',
+                  cursor: 'pointer', transition: 'border-color 0.2s',
+                }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setReceiptFile(file);
+                      setReceiptPreview(URL.createObjectURL(file));
+                    }}
+                  />
+                  {receiptPreview ? (
+                    <img src={receiptPreview} alt="Receipt preview" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'contain' }} />
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 30 }}>🧾</span>
+                      <span style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700, fontFamily: F }}>Tap to upload receipt</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11, fontFamily: F, fontWeight: 700 }}>JPG, PNG, or screenshot accepted</span>
+                    </>
+                  )}
+                </label>
+                {receiptPreview && (
+                  <button
+                    onClick={() => { setReceiptFile(null); setReceiptPreview(''); }}
+                    style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12, cursor: 'pointer', marginTop: 6, padding: 0, fontFamily: F, fontWeight: 700 }}
+                  >
+                    ✕ Remove receipt
+                  </button>
+                )}
+                {submitting && uploadProgress > 0 && uploadProgress < 100 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ background: 'rgba(13,148,136,0.15)', borderRadius: 6, overflow: 'hidden', height: 6 }}>
+                      <div style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--teal)', transition: 'width 0.3s' }} />
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 11, margin: '4px 0 0', textAlign: 'center', fontFamily: F }}>Uploading receipt… {uploadProgress}%</p>
+                  </div>
+                )}
               </div>
 
               {error && <ErrorBox msg={error} />}

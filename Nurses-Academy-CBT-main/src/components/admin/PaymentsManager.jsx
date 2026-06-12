@@ -175,7 +175,7 @@ export default function AdminPayments() {
           <table style={s.table}>
             <thead>
               <tr>
-                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Date', 'Status', 'Action', 'Devices'].map(h => (
+                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Receipt', 'Date', 'Status', 'Action', 'Devices'].map(h => (
                   <th key={h} style={s.th}>{h}</th>
                 ))}
               </tr>
@@ -207,6 +207,26 @@ export default function AdminPayments() {
                       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>
                         {p.reference || p.proof || '—'}
                       </span>
+                    </td>
+                    <td style={s.td}>
+                      {p.receiptUrl ? (
+                        <a
+                          href={p.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                            background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
+                            border: '1px solid rgba(13,148,136,0.35)', textDecoration: 'none',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          🧾 View
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
+                      )}
                     </td>
                     <td style={{ ...s.td, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{date}</td>
                     <td style={s.td}>
