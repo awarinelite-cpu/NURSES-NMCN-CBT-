@@ -8,7 +8,8 @@ import {
   collection, doc, getDoc, addDoc, onSnapshot,
   query, orderBy, limit, serverTimestamp, updateDoc, setDoc, deleteDoc,
 } from 'firebase/firestore';
-import { db }      from '../../firebase/config';
+import { db, storage } from '../../firebase/config';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../context/AuthContext';
 
 const F = "'Times New Roman', Times, serif";
@@ -305,6 +306,21 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
               <span style={{ fontStyle:'italic', opacity:0.55, fontSize:13 }}>
                 🚫 This message was deleted
               </span>
+            ) : msg.type === 'audio' ? (
+              <>
+                <AudioBubble src={msg.audioUrl} duration={msg.duration} isMe={isMe} />
+                <span style={{
+                  float:'right', marginLeft:8, marginTop:4,
+                  display:'inline-flex', alignItems:'center', gap:3,
+                  fontSize:10, color: isMe ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.4)',
+                  fontFamily:F, fontWeight:700,
+                  transform:'translateY(2px)',
+                  whiteSpace:'nowrap',
+                }}>
+                  {formatTime(msg.createdAt)}
+                  {isMe && <Ticks status={tickStatus} />}
+                </span>
+              </>
             ) : (
               <>
                 <span>{msg.text}</span>
@@ -403,6 +419,211 @@ function EmojiPicker({ onPick, onClose }) {
   );
 }
 
+/* ─── AUDIO BUBBLE ──────────────────────────────────────────── */
+function AudioBubble({ src, duration, isMe }) {
+  const [playing, setPlaying]   = useState(false);
+  const [current, setCurrent]   = useState(0);
+  const [total,   setTotal]     = useState(duration || 0);
+  const audioRef = useRef(null);
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); }
+    else         { a.play().catch(()=>{}); }
+    setPlaying(!playing);
+  };
+
+  const fmt = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  };
+
+  const pct = total > 0 ? (current / total) * 100 : 0;
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:200, maxWidth:260 }}>
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={e => setCurrent(e.target.currentTime)}
+        onLoadedMetadata={e => setTotal(e.target.duration || duration || 0)}
+        onEnded={() => { setPlaying(false); setCurrent(0); }}
+      />
+      <button onClick={toggle} style={{
+        width:38, height:38, borderRadius:'50%', flexShrink:0,
+        background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(13,148,136,0.3)',
+        border:'none', cursor:'pointer',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        color:'#fff', fontSize:16,
+      }}>
+        {playing ? '⏸' : '▶'}
+      </button>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+        <div style={{
+          height:4, borderRadius:4,
+          background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+          position:'relative', cursor:'pointer',
+        }} onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const ratio = (e.clientX - rect.left) / rect.width;
+          if (audioRef.current) { audioRef.current.currentTime = ratio * total; }
+        }}>
+          <div style={{
+            position:'absolute', left:0, top:0, bottom:0,
+            width: pct + '%',
+            background: isMe ? 'rgba(255,255,255,0.85)' : '#0D9488',
+            borderRadius:4, transition:'width 0.1s',
+          }} />
+        </div>
+        <div style={{
+          fontSize:10, fontFamily:"'Times New Roman',serif", fontWeight:700,
+          color: isMe ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.4)',
+        }}>
+          {fmt(playing ? current : total)}
+        </div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, opacity:0.5 }}>
+        <rect x="9" y="2" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="2"/>
+        <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
+}
+
+/* ─── VOICE RECORDER UI ─────────────────────────────────────── */
+function VoiceRecorder({ onSend, onCancel }) {
+  const [secs,    setSecs]    = useState(0);
+  const [state,   setState]   = useState('recording');
+  const [blob,    setBlob]    = useState(null);
+  const [error,   setError]   = useState('');
+  const mediaRecRef  = useRef(null);
+  const chunksRef    = useRef([]);
+  const timerRef     = useRef(null);
+  const audioPreview = useRef(null);
+
+  useEffect(() => {
+    startRecording();
+    return () => {
+      clearInterval(timerRef.current);
+      if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+        mediaRecRef.current.stop();
+      }
+    };
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const mr = new MediaRecorder(stream, { mimeType });
+      mediaRecRef.current = mr;
+      chunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const b = new Blob(chunksRef.current, { type: mimeType });
+        setBlob(b);
+        setState('stopped');
+      };
+      mr.start(200);
+      timerRef.current = setInterval(() => setSecs(s => s + 1), 1000);
+    } catch(e) {
+      setError('Microphone access denied. Please allow mic permission and try again.');
+    }
+  };
+
+  const stopRecording = () => {
+    clearInterval(timerRef.current);
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      mediaRecRef.current.stop();
+    }
+  };
+
+  const handleSend = () => {
+    if (!blob) return;
+    setState('uploading');
+    onSend(blob, secs);
+  };
+
+  const fmt = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+
+  if (error) return (
+    <div style={{ padding:'10px 14px', color:'#EF4444', fontSize:12, fontFamily:"'Times New Roman',serif", fontWeight:700, display:'flex', alignItems:'center', gap:10 }}>
+      ⚠️ {error}
+      <button onClick={onCancel} style={{ background:'none', border:'none', cursor:'pointer', color:'#8696A0', fontSize:18 }}>✕</button>
+    </div>
+  );
+
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:10,
+      padding:'10px 14px',
+      background:'#1F2C34',
+      borderTop:'1px solid rgba(255,255,255,0.06)',
+    }}>
+      <button onClick={onCancel} style={{
+        background:'none', border:'none', cursor:'pointer',
+        color:'#EF4444', fontSize:22, lineHeight:1, padding:4, flexShrink:0,
+      }}>🗑️</button>
+      <div style={{ flex:1, display:'flex', alignItems:'center', gap:10 }}>
+        {state === 'recording' && (
+          <div style={{ width:10, height:10, borderRadius:'50%', background:'#EF4444', flexShrink:0,
+            animation:'recPulse 1s ease infinite' }} />
+        )}
+        {state === 'stopped' && <span style={{ fontSize:16 }}>🎤</span>}
+        {state === 'uploading' && <span style={{ fontSize:13, color:'#0D9488', fontFamily:"'Times New Roman',serif", fontWeight:700 }}>Sending…</span>}
+        <span style={{
+          fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:16,
+          color:'#E9EDEF', minWidth:42,
+        }}>{fmt(secs)}</span>
+        {state === 'recording' && (
+          <div style={{ display:'flex', alignItems:'center', gap:2, flex:1 }}>
+            {Array.from({length:20}).map((_,i) => (
+              <div key={i} style={{
+                width:3, borderRadius:2,
+                background:'rgba(13,148,136,0.6)',
+                height: (Math.sin(i*0.8)*10 + 14) + 'px',
+                animation:'waveBar 0.8s ease infinite',
+                animationDelay: (i * 0.05) + 's',
+              }} />
+            ))}
+          </div>
+        )}
+        {state === 'stopped' && blob && (
+          <audio ref={audioPreview} src={URL.createObjectURL(blob)} controls
+            style={{ flex:1, height:32, filter:'invert(1) hue-rotate(180deg)' }} />
+        )}
+      </div>
+      {state === 'recording' && (
+        <button onClick={stopRecording} style={{
+          width:44, height:44, borderRadius:'50%', flexShrink:0,
+          background:'#EF4444', border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <div style={{ width:14, height:14, background:'#fff', borderRadius:2 }} />
+        </button>
+      )}
+      {state === 'stopped' && (
+        <button onClick={handleSend} disabled={!blob} style={{
+          width:44, height:44, borderRadius:'50%', flexShrink:0,
+          background:'#00A884', border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+              stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* Quick reaction strip — shown in context menu or tap */
 const QUICK_REACTIONS = ['❤️','😂','😮','😢','🙏','👍'];
 function QuickReactionBar({ onPick }) {
@@ -448,6 +669,7 @@ export default function ChatPage() {
   const [replyTo,      setReplyTo]      = useState(null);   // msg being replied to
   const [ctxMenu,      setCtxMenu]      = useState(null);   // { msg, x, y }
   const [showCtxReact, setShowCtxReact] = useState(false);
+  const [showVoice,    setShowVoice]    = useState(false);  // voice recorder open
 
   const bottomRef   = useRef(null);
   const inputRef    = useRef(null);
@@ -634,6 +856,42 @@ export default function ChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  /* ── Send audio message ── */
+  const sendAudioMessage = async (blob, durationSecs) => {
+    if (!chatId || !myUid) return;
+    setSendError('');
+    try {
+      const ext  = blob.type.includes('mp4') ? 'm4a' : 'webm';
+      const path = `voiceNotes/${chatId}/${Date.now()}_${myUid}.${ext}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, blob, { contentType: blob.type });
+      const url  = await getDownloadURL(sRef);
+
+      await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+        type:       'audio',
+        audioUrl:   url,
+        duration:   durationSecs,
+        senderId:   myUid,
+        senderName: myName,
+        createdAt:  serverTimestamp(),
+        read: false, delivered: false,
+      });
+
+      await setDoc(doc(db, 'directChats', chatId), {
+        participants:[myUid, theirUid],
+        lastMessage: '🎤 Voice message',
+        lastSenderId: myUid,
+        updatedAt: serverTimestamp(),
+      }, { merge:true });
+
+      setShowVoice(false);
+    } catch(e) {
+      console.error('Audio send failed:', e);
+      setSendError('Voice send failed: ' + (e?.code || e?.message || 'unknown'));
+      setShowVoice(false);
+    }
+  };
+
   /* ── Delete message ── */
   const deleteMessage = async (msg) => {
     if (msg.senderId !== myUid) return;
@@ -717,6 +975,14 @@ export default function ChatPage() {
         .chat-input { resize:none; }
         .chat-input:focus { outline:none; }
         .send-fab:active { transform:scale(0.9) !important; }
+        @keyframes recPulse {
+          0%,100% { opacity:1; transform:scale(1); }
+          50%      { opacity:0.4; transform:scale(1.3); }
+        }
+        @keyframes waveBar {
+          0%,100% { transform:scaleY(1); }
+          50%      { transform:scaleY(2); }
+        }
         ::-webkit-scrollbar { width:4px; }
         ::-webkit-scrollbar-track { background:transparent; }
         ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:4px; }
@@ -885,83 +1151,104 @@ export default function ChatPage() {
         {/* Reply bar */}
         <ReplyBar msg={replyTo} myUid={myUid} onCancel={() => setReplyTo(null)} />
 
-        {/* Emoji picker */}
-        {showEmoji && (
-          <EmojiPicker
-            onPick={insertEmoji}
-            onClose={() => setShowEmoji(false)}
+        {/* Voice recorder — replaces normal input row when active */}
+        {showVoice ? (
+          <VoiceRecorder
+            onSend={sendAudioMessage}
+            onCancel={() => setShowVoice(false)}
           />
-        )}
-
-        {/* Input row */}
-        <div style={{
-          display:'flex', alignItems:'flex-end', gap:8,
-          padding:'8px 10px',
-          borderTop:'1px solid rgba(255,255,255,0.06)',
-        }}>
-          {/* Emoji button */}
-          <button onClick={() => { setShowEmoji(v => !v); }} style={{
-            background:'none', border:'none', cursor:'pointer',
-            fontSize:22, padding:'4px', flexShrink:0,
-            color: showEmoji ? '#0D9488' : '#8696A0',
-            transition:'color 0.15s',
-            lineHeight:1,
-          }}>😊</button>
-
-          {/* Text input */}
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            value={text}
-            onChange={handleInput}
-            onKeyDown={handleKey}
-            placeholder="Message"
-            rows={1}
-            style={{
-              flex:1,
-              background:'#2A3942',
-              border:'none',
-              borderRadius:22,
-              padding:'10px 16px',
-              color:'#E9EDEF',
-              fontFamily:F, fontWeight:700, fontSize:14,
-              lineHeight:1.5,
-              maxHeight:120,
-              overflowY:'auto',
-            }}
-          />
-
-          {/* Send / mic button — WhatsApp switches mic→send when typing */}
-          <button
-            className="send-fab"
-            onClick={sendMessage}
-            disabled={!text.trim() || sending}
-            style={{
-              width:46, height:46, borderRadius:'50%', flexShrink:0,
-              background: text.trim() ? '#00A884' : '#00A884',
-              border:'none', cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              transition:'transform 0.12s',
-              boxShadow:'0 2px 10px rgba(0,168,132,0.4)',
-            }}
-          >
-            {text.trim() ? (
-              /* Send icon */
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
-                  stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            ) : (
-              /* Mic icon */
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="2" width="6" height="11" rx="3" stroke="#fff" strokeWidth="2"/>
-                <path d="M5 10a7 7 0 0014 0" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="12" y1="19" x2="12" y2="22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="9"  y1="22" x2="15" y2="22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+        ) : (
+          <>
+            {/* Emoji picker */}
+            {showEmoji && (
+              <EmojiPicker
+                onPick={insertEmoji}
+                onClose={() => setShowEmoji(false)}
+              />
             )}
-          </button>
-        </div>
+
+            {/* Input row */}
+            <div style={{
+              display:'flex', alignItems:'flex-end', gap:8,
+              padding:'8px 10px',
+              borderTop:'1px solid rgba(255,255,255,0.06)',
+            }}>
+              {/* Emoji button */}
+              <button onClick={() => { setShowEmoji(v => !v); }} style={{
+                background:'none', border:'none', cursor:'pointer',
+                fontSize:22, padding:'4px', flexShrink:0,
+                color: showEmoji ? '#0D9488' : '#8696A0',
+                transition:'color 0.15s',
+                lineHeight:1,
+              }}>😊</button>
+
+              {/* Text input */}
+              <textarea
+                ref={inputRef}
+                className="chat-input"
+                value={text}
+                onChange={handleInput}
+                onKeyDown={handleKey}
+                placeholder="Message"
+                rows={1}
+                style={{
+                  flex:1,
+                  background:'#2A3942',
+                  border:'none',
+                  borderRadius:22,
+                  padding:'10px 16px',
+                  color:'#E9EDEF',
+                  fontFamily:F, fontWeight:700, fontSize:14,
+                  lineHeight:1.5,
+                  maxHeight:120,
+                  overflowY:'auto',
+                }}
+              />
+
+              {/* Send (when typing) or Mic (when empty) */}
+              {text.trim() ? (
+                <button
+                  className="send-fab"
+                  onClick={sendMessage}
+                  disabled={sending}
+                  style={{
+                    width:46, height:46, borderRadius:'50%', flexShrink:0,
+                    background:'#00A884',
+                    border:'none', cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    transition:'transform 0.12s',
+                    boxShadow:'0 2px 10px rgba(0,168,132,0.4)',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                      stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  className="send-fab"
+                  onClick={() => { setShowEmoji(false); setShowVoice(true); }}
+                  style={{
+                    width:46, height:46, borderRadius:'50%', flexShrink:0,
+                    background:'#00A884',
+                    border:'none', cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    transition:'transform 0.12s',
+                    boxShadow:'0 2px 10px rgba(0,168,132,0.4)',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="2" width="6" height="11" rx="3" stroke="#fff" strokeWidth="2"/>
+                    <path d="M5 10a7 7 0 0014 0" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="12" y1="19" x2="12" y2="22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="9"  y1="22" x2="15" y2="22" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
