@@ -1,46 +1,50 @@
 // src/components/shared/Navbar.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-// Tracks which "site" the user is in across shared pages like /profile, /results
-// Written whenever the user is on a clearly-site-specific page
+// ─── Per-site last-visited location tracker ───────────────────────────────────
+// Each time a user visits a clearly-site-specific page we store that path
+// so that when they switch back we can resume from where they left off.
+const SITE_KEY   = 'nmcn_site';
+const CBT_LAST   = 'nmcn_last_cbt';
+const ENT_LAST   = 'nmcn_last_entrance';
+
+// Pages that belong unambiguously to one site
+const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
+const cbtPrefixes      = [
+  '/dashboard', '/exams', '/daily-practice', '/course-drill',
+  '/topic-drill', '/mock-exams', '/mock-reviews', '/performance',
+  '/leaderboard', '/subscription',
+];
+
+function isEntrancePath(p) { return entrancePrefixes.some(x => p.startsWith(x)); }
+function isCBTPath(p)      { return cbtPrefixes.some(x => p.startsWith(x)); }
+
+// Tracks which "site" the user is in and remembers last location per site
 function useSiteContext() {
   const location = useLocation();
-  const path = location.pathname;
+  const path     = location.pathname;
 
-  // Clearly entrance pages → remember 'entrance'
-  const isDefinitelyEntrance =
-    path.startsWith('/entrance-exam') ||
-    path.startsWith('/admin/entrance-exam');
-
-  // Clearly CBT pages → remember 'cbt'
-  // NOTE: /admin is intentionally excluded — admins can reach it from
-  // either site (via the FAB), so it must not overwrite the stored context.
-  const isDefinitelyCBT =
-    path.startsWith('/dashboard') ||
-    path.startsWith('/exams') ||
-    path.startsWith('/daily-practice') ||
-    path.startsWith('/course-drill') ||
-    path.startsWith('/topic-drill') ||
-    path.startsWith('/mock-exams') ||
-    path.startsWith('/mock-reviews') ||
-    path.startsWith('/performance') ||
-    path.startsWith('/leaderboard') ||
-    path.startsWith('/subscription');
+  const definitelyEntrance = isEntrancePath(path);
+  const definitelyCBT      = isCBTPath(path);
 
   useEffect(() => {
-    if (isDefinitelyEntrance) localStorage.setItem('nmcn_site', 'entrance');
-    else if (isDefinitelyCBT)  localStorage.setItem('nmcn_site', 'cbt');
-    // /admin, /profile, /results → neutral, don't overwrite stored context
-  }, [path, isDefinitelyEntrance, isDefinitelyCBT]);
+    if (definitelyEntrance) {
+      localStorage.setItem(SITE_KEY,  'entrance');
+      localStorage.setItem(ENT_LAST,  path + location.search);
+    } else if (definitelyCBT) {
+      localStorage.setItem(SITE_KEY,  'cbt');
+      localStorage.setItem(CBT_LAST,  path + location.search);
+    }
+    // Neutral pages (/admin, /profile, /results) → don't overwrite stored context
+  }, [path, definitelyEntrance, definitelyCBT, location.search]);
 
-  // Current site — from path first, then localStorage fallback
-  const stored = localStorage.getItem('nmcn_site') || 'cbt';
-  if (isDefinitelyEntrance) return 'entrance';
-  if (isDefinitelyCBT)      return 'cbt';
-  return stored; // /admin, /profile, /results etc. use remembered context
+  const stored = localStorage.getItem(SITE_KEY) || 'cbt';
+  if (definitelyEntrance) return 'entrance';
+  if (definitelyCBT)      return 'cbt';
+  return stored;
 }
 
 export default function Navbar({ onMenuToggle }) {
@@ -49,17 +53,47 @@ export default function Navbar({ onMenuToggle }) {
   const navigate   = useNavigate();
   const location   = useLocation();
   const [dropOpen, setDropOpen] = useState(false);
+  const dropRef    = useRef(null);
 
-  const site = useSiteContext(); // 'entrance' | 'cbt'
+  const site      = useSiteContext();
   const isEntrance = site === 'entrance';
 
-  // Dashboard destination — always stays within current site
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) {
+        setDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Dashboard destination for the current site
   const dashboardTo = isEntrance
     ? '/entrance-exam'
     : isAdmin ? '/admin' : '/dashboard';
 
+  // ── Site switch ────────────────────────────────────────────────────────────
+  const handleSiteSwitch = () => {
+    setDropOpen(false);
+    if (isEntrance) {
+      // Switch to NMCN CBT — resume where we left off
+      const last = localStorage.getItem(CBT_LAST);
+      localStorage.setItem(SITE_KEY, 'cbt');
+      navigate(last || (isAdmin ? '/admin' : '/dashboard'));
+    } else {
+      // Switch to Entrance Exam — resume where we left off
+      const last = localStorage.getItem(ENT_LAST);
+      localStorage.setItem(SITE_KEY, 'entrance');
+      navigate(last || '/entrance-exam');
+    }
+  };
+
   const handleLogout = async () => {
-    localStorage.removeItem('nmcn_site');
+    localStorage.removeItem(SITE_KEY);
+    localStorage.removeItem(CBT_LAST);
+    localStorage.removeItem(ENT_LAST);
     await logout();
     navigate('/');
   };
@@ -68,7 +102,7 @@ export default function Navbar({ onMenuToggle }) {
     <header style={styles.navbar}>
       <div style={styles.inner}>
 
-        {/* Left: menu + brand — brand logo always goes to current site's dashboard */}
+        {/* Left: menu + brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {user && (
             <button style={styles.menuBtn} onClick={onMenuToggle} aria-label="Toggle sidebar">
@@ -91,11 +125,12 @@ export default function Navbar({ onMenuToggle }) {
           </button>
 
           {user ? (
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} ref={dropRef}>
               <button
                 style={styles.avatarBtn}
                 onClick={() => setDropOpen(!dropOpen)}
                 aria-haspopup="true"
+                aria-expanded={dropOpen}
               >
                 <div style={styles.avatar}>
                   {(profile?.name || user.displayName || 'U')[0].toUpperCase()}
@@ -112,15 +147,59 @@ export default function Navbar({ onMenuToggle }) {
               </button>
 
               {dropOpen && (
-                <div style={styles.dropdown} onClick={() => setDropOpen(false)}>
-                  {/* Admin Panel — only for admins, only on CBT/admin side */}
+                <div style={styles.dropdown}>
+                  {/* 1. Admin Panel — admins only, CBT side only */}
                   {isAdmin && !isEntrance && (
-                    <Link to="/admin" style={styles.dropItem}>🛡️ Admin Panel</Link>
+                    <Link to="/admin" style={styles.dropItem} onClick={() => setDropOpen(false)}>
+                      🛡️ Admin Panel
+                    </Link>
                   )}
-                  {/* Dashboard — always goes back to current site's home */}
-                  <Link to={dashboardTo} style={styles.dropItem}>🏠 Dashboard</Link>
-                  <Link to="/profile" style={styles.dropItem}>👤 My Profile</Link>
-                  <Link to="/results" style={styles.dropItem}>📊 My Results</Link>
+
+                  {/* 2. Dashboard */}
+                  <Link to={dashboardTo} style={styles.dropItem} onClick={() => setDropOpen(false)}>
+                    🏠 Dashboard
+                  </Link>
+
+                  {/* 3. My Profile */}
+                  <Link to="/profile" style={styles.dropItem} onClick={() => setDropOpen(false)}>
+                    👤 My Profile
+                  </Link>
+
+                  {/* 4. My Results */}
+                  <Link to="/results" style={styles.dropItem} onClick={() => setDropOpen(false)}>
+                    📊 My Results
+                  </Link>
+
+                  {/* 5. Switch interface */}
+                  <div style={styles.dropDivider} />
+                  <button style={styles.dropItem} onClick={handleSiteSwitch}>
+                    <span style={styles.switchLabel}>
+                      <span style={styles.switchIcon}>
+                        {isEntrance ? '🎓' : '🏫'}
+                      </span>
+                      <span>
+                        <span style={styles.switchTitle}>
+                          {isEntrance ? 'Switch to NMCN CBT' : 'Switch to Entrance Exam'}
+                        </span>
+                        <span style={styles.switchSub}>
+                          {isEntrance
+                            ? 'Resume your CBT prep'
+                            : 'Resume entrance exam prep'}
+                        </span>
+                      </span>
+                    </span>
+                    {/* Pill badge showing current mode */}
+                    <span style={{
+                      ...styles.modeBadge,
+                      background: isEntrance
+                        ? 'linear-gradient(135deg,#0891b2,#0e7490)'
+                        : 'linear-gradient(135deg,#0D9488,#0f766e)',
+                    }}>
+                      {isEntrance ? 'ENTRANCE' : 'NMCN'}
+                    </span>
+                  </button>
+
+                  {/* 6. Sign Out */}
                   <div style={styles.dropDivider} />
                   <button style={{ ...styles.dropItem, ...styles.logoutBtn }} onClick={handleLogout}>
                     🚪 Sign Out
@@ -182,7 +261,7 @@ const styles = {
     position: 'absolute', top: 'calc(100% + 6px)', right: 0,
     background: 'var(--bg-card)', border: '1px solid var(--border)',
     borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-    minWidth: 200, overflow: 'hidden', zIndex: 200,
+    minWidth: 230, overflow: 'hidden', zIndex: 200,
     animation: 'fadeIn 0.15s ease',
   },
   dropItem: {
@@ -191,7 +270,29 @@ const styles = {
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
     transition: 'background 0.15s', cursor: 'pointer',
     background: 'none', border: 'none', width: '100%', textAlign: 'left',
+    justifyContent: 'space-between',
   },
   dropDivider: { height: 1, background: 'var(--border)', margin: '4px 0' },
-  logoutBtn: { color: 'var(--red)', fontFamily: 'inherit' },
+  logoutBtn:  { color: 'var(--red)', fontFamily: 'inherit' },
+
+  // Switch item internals
+  switchLabel: {
+    display: 'flex', alignItems: 'center', gap: 10, flex: 1,
+  },
+  switchIcon: {
+    fontSize: 20, lineHeight: 1,
+  },
+  switchTitle: {
+    display: 'block', fontSize: 13, fontWeight: 700,
+    color: 'var(--text-primary)', lineHeight: 1.3,
+  },
+  switchSub: {
+    display: 'block', fontSize: 11, fontWeight: 400,
+    color: 'var(--text-muted)', lineHeight: 1.4,
+  },
+  modeBadge: {
+    fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
+    color: '#fff', padding: '3px 7px', borderRadius: 20,
+    textTransform: 'uppercase', flexShrink: 0, alignSelf: 'center',
+  },
 };
