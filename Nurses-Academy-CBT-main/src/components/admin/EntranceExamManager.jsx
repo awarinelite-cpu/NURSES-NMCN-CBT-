@@ -894,29 +894,42 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
       .catch(() => {});
   }, []);
 
+  // Load the full collection once and filter/sort client-side. Doing this with
+  // Firestore `where(...)` + `orderBy('createdAt')` requires a composite index
+  // per filter combination — none exist for entranceExamQuestions, so those
+  // queries throw FAILED_PRECONDITION, get swallowed by the catch block, and
+  // `questions` silently stays stuck on the last successful (unfiltered) load.
+  // That made the filters appear to do nothing and made post-delete reloads
+  // appear to "not delete" anything.
   const load = async () => {
     setLoading(true);
     setSelected(new Set());
     try {
-      const constraints = [];
-      if (filterSchool)  constraints.push(where('schoolId', '==', filterSchool));
-      if (filterYear)    constraints.push(where('year', '==', filterYear));
-      if (filterSubject) constraints.push(where('subject', '==', filterSubject));
-      if (filterType)    constraints.push(where('questionType', '==', filterType));
-      if (filterDaily === 'yes') constraints.push(where('inDailyBank', '==', true));
-      if (filterDaily === 'no')  constraints.push(where('inDailyBank', '==', false));
-      constraints.push(orderBy('createdAt', 'desc'));
-      const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
-      setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
+      const snap = await getDocs(collection(db, 'entranceExamQuestions'));
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const toMillis = (ts) => ts?.toMillis ? ts.toMillis() : (ts?.seconds ? ts.seconds * 1000 : 0);
+      all.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+      setQuestions(all);
+    } catch (e) { console.error(e); toast('Failed to load questions: ' + e.message, 'error'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [filterSchool, filterYear, filterSubject, filterType, filterDaily]);
+  useEffect(() => { load(); }, []);
 
-  const filtered  = search
-    ? questions.filter(q => q.questionText?.toLowerCase().includes(search.toLowerCase()))
-    : questions;
+  // Clear any selection whenever the active filters/search change, so stale
+  // selections from a different filter view can't be bulk-deleted by mistake.
+  useEffect(() => { setSelected(new Set()); }, [filterSchool, filterYear, filterSubject, filterType, filterDaily, search]);
+
+  const filtered = questions.filter(q => {
+    if (filterSchool && q.schoolId !== filterSchool) return false;
+    if (filterYear && String(q.year) !== String(filterYear)) return false;
+    if (filterSubject && q.subject !== filterSubject) return false;
+    if (filterType && q.questionType !== filterType) return false;
+    if (filterDaily === 'yes' && !q.inDailyBank) return false;
+    if (filterDaily === 'no' && q.inDailyBank) return false;
+    if (search && !q.questionText?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   const displayed = filtered.slice(0, 100);
 
