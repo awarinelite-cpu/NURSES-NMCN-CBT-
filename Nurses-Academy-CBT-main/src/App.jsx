@@ -21,6 +21,7 @@ import SubscriptionPage       from './components/student/SubscriptionPage';
 import QuickActionsPage       from './components/student/QuickActionsPage';
 import PerformanceMonitorPage from './components/student/PerformanceMonitorPage';
 import NotificationSettings   from './components/student/NotificationSettings';
+import StudentPublicProfile   from './components/student/StudentPublicProfile';
 
 // Payment pages
 import PaymentPage from './components/payment/PaymentPage';
@@ -193,8 +194,9 @@ export default function App() {
                   <Route path="/performance"  element={<PerformanceMonitorPage />} />
                   <Route path="/bookmarks"    element={<BookmarksPage />} />
                   <Route path="/subscription" element={<SubscriptionPage />} />
-                  <Route path="/leaderboard"  element={<LeaderboardPage />} />
-                  <Route path="/profile"      element={<ProfilePage />} />
+                  <Route path="/leaderboard"       element={<LeaderboardPage />} />
+                  <Route path="/profile"           element={<ProfilePage />} />
+                  <Route path="/student/:uid"       element={<StudentPublicProfile />} />
 
                   {/* NMCN exam modes */}
                   <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />

@@ -352,6 +352,8 @@ export default function EntranceLeaderboard() {
                 return (
                   <div
                     key={r.uid}
+                    onClick={() => navigate(`/student/${r.uid}`)}
+                    title={`View ${r.name}'s profile`}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: GRID,
@@ -361,6 +363,16 @@ export default function EntranceLeaderboard() {
                       border:     isMe ? '2px solid #0D9488' : '1.5px solid var(--border)',
                       borderRadius: 12,
                       padding: '10px 12px',
+                      cursor: 'pointer',
+                      transition: 'transform 0.12s, box-shadow 0.12s',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateX(3px)';
+                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(13,148,136,0.18)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = '';
+                      e.currentTarget.style.boxShadow = '';
                     }}
                   >
                     {/* Rank / medal */}
@@ -452,6 +464,14 @@ export default function EntranceLeaderboard() {
               fontWeight: 700, textAlign: 'center',
             }}>
               {board.length} student{board.length !== 1 ? 's' : ''} · ranked by best single-exam score
+            </p>
+            <p style={{
+              marginTop: 4, fontSize: 11,
+              color: 'var(--text-muted)', fontFamily: F,
+              fontWeight: 700, textAlign: 'center',
+              opacity: 0.7,
+            }}>
+              👆 Tap any row to view a student's profile
             </p>
           </>
         ) : null}
