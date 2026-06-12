@@ -11,7 +11,7 @@ import { useNavigate, useLocation }                  from 'react-router-dom';
 import { useAuth }                                   from '../../context/AuthContext';
 import {
   collection, getDocs, query, where, addDoc,
-  serverTimestamp, deleteDoc, doc,
+  serverTimestamp, deleteDoc, doc, setDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import ItalicText      from '../shared/ItalicText';
@@ -120,6 +120,16 @@ export default function EntranceSubjectSession() {
         setLoading(false);
       }
     })();
+    // Load existing bookmarks so button shows correct saved state
+    if (user?.uid) {
+      getDocs(collection(db, 'users', user.uid, 'entranceBookmarks'))
+        .then(snap => {
+          const bm = {};
+          snap.docs.forEach(d => { bm[d.id] = true; });
+          setBookmarks(bm);
+        })
+        .catch(() => {});
+    }
     return () => { stopSpeech(); clearInterval(timerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -209,6 +219,28 @@ export default function EntranceSubjectSession() {
   const answered = Object.keys(answers).length;
   const currentQ = questions[current] || null;
   const progress = total > 0 ? ((current + 1) / total) * 100 : 0;
+
+  const handleBookmark = () => {
+    if (!currentQ || !user?.uid) return;
+    const qId      = currentQ.id;
+    const nowSaved = !bookmarks[qId];
+    setBookmarks(b => ({ ...b, [qId]: nowSaved }));
+    const ref = doc(db, 'users', user.uid, 'entranceBookmarks', qId);
+    if (nowSaved) {
+      setDoc(ref, {
+        questionId:    qId,
+        questionText:  currentQ.question || currentQ.questionText || '',
+        options:       currentQ.options   || {},
+        correctAnswer: currentQ.correctAnswer || '',
+        explanation:   currentQ.explanation || '',
+        subject:       subject?.id || subject?.name || '',
+        examName:      subject?.label || 'Subject Drill',
+        savedAt:       serverTimestamp(),
+      }).catch(e => console.error('Bookmark save failed:', e));
+    } else {
+      deleteDoc(ref).catch(e => console.error('Bookmark delete failed:', e));
+    }
+  };
 
   const getOptStyle = (key) => {
     if (!currentQ) return {};
@@ -430,7 +462,7 @@ export default function EntranceSubjectSession() {
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: subject.color + '18', border: `1px solid ${subject.color}44`, borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: subject.color, fontFamily: F }}>{subject.name}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button onClick={() => setFlagged(f => ({ ...f, [currentQ.id]: !f[currentQ.id] }))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, opacity: flagged[currentQ.id] ? 1 : 0.28, transition: 'opacity 0.15s' }}>🚩</button>
-                  <button onClick={() => setBookmarks(b => ({ ...b, [currentQ.id]: !b[currentQ.id] }))} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, fontSize: 12 }}>🔖 Bookmark</button>
+                  <button onClick={handleBookmark} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, color: bookmarks[currentQ.id] ? '#EF4444' : 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, fontSize: 12 }}>🔖 Bookmark</button>
                 </div>
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>Q{current + 1} / {total}</div>

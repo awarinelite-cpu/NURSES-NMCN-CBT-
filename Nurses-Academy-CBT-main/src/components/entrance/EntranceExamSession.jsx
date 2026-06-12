@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation }                  from 'react-router-dom';
 import {
   collection, query, where, getDocs,
-  addDoc, serverTimestamp, deleteDoc, doc,
+  addDoc, serverTimestamp, deleteDoc, doc, setDoc,
 }                                                    from 'firebase/firestore';
 import { db }                                        from '../../firebase/config';
 import { useAuth }                                   from '../../context/AuthContext';
@@ -175,7 +175,18 @@ export default function EntranceExamSession() {
         setLoading(false);
       }
     };
+    // Load user's existing bookmarks so the button shows correct state
+    const loadBookmarks = async () => {
+      if (!user?.uid) return;
+      try {
+        const snap = await getDocs(collection(db, 'users', user.uid, 'entranceBookmarks'));
+        const bm = {};
+        snap.docs.forEach(d => { bm[d.id] = true; });
+        setBookmarks(bm);
+      } catch { /* non-critical */ }
+    };
     load();
+    loadBookmarks();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,7 +212,27 @@ export default function EntranceExamSession() {
   }, [submitted]);
 
   const handleNext     = () => setCurrentIndex(i => Math.min(total - 1, i + 1));
-  const handleBookmark = () => currentQ && setBookmarks(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
+  const handleBookmark = () => {
+    if (!currentQ || !user?.uid) return;
+    const qId       = currentQ.id;
+    const nowSaved  = !bookmarks[qId];
+    setBookmarks(p => ({ ...p, [qId]: nowSaved }));
+    const ref = doc(db, 'users', user.uid, 'entranceBookmarks', qId);
+    if (nowSaved) {
+      setDoc(ref, {
+        questionId:   qId,
+        questionText: currentQ.question || currentQ.questionText || '',
+        options:      currentQ.options   || {},
+        correctAnswer: currentQ.correctAnswer || '',
+        explanation:  currentQ.explanation || '',
+        subject:      currentQ.subject    || subject,
+        examName,
+        savedAt:      serverTimestamp(),
+      }).catch(e => console.error('Bookmark save failed:', e));
+    } else {
+      deleteDoc(ref).catch(e => console.error('Bookmark delete failed:', e));
+    }
+  };
   const handleFlag     = () => currentQ && setFlagged(p => ({ ...p, [currentQ.id]: !p[currentQ.id] }));
 
   const handleSubmit = useCallback(async () => {

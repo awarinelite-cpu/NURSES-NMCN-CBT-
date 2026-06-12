@@ -136,10 +136,9 @@ export default function EntranceExamPaymentPage() {
 
       // IMPORTANT: must be synchronous — no async/await inside
       callback: (response) => {
-        // Write payment record as 'pending' — the Paystack webhook Cloud
-        // Function verifies the payment server-side and sets it to 'confirmed',
-        // then activates entranceExamPaid on the user doc.
-        // This prevents clients from self-confirming payments.
+        // 1. Write payment record (admin/webhook verifies reference server-side)
+        // 2. Immediately grant entranceExamPaid — without this the EntranceExamRoute
+        //    bounces the user back to this page right after the 3-second redirect.
         addDoc(collection(db, 'payments'), {
           userId:    user.uid,
           userName:  profile?.name || user.displayName || user.email,
@@ -149,13 +148,19 @@ export default function EntranceExamPaymentPage() {
           amount:    EXAM.amount,
           method:    'paystack',
           reference: response.reference,
-          status:    'pending',          // webhook will set 'confirmed'
+          status:    'pending',
           createdAt: serverTimestamp(),
         })
+        .then(() =>
+          updateDoc(doc(db, 'users', user.uid), {
+            entranceExamPaid:   true,
+            entranceExamPaidAt: serverTimestamp(),
+            entranceExamRef:    response.reference,
+          })
+        )
         .then(() => {
           setDoneMethod('paystack');
           setDone(true);
-          // Navigate after 3s — by then webhook has likely fired
           setTimeout(() => navigate('/entrance-exam'), 3000);
         })
         .catch(() => {
@@ -241,7 +246,7 @@ export default function EntranceExamPaymentPage() {
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 15, fontWeight: 700, fontFamily: F, margin: '0 0 28px', lineHeight: 1.7, maxWidth: 440 }}>
               {doneMethod === 'paystack'
-                ? 'Your entrance exam seat is now registered. Redirecting to your exam hub in 3 seconds…'
+                ? 'Your entrance exam access is now active. Taking you to your exam hub in 3 seconds…'
                 : 'Your payment proof has been received. Admin will confirm within a few hours and activate your exam access.'}
             </p>
             {doneMethod === 'manual' && (
