@@ -21,8 +21,7 @@ import {
   collection, addDoc, serverTimestamp,
   doc, updateDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase/config';
+import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
@@ -84,7 +83,7 @@ export default function EntranceExamPaymentPage() {
   const [method,        setMethod]        = useState(null);  // 'paystack' | 'manual'
   const [receiptFile,   setReceiptFile]   = useState(null);
   const [receiptPreview,setReceiptPreview]= useState('');
-  const [uploadProgress,setUploadProgress]= useState(0);
+  const [submitStatus,  setSubmitStatus]  = useState('');
   const [fullName,      setFullName]      = useState('');
   const [submitting,    setSubmitting]    = useState(false);
   const [done,          setDone]          = useState(false);
@@ -92,7 +91,8 @@ export default function EntranceExamPaymentPage() {
   const [error,         setError]         = useState('');
   const [paystackReady, setPaystackReady] = useState(false);
   const [bannerVis,     setBannerVis]     = useState(false);
-  const listenerRef     = useRef(null);
+  const listenerRef  = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => { setTimeout(() => setBannerVis(true), 60); }, []);
 
@@ -180,43 +180,53 @@ export default function EntranceExamPaymentPage() {
   };
 
   /* ── Manual bank transfer submission ─────────────────────────────────── */
+  /* ── Compress image via canvas (no Firebase Storage needed) ─────────── */
+  const compressImage = (file, maxW = 1200, quality = 0.75) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale  = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+    img.src = url;
+  });
+
+  /* ── Manual bank transfer submission ─────────────────────────────────── */
   const handleManual = async () => {
     if (!receiptFile)      { setError('Please upload your payment receipt / screenshot.'); return; }
     if (!fullName.trim())  { setError('Please enter your full name.'); return; }
     setSubmitting(true);
+    setSubmitStatus('Preparing…');
     setError('');
     try {
-      let receiptUrl = '';
+      setSubmitStatus('Compressing receipt image…');
+      const receiptBase64 = await compressImage(receiptFile);
 
-      // Upload receipt image if provided
-      if (receiptFile) {
-        const storageRef = ref(storage, `receipts/entrance/${user.uid}/${Date.now()}_${receiptFile.name}`);
-        await new Promise((resolve, reject) => {
-          const task = uploadBytesResumable(storageRef, receiptFile);
-          task.on('state_changed',
-            snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-            reject,
-            async () => { receiptUrl = await getDownloadURL(task.snapshot.ref); resolve(); }
-          );
-        });
-      }
-
+      setSubmitStatus('Saving payment record…');
       await addDoc(collection(db, 'payments'), {
-        userId:    user.uid,
-        userName:  fullName.trim() || profile?.name || user.displayName || user.email,
-        userEmail: user.email,
-        type:      EXAM.type,
-        examLabel: EXAM.label,
-        amount:    EXAM.amount,
-        method:    'manual',
-        receiptUrl,
-        status:    'pending',
-        createdAt: serverTimestamp(),
+        userId:       user.uid,
+        userName:     fullName.trim() || profile?.name || user.displayName || user.email,
+        userEmail:    user.email,
+        type:         EXAM.type,
+        examLabel:    EXAM.label,
+        amount:       EXAM.amount,
+        method:       'manual',
+        receiptImage: receiptBase64,
+        status:       'pending',
+        createdAt:    serverTimestamp(),
       });
+
+      setSubmitStatus('Notifying admin…');
       await addDoc(collection(db, 'notifications'), {
         userId:    'admin',
         title:     '📋 New Entrance Exam Payment',
-        body:      `${fullName.trim() || user.email} submitted a manual payment of ₦${EXAM.amount.toLocaleString()} for ${EXAM.label}`,
+        body:      `${fullName.trim() || user.email} submitted a manual payment of ₦${EXAM.amount.toLocaleString()} for ${EXAM.label} (with receipt image)`,
         type:      'entrance_exam_payment',
         read:      false,
         createdAt: serverTimestamp(),
@@ -227,7 +237,7 @@ export default function EntranceExamPaymentPage() {
       setError('Submission failed. Please try again. (' + e.message + ')');
     } finally {
       setSubmitting(false);
-      setUploadProgress(0);
+      setSubmitStatus('');
     }
   };
 
@@ -516,12 +526,10 @@ export default function EntranceExamPaymentPage() {
                     ✕ Remove receipt
                   </button>
                 )}
-                {submitting && uploadProgress > 0 && uploadProgress < 100 && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ background: 'rgba(13,148,136,0.15)', borderRadius: 6, overflow: 'hidden', height: 6 }}>
-                      <div style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--teal)', transition: 'width 0.3s' }} />
-                    </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: 11, margin: '4px 0 0', textAlign: 'center', fontFamily: F }}>Uploading receipt… {uploadProgress}%</p>
+                {submitting && submitStatus && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, padding: '8px 12px', background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 8 }}>
+                    <div style={{ width: 14, height: 14, border: '2px solid rgba(13,148,136,0.3)', borderTopColor: '#0D9488', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', fontFamily: F }}>{submitStatus}</span>
                   </div>
                 )}
               </div>

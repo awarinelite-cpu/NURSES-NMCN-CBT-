@@ -191,9 +191,9 @@ export default function AdminPayments() {
                       <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.userEmail || ''}</div>
                     </td>
                     <td style={s.td}>
-                      {p.receiptUrl ? (
+                      {(p.receiptUrl || p.receiptImage) ? (
                         <a
-                          href={p.receiptUrl}
+                          href={p.receiptUrl || p.receiptImage}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
