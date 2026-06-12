@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { AuthProvider }          from './context/AuthContext';
 import { ThemeProvider }         from './context/ThemeContext';
 import { ToastProvider }         from './components/shared/Toast';
-import { AccessibilityProvider } from './context/AccessibilityContext';
 import { useAuth }               from './context/AuthContext';
 
 import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
@@ -175,93 +174,91 @@ function BackButtonHandler() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AccessibilityProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <BrowserRouter>
-              <BackButtonHandler />
-              <SwNavigationHandler />
-              <ContentProtectionActivator />
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <BackButtonHandler />
+            <SwNavigationHandler />
+            <ContentProtectionActivator />
 
-              <Routes>
-                {/* Public */}
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-                {/* Full-screen exam sessions */}
-                <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
-                <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
+              {/* Full-screen exam sessions */}
+              <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
+              <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
 
-                {/* Payment pages — any logged-in user */}
-                <Route path="/payment"               element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-                <Route path="/entrance-exam/payment" element={<ProtectedRoute><EntranceExamPaymentPage /></ProtectedRoute>} />
+              {/* Payment pages — any logged-in user */}
+              <Route path="/payment"               element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+              <Route path="/entrance-exam/payment" element={<ProtectedRoute><EntranceExamPaymentPage /></ProtectedRoute>} />
 
-                {/* Authenticated layout */}
-                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              {/* Authenticated layout */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
 
-                  {/* Student pages */}
-                  <Route path="/dashboard"    element={<StudentDashboard />} />
-                  <Route path="/results"      element={<AnalyticsPage />} />
-                  <Route path="/performance"  element={<PerformanceMonitorPage />} />
-                  <Route path="/bookmarks"    element={<BookmarksPage />} />
-                  <Route path="/subscription" element={<SubscriptionPage />} />
-                  <Route path="/leaderboard"       element={<LeaderboardPage />} />
-                  <Route path="/profile"           element={<ProfilePage />} />
-                  <Route path="/student/:uid"       element={<StudentPublicProfile />} />
-                  <Route path="/chat/:uid"          element={<ChatPage />} />
-                  <Route path="/chat-inbox"          element={<ChatInbox />} />
+                {/* Student pages */}
+                <Route path="/dashboard"    element={<StudentDashboard />} />
+                <Route path="/results"      element={<AnalyticsPage />} />
+                <Route path="/performance"  element={<PerformanceMonitorPage />} />
+                <Route path="/bookmarks"    element={<BookmarksPage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/leaderboard"       element={<LeaderboardPage />} />
+                <Route path="/profile"           element={<ProfilePage />} />
+                <Route path="/student/:uid"       element={<StudentPublicProfile />} />
+                <Route path="/chat/:uid"          element={<ChatPage />} />
+                <Route path="/chat-inbox"          element={<ChatInbox />} />
 
-                  {/* NMCN exam modes */}
-                  <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
-                  <Route path="/past-questions"  element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
-                  <Route path="/quick-actions"   element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
-                  <Route path="/daily-practice"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                  <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                  <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
-                  <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
-                  <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
-                  <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
-                  <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
-                  <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
-                  <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
+                {/* NMCN exam modes */}
+                <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
+                <Route path="/past-questions"  element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
+                <Route path="/quick-actions"   element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
+                <Route path="/daily-practice"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
+                <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
+                <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
+                <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
+                <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
+                <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
+                <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
+                <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
+                <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
-                  {/* ── Entrance Exam — ALL routes gated by EntranceExamRoute ── */}
-                  {/* Unpaid users hit any of these → redirected to /entrance-exam/payment */}
-                  {/* Paid users get full access; question cap enforced in session components */}
-                  <Route path="/entrance-exam"                 element={<EntranceExamRoute><EntranceExamHub /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/schools"         element={<EntranceExamRoute><EntranceSchoolList /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/setup"           element={<EntranceExamRoute><EntranceExamSetup /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/subject-drill"   element={<EntranceExamRoute><EntranceSubjectDrill /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/subject-session" element={<EntranceExamRoute><EntranceSubjectSession /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/my-results"      element={<EntranceExamRoute><EntranceMyResults /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/exams-taken"     element={<EntranceExamRoute><EntranceExamsTaken /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/bookmarks"       element={<EntranceExamRoute><EntranceBookmarks /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/analysis"        element={<EntranceExamRoute><EntranceAnalysis /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/leaderboard"     element={<EntranceExamRoute><EntranceLeaderboard /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/daily-mock"      element={<EntranceExamRoute><EntranceExamDailyMockHub /></EntranceExamRoute>} />
-                  <Route path="/entrance-exam/session"         element={<EntranceExamRoute><EntranceExamSession /></EntranceExamRoute>} />
+                {/* ── Entrance Exam — ALL routes gated by EntranceExamRoute ── */}
+                {/* Unpaid users hit any of these → redirected to /entrance-exam/payment */}
+                {/* Paid users get full access; question cap enforced in session components */}
+                <Route path="/entrance-exam"                 element={<EntranceExamRoute><EntranceExamHub /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/schools"         element={<EntranceExamRoute><EntranceSchoolList /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/setup"           element={<EntranceExamRoute><EntranceExamSetup /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/subject-drill"   element={<EntranceExamRoute><EntranceSubjectDrill /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/subject-session" element={<EntranceExamRoute><EntranceSubjectSession /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/my-results"      element={<EntranceExamRoute><EntranceMyResults /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/exams-taken"     element={<EntranceExamRoute><EntranceExamsTaken /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/bookmarks"       element={<EntranceExamRoute><EntranceBookmarks /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/analysis"        element={<EntranceExamRoute><EntranceAnalysis /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/leaderboard"     element={<EntranceExamRoute><EntranceLeaderboard /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/daily-mock"      element={<EntranceExamRoute><EntranceExamDailyMockHub /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/session"         element={<EntranceExamRoute><EntranceExamSession /></EntranceExamRoute>} />
 
-                  {/* Admin */}
-                  <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                  <Route path="/admin/questions"                       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
-                  <Route path="/admin/users"                           element={<AdminRoute><UsersManager /></AdminRoute>} />
-                  <Route path="/admin/payments"                        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
-                  <Route path="/admin/access-codes"                    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                  <Route path="/admin/announcements"                   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
-                  <Route path="/admin/analytics"                       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                  <Route path="/admin/scheduled-exams"                 element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
-                  <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
-                  <Route path="/admin/entrance-exam"                   element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
-                  <Route path="/admin/entrance-exam/daily-mock-upload" element={<AdminRoute><EntranceDailyMockUpload /></AdminRoute>} />
+                {/* Admin */}
+                <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/questions"                       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                <Route path="/admin/users"                           element={<AdminRoute><UsersManager /></AdminRoute>} />
+                <Route path="/admin/payments"                        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                <Route path="/admin/access-codes"                    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
+                <Route path="/admin/announcements"                   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                <Route path="/admin/analytics"                       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/scheduled-exams"                 element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+                <Route path="/admin/entrance-exam"                   element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
+                <Route path="/admin/entrance-exam/daily-mock-upload" element={<AdminRoute><EntranceDailyMockUpload /></AdminRoute>} />
 
-                </Route>
+              </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </ToastProvider>
-        </AuthProvider>
-      </AccessibilityProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
