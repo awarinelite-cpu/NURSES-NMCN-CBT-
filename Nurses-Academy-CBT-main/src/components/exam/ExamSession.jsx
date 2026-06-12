@@ -36,20 +36,8 @@ function fisherYatesShuffle(arr) {
   return arr;
 }
 
-/* ── Multi-line explanation renderer ───────────────────────────────────────
-   Splits on \n so calculation steps / numbered lists appear on separate
-   lines instead of collapsing into a single sentence node.               */
-function ExplanationText({ text = '' }) {
-  return (
-    <>
-      {text.split('\n').map((line, i) => (
-        <p key={i} style={{ margin: '0 0 4px', lineHeight: 1.6 }}>
-          {line || <>&nbsp;</>}
-        </p>
-      ))}
-    </>
-  );
-}
+/* ── Explanation renderer — imported from shared ── */
+import ExplanationText from '../shared/ExplanationText';
 
 function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
   return (
@@ -702,12 +690,21 @@ export default function ExamSession() {
                     })}
                   </div>
 
-                  {/* ── Explanation — multi-line aware ───────────────────── */}
+                  {/* ── Explanation — upgraded panel ── */}
                   {q.explanation && (
-                    <div style={{ background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 6, fontSize: 12 }}>💡 Explanation</div>
-                      <ExplanationText text={q.explanation} />
-                      {q.explanationImageUrl && <div style={{ marginTop: 10, textAlign: 'center' }}><img src={q.explanationImageUrl} alt="Explanation" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'contain' }} /></div>}
+                    <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
+                      <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>💡</span>
+                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                      </div>
+                      <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                        <ExplanationText text={q.explanation} />
+                        {q.explanationImageUrl && (
+                          <div style={{ marginTop: 10, textAlign: 'center' }}>
+                            <img src={q.explanationImageUrl} alt="Explanation" style={{ maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
