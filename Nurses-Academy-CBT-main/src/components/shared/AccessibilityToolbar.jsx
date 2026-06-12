@@ -1,14 +1,42 @@
 // src/components/shared/AccessibilityToolbar.jsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 
 export default function AccessibilityToolbar() {
   const { fontSize, setFontSize, fontSizes, highContrast, setHighContrast } = useAccessibility();
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  // Close panel on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   return (
-    <div style={s.wrap}>
-      {/* Expanded panel */}
+    <div style={s.wrap} ref={wrapRef}>
+      {/* Trigger button — lives in the navbar */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        title="Accessibility settings"
+        aria-label="Accessibility settings"
+        aria-haspopup="true"
+        aria-expanded={open}
+        style={{
+          ...s.fab,
+          background: open ? 'var(--teal)' : 'rgba(255,255,255,0.08)',
+          borderColor: open ? 'var(--teal)' : 'rgba(255,255,255,0.12)',
+        }}
+      >
+        ♿
+      </button>
+
+      {/* Dropdown panel */}
       {open && (
         <div style={s.panel}>
           <div style={s.panelTitle}>Accessibility</div>
@@ -54,66 +82,52 @@ export default function AccessibilityToolbar() {
           </div>
         </div>
       )}
-
-      {/* Trigger button */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        title="Accessibility settings"
-        style={{
-          ...s.fab,
-          background: open ? 'var(--teal)' : 'var(--bg-card)',
-          color:      open ? '#fff'        : 'var(--teal)',
-          boxShadow:  open ? 'var(--shadow-teal)' : 'var(--shadow-md)',
-        }}
-      >
-        ♿
-      </button>
     </div>
   );
 }
 
 const s = {
   wrap: {
-    position:  'fixed',
-    bottom:    24,
-    left:      24,
-    zIndex:    8888,
-    display:   'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap:       10,
+    position: 'relative',
   },
   fab: {
-    width:        46,
-    height:       46,
-    borderRadius: '50%',
-    border:       '2px solid var(--teal)',
-    fontSize:     20,
-    cursor:       'pointer',
     display:      'flex',
     alignItems:   'center',
     justifyContent: 'center',
-    transition:   'all 0.2s',
+    width:        38,
+    height:       38,
+    borderRadius: '50%',
+    border:       '1px solid rgba(255,255,255,0.12)',
+    fontSize:     18,
+    lineHeight:   1,
+    padding:      0,
+    cursor:       'pointer',
+    color:        '#fff',
+    transition:   'background 0.15s, transform 0.15s',
   },
   panel: {
+    position:     'absolute',
+    top:          'calc(100% + 6px)',
+    right:        0,
     background:   'var(--bg-card)',
     border:       '1px solid var(--border)',
-    borderRadius: 16,
-    padding:      '16px 18px',
-    boxShadow:    'var(--shadow-lg)',
-    minWidth:     180,
-    animation:    'fadeIn 0.2s ease',
+    borderRadius: 12,
+    padding:      '14px 16px',
+    boxShadow:    '0 8px 32px rgba(0,0,0,0.3)',
+    minWidth:     200,
+    zIndex:       200,
+    animation:    'fadeIn 0.15s ease',
   },
   panelTitle: {
     fontWeight:    800,
-    fontSize:      13,
+    fontSize:      12,
     color:         'var(--teal)',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom:  14,
+    marginBottom:  12,
   },
   section: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   sectionLabel: {
     fontSize:     11,
