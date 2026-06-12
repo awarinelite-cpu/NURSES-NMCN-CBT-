@@ -29,7 +29,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
+      // Any logged-in user can read any profile (needed for leaderboard public profiles).
+      // Write is still strictly owner-only (with protected field guard) or admin.
+      allow read:   if isAuth();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if (isOwner(userId) && !isChangingProtectedFields()) || isAdmin();
       allow delete: if isAdmin();
