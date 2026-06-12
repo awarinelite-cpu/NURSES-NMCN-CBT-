@@ -2,21 +2,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() { return request.auth != null; }
-    function isOwner(uid) { return request.auth.uid == uid; }
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
     function isAdmin() {
       return isAuth() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
     function isChangingProtectedFields() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return changed.hasAny(['entranceExamPaid','entranceExamPaidAt','entranceExamRef','subscribed','subscriptionPlan','subscriptionExpiry','role']);
-    }
-
-    // ── TEMPORARY: open write for bulk upload — LOCK AFTER USE ──
-    match /questions/{questionId} {
-      allow read:  if isAuth();
-      allow write: if true;
+      return changed.hasAny([
+        'entranceExamPaid',
+        'entranceExamPaidAt',
+        'entranceExamRef',
+        'subscribed',
+        'subscriptionPlan',
+        'subscriptionExpiry',
+        'role',
+      ]);
     }
 
     match /users/{userId} {
@@ -28,58 +37,124 @@ service cloud.firestore {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
-    match /entranceExamQuestions/{questionId} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /entranceExamSchools/{schoolId} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /entranceExamSubjects/{subjId} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /entranceExamConfig/{docId} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /dailyMockSchedule/{docId} { allow read: if isAuth(); allow write: if isAdmin(); }
+
+    match /questions/{questionId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /entranceExamQuestions/{questionId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /entranceExamSchools/{schoolId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /entranceExamSubjects/{subjId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /entranceExamConfig/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /dailyMockSchedule/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
     match /entranceExamSessions/{sessionId} {
-      allow read: if isAuth();
+      allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
+
     match /entrancePausedExams/{docId} {
-      allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
     }
+
     match /examSessions/{sessionId} {
-      allow read: if isAuth();
+      allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
+
     match /pausedExams/{docId} {
-      allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
     }
+
     match /payments/{paymentId} {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
     match /notifications/{notifId} {
-      allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuth();
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
+
     match /bookmarks/{bookmarkId} {
       allow read, write: if isAuth() && (resource == null ? request.resource.data.userId == request.auth.uid : resource.data.userId == request.auth.uid || isAdmin());
     }
-    match /announcements/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /accessCodes/{id} { allow read, write: if isAdmin(); }
-    match /scheduledExams/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /courses/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /topics/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /leaderboard/{id} { allow read: if isAuth(); allow write: if isAuth(); }
-    match /config/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /settings/{id} { allow read: if isAuth(); allow write: if isAdmin(); }
-    match /{document=**} { allow read, write: if isAdmin(); }
+
+    match /announcements/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /accessCodes/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /scheduledExams/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /courses/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /topics/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /leaderboard/{id} {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /config/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
   }
 }
