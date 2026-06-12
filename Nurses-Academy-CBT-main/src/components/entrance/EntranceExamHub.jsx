@@ -321,31 +321,46 @@ export default function EntranceExamHub() {
             ))}
           </div>
 
-          {/* ── Upgrade card — only for unpaid non-admin users ── */}
+          {/* ── Free preview banner — only for unpaid non-admin users ── */}
           {!authLoading && !profile?.entranceExamPaid && profile?.role !== 'admin' && (
-            <div
-              onClick={() => navigate('/entrance-exam/payment')}
-              style={{
+            <div style={{
+              marginBottom: pausedExams.length > 0 ? 16 : 0,
+              borderRadius: 12, overflow: 'hidden',
+              border: '1.5px solid rgba(245,158,11,0.45)',
+            }}>
+              {/* Top row: free preview info */}
+              <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                background: 'rgba(245,158,11,0.15)',
-                border: '1.5px solid rgba(245,158,11,0.5)',
-                borderRadius: 12, padding: '11px 16px',
-                marginBottom: pausedExams.length > 0 ? 16 : 0,
-                cursor: 'pointer', transition: 'background 0.2s, border-color 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.25)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.8)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.15)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)'; }}
-            >
-              <span style={{ fontSize: 20, flexShrink: 0 }}>🔐</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 13, color: '#F59E0B', fontFamily: F }}>
-                  Unlock Full Access — ₦3,000
-                </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
-                  Past questions · Daily mock · Subject drill · Tap to register
+                background: 'rgba(245,158,11,0.1)',
+                padding: '10px 14px',
+              }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>⚡</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#F59E0B', fontFamily: F }}>
+                    Free Preview — 10 questions per exam
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, fontFamily: F, marginTop: 2 }}>
+                    All features unlocked · Questions capped at 10 until you register
+                  </div>
                 </div>
               </div>
-              <span style={{ color: '#F59E0B', fontSize: 18, fontWeight: 900, flexShrink: 0 }}>→</span>
+              {/* Bottom row: upgrade CTA */}
+              <div
+                onClick={() => navigate('/entrance-exam/payment')}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  background: 'rgba(245,158,11,0.18)',
+                  padding: '8px 14px', cursor: 'pointer',
+                  borderTop: '1px solid rgba(245,158,11,0.25)',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.3)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.18)'}
+              >
+                <span style={{ fontWeight: 900, fontSize: 12, color: '#F59E0B', fontFamily: F }}>
+                  🔓 Unlock Full Access for ₦3,000 →
+                </span>
+              </div>
             </div>
           )}
 

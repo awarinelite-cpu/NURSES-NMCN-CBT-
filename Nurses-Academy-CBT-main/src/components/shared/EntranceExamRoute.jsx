@@ -6,10 +6,13 @@
 //   - Not logged in         → /auth?redirect=...
 //   - Admin                 → full access (bypass everything)
 //   - entranceExamPaid=true → full access
-//   - Otherwise             → redirect to /entrance-exam/payment
+//   - Logged-in unpaid user → FREE PREVIEW (10 questions per exam)
+//                             The cap is enforced inside each session
+//                             component via the isPaid flag read from profile.
 //
-// The 10-question free cap is enforced inside each session component
-// via the isPaid flag read from profile.
+// NOTE: Unpaid users are no longer redirected to /entrance-exam/payment.
+//       They see the hub and can start any exam, capped at FREE_CAP questions.
+//       Upgrade CTAs inside each session nudge them to pay.
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth }               from '../../context/AuthContext';
@@ -17,7 +20,7 @@ import { useAuth }               from '../../context/AuthContext';
 export const ENTRANCE_FREE_CAP = 10;
 
 export default function EntranceExamRoute({ children }) {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   // Wait for Firebase auth to resolve before making decisions
@@ -48,12 +51,9 @@ export default function EntranceExamRoute({ children }) {
     );
   }
 
-  // Admin → full access always
-  if (profile?.role === 'admin') return children;
-
-  // Paid → full access
-  if (profile?.entranceExamPaid) return children;
-
-  // Unpaid → redirect to payment page
-  return <Navigate to="/entrance-exam/payment" replace />;
+  // Logged-in users (paid, unpaid, or admin) → always allowed through.
+  // Paid/admin get full questions; unpaid get FREE_CAP questions per exam
+  // (enforced inside EntranceExamSession, EntranceExamDailyMockHub,
+  //  EntranceSubjectSession, etc.).
+  return children;
 }
