@@ -24,7 +24,7 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
 const BANK = {
   bank:    'Moniepoint',
