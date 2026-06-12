@@ -110,6 +110,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Global "new exam available" daily notifications (e.g. Daily Practice,
+    // Entrance Exam Daily Mock). Documents use a deterministic date-based ID
+    // and are created idempotently — once a doc exists for a given day it
+    // is never modified again, only read.
+    match /dailyAnnouncements/{annId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
     match /bookmarks/{bookmarkId} {
       allow read, write: if isAuth() && (resource == null ? request.resource.data.userId == request.auth.uid : resource.data.userId == request.auth.uid || isAdmin());
     }

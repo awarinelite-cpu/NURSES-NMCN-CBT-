@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import NotificationBell from './NotificationBell';
 
 // ─── Per-site last-visited location tracker ───────────────────────────────────
 // Each time a user visits a clearly-site-specific page we store that path
@@ -125,7 +126,7 @@ export default function Navbar({ onMenuToggle }) {
           )}
         </div>
 
-        {/* Right: theme toggle + user dropdown */}
+        {/* Right: theme toggle + notifications + user dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             style={styles.themeBtn}
@@ -135,6 +136,8 @@ export default function Navbar({ onMenuToggle }) {
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
+
+          {user && <NotificationBell />}
 
           {user ? (
             <div style={{ position: 'relative' }} ref={dropRef}>

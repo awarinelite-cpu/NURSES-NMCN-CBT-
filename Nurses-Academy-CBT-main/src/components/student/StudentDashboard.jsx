@@ -8,6 +8,7 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import { ensureCbtDailyMockNotification } from '../../utils/dailyNotifications';
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target, duration = 1600, delay = 0) {
@@ -485,6 +486,9 @@ export default function StudentDashboard() {
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
     if (!user) { setLoading(false); return; }
+
+    // Make sure today's "Daily Practice" notification exists (idempotent)
+    ensureCbtDailyMockNotification();
 
     const loadData = async () => {
       // Recent exam sessions

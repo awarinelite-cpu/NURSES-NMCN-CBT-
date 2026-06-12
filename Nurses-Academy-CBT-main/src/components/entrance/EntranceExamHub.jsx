@@ -9,10 +9,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
-  limit, getCountFromServer, deleteDoc, doc,
+  limit, getCountFromServer, deleteDoc, doc, getDoc,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import { ensureEntranceDailyMockNotification, todayKey } from '../../utils/dailyNotifications';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -233,6 +234,15 @@ export default function EntranceExamHub() {
       });
       setPausedExams(paused);
     } catch (e) { console.error('Paused exams load error:', e.code, e.message); }
+
+    // If today's Daily Mock has been published, make sure the
+    // "new mock available" notification exists (idempotent)
+    try {
+      const todaySnap = await getDoc(doc(db, 'dailyMockSchedule', todayKey()));
+      if (todaySnap.exists()) {
+        ensureEntranceDailyMockNotification(todayKey());
+      }
+    } catch (e) { console.error('Daily mock check error:', e.code, e.message); }
 
     setLoading(false);
   };

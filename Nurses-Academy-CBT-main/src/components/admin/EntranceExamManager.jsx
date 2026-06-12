@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
+import { ensureEntranceDailyMockNotification } from '../../utils/dailyNotifications';
 import {
   parseEntranceQuestions,
   seededShuffle,
@@ -1351,6 +1352,7 @@ function DailyMockSchedule({ toast }) {
     setGenerating(true);
     try {
       await setDoc(doc(db, 'dailyMockSchedule', preview.date), { date: preview.date, questionIds: preview.questionIds, questionCount: preview.questionIds.length, publishedAt: serverTimestamp(), passRate: null, attemptCount: 0, isReset: preview.isReset || false });
+      ensureEntranceDailyMockNotification(preview.date);
       toast(`Daily Mock published for ${preview.date} ✅`, 'success');
       setPreview(null);
       const snap = await getDocs(query(collection(db, 'dailyMockSchedule'), orderBy('date', 'desc')));
