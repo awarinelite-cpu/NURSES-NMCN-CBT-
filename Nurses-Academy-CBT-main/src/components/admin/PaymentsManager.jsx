@@ -175,7 +175,7 @@ export default function AdminPayments() {
           <table style={s.table}>
             <thead>
               <tr>
-                {['User', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Receipt', 'Date', 'Status', 'Action', 'Devices'].map(h => (
+                {['User', 'Receipt', 'Plan', 'Amount', 'Method', 'Reference / Proof', 'Date', 'Status', 'Action', 'Devices'].map(h => (
                   <th key={h} style={s.th}>{h}</th>
                 ))}
               </tr>
@@ -189,24 +189,6 @@ export default function AdminPayments() {
                     <td style={s.td}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{p.userName || '—'}</div>
                       <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.userEmail || ''}</div>
-                    </td>
-                    <td style={s.td}>
-                      <span style={{ ...s.planChip, background: p.plan === 'premium' ? 'rgba(124,58,237,0.2)' : p.plan === 'standard' ? 'rgba(37,99,235,0.2)' : 'rgba(13,148,136,0.2)', color: p.plan === 'premium' ? '#A78BFA' : p.plan === 'standard' ? '#60A5FA' : '#2DD4BF' }}>
-                        {p.plan}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, fontWeight: 700, color: '#0D9488' }}>
-                      ₦{(p.amount || 0).toLocaleString()}
-                    </td>
-                    <td style={s.td}>
-                      <span style={{ fontSize: 12, color: p.method === 'paystack' ? '#60A5FA' : '#FCD34D' }}>
-                        {p.method === 'paystack' ? '💳 Paystack' : '🏦 Manual'}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, maxWidth: 160 }}>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>
-                        {p.reference || p.proof || '—'}
-                      </span>
                     </td>
                     <td style={s.td}>
                       {p.receiptUrl ? (
@@ -227,6 +209,24 @@ export default function AdminPayments() {
                       ) : (
                         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
                       )}
+                    </td>
+                    <td style={s.td}>
+                      <span style={{ ...s.planChip, background: p.plan === 'premium' ? 'rgba(124,58,237,0.2)' : p.plan === 'standard' ? 'rgba(37,99,235,0.2)' : 'rgba(13,148,136,0.2)', color: p.plan === 'premium' ? '#A78BFA' : p.plan === 'standard' ? '#60A5FA' : '#2DD4BF' }}>
+                        {p.plan}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, fontWeight: 700, color: '#0D9488' }}>
+                      ₦{(p.amount || 0).toLocaleString()}
+                    </td>
+                    <td style={s.td}>
+                      <span style={{ fontSize: 12, color: p.method === 'paystack' ? '#60A5FA' : '#FCD34D' }}>
+                        {p.method === 'paystack' ? '💳 Paystack' : '🏦 Manual'}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, maxWidth: 160 }}>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>
+                        {p.reference || p.proof || '—'}
+                      </span>
                     </td>
                     <td style={{ ...s.td, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{date}</td>
                     <td style={s.td}>
