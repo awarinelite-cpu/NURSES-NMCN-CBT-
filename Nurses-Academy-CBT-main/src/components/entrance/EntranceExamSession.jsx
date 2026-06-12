@@ -380,11 +380,34 @@ export default function EntranceExamSession() {
                   : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
               </div>
 
-              {/* ── Explanation — smart multi-line ── */}
+              {/* ── Explanation — upgraded panel ── */}
               {q.explanation && (
-                <div style={{ marginTop: 10, marginLeft: 36, padding: '10px 12px', borderRadius: 8, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 4, fontSize: 12, fontFamily: F }}>💡 Explanation</div>
-                  <ExplanationText text={q.explanation} style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: F }} />
+                <div style={{
+                  marginTop: 14,
+                  marginLeft: 36,
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  border: '2px solid rgba(13,148,136,0.35)',
+                  boxShadow: '0 2px 12px rgba(13,148,136,0.1)',
+                }}>
+                  <div style={{
+                    background: 'var(--teal)',
+                    padding: '9px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}>
+                    <span style={{ fontSize: 16 }}>💡</span>
+                    <span style={{
+                      fontFamily: "'Arial Black', Arial, sans-serif",
+                      fontWeight: 900,
+                      fontSize: 14,
+                      color: '#fff',
+                    }}>Explanation</span>
+                  </div>
+                  <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                    <ExplanationText text={q.explanation} />
+                  </div>
                 </div>
               )}
             </div>
@@ -505,11 +528,39 @@ export default function EntranceExamSession() {
               })}
             </div>
 
-            {/* ── Per-question explanation — smart multi-line ── */}
+            {/* ── Per-question explanation — upgraded panel ── */}
             {submitted && currentQ.explanation && (
-              <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 12, background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.25)' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 6, fontFamily: F }}>💡 Explanation</div>
-                <ExplanationText text={currentQ.explanation} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: F }} />
+              <div style={{
+                marginTop: 22,
+                borderRadius: 14,
+                overflow: 'hidden',
+                border: '2px solid rgba(13,148,136,0.35)',
+                boxShadow: '0 2px 12px rgba(13,148,136,0.1)',
+              }}>
+                {/* Header bar */}
+                <div style={{
+                  background: 'var(--teal)',
+                  padding: '10px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}>
+                  <span style={{ fontSize: 18 }}>💡</span>
+                  <span style={{
+                    fontFamily: "'Arial Black', Arial, sans-serif",
+                    fontWeight: 900,
+                    fontSize: 15,
+                    color: '#fff',
+                    letterSpacing: 0.3,
+                  }}>Explanation</span>
+                </div>
+                {/* Body */}
+                <div style={{
+                  padding: '16px 18px',
+                  background: 'rgba(13,148,136,0.06)',
+                }}>
+                  <ExplanationText text={currentQ.explanation} />
+                </div>
               </div>
             )}
           </div>
