@@ -286,7 +286,7 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
             onMouseDown={handleLongPress}  onMouseUp={cancelLong}  onMouseLeave={cancelLong}
             onContextMenu={handleRightClick}
             style={{
-              padding:'8px 12px 6px',
+              padding: msg.type === 'image' ? '3px' : '8px 12px 6px',
               borderRadius: isMe
                 ? (msg.replyTo ? '0 12px 4px 12px' : '18px 18px 4px 18px')
                 : (msg.replyTo ? '12px 0 12px 4px' : '18px 18px 18px 4px'),
@@ -321,6 +321,19 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
                   {isMe && <Ticks status={tickStatus} />}
                 </span>
               </>
+            ) : msg.type === 'image' ? (
+              <div style={{ padding:0, overflow:'hidden' }}>
+                <ImageBubble src={msg.imageUrl} isOptimistic={!!msg._optimistic} />
+                <div style={{
+                  display:'flex', justifyContent:'flex-end', alignItems:'center', gap:3,
+                  padding:'4px 4px 0',
+                  fontSize:10, color: isMe ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.4)',
+                  fontFamily:F, fontWeight:700,
+                }}>
+                  {formatTime(msg.createdAt)}
+                  {isMe && <Ticks status={tickStatus} />}
+                </div>
+              </div>
             ) : (
               <>
                 <span>{msg.text}</span>
@@ -489,6 +502,93 @@ function AudioBubble({ src, duration, isMe }) {
         <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
       </svg>
+    </div>
+  );
+}
+
+/* ─── IMAGE BUBBLE ──────────────────────────────────────────── */
+function ImageBubble({ src, isOptimistic }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div style={{ position:'relative', cursor:'pointer', borderRadius:12, overflow:'hidden', maxWidth:240 }}
+        onClick={() => !isOptimistic && setOpen(true)}>
+        <img src={src} alt="photo"
+          style={{ display:'block', width:'100%', maxWidth:240, maxHeight:320, objectFit:'cover', borderRadius:12 }}
+          onError={e => { e.target.style.display='none'; }}
+        />
+        {isOptimistic && (
+          <div style={{
+            position:'absolute', inset:0, background:'rgba(0,0,0,0.45)',
+            display:'flex', alignItems:'center', justifyContent:'center', borderRadius:12,
+          }}>
+            <div style={{
+              width:28, height:28, borderRadius:'50%',
+              border:'3px solid rgba(255,255,255,0.3)',
+              borderTopColor:'#fff',
+              animation:'spin 0.8s linear infinite',
+            }} />
+          </div>
+        )}
+      </div>
+      {/* Full-screen lightbox */}
+      {open && (
+        <div style={{
+          position:'fixed', inset:0, zIndex:9999,
+          background:'rgba(0,0,0,0.92)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }} onClick={() => setOpen(false)}>
+          <img src={src} alt="photo"
+            style={{ maxWidth:'95vw', maxHeight:'95vh', objectFit:'contain', borderRadius:8 }} />
+          <button onClick={() => setOpen(false)} style={{
+            position:'absolute', top:16, right:16,
+            background:'rgba(255,255,255,0.12)', border:'none', borderRadius:'50%',
+            width:40, height:40, cursor:'pointer', color:'#fff', fontSize:20,
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>✕</button>
+          <a href={src} download target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+            style={{
+              position:'absolute', bottom:24,
+              background:'rgba(13,148,136,0.85)', color:'#fff',
+              padding:'10px 22px', borderRadius:24,
+              fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:13,
+              textDecoration:'none',
+            }}>⬇ Download</a>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── IMAGE PREVIEW MODAL (before sending) ──────────────────── */
+function ImagePreviewModal({ preview, onSend, onCancel }) {
+  if (!preview) return null;
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:9000,
+      background:'rgba(0,0,0,0.88)',
+      display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center', gap:20,
+    }}>
+      <img src={preview.url} alt="preview"
+        style={{ maxWidth:'88vw', maxHeight:'65vh', objectFit:'contain', borderRadius:12 }} />
+      <div style={{ fontSize:13, color:'rgba(255,255,255,0.55)', fontFamily:"'Times New Roman',serif", fontWeight:700 }}>
+        {preview.file.name} · {(preview.file.size/1024).toFixed(0)} KB
+      </div>
+      <div style={{ display:'flex', gap:16 }}>
+        <button onClick={onCancel} style={{
+          padding:'12px 28px', borderRadius:24,
+          background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)',
+          color:'#E9EDEF', fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:15,
+          cursor:'pointer',
+        }}>Cancel</button>
+        <button onClick={() => onSend(preview.file)} style={{
+          padding:'12px 32px', borderRadius:24,
+          background:'#00A884', border:'none',
+          color:'#fff', fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:15,
+          cursor:'pointer', boxShadow:'0 4px 14px rgba(0,168,132,0.4)',
+        }}>📤 Send</button>
+      </div>
     </div>
   );
 }
@@ -670,11 +770,13 @@ export default function ChatPage() {
   const [ctxMenu,      setCtxMenu]      = useState(null);   // { msg, x, y }
   const [showCtxReact, setShowCtxReact] = useState(false);
   const [showVoice,    setShowVoice]    = useState(false);  // voice recorder open
+  const [imgPreview,   setImgPreview]   = useState(null);   // { file, url } before send
 
   const bottomRef   = useRef(null);
   const inputRef    = useRef(null);
   const typingTimer = useRef(null);
   const inputWrap   = useRef(null);
+  const imgFileRef  = useRef(null);
 
   /* ── Derived ── */
   const theirName   = state?.name   || theirProfile?.name   || theirProfile?.displayName || 'Student';
@@ -892,7 +994,66 @@ export default function ChatPage() {
     }
   };
 
-  /* ── Delete message ── */
+  /* ── Send image message ── */
+  const sendImageMessage = async (file) => {
+    if (!chatId || !myUid || !file) return;
+    setSendError('');
+    // Show optimistic preview instantly
+    const localUrl = URL.createObjectURL(file);
+    const optimisticId = 'opt_img_' + Date.now();
+    const optimisticMsg = {
+      id: optimisticId,
+      type: 'image',
+      imageUrl: localUrl,
+      senderId: myUid,
+      senderName: myName,
+      createdAt: { toDate: () => new Date() },
+      read: false, delivered: false,
+      _optimistic: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setImgPreview(null);
+
+    try {
+      const ext  = file.name.split('.').pop() || 'jpg';
+      const path = `chatImages/${chatId}/${Date.now()}_${myUid}.${ext}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, file, { contentType: file.type });
+      const url  = await getDownloadURL(sRef);
+
+      await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+        type:       'image',
+        imageUrl:   url,
+        senderId:   myUid,
+        senderName: myName,
+        createdAt:  serverTimestamp(),
+        read: false, delivered: false,
+      });
+
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+
+      await setDoc(doc(db, 'directChats', chatId), {
+        participants:[myUid, theirUid],
+        lastMessage: '📷 Photo',
+        lastSenderId: myUid,
+        updatedAt: serverTimestamp(),
+      }, { merge:true });
+
+    } catch(e) {
+      console.error('Image send failed:', e);
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      setSendError('Image send failed: ' + (e?.code || e?.message || 'unknown error') + '. Check Storage rules are deployed.');
+    }
+  };
+
+  /* ── Pick image from file input ── */
+  const handleImageFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    const url = URL.createObjectURL(file);
+    setImgPreview({ file, url });
+  };
   const deleteMessage = async (msg) => {
     if (msg.senderId !== myUid) return;
     try {
@@ -1146,6 +1307,23 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* ── Image preview modal ── */}
+      <ImagePreviewModal
+        preview={imgPreview}
+        onSend={sendImageMessage}
+        onCancel={() => setImgPreview(null)}
+      />
+
+      {/* Hidden file input for gallery/camera */}
+      <input
+        ref={imgFileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display:'none' }}
+        onChange={handleImageFile}
+      />
+
       {/* ── INPUT AREA ── */}
       <div ref={inputWrap} style={{ background:'#1F2C34', flexShrink:0, position:'relative' }}>
         {/* Reply bar */}
@@ -1181,6 +1359,15 @@ export default function ChatPage() {
                 transition:'color 0.15s',
                 lineHeight:1,
               }}>😊</button>
+
+              {/* Camera / image button */}
+              <button onClick={() => { setShowEmoji(false); imgFileRef.current?.click(); }} style={{
+                background:'none', border:'none', cursor:'pointer',
+                fontSize:22, padding:'4px', flexShrink:0,
+                color:'#8696A0',
+                transition:'color 0.15s',
+                lineHeight:1,
+              }}>📷</button>
 
               {/* Text input */}
               <textarea
