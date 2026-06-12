@@ -51,6 +51,18 @@ function sameDay(ts1, ts2) {
   return a.toDateString() === b.toDateString();
 }
 
+// Wrap a promise so it can never hang forever — rejects with `message`
+// after `ms` if the underlying promise hasn't settled yet.
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 /* ─── SUB-COMPONENTS ───────────────────────────────────────── */
 function Spinner() {
   return (
@@ -963,11 +975,20 @@ export default function ChatPage() {
     if (!chatId || !myUid) return;
     setSendError('');
     try {
-      const ext  = blob.type.includes('mp4') ? 'm4a' : 'webm';
+      const contentType = blob.type || 'audio/webm';
+      const ext  = contentType.includes('mp4') ? 'm4a' : 'webm';
       const path = `voiceNotes/${chatId}/${Date.now()}_${myUid}.${ext}`;
       const sRef = storageRef(storage, path);
-      await uploadBytes(sRef, blob, { contentType: blob.type });
-      const url  = await getDownloadURL(sRef);
+      await withTimeout(
+        uploadBytes(sRef, blob, { contentType }),
+        30000,
+        'Upload timed out. Check your internet connection and that Firebase Storage is enabled for this project.'
+      );
+      const url = await withTimeout(
+        getDownloadURL(sRef),
+        15000,
+        'Could not get the voice note URL after upload.'
+      );
 
       await addDoc(collection(db, 'directChats', chatId, 'messages'), {
         type:       'audio',
@@ -989,7 +1010,7 @@ export default function ChatPage() {
       setShowVoice(false);
     } catch(e) {
       console.error('Audio send failed:', e);
-      setSendError('Voice send failed: ' + (e?.code || e?.message || 'unknown'));
+      setSendError('Voice send failed: ' + (e?.code || e?.message || 'unknown') + '. Check Storage rules/billing are set up.');
       setShowVoice(false);
     }
   };
@@ -1016,10 +1037,19 @@ export default function ChatPage() {
 
     try {
       const ext  = file.name.split('.').pop() || 'jpg';
+      const contentType = file.type || 'image/jpeg';
       const path = `chatImages/${chatId}/${Date.now()}_${myUid}.${ext}`;
       const sRef = storageRef(storage, path);
-      await uploadBytes(sRef, file, { contentType: file.type });
-      const url  = await getDownloadURL(sRef);
+      await withTimeout(
+        uploadBytes(sRef, file, { contentType }),
+        30000,
+        'Upload timed out. Check your internet connection and that Firebase Storage is enabled for this project.'
+      );
+      const url = await withTimeout(
+        getDownloadURL(sRef),
+        15000,
+        'Could not get the image URL after upload.'
+      );
 
       await addDoc(collection(db, 'directChats', chatId, 'messages'), {
         type:       'image',
@@ -1042,7 +1072,7 @@ export default function ChatPage() {
     } catch(e) {
       console.error('Image send failed:', e);
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      setSendError('Image send failed: ' + (e?.code || e?.message || 'unknown error') + '. Check Storage rules are deployed.');
+      setSendError('Image send failed: ' + (e?.code || e?.message || 'unknown error') + '. Check Storage rules/billing are set up.');
     }
   };
 
