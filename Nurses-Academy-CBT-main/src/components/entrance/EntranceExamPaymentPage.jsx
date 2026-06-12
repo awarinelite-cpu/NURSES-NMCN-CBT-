@@ -82,7 +82,6 @@ export default function EntranceExamPaymentPage() {
   const navigate          = useNavigate();
 
   const [method,        setMethod]        = useState(null);  // 'paystack' | 'manual'
-  const [proof,         setProof]         = useState('');
   const [receiptFile,   setReceiptFile]   = useState(null);
   const [receiptPreview,setReceiptPreview]= useState('');
   const [uploadProgress,setUploadProgress]= useState(0);
@@ -182,8 +181,8 @@ export default function EntranceExamPaymentPage() {
 
   /* ── Manual bank transfer submission ─────────────────────────────────── */
   const handleManual = async () => {
-    if (!proof.trim())    { setError('Please enter your payment reference or transaction ID.'); return; }
-    if (!fullName.trim()) { setError('Please enter your full name.'); return; }
+    if (!receiptFile)      { setError('Please upload your payment receipt / screenshot.'); return; }
+    if (!fullName.trim())  { setError('Please enter your full name.'); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -210,7 +209,6 @@ export default function EntranceExamPaymentPage() {
         examLabel: EXAM.label,
         amount:    EXAM.amount,
         method:    'manual',
-        proof:     proof.trim(),
         receiptUrl,
         status:    'pending',
         createdAt: serverTimestamp(),
@@ -477,21 +475,6 @@ export default function EntranceExamPaymentPage() {
                   className="form-input"
                   style={{ width: '100%', boxSizing: 'border-box', fontFamily: F }}
                 />
-              </div>
-
-              {/* Reference */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={s.formLabel}>Payment Reference / Transaction ID *</label>
-                <input
-                  value={proof}
-                  onChange={e => { setProof(e.target.value); setError(''); }}
-                  placeholder="e.g. FBN2504130001 or any bank reference"
-                  className="form-input"
-                  style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', letterSpacing: 1 }}
-                />
-                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6, fontFamily: F, fontWeight: 700 }}>
-                  After transferring, enter the reference so admin can verify your payment.
-                </p>
               </div>
 
               {/* Receipt Upload */}
