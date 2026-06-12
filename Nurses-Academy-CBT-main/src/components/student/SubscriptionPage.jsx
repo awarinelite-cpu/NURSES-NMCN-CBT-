@@ -199,12 +199,22 @@ export default function SubscriptionPage() {
       const codeData = codeDoc.data();
 
       if (codeData.used) {
-        if (codeData.boundDeviceId && codeData.boundDeviceId !== deviceId) {
-          toast('❌ This code is already bound to another device. Each code can only be used on one device.', 'error');
+        // ONE CODE — ONE USER: block if a different Firebase account already used this code
+        if (codeData.usedBy && codeData.usedBy !== user.uid) {
+          toast('❌ This access code has already been used by another account. Each code is valid for one user only.', 'error');
           setLoading(false);
           return;
         }
-        if (codeData.boundDeviceId === deviceId) {
+
+        // ONE CODE — ONE DEVICE: block if same user tries a different device
+        if (codeData.boundDeviceId && codeData.boundDeviceId !== deviceId) {
+          toast('❌ This code is locked to a different device. Contact your admin to reset the device lock.', 'error');
+          setLoading(false);
+          return;
+        }
+
+        // Same user + same device — restore access (e.g. after app reinstall or cache clear)
+        if (codeData.usedBy === user.uid && codeData.boundDeviceId === deviceId) {
           const planData = ACCESS_PLANS.find(p => p.id === codeData.plan);
           const expiry   = new Date();
           expiry.setDate(expiry.getDate() + (codeData.plan === 'basic' ? 30 : codeData.plan === 'standard' ? 90 : 180));

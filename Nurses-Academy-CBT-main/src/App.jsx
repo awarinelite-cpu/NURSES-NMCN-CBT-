@@ -72,6 +72,7 @@ import CoursesManager        from './components/admin/CoursesManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
 
 import './styles/global.css';
+import { useContentProtection } from './hooks/useContentProtection';
 
 // Free trial question cap for entrance exam
 export const ENTRANCE_FREE_LIMIT = 10;
@@ -86,6 +87,12 @@ const isCapacitor = () =>
   typeof window !== 'undefined' &&
   window.Capacitor !== undefined &&
   window.Capacitor.isNativePlatform?.();
+
+function ContentProtectionActivator() {
+  const { user } = useAuth();
+  useContentProtection(!!user);
+  return null;
+}
 
 function SwNavigationHandler() {
   const navigate = useNavigate();
@@ -173,6 +180,7 @@ export default function App() {
             <BrowserRouter>
               <BackButtonHandler />
               <SwNavigationHandler />
+              <ContentProtectionActivator />
 
               <Routes>
                 {/* Public */}

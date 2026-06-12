@@ -1,14 +1,28 @@
 // public/service-worker.js
-// NMCN CBT Platform — Offline-capable PWA Service Worker
+// NMCN CBT Platform — PWA Service Worker
+// SECURITY: Exam/question content is NEVER cached for offline access.
 
-const CACHE_NAME = 'nmcn-cbt-v2';
+const CACHE_NAME = 'nmcn-cbt-v3';
 
-// Only cache files that are guaranteed to exist at these exact paths.
-// Vite hashes JS/CSS filenames on every build — never hardcode them here.
+// Only cache shell assets — no question data
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+];
+
+// Paths that must NEVER be served from cache
+const NO_CACHE_PATTERNS = [
+  /\/exam/i,
+  /\/question/i,
+  /\/entrance/i,
+  /\/mock/i,
+  /\/practice/i,
+  /\/drill/i,
+  /firestore/i,
+  /firebase/i,
+  /anthropic/i,
+  /paystack/i,
 ];
 
 // ── Install ────────────────────────────────────────────────────────
@@ -19,7 +33,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ── Activate ───────────────────────────────────────────────────────
+// ── Activate — clear old caches ────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -29,21 +43,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ── Fetch (cache-first for static assets, network-first for everything else) ──
+// ── Fetch ──────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Always go network-only for Firebase, Anthropic API, and Paystack
-  if (
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('firestore') ||
-    url.hostname.includes('anthropic') ||
-    url.hostname.includes('paystack')
-  ) {
+  // Never cache protected content — always network-only
+  const isProtected = NO_CACHE_PATTERNS.some(p => p.test(url.href));
+  if (isProtected) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        new Response(JSON.stringify({ error: 'Offline access to exam content is not permitted.' }), {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          },
+        })
+      )
+    );
     return;
   }
 
-  // For navigation requests (HTML pages), use network-first
+  // Navigation requests — network-first
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match('/index.html'))
@@ -51,7 +72,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For all other requests (JS, CSS, images): cache-first, update in background
+  // Shell assets — cache-first, update in background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
@@ -60,7 +81,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => cached); // fall back to cache if network fails
+      }).catch(() => cached);
       return cached || networkFetch;
     })
   );
@@ -71,10 +92,10 @@ self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
   event.waitUntil(
     self.registration.showNotification(data.title || 'NMCN CBT', {
-      body:  data.body  || 'New notification',
-      icon:  '/icons/icon-192.png',
-      badge: '/icons/badge-72.png',
-      data:  data,
+      body:    data.body  || 'New notification',
+      icon:    '/icons/icon-192.png',
+      badge:   '/icons/badge-72.png',
+      data:    data,
       actions: data.actions || [],
     })
   );

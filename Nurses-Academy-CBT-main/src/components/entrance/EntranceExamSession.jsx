@@ -452,8 +452,26 @@ export default function EntranceExamSession() {
   }
 
   // ── Main Exam UI ────────────────────────────────────────────────────────────
+  const watermarkText = profile?.name ? profile.name.toUpperCase() : '';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: F }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: F, position: 'relative' }}>
+      {watermarkText && (
+        <div aria-hidden="true" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          pointerEvents: 'none', zIndex: 9998, overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
+            color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+            whiteSpace: 'nowrap', userSelect: 'none',
+            fontFamily: "'Arial Black', Arial, sans-serif",
+          }}>
+            {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
+          </span>
+        </div>
+      )}
       {showExitModal && (
         <ExitModal onSaveExit={handleSaveExit} onAbandon={handleAbandonExit}
           onCancel={() => { setShowExitModal(false); setSaveError(''); isSavingRef.current = false; }}

@@ -1,4 +1,65 @@
 /* src/styles/global.css */
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONTENT PROTECTION — prevent copy, selection, long-press, save
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Block all text selection globally */
+* {
+  -webkit-user-select: none !important;
+  -moz-user-select:    none !important;
+  -ms-user-select:     none !important;
+  user-select:         none !important;
+  -webkit-touch-callout: none !important; /* iOS long-press menu */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Allow text selection only in inputs & textareas so UX isn't broken */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  -moz-user-select:    text !important;
+  -ms-user-select:     text !important;
+  user-select:         text !important;
+  -webkit-touch-callout: default !important;
+}
+
+/* Screenshot deterrence — overlay on question/exam content */
+.exam-question-protected {
+  position: relative;
+}
+.exam-question-protected::after {
+  content: attr(data-watermark);
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(14px, 3vw, 22px);
+  font-weight: 700;
+  color: rgba(13,148,136,0.07);
+  pointer-events: none;
+  z-index: 9999;
+  transform: rotate(-30deg);
+  white-space: pre-line;
+  text-align: center;
+  letter-spacing: 2px;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 120px,
+    rgba(13,148,136,0.025) 120px,
+    rgba(13,148,136,0.025) 122px
+  );
+}
+
+/* Disable image dragging */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════════════════════
    NMCN CBT PLATFORM — Global Design System
    Brand: Teal #0D9488 | Deep Blue #1E3A8A | Gold #F59E0B

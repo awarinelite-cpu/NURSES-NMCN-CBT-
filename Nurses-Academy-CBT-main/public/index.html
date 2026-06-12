@@ -8,6 +8,11 @@
   <meta name="description" content="The Elite Nurses — Your Path to Nursing Excellence. Smart nursing exam preparation with past questions, AI explanations and mock exams." />
   <meta name="keywords" content="NMCN, nursing exam, CBT, nursing council nigeria, past questions, nursing practice, The Elite Nurses" />
 
+  <!-- ── Security: prevent offline save / caching of exam content ── -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma"        content="no-cache" />
+  <meta http-equiv="Expires"       content="0" />
+
   <!-- PWA -->
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/icons/icon-192.png" />
@@ -22,6 +27,59 @@
   <!-- Preconnect for Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- ── Content Protection — runs before React mounts ── -->
+  <script>
+    (function () {
+      // Block right-click context menu
+      document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+      }, true);
+
+      // Block keyboard copy/save/screenshot shortcuts
+      document.addEventListener('keydown', function (e) {
+        var ctrl = e.ctrlKey || e.metaKey;
+        var key  = e.key ? e.key.toLowerCase() : '';
+        if (
+          (ctrl && ['c','a','s','u','p'].indexOf(key) > -1) ||
+          e.key === 'PrintScreen' ||
+          e.key === 'F12'
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, true);
+
+      // Overwrite clipboard after PrintScreen (Windows Chrome)
+      document.addEventListener('keyup', function (e) {
+        if (e.key === 'PrintScreen') {
+          try { navigator.clipboard.writeText(''); } catch (_) {}
+        }
+      }, true);
+
+      // Block drag (another copy vector)
+      document.addEventListener('dragstart', function (e) {
+        e.preventDefault();
+      }, true);
+
+      // Block Screen Capture API (Chrome/Edge)
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        navigator.mediaDevices.getDisplayMedia = function () {
+          return Promise.reject(
+            new DOMException('Screen capture is disabled on this platform.', 'NotAllowedError')
+          );
+        };
+      }
+
+      // Blur exam content when user switches tabs (deters screen recording)
+      document.addEventListener('visibilitychange', function () {
+        if (document.body) {
+          document.body.style.filter = document.hidden ? 'blur(20px)' : '';
+        }
+      });
+    })();
+  </script>
 
   <!-- Paystack Inline JS -->
   <script src="https://js.paystack.co/v1/inline.js"></script>
