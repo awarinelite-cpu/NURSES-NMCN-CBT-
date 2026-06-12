@@ -1,7 +1,7 @@
 {
-  "short_name": "NMCN CBT",
-  "name": "NMCN CBT Nursing Exam Platform",
-  "description": "Smart CBT exam preparation platform for Nigerian nursing students — NMCN past questions, mock exams, AI explanations",
+  "short_name": "Elite Nurses",
+  "name": "The Elite Nurses — Your Path to Nursing Excellence",
+  "description": "The Elite Nurses — Your Path to Nursing Excellence. Smart CBT exam preparation platform for Nigerian nursing students — NMCN past questions, mock exams, AI explanations",
   "icons": [
     { "src": "/icons/icon-72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
     { "src": "/icons/icon-96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },

@@ -101,28 +101,39 @@ export default function Navbar({ onMenuToggle }) {
 
   return (
     <header style={styles.navbar}>
+
+      {/* Top: big bold site banner */}
+      <div style={styles.brandBanner}>
+        <Link to={user ? dashboardTo : '/'} style={styles.brandLink}>
+          <span style={styles.brandIcon}>📚</span>
+          <span style={styles.brandText}>
+            The Elite Nurses
+            <span style={styles.brandTagline}>Your Path to Nursing Excellence</span>
+          </span>
+        </Link>
+      </div>
+
+      {/* Below: menu toggle + theme toggle + user dropdown */}
       <div style={styles.inner}>
 
-        {/* Left: menu + brand */}
+        {/* Left: menu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {user && (
             <button style={styles.menuBtn} onClick={onMenuToggle} aria-label="Toggle sidebar">
               ☰
             </button>
           )}
-          <Link to={user ? dashboardTo : '/'} style={styles.brand}>
-            <span style={styles.brandIcon}>📚</span>
-            <span>NMCN<span style={styles.brandAccent}>CBT</span></span>
-          </Link>
         </div>
 
         {/* Right: theme toggle + user dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="toggle-track" onClick={toggleTheme} title="Toggle dark mode">
-            <div className="toggle-thumb" />
-            <span style={{ position: 'absolute', left: -9999 }}>
-              {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            </span>
+          <button
+            style={styles.themeBtn}
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
           </button>
 
           {user ? (
@@ -226,9 +237,37 @@ const styles = {
     position: 'sticky', top: 0, zIndex: 100,
     boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
   },
+  brandBanner: {
+    width: '100%',
+    padding: '18px 20px 14px',
+    textAlign: 'center',
+    background: 'linear-gradient(135deg, rgba(13,148,136,0.18), rgba(30,58,138,0.18))',
+    borderBottom: '1px solid var(--border)',
+  },
+  brandLink: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    gap: 14, textDecoration: 'none', flexWrap: 'wrap',
+  },
+  brandIcon: {
+    fontSize: 'clamp(28px, 5vw, 44px)', lineHeight: 1, flexShrink: 0,
+  },
+  brandText: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 900, color: '#FFFFFF',
+    fontSize: 'clamp(24px, 5.5vw, 48px)',
+    lineHeight: 1.15, letterSpacing: 0.5,
+  },
+  brandTagline: {
+    display: 'block',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 600, color: '#14B8A8',
+    fontSize: 'clamp(11px, 2.2vw, 18px)',
+    letterSpacing: 0.6, marginTop: 4,
+  },
   inner: {
     maxWidth: 1400, margin: '0 auto', padding: '0 20px',
-    height: 60, display: 'flex', alignItems: 'center',
+    height: 52, display: 'flex', alignItems: 'center',
     justifyContent: 'space-between',
   },
   menuBtn: {
@@ -236,14 +275,13 @@ const styles = {
     fontSize: 20, cursor: 'pointer', padding: '4px 6px',
     borderRadius: 6, display: 'none',
   },
-  brand: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 20, fontWeight: 900, color: '#FFFFFF',
-    textDecoration: 'none', letterSpacing: 0.5,
+  themeBtn: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: 38, height: 38, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+    cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0,
+    transition: 'background 0.15s, transform 0.15s',
   },
-  brandIcon: { fontSize: 22 },
-  brandAccent: { color: '#14B8A8' },
   avatarBtn: {
     display: 'flex', alignItems: 'center', gap: 8,
     background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
