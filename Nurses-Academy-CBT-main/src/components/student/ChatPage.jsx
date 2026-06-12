@@ -467,37 +467,52 @@ export default function ChatPage() {
       .catch(console.error);
   }, [theirUid]);
 
-  /* ── Ensure chat doc ── */
+  /* ── Create chat doc THEN start listener ── */
   useEffect(() => {
     if (!chatId || !myUid) return;
-    setDoc(doc(db, 'directChats', chatId),
-      { participants:[myUid,theirUid], updatedAt:serverTimestamp() },
-      { merge:true }
-    ).catch(console.error);
-  }, [chatId, myUid, theirUid]);
+    let unsub = () => {};
 
-  /* ── Messages listener ── */
-  useEffect(() => {
-    if (!chatId) return;
-    setLoading(true);
-    const q = query(
-      collection(db, 'directChats', chatId, 'messages'),
-      orderBy('createdAt','asc'), limit(300),
-    );
-    const unsub = onSnapshot(q, snap => {
-      const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      setMessages(msgs);
-      setLoading(false);
-      // Mark their messages as read + delivered
-      snap.docs.forEach(d => {
-        const m = d.data();
-        if (m.senderId !== myUid && (!m.read || !m.delivered)) {
-          updateDoc(d.ref, { read:true, delivered:true }).catch(()=>{});
-        }
+    const init = async () => {
+      try {
+        // Always write participants so the doc exists before any message write.
+        // merge:true is safe — won't overwrite existing messages.
+        await setDoc(doc(db, 'directChats', chatId),
+          { participants:[myUid, theirUid], updatedAt:serverTimestamp() },
+          { merge:true }
+        );
+      } catch(e) {
+        console.error('Chat doc init failed:', e);
+        setSendError('Could not open chat. Check your connection and try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Now safe to listen — parent doc exists, rules will pass
+      setLoading(true);
+      const q = query(
+        collection(db, 'directChats', chatId, 'messages'),
+        orderBy('createdAt','asc'), limit(300),
+      );
+      unsub = onSnapshot(q, snap => {
+        const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        setMessages(msgs);
+        setLoading(false);
+        snap.docs.forEach(d => {
+          const m = d.data();
+          if (m.senderId !== myUid && (!m.read || !m.delivered)) {
+            updateDoc(d.ref, { read:true, delivered:true }).catch(()=>{});
+          }
+        });
+      }, err => {
+        console.error('Messages listener error:', err);
+        setSendError('Could not load messages: ' + err.message);
+        setLoading(false);
       });
-    }, err => { console.error(err); setLoading(false); });
-    return unsub;
-  }, [chatId, myUid]);
+    };
+
+    init();
+    return () => unsub();
+  }, [chatId, myUid, theirUid]);
 
   /* ── Typing indicator listener ── */
   useEffect(() => {
@@ -546,26 +561,45 @@ export default function ChatPage() {
   const sendMessage = async () => {
     const trimmed = text.trim();
     if (!trimmed || !chatId || !myUid || sending) return;
+
+    // Clear input immediately
     setText('');
     if (inputRef.current) { inputRef.current.style.height = 'auto'; }
     setSending(true);
+    setSendError('');
     setShowEmoji(false);
     clearTimeout(typingTimer.current);
     updateTyping(false); setMyTyping(false);
+
+    const replySnap = replyTo ? { text:replyTo.text, senderName:replyTo.senderName, senderId:replyTo.senderId } : null;
     setReplyTo(null);
 
-    const payload = {
+    // Optimistic message — show instantly before Firestore confirms
+    const optimisticId = 'opt_' + Date.now();
+    const optimisticMsg = {
+      id: optimisticId,
       text: trimmed,
       senderId: myUid,
       senderName: myName,
-      createdAt: serverTimestamp(),
+      createdAt: { toDate: () => new Date() },
       read: false, delivered: false,
-      ...(replyTo ? { replyTo: { text:replyTo.text, senderName:replyTo.senderName, senderId:replyTo.senderId } } : {}),
+      _optimistic: true,
+      ...(replySnap ? { replyTo: replySnap } : {}),
     };
+    setMessages(prev => [...prev, optimisticMsg]);
 
-    setSendError('');
     try {
-      await addDoc(collection(db, 'directChats', chatId, 'messages'), payload);
+      const docRef = await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+        text: trimmed,
+        senderId: myUid,
+        senderName: myName,
+        createdAt: serverTimestamp(),
+        read: false, delivered: false,
+        ...(replySnap ? { replyTo: replySnap } : {}),
+      });
+      // Replace optimistic with real doc id (onSnapshot will overwrite anyway)
+      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: docRef.id, _optimistic: false } : m));
+      // Update chat metadata
       await setDoc(doc(db, 'directChats', chatId), {
         participants:[myUid, theirUid],
         lastMessage: trimmed,
@@ -573,9 +607,11 @@ export default function ChatPage() {
         updatedAt: serverTimestamp(),
       }, { merge:true });
     } catch(e) {
-      console.error(e);
+      console.error('Send failed:', e);
+      // Remove optimistic message and restore text
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
       setText(trimmed);
-      setSendError('Message failed to send. Please try again.');
+      setSendError('Failed: ' + (e?.code || e?.message || 'unknown error') + '. Check Firestore rules are deployed.');
     } finally {
       setSending(false);
       inputRef.current?.focus();

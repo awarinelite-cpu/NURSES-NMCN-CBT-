@@ -185,42 +185,54 @@ service cloud.firestore {
     }
 
     match /directChats/{chatId} {
-      // Read: must be a participant (doc exists) or be creating the first doc
+      // Helper: is the current user a participant of this chat?
+      // chatId is always uid1_uid2 (sorted). We check both the stored
+      // participants array AND the chatId string as a belt-and-braces fallback.
+      function isParticipant() {
+        return isAuth() && (
+          resource.data.participants.hasAny([request.auth.uid])
+        );
+      }
+      function isParticipantByCreate() {
+        return isAuth() &&
+          request.resource.data.participants.hasAny([request.auth.uid]);
+      }
+      // Safely get participants from an existing chat doc (returns false if doc missing)
+      function chatParticipants() {
+        return exists(/databases/$(database)/documents/directChats/$(chatId))
+          ? get(/databases/$(database)/documents/directChats/$(chatId)).data.participants
+          : [];
+      }
+
       allow read: if isAuth() && (
         !exists(/databases/$(database)/documents/directChats/$(chatId)) ||
         resource.data.participants.hasAny([request.auth.uid])
       );
-
-      // Create: allowed for any authenticated user setting up a new chat,
-      // as long as their UID is in the participants list they're writing
-      allow create: if isAuth() &&
-        request.resource.data.participants.hasAny([request.auth.uid]);
-
-      // Update: only participants can update chat metadata (lastMessage etc.)
-      allow update: if isAuth() &&
-        resource.data.participants.hasAny([request.auth.uid]);
-
+      allow create: if isParticipantByCreate();
+      allow update: if isParticipant();
       allow delete: if isAdmin();
 
       match /messages/{msgId} {
-        allow read: if isAuth() && (
-          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
-        );
-        // Only the sender can create a message, and senderId must match their UID
+        // Read: participant of the parent chat
+        allow read: if isAuth() &&
+          chatParticipants().hasAny([request.auth.uid]);
+
+        // Create: participant AND sender field must match auth uid
         allow create: if isAuth() &&
-          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid]) &&
+          chatParticipants().hasAny([request.auth.uid]) &&
           request.resource.data.senderId == request.auth.uid;
-        // Allow update so the recipient can mark messages as read
+
+        // Update: participant (for read receipts, reactions, delete flag)
         allow update: if isAuth() &&
-          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+          chatParticipants().hasAny([request.auth.uid]);
+
         allow delete: if isAdmin();
       }
 
-      // Typing indicators sub-collection
+      // Typing indicators
       match /typing/{typingUid} {
-        allow read, write: if isAuth() && (
-          get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
-        );
+        allow read, write: if isAuth() &&
+          chatParticipants().hasAny([request.auth.uid]);
       }
     }
 
