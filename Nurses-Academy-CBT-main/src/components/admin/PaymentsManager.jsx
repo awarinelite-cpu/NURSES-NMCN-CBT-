@@ -36,9 +36,7 @@ export default function AdminPayments() {
   const confirm = async (payment) => {
     setBusy(b => ({ ...b, [payment.id]: true }));
     try {
-      const planDays = payment.days || (payment.plan === 'basic' ? 30 : payment.plan === 'standard' ? 90 : 180);
-      const expiresAt = new Date(Date.now() + planDays * 86400000);
-
+      const isEntranceExam = payment.type === 'entrance_exam_registration';
       const batch = writeBatch(db);
 
       // Update payment status
@@ -47,24 +45,38 @@ export default function AdminPayments() {
         confirmedAt: serverTimestamp(),
       });
 
-      // Grant subscription to user
-      batch.update(doc(db, 'users', payment.userId), {
-        subscribed:          true,
-        plan:                payment.plan,
-        accessLevel:         payment.plan,
-        subscriptionPlan:    payment.plan,
-        subscriptionExpiry:  expiresAt.toISOString(),
-        subscribedAt:        serverTimestamp(),
-        expiresAt,
-      });
+      if (isEntranceExam) {
+        // Entrance exam: just flip the entranceExamPaid flag
+        batch.update(doc(db, 'users', payment.userId), {
+          entranceExamPaid: true,
+          entranceExamPaidAt: serverTimestamp(),
+        });
+      } else {
+        // Regular subscription plan
+        const plan = payment.plan || 'basic';
+        const planDays = payment.days || (plan === 'basic' ? 30 : plan === 'standard' ? 90 : 180);
+        const expiresAt = new Date(Date.now() + planDays * 86400000);
+        batch.update(doc(db, 'users', payment.userId), {
+          subscribed:         true,
+          plan,
+          accessLevel:        plan,
+          subscriptionPlan:   plan,
+          subscriptionExpiry: expiresAt.toISOString(),
+          subscribedAt:       serverTimestamp(),
+          expiresAt,
+        });
+      }
 
       await batch.commit();
 
       // Notify the student
+      const planDays = payment.days || (payment.plan === 'basic' ? 30 : payment.plan === 'standard' ? 90 : 180);
       await addDoc(collection(db, 'notifications'), {
         userId:    payment.userId,
         title:     '🎉 Payment Confirmed!',
-        body:      `Your ${payment.plan} plan has been activated. Enjoy full access for ${planDays} days!`,
+        body:      isEntranceExam
+          ? 'Your entrance exam registration has been confirmed. You now have full access to all entrance exam features!'
+          : `Your ${payment.plan || 'basic'} plan has been activated. Enjoy full access for ${planDays} days!`,
         type:      'payment_confirmed',
         read:      false,
         createdAt: serverTimestamp(),
