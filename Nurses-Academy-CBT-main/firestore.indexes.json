@@ -4,311 +4,380 @@
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "active",    "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "active",    "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "examSessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",      "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status",    "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "bookmarks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",    "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",    "order": "ASCENDING" },
-        { "fieldPath": "read",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamSessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",      "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamSessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",   "order": "ASCENDING" },
-        { "fieldPath": "examType", "order": "ASCENDING" },
-        { "fieldPath": "subject",  "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "subject",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamSessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",      "order": "ASCENDING" },
-        { "fieldPath": "examType",    "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamSessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",      "order": "ASCENDING" },
-        { "fieldPath": "examType",    "order": "ASCENDING" },
-        { "fieldPath": "subject",     "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "subject",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "subject",   "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "subject",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "subject", "order": "ASCENDING" },
-        { "fieldPath": "year",    "order": "ASCENDING" }
+        {
+          "fieldPath": "subject",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "schoolId",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "schoolId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "schoolId", "order": "ASCENDING" },
-        { "fieldPath": "year",     "order": "ASCENDING" }
+        {
+          "fieldPath": "schoolId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "year",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entranceExamQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "inDailyBank", "order": "ASCENDING" },
-        { "fieldPath": "createdAt",   "order": "ASCENDING" }
+        {
+          "fieldPath": "inDailyBank",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "entrancePausedExams",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId",    "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],
   "fieldOverrides": []
 }
-
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "active",    "order": "ASCENDING" },
-        { "fieldPath": "examType",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "category",  "order": "ASCENDING" },
-        { "fieldPath": "active",    "order": "ASCENDING" },
-        { "fieldPath": "year",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "examSessions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId",      "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "payments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "status",    "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "bookmarks",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId",    "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId",    "order": "ASCENDING" },
-        { "fieldPath": "read",      "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    }
-  ],
-  "fieldOverrides": []
-}
-
