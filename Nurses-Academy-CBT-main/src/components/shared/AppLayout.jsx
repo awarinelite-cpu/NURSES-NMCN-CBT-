@@ -1,14 +1,11 @@
 // src/components/shared/AppLayout.jsx
 import { useState }          from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet }            from 'react-router-dom';
 import Navbar                from './Navbar';
 import Sidebar               from './Sidebar';
-import EntranceBottomNav     from '../entrance/EntranceBottomNav';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
-  const isEntrance = location.pathname.startsWith('/entrance-exam');
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -19,9 +16,6 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
-
-      {/* Bottom Tab Bar — entrance exam pages, mobile only */}
-      {isEntrance && <EntranceBottomNav />}
     </div>
   );
 }
