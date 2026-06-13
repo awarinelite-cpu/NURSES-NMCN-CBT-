@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import Navbar from '../shared/Navbar';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE ON QUESTION BANKS
@@ -147,6 +146,13 @@ function FloatingNav() {
 
   useEffect(() => { const t = setTimeout(() => setVis(true), 600); return () => clearTimeout(t); }, []);
 
+  // Return to whichever student page the admin came from
+  const lastCBT      = localStorage.getItem('nmcn_last_cbt')      || '/dashboard';
+  const lastEntrance = localStorage.getItem('nmcn_last_entrance');
+  const site         = localStorage.getItem('nmcn_site')           || 'cbt';
+  const exitTo       = site === 'entrance' && lastEntrance ? lastEntrance : lastCBT;
+  const exitLabel    = site === 'entrance' ? '🏫 Entrance Dashboard' : '🎓 Student Dashboard';
+
   const NAV_ITEMS = [
     { label: 'NMCN Questions',    icon: '❓', to: '/admin/questions'                    },
     { label: 'Entrance Add',      icon: '➕', to: '/admin/entrance-exam?tab=add_single' },
@@ -154,7 +160,7 @@ function FloatingNav() {
     { label: 'Entrance Bank',     icon: '📋', to: '/admin/entrance-exam?tab=bank'       },
     { label: 'Users',             icon: '👥', to: '/admin/users'                        },
     { label: 'Payments',          icon: '💰', to: '/admin/payments'                     },
-    { label: 'Dashboard',         icon: '🛡️', to: '/admin'                             },
+    { label: exitLabel,           icon: '🏠', to: exitTo                                },
   ];
 
   return (
@@ -303,8 +309,6 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <>
-      <Navbar />
     <div style={{ padding: 24, maxWidth: 1200 }}>
 
       {/* ── Header ── */}
@@ -435,7 +439,6 @@ export default function AdminDashboard() {
       <FloatingNav />
 
     </div>
-    </>
   );
 }
 
