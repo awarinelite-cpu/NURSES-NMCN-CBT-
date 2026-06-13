@@ -75,7 +75,7 @@ export default function Navbar({ onMenuToggle }) {
   // page (NMCN /dashboard or Entrance /entrance-exam), NOT back to /admin.
   const isAdminPanel = location.pathname.startsWith('/admin');
   const dashboardTo = isEntrance
-    ? (localStorage.getItem(ENT_LAST) || '/entrance-exam')
+    ? '/entrance-exam'
     : isAdminPanel
       ? (localStorage.getItem(CBT_LAST) || '/dashboard')
       : '/dashboard';

@@ -419,7 +419,7 @@ export default function EntranceExamSession() {
           ))}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
-          <button className="btn btn-ghost" onClick={() => navigate(-1)} style={{ fontWeight: 700, fontFamily: F }}>← Back to Dashboard</button>
+          <button className="btn btn-ghost" onClick={() => navigate('/entrance-exam')} style={{ fontWeight: 700, fontFamily: F }}>← Back to Dashboard</button>
         </div>
       </div>
     );

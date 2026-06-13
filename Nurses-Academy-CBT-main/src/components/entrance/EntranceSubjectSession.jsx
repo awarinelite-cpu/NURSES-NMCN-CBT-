@@ -386,7 +386,7 @@ export default function EntranceSubjectSession() {
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 24 }}>
-            <button onClick={() => navigate(-1)} style={S.btnGhost}>← Back to Dashboard</button>
+            <button onClick={() => navigate('/entrance-exam')} style={S.btnGhost}>← Back to Dashboard</button>
           </div>
         </div>
       </div>
