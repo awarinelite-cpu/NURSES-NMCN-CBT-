@@ -4,6 +4,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTE ON QUESTION BANKS
+//  • NMCN CBT questions  →  Firestore collection: `questions`
+//    Managed at: /admin/questions
+//  • Entrance Exam questions → Firestore collection: `entranceExamQuestions`
+//    Managed at: /admin/entrance-exam  (tabs: bulk, add_single, bank, daily_mock)
+//    These feed: Subject Drill, School Past Questions, Daily Mock (entrance)
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── Animated counter hook ─────────────────────────────────────────────────────
 function useCounter(target, duration = 1800, delay = 0) {
   const [value, setValue] = useState(0);
@@ -138,12 +147,13 @@ function FloatingNav() {
   useEffect(() => { const t = setTimeout(() => setVis(true), 600); return () => clearTimeout(t); }, []);
 
   const NAV_ITEMS = [
-    { label: 'Questions',   icon: '❓', to: '/admin/questions'      },
-    { label: 'Users',       icon: '👥', to: '/admin/users'          },
-    { label: 'Payments',    icon: '💰', to: '/admin/payments'       },
-    { label: 'Courses',     icon: '📖', to: '/admin/courses'        },
-    { label: 'Entrance',    icon: '🏫', to: '/admin/entrance-exam'  },
-    { label: 'Dashboard',   icon: '🛡️', to: '/admin'               },
+    { label: 'NMCN Questions',    icon: '❓', to: '/admin/questions'                    },
+    { label: 'Entrance Add',      icon: '➕', to: '/admin/entrance-exam?tab=add_single' },
+    { label: 'Entrance Bulk',     icon: '📤', to: '/admin/entrance-exam?tab=bulk'       },
+    { label: 'Entrance Bank',     icon: '📋', to: '/admin/entrance-exam?tab=bank'       },
+    { label: 'Users',             icon: '👥', to: '/admin/users'                        },
+    { label: 'Payments',          icon: '💰', to: '/admin/payments'                     },
+    { label: 'Dashboard',         icon: '🛡️', to: '/admin'                             },
   ];
 
   return (
@@ -218,7 +228,7 @@ function FloatingNav() {
 }
 
 export default function AdminDashboard() {
-  const [stats,   setStats]   = useState({ questions: 0, users: 0, payments: 0, sessions: 0 });
+  const [stats,   setStats]   = useState({ questions: 0, entranceQs: 0, users: 0, payments: 0, sessions: 0 });
   const [recent,  setRecent]  = useState({ payments: [], users: [] });
   const [loading, setLoading] = useState(true);
   const [headerVis, setHeaderVis] = useState(false);
@@ -227,17 +237,19 @@ export default function AdminDashboard() {
     setTimeout(() => setHeaderVis(true), 80);
     const load = async () => {
       try {
-        const [qSnap, uSnap, pSnap, sSnap] = await Promise.all([
+        const [qSnap, eqSnap, uSnap, pSnap, sSnap] = await Promise.all([
           getCountFromServer(query(collection(db, 'questions'), where('active', '==', true))),
+          getCountFromServer(collection(db, 'entranceExamQuestions')),
           getCountFromServer(collection(db, 'users')),
           getCountFromServer(collection(db, 'payments')),
           getCountFromServer(collection(db, 'examSessions')),
         ]);
         setStats({
-          questions: qSnap.data().count,
-          users:     uSnap.data().count,
-          payments:  pSnap.data().count,
-          sessions:  sSnap.data().count,
+          questions:  qSnap.data().count,
+          entranceQs: eqSnap.data().count,
+          users:      uSnap.data().count,
+          payments:   pSnap.data().count,
+          sessions:   sSnap.data().count,
         });
         const [pDocs, uDocs] = await Promise.all([
           getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5))),
@@ -254,13 +266,15 @@ export default function AdminDashboard() {
   }, []);
 
   const STAT_CARDS = [
-    { label: 'Total Questions', value: stats.questions, icon: '❓', color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: '/admin/questions', spark: SPARKS.questions },
-    { label: 'Registered Users', value: stats.users,    icon: '👥', color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: '/admin/users',     spark: SPARKS.users     },
-    { label: 'Payments',         value: stats.payments, icon: '💰', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: '/admin/payments',  spark: SPARKS.payments  },
-    { label: 'Exam Sessions',    value: stats.sessions, icon: '📝', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/admin/analytics', spark: SPARKS.sessions  },
+    { label: 'NMCN Questions',    value: stats.questions,  icon: '❓', color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: '/admin/questions',                    spark: SPARKS.questions },
+    { label: 'Entrance Questions',value: stats.entranceQs, icon: '🏫', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', to: '/admin/entrance-exam?tab=bank',        spark: SPARKS.questions },
+    { label: 'Registered Users',  value: stats.users,      icon: '👥', color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: '/admin/users',                        spark: SPARKS.users     },
+    { label: 'Payments',          value: stats.payments,   icon: '💰', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: '/admin/payments',                     spark: SPARKS.payments  },
+    { label: 'Exam Sessions',     value: stats.sessions,   icon: '📝', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/admin/analytics',                    spark: SPARKS.sessions  },
   ];
 
-  const QUICK_ACTIONS = [
+  // ── NMCN CBT quick actions ──────────────────────────────────────────────────
+  const NMCN_ACTIONS = [
     { label: 'Add Question',     icon: '➕', to: '/admin/questions?action=add',  color: '#0D9488' },
     { label: 'Bulk Upload',      icon: '📤', to: '/admin/questions?action=bulk', color: '#2563EB' },
     { label: 'Manage Users',     icon: '👥', to: '/admin/users',                 color: '#7C3AED' },
@@ -269,7 +283,22 @@ export default function AdminDashboard() {
     { label: 'Confirm Payments', icon: '✅', to: '/admin/payments',              color: '#16A34A' },
     { label: 'Manage Courses',   icon: '📖', to: '/admin/courses',               color: '#0891B2' },
     { label: 'Scheduled Exams',  icon: '📅', to: '/admin/scheduled-exams',      color: '#A855F7' },
-    { label: 'Entrance Exam',    icon: '🏫', to: '/admin/entrance-exam',         color: '#065F46' },
+  ];
+
+  // ── Entrance Exam quick actions — all write to entranceExamQuestions ─────────
+  const ENTRANCE_ACTIONS = [
+    { label: 'Add Question',     icon: '➕', to: '/admin/entrance-exam?tab=add_single', color: '#0D9488',
+      hint: 'Add to Entrance Exam bank' },
+    { label: 'Bulk Upload',      icon: '📤', to: '/admin/entrance-exam?tab=bulk',       color: '#3B82F6',
+      hint: 'Bulk upload entrance questions' },
+    { label: 'Question Bank',    icon: '📋', to: '/admin/entrance-exam?tab=bank',       color: '#8B5CF6',
+      hint: 'Browse & manage all entrance questions' },
+    { label: 'Manage Schools',   icon: '🏫', to: '/admin/entrance-exam?tab=schools',    color: '#065F46',
+      hint: 'Add/edit schools for past questions' },
+    { label: 'Manage Subjects',  icon: '📚', to: '/admin/entrance-exam?tab=subjects',   color: '#0891B2',
+      hint: 'Subjects for Subject Drill' },
+    { label: 'Daily Mock Bank',  icon: '📅', to: '/admin/entrance-exam?tab=daily_mock', color: '#F59E0B',
+      hint: 'Configure daily mock rotation' },
   ];
 
   return (
@@ -315,12 +344,39 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ── Quick actions ── */}
-      <ACard delay={550} style={{ marginBottom: 32 }}>
-        <h3 style={S.sectionTitle}>⚡ Quick Actions</h3>
+      {/* ── NMCN CBT Quick actions ── */}
+      <ACard delay={550} style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <h3 style={{ ...S.sectionTitle, margin: 0 }}>⚡ NMCN CBT Actions</h3>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#0D9488',
+            background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)',
+            borderRadius: 20, padding: '2px 10px',
+          }}>questions → NMCN bank</span>
+        </div>
         <div style={S.actionsGrid}>
-          {QUICK_ACTIONS.map((a, i) => (
+          {NMCN_ACTIONS.map((a, i) => (
             <QuickActionBtn key={a.label} {...a} delay={600 + i * 60} />
+          ))}
+        </div>
+      </ACard>
+
+      {/* ── Entrance Exam Quick actions ── */}
+      <ACard delay={700} style={{ marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <h3 style={{ ...S.sectionTitle, margin: 0 }}>🏫 Entrance Exam Actions</h3>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#3B82F6',
+            background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)',
+            borderRadius: 20, padding: '2px 10px',
+          }}>questions → Entrance Exam bank</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            feeds Subject Drill · School Past Questions · Daily Mock
+          </span>
+        </div>
+        <div style={S.actionsGrid}>
+          {ENTRANCE_ACTIONS.map((a, i) => (
+            <QuickActionBtn key={a.label} {...a} delay={760 + i * 60} />
           ))}
         </div>
       </ACard>

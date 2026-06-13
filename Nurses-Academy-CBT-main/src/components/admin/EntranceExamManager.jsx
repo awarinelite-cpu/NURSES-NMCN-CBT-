@@ -7,6 +7,7 @@
 //   - Subject Drill reads from this collection via subject.name matching questions
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
   query, where, orderBy, serverTimestamp, writeBatch, getCountFromServer,
@@ -54,9 +55,18 @@ const EMOJI_PICKS = ['📚','🔬','⚗️','🧬','🧪','🫀','🫁','💊','
 // ═════════════════════════════════════════════════════════════════════════════
 // ROOT
 // ═════════════════════════════════════════════════════════════════════════════
+// Valid tab IDs
+const VALID_TABS = ['schools', 'subjects', 'add_single', 'bulk', 'bank', 'daily_mock'];
+
 export default function EntranceExamManager() {
   const { toast } = useToast();
-  const [tab, setTab] = useState('schools');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Allow deep-linking via ?tab=bulk, ?tab=add_single, etc.
+  const tabParam = searchParams.get('tab');
+  const [tab, setTab] = useState(
+    VALID_TABS.includes(tabParam) ? tabParam : 'schools'
+  );
   const [schools, setSchools] = useState([]);
   const [schoolsReady, setSchoolsReady] = useState(false);
 
@@ -101,7 +111,7 @@ export default function EntranceExamManager() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+          <button key={t.id} onClick={() => { setTab(t.id); setSearchParams({ tab: t.id }); }} style={{
             padding: '10px 18px', borderRadius: 10, border: '1.5px solid',
             cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13,
             transition: 'all .2s',
