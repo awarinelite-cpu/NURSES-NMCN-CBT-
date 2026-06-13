@@ -244,24 +244,28 @@ export default function AdminDashboard() {
     setTimeout(() => setHeaderVis(true), 80);
     const load = async () => {
       try {
-        const [qSnap, eqSnap, uSnap, pSnap, sSnap] = await Promise.all([
+        const [schoolSnap, uDocs5, pDocs5] = await Promise.all([
+          getDocs(collection(db, 'entranceExamSchools')),
+          getDocs(query(collection(db, 'users'),    orderBy('createdAt', 'desc'), limit(5))),
+          getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5))),
+        ]);
+        // Derive entrance question count from cached field on school docs
+        const entranceQs = schoolSnap.docs.reduce((sum, d) => sum + (d.data().questionCount || 0), 0);
+        setStats(prev => ({ ...prev, entranceQs }));
+        const [qSnap, uSnap, pSnap, sSnap] = await Promise.all([
           getCountFromServer(query(collection(db, 'questions'), where('active', '==', true))),
-          getCountFromServer(collection(db, 'entranceExamQuestions')),
           getCountFromServer(collection(db, 'users')),
           getCountFromServer(collection(db, 'payments')),
           getCountFromServer(collection(db, 'examSessions')),
         ]);
         setStats({
           questions:  qSnap.data().count,
-          entranceQs: eqSnap.data().count,
+          entranceQs,
           users:      uSnap.data().count,
           payments:   pSnap.data().count,
           sessions:   sSnap.data().count,
         });
-        const [pDocs, uDocs] = await Promise.all([
-          getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5))),
-          getDocs(query(collection(db, 'users'),    orderBy('createdAt', 'desc'), limit(5))),
-        ]);
+        const [pDocs, uDocs] = [pDocs5, uDocs5];
         setRecent({
           payments: pDocs.docs.map(d => ({ id: d.id, ...d.data() })),
           users:    uDocs.docs.map(d => ({ id: d.id, ...d.data() })),

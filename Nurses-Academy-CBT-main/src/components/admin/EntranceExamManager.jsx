@@ -530,14 +530,8 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
     setLoading(true);
     try {
       const snap = await getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')));
-      const list = await Promise.all(snap.docs.map(async d => {
-        const data = { id: d.id, ...d.data() };
-        try {
-          const qSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', d.id)));
-          data.questionCount = qSnap.data().count;
-        } catch { data.questionCount = data.questionCount || 0; }
-        return data;
-      }));
+      // Read cached questionCount from each school doc — avoids N live count queries
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data(), questionCount: d.data().questionCount || 0 }));
       setSchools(list);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }

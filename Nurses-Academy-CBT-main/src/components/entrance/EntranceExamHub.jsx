@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
-  limit, getCountFromServer, deleteDoc, doc, getDoc, Timestamp,
+  limit, deleteDoc, doc, getDoc, Timestamp,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -191,14 +191,16 @@ export default function EntranceExamHub() {
     setLoading(true);
     setLoadError('');
     try {
-      const [sc, qc] = await Promise.all([
-        getCountFromServer(collection(db, 'entranceExamSchools')),
-        getCountFromServer(collection(db, 'entranceExamQuestions')),
-      ]);
-      setStats({ schools: sc.data().count, questions: qc.data().count });
+      // Read school docs (already needed for count) — each doc has a cached
+      // `questionCount` field updated whenever questions are added/deleted.
+      // This avoids getCountFromServer which exhausts Firebase quota fast.
+      const schoolSnap = await getDocs(collection(db, 'entranceExamSchools'));
+      const schoolCount = schoolSnap.size;
+      const questionCount = schoolSnap.docs.reduce((sum, d) => sum + (d.data().questionCount || 0), 0);
+      setStats({ schools: schoolCount, questions: questionCount });
     } catch (e) {
-      console.error('Stats count error:', e.code, e.message);
-      setLoadError(`Stats failed (${e.code || e.message}) — check Firestore indexes/rules`);
+      console.error('Stats load error:', e.code, e.message);
+      setLoadError(`Stats failed (${e.code || e.message})`);
     }
 
     try {

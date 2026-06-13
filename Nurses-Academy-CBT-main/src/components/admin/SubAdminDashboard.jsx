@@ -175,15 +175,16 @@ export default function SubAdminDashboard() {
     setTimeout(() => setVis(true), 80);
     (async () => {
       try {
-        const [nmcnSnap, entSnap, paySnap, payDocs] = await Promise.all([
+        const [nmcnSnap, paySnap, payDocs, schoolSnap] = await Promise.all([
           getCountFromServer(query(collection(db, 'questions'), where('active', '==', true))),
-          getCountFromServer(collection(db, 'entranceExamQuestions')),
           getCountFromServer(collection(db, 'payments')),
           getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5))),
+          getDocs(collection(db, 'entranceExamSchools')),
         ]);
+        const entranceQs = schoolSnap.docs.reduce((sum, d) => sum + (d.data().questionCount || 0), 0);
         setStats({
           nmcnQs:     nmcnSnap.data().count,
-          entranceQs: entSnap.data().count,
+          entranceQs,
           payments:   paySnap.data().count,
         });
         setPayments(payDocs.docs.map(d => ({ id: d.id, ...d.data() })));
