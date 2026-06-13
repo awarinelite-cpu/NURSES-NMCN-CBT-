@@ -15,7 +15,7 @@ const ENT_LAST   = 'nmcn_last_entrance';
 // Pages that belong unambiguously to one site
 const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
 const cbtPrefixes      = [
-  '/dashboard', '/admin', '/exams', '/daily-practice', '/course-drill',
+  '/dashboard', '/exams', '/daily-practice', '/course-drill',
   '/topic-drill', '/mock-exams', '/mock-reviews', '/performance',
   '/leaderboard', '/subscription',
 ];
@@ -71,14 +71,8 @@ export default function Navbar({ onMenuToggle }) {
   }, []);
 
   // Dashboard destination for the current site.
-  // If admin is on the admin panel, send them back to their last student-facing
-  // page (NMCN /dashboard or Entrance /entrance-exam), NOT back to /admin.
-  const isAdminPanel = location.pathname.startsWith('/admin');
-  const dashboardTo = isEntrance
-    ? '/entrance-exam'
-    : isAdminPanel
-      ? (localStorage.getItem(CBT_LAST) || '/dashboard')
-      : '/dashboard';
+  // Always sends to /dashboard for CBT, /entrance-exam for entrance side.
+  const dashboardTo = isEntrance ? '/entrance-exam' : '/dashboard';
 
   // ── Site switch ────────────────────────────────────────────────────────────
   const handleSiteSwitch = () => {
@@ -281,7 +275,7 @@ const styles = {
   menuBtn: {
     background: 'none', border: 'none', color: '#fff',
     fontSize: 20, cursor: 'pointer', padding: '4px 6px',
-    borderRadius: 6, display: 'none',
+    borderRadius: 6, display: 'flex',
   },
   themeBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
