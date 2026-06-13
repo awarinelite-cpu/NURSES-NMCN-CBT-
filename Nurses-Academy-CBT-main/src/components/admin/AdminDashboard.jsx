@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import Navbar from '../shared/Navbar';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE ON QUESTION BANKS
@@ -302,6 +303,8 @@ export default function AdminDashboard() {
   ];
 
   return (
+    <>
+      <Navbar />
     <div style={{ padding: 24, maxWidth: 1200 }}>
 
       {/* ── Header ── */}
@@ -432,6 +435,7 @@ export default function AdminDashboard() {
       <FloatingNav />
 
     </div>
+    </>
   );
 }
 
