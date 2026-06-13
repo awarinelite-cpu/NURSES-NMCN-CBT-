@@ -207,8 +207,8 @@ export default function App() {
                 <Route path="/leaderboard"       element={<LeaderboardPage />} />
                 <Route path="/profile"           element={<ProfilePage />} />
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
-                <Route path="/chat/:uid"          element={<ChatPage />} />
-                <Route path="/chat-inbox"          element={<ChatInbox />} />
+                <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
+                <Route path="/entrance-exam/chat-inbox"   element={<ChatInbox />} />
 
                 {/* NMCN exam modes */}
                 <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />

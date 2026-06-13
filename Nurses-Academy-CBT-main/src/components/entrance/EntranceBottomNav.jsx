@@ -26,7 +26,7 @@ const BASE_NAV = [
   { icon: '📊', label: 'Results',    to: '/entrance-exam/my-results'    },
   { icon: '📈', label: 'Analysis',   to: '/entrance-exam/analysis'      },
   { icon: '🏆', label: 'Top',        to: '/entrance-exam/leaderboard'   },
-  { icon: '💬', label: 'Messages',   to: '/chat-inbox'                  },
+  { icon: '💬', label: 'Messages',   to: '/entrance-exam/chat-inbox'                  },
 ];
 
 /* ── Admin-only extra item ──────────────────────────────────────────────── */
@@ -190,12 +190,12 @@ export default function EntranceBottomNav() {
     if (unreadThreads.length === 1) {
       // Only one conversation with unread — go directly to it
       const t = unreadThreads[0];
-      navigate(`/chat/${t.otherUid}`, {
+      navigate(`/entrance-exam/chat/${t.otherUid}`, {
         state: { name: t.otherName, school: t.otherSchool || '', from: 'entrance' },
       });
     } else {
       // Multiple conversations — go to inbox with unread highlights
-      navigate('/chat-inbox', { state: { from: 'entrance' } });
+      navigate('/entrance-exam/chat-inbox', { state: { from: 'entrance' } });
     }
   }, [unreadThreads, navigate]);
 
@@ -305,8 +305,8 @@ export default function EntranceBottomNav() {
             onClick={(e) => {
               e.stopPropagation();
               setOpen(false);
-              if (item.to === '/chat-inbox') {
-                navigate('/chat-inbox', { state: { from: 'entrance' } });
+              if (item.to === '/entrance-exam/chat-inbox') {
+                navigate('/entrance-exam/chat-inbox', { state: { from: 'entrance' } });
               } else {
                 navigate(item.to);
               }

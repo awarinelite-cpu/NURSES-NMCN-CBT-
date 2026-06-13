@@ -147,7 +147,7 @@ export default function NotificationBell() {
                   style={{ ...styles.item, ...styles.chatItem }}
                   onClick={() => {
                     setOpen(false);
-                    navigate(`/chat/${unreadChats[0].otherUid}`, {
+                    navigate(`/entrance-exam/chat/${unreadChats[0].otherUid}`, {
                       state: { name: names[unreadChats[0].otherUid] || 'Student' }
                     });
                   }}
@@ -185,7 +185,7 @@ export default function NotificationBell() {
                       style={{ ...styles.item, ...styles.chatItem }}
                       onClick={() => {
                         setOpen(false);
-                        navigate(`/chat/${t.otherUid}`, {
+                        navigate(`/entrance-exam/chat/${t.otherUid}`, {
                           state: { name: names[t.otherUid] || 'Student' }
                         });
                       }}
@@ -217,7 +217,7 @@ export default function NotificationBell() {
                   ))}
                   <button
                     style={styles.viewAllBtn}
-                    onClick={() => { setOpen(false); navigate('/chat-inbox'); }}
+                    onClick={() => { setOpen(false); navigate('/entrance-exam/chat-inbox'); }}
                   >
                     View all messages →
                   </button>
@@ -230,7 +230,7 @@ export default function NotificationBell() {
           {chatThreads.length > 0 && unreadChats.length === 0 && (
             <button
               style={styles.inboxLink}
-              onClick={() => { setOpen(false); navigate('/chat-inbox'); }}
+              onClick={() => { setOpen(false); navigate('/entrance-exam/chat-inbox'); }}
             >
               💬 Open Messages Inbox
             </button>

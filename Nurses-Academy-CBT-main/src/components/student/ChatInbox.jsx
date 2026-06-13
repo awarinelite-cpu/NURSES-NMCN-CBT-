@@ -56,7 +56,6 @@ export default function ChatInbox() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
   const location          = useLocation();
-  // Messaging is entrance-exam only — always route back to entrance exam section
   const leaderboardRoute  = '/entrance-exam/leaderboard';
   const backRoute         = '/entrance-exam';
   const myUid             = user?.uid;
@@ -217,7 +216,7 @@ export default function ChatInbox() {
           <button
             key={t.id}
             className={`thread-row${t.unread > 0 ? ' has-unread' : ''}`}
-            onClick={() => navigate(`/chat/${t.otherUid}`, { state:{ name:t.theirName, school:t.theirSchool } })}
+            onClick={() => navigate(`/entrance-exam/chat/${t.otherUid}`, { state:{ name:t.theirName, school:t.theirSchool } })}
             style={{
               display:'flex', alignItems:'center', gap:14,
               width:'100%', textAlign:'left',

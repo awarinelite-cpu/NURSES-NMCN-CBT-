@@ -410,7 +410,7 @@ export default function StudentPublicProfile() {
       {!isOwnProfile && (
         <button
           className="chat-fab"
-          onClick={() => navigate(`/chat/${uid}`, { state: { name: displayName, school } })}
+          onClick={() => navigate(`/entrance-exam/chat/${uid}`, { state: { name: displayName, school } })}
           style={{
             position: 'fixed',
             bottom: 28,
