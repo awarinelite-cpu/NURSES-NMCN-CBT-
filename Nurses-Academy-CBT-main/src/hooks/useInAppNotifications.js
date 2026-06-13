@@ -9,7 +9,16 @@ import { useAuth } from '../context/AuthContext';
 
 const MAX_ITEMS = 20;
 
-export function useInAppNotifications() {
+// Types that belong to each mode
+const ENTRANCE_TYPES = new Set(['entrance_daily_mock']);
+const NMCN_TYPES     = new Set(['cbt_daily_mock', 'announcement']);
+
+/**
+ * @param {'nmcn'|'entrance'} mode  — filters notifications to the current app section.
+ *   - 'nmcn'     → only cbt_daily_mock + announcement types
+ *   - 'entrance' → only entrance_daily_mock type
+ */
+export function useInAppNotifications(mode = 'nmcn') {
   const { user } = useAuth();
   const [items,       setItems]       = useState([]);
   const [lastReadAt,  setLastReadAt]  = useState(null);
@@ -23,18 +32,30 @@ export function useInAppNotifications() {
         user ? getDoc(doc(db, 'users', user.uid)) : Promise.resolve(null),
       ]);
 
-      const list = annSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Filter by mode so NMCN and Entrance notifications never cross
+      const allowedTypes = mode === 'entrance' ? ENTRANCE_TYPES : NMCN_TYPES;
+      const list = annSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(item => {
+          // Items without a type are legacy NMCN announcements
+          const t = item.type || 'announcement';
+          return allowedTypes.has(t);
+        });
+
       setItems(list);
 
       if (userSnap?.exists()) {
-        setLastReadAt(userSnap.data().notificationsLastReadAt?.toDate?.() || null);
+        const lrKey = mode === 'entrance'
+          ? 'entranceNotificationsLastReadAt'
+          : 'notificationsLastReadAt';
+        setLastReadAt(userSnap.data()[lrKey]?.toDate?.() || null);
       }
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, mode]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,11 +69,14 @@ export function useInAppNotifications() {
     if (!user || items.length === 0) return;
     setLastReadAt(new Date());
     try {
-      await updateDoc(doc(db, 'users', user.uid), { notificationsLastReadAt: serverTimestamp() });
+      const lrKey = mode === 'entrance'
+        ? 'entranceNotificationsLastReadAt'
+        : 'notificationsLastReadAt';
+      await updateDoc(doc(db, 'users', user.uid), { [lrKey]: serverTimestamp() });
     } catch {
       // best-effort — badge will simply re-show on next load if this fails
     }
-  }, [user, items]);
+  }, [user, items, mode]);
 
   return { items, loading, unreadCount, lastReadAt, markAllRead, reload: load };
 }

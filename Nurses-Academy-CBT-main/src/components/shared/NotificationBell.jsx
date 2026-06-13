@@ -1,8 +1,11 @@
 // src/components/shared/NotificationBell.jsx
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useInAppNotifications }  from '../../hooks/useInAppNotifications';
 import { useChatNotifications }   from '../../hooks/useChatNotifications';
+
+const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
+function isEntrancePath(p) { return entrancePrefixes.some(x => p.startsWith(x)); }
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -30,7 +33,9 @@ function tsToDate(ts) {
 
 export default function NotificationBell() {
   const navigate = useNavigate();
-  const { items, loading, unreadCount, markAllRead } = useInAppNotifications();
+  const location = useLocation();
+  const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
+  const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
   const { chatThreads, totalUnread: chatUnread }     = useChatNotifications();
   const [open, setOpen] = useState(false);
   const ref    = useRef(null);
