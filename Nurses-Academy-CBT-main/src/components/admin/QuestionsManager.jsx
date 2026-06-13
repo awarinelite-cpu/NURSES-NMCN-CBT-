@@ -302,10 +302,6 @@ export default function QuestionsManager() {
     setParseInfo(info);
     toast(`${validated.length} questions parsed!`, 'success');
   };
-    if (withoutAnswer > 0) info += ` ⚠️ ${withoutAnswer} have no answer.`;
-    setParseInfo(info);
-    toast(`${parsed.length} questions parsed!`, 'success');
-  };
 
   // ── Bulk upload ───────────────────────────────────────────────────────────
   const handleBulkUpload = async () => {
