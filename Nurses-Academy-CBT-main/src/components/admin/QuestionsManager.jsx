@@ -16,6 +16,7 @@ import {
   shuffleAllQuestionsOptions,
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
+import { readQuestionFile, generateCsvTemplate } from '../../utils/questionFileImport';
 
 const MOCK_EXAM_SPECIALTIES = [
   { id: 'general_nursing',     label: '🏥 General Nursing'     },
@@ -205,6 +206,10 @@ export default function QuestionsManager() {
   const [bulkText,       setBulkText]       = useState('');
   const [answerText,     setAnswerText]     = useState('');
   const [shuffleEnabled, setShuffleEnabled] = useState(true);
+  // ── File import state ──────────────────────────────────────────────────────
+  const [fileImporting,  setFileImporting]  = useState(false);
+  const [fileImportInfo, setFileImportInfo] = useState('');
+  const [fileWarnings,   setFileWarnings]   = useState([]);
   const [bulkMeta,       setBulkMeta]       = useState({
     category: 'general_nursing', examType: 'question_bank',
     year: '2024', subject: '', difficulty: 'medium', source: '',
@@ -269,6 +274,57 @@ export default function QuestionsManager() {
       setForm({ ...BLANK });
     } catch (e) { toast('Error: ' + e.message, 'error'); }
     finally { setLoading(false); }
+  };
+
+  // ── File import handler ────────────────────────────────────────────────────
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    setFileImporting(true);
+    setFileImportInfo('');
+    setFileWarnings([]);
+    setParsedQs([]);
+    setBulkText('');
+    setParseErr('');
+    setParseInfo('');
+
+    try {
+      const { text, warnings, rowCount, fileType } = await readQuestionFile(file);
+
+      if (!text.trim()) {
+        setParseErr('The file appears to be empty or could not be read. Check the format and try again.');
+        setFileImporting(false);
+        return;
+      }
+
+      setBulkText(text);
+      if (warnings?.length > 0) setFileWarnings(warnings);
+
+      const lines = text.split('\n').filter(l => l.trim()).length;
+      const typeLabel = fileType === 'csv' ? `CSV (${rowCount} rows)` : fileType === 'docx' ? 'Word document' : 'text file';
+      setFileImportInfo(`📂 "${file.name}" loaded as ${typeLabel} — ${lines} lines of question text extracted. Click "Parse Questions" to preview.`);
+
+      toast(`File loaded! Click Parse Questions to continue.`, 'success');
+    } catch (err) {
+      setParseErr('⚠️ ' + err.message);
+    } finally {
+      setFileImporting(false);
+    }
+  };
+
+  // ── CSV template download ──────────────────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    const blob = generateCsvTemplate();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'nurses_academy_questions_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Template downloaded!', 'success');
   };
 
   const handleParse = () => {
@@ -801,11 +857,121 @@ export default function QuestionsManager() {
             </div>
           </div>
 
+          {/* ── File Upload Zone ── */}
+          <div style={{
+            marginBottom: 20, padding: '20px 20px', borderRadius: 14,
+            border: '2px dashed var(--border)', background: 'var(--bg-card)',
+            transition: 'border-color .2s',
+          }}
+            onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--teal)'; }}
+            onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+            onDrop={e => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = 'var(--border)';
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleFileImport({ target: { files: [file], value: '' } });
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  📁 Upload from File
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  Supports <strong>.csv</strong> (spreadsheet), <strong>.docx</strong> (Word), or <strong>.txt</strong> (plain text).
+                  Drag &amp; drop here or click the button. The file content will be extracted and placed in the text area below for you to preview before uploading.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+                <label style={{
+                  padding: '9px 18px', borderRadius: 10, cursor: fileImporting ? 'not-allowed' : 'pointer',
+                  fontWeight: 700, fontSize: 13, border: 'none',
+                  background: 'var(--teal)', color: '#fff',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: fileImporting ? 0.6 : 1, transition: 'opacity .2s',
+                }}>
+                  {fileImporting
+                    ? <><span className="spinner spinner-sm" /> Reading…</>
+                    : <><span>📂</span> Choose File</>}
+                  <input
+                    type="file"
+                    accept=".csv,.docx,.txt,.text,.md"
+                    style={{ display: 'none' }}
+                    onChange={handleFileImport}
+                    disabled={fileImporting}
+                  />
+                </label>
+
+                <button
+                  onClick={handleDownloadTemplate}
+                  style={{
+                    padding: '9px 16px', borderRadius: 10, cursor: 'pointer',
+                    fontWeight: 700, fontSize: 12, border: '1px solid var(--border)',
+                    background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                  title="Download a sample CSV template"
+                >
+                  ⬇️ CSV Template
+                </button>
+              </div>
+            </div>
+
+            {/* Import status */}
+            {fileImportInfo && (
+              <div style={{
+                marginTop: 12, padding: '8px 14px', borderRadius: 9,
+                background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+                fontSize: 12, color: 'var(--text-primary)', fontWeight: 600,
+              }}>
+                {fileImportInfo}
+              </div>
+            )}
+
+            {/* Import warnings */}
+            {fileWarnings.length > 0 && (
+              <div style={{
+                marginTop: 10, padding: '10px 14px', borderRadius: 9,
+                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                fontSize: 12,
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--gold)', marginBottom: 4 }}>⚠️ Import notes:</div>
+                {fileWarnings.map((w, i) => (
+                  <div key={i} style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>• {w}</div>
+                ))}
+              </div>
+            )}
+
+            {/* CSV format guide */}
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600, userSelect: 'none' }}>
+                📋 CSV column formats supported
+              </summary>
+              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 8 }}>
+                {[
+                  ['Standard 6-column (recommended)', 'question, option_a, option_b, option_c, option_d, answer, explanation'],
+                  ['Numbered columns', 'question, a, b, c, d, answer'],
+                  ['Google Forms export', 'Question, Option 1, Option 2, Option 3, Option 4, Correct Answer'],
+                  ['JSON options', 'question, options (JSON array), answer, explanation'],
+                ].map(([title, fmt]) => (
+                  <div key={title} style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--teal)', marginBottom: 4 }}>{title}</div>
+                    <pre style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap' }}>{fmt}</pre>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                <strong>Answer column</strong> accepts: <code>B</code>, <code>b</code>, <code>2</code>, <code>B. Option text</code>, or the full option text.
+              </div>
+            </details>
+          </div>
+
           {/* Textareas */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
             <div className="form-group">
               <label className="form-label" style={{ fontSize:14, fontWeight:700 }}>
-                📝 Questions <span style={{ color:'var(--text-muted)', fontWeight:400, fontSize:12, marginLeft:6 }}>(paste all questions here)</span>
+                📝 Questions <span style={{ color:'var(--text-muted)', fontWeight:400, fontSize:12, marginLeft:6 }}>(paste here, or upload a file above)</span>
               </label>
               <textarea className="form-input" rows={16}
                 placeholder={"1. What is the normal adult heart rate?\nA. 40-60 bpm\nB. 60-100 bpm\nC. 100-120 bpm\nD. 120-160 bpm\nAnswer: B"}
@@ -844,7 +1010,7 @@ export default function QuestionsManager() {
               </button>
             )}
             {(bulkText || answerText || parsedQs.length > 0) && (
-              <button className="btn btn-ghost" onClick={() => { setParsedQs([]); setBulkText(''); setAnswerText(''); setParseInfo(''); setParseErr(''); }}>
+              <button className="btn btn-ghost" onClick={() => { setParsedQs([]); setBulkText(''); setAnswerText(''); setParseInfo(''); setParseErr(''); setFileImportInfo(''); setFileWarnings([]); }}>
                 🗑️ Clear All
               </button>
             )}
