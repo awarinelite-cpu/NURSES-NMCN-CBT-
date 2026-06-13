@@ -33,7 +33,11 @@ export default function NotificationBell() {
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications();
   const { chatThreads, totalUnread: chatUnread }     = useChatNotifications();
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref    = useRef(null);
+  const btnRef = useRef(null);
+
+  // Position state for the dropdown — recalculated each time it opens
+  const [dropPos, setDropPos] = useState({ left: 'auto', right: 0, width: 320 });
 
   // Profiles cache for chat senders
   const [names, setNames] = useState({});
@@ -67,6 +71,25 @@ export default function NotificationBell() {
 
   const handleToggle = () => {
     const next = !open;
+    if (next && btnRef.current) {
+      // Calculate where the dropdown should sit so it never bleeds off-screen
+      const vw      = window.innerWidth;
+      const PADDING = 8;           // min gap from viewport edge
+      const WIDTH   = Math.min(320, vw - PADDING * 2);
+      const btnRect = btnRef.current.getBoundingClientRect();
+      // Try to right-align to the button; shift left if that would clip the left edge
+      let rightEdge = btnRect.right;           // natural right-align anchor
+      let leftPos   = rightEdge - WIDTH;
+      if (leftPos < PADDING) leftPos = PADDING;
+      if (leftPos + WIDTH > vw - PADDING) leftPos = vw - PADDING - WIDTH;
+      // Convert back to offset relative to the wrapper (which is position:relative)
+      const wrapRect = ref.current.getBoundingClientRect();
+      setDropPos({
+        left:  leftPos - wrapRect.left,
+        right: 'auto',
+        width: WIDTH,
+      });
+    }
     setOpen(next);
     if (next && unreadCount > 0) markAllRead();
   };
@@ -85,6 +108,7 @@ export default function NotificationBell() {
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       <button
+        ref={btnRef}
         style={styles.bellBtn}
         onClick={handleToggle}
         aria-haspopup="true"
@@ -99,7 +123,12 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div style={styles.dropdown}>
+        <div style={{
+          ...styles.dropdown,
+          left:  dropPos.left,
+          right: dropPos.right,
+          width: dropPos.width,
+        }}>
           <div style={styles.header}>Notifications</div>
 
           {/* ── CHAT MESSAGES SECTION ── */}
@@ -260,35 +289,42 @@ const styles = {
     boxShadow: '0 0 0 2px var(--nav-bg)',
   },
   dropdown: {
-    position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-    background: 'var(--bg-card)', border: '1px solid var(--border)',
-    borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    minWidth: 300, maxWidth: '92vw', overflow: 'hidden', zIndex: 200,
+    position: 'absolute', top: 'calc(100% + 8px)',
+    /* left/right/width injected dynamically per render */
+    background: 'rgba(11,24,38,0.82)',
+    backdropFilter: 'blur(18px)',
+    WebkitBackdropFilter: 'blur(18px)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    borderRadius: 14,
+    boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,148,136,0.12)',
+    overflow: 'hidden', zIndex: 200,
     animation: 'fadeIn 0.15s ease',
   },
   header: {
-    padding: '12px 16px', fontSize: 13, fontWeight: 800,
-    color: 'var(--text-primary)', borderBottom: '1px solid var(--border)',
+    padding: '13px 16px', fontSize: 13, fontWeight: 800,
+    color: '#F1F5F9', borderBottom: '1px solid rgba(255,255,255,0.08)',
     textTransform: 'uppercase', letterSpacing: 0.6,
     fontFamily: H,
+    background: 'rgba(13,148,136,0.10)',
   },
   sectionLabel: {
     padding: '8px 16px 4px',
     fontSize: 10, fontWeight: 800, letterSpacing: 1,
-    color: 'var(--text-muted)',
+    color: 'rgba(148,163,184,0.9)',
     textTransform: 'uppercase',
     fontFamily: H,
-    borderTop: '1px solid var(--border)',
+    borderTop: '1px solid rgba(255,255,255,0.07)',
   },
-  list: { maxHeight: 260, overflowY: 'auto' },
+  list: { maxHeight: 240, overflowY: 'auto' },
   item: {
     display: 'block', width: '100%', textAlign: 'left',
     background: 'none', border: 'none', cursor: 'pointer',
-    padding: '11px 16px', borderBottom: '1px solid var(--border)',
+    padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
     transition: 'background 0.15s',
   },
   chatItem: {
     padding: '10px 14px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
   },
   chatRow: {
     display: 'flex', alignItems: 'center', gap: 10,
@@ -301,19 +337,19 @@ const styles = {
   },
   chatName: {
     fontFamily: H, fontWeight: 900, fontSize: 13,
-    color: 'var(--text-primary,#F1F5F9)',
+    color: '#F1F5F9',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     marginBottom: 3,
   },
   chatPreview: {
     fontSize: 12, fontWeight: 700,
-    color: 'var(--text-muted,#94A3B8)',
+    color: 'rgba(148,163,184,0.9)',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     fontFamily: F,
   },
   chatTime: {
     fontSize: 10, fontWeight: 700,
-    color: 'var(--text-muted,#64748B)',
+    color: 'rgba(100,116,139,0.9)',
     fontFamily: F,
   },
   unreadBadge: {
@@ -325,18 +361,18 @@ const styles = {
   },
   viewAllBtn: {
     display: 'block', width: '100%', textAlign: 'center',
-    background: 'rgba(13,148,136,0.08)', border: 'none', cursor: 'pointer',
+    background: 'rgba(13,148,136,0.12)', border: 'none', cursor: 'pointer',
     padding: '10px 16px',
-    borderBottom: '1px solid var(--border)',
-    fontSize: 12, fontWeight: 800, color: '#0D9488',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    fontSize: 12, fontWeight: 800, color: '#2dd4bf',
     fontFamily: F, letterSpacing: 0.3,
     transition: 'background 0.15s',
   },
   inboxLink: {
     display: 'block', width: '100%', textAlign: 'left',
     background: 'none', border: 'none', cursor: 'pointer',
-    padding: '11px 16px', borderBottom: '1px solid var(--border)',
-    fontSize: 13, fontWeight: 700, color: 'var(--text-muted,#94A3B8)',
+    padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+    fontSize: 13, fontWeight: 700, color: 'rgba(148,163,184,0.9)',
     fontFamily: F, transition: 'background 0.15s',
   },
   itemTop: {
@@ -344,15 +380,15 @@ const styles = {
     gap: 8, marginBottom: 4,
   },
   itemTitle: {
-    fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+    fontSize: 13, fontWeight: 700, color: '#F1F5F9',
     lineHeight: 1.3, fontFamily: F,
   },
   itemMsg: {
-    fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4,
+    fontSize: 12, color: 'rgba(148,163,184,0.9)', lineHeight: 1.4,
     marginBottom: 4, fontFamily: F,
   },
   itemTime: {
-    fontSize: 11, color: 'var(--text-muted)', opacity: 0.8, fontFamily: F,
+    fontSize: 11, color: 'rgba(100,116,139,0.8)', fontFamily: F,
   },
   modeBadge: {
     fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
@@ -361,6 +397,6 @@ const styles = {
   },
   empty: {
     padding: '20px 16px', textAlign: 'center',
-    fontSize: 13, color: 'var(--text-muted)', fontFamily: F,
+    fontSize: 13, color: 'rgba(148,163,184,0.8)', fontFamily: F,
   },
 };
