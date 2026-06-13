@@ -111,10 +111,10 @@ export default function AuthPage() {
         <div style={styles.logo}>
           <div style={styles.logoIcon}>📚</div>
           <div>
-            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: '#FFFFFF', letterSpacing: 1 }}>
+            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: 'var(--text-primary)', letterSpacing: 1 }}>
               NMCN CBT
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1, fontFamily: F }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontFamily: F }}>
               Nursing Exam Prep Platform
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function AuthPage() {
 
         {/* Title */}
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontFamily: H, fontWeight: 900, color: '#FFFFFF', fontSize: 'clamp(1.4rem,3vw,2rem)', marginBottom: 6 }}>
+          <h2 style={{ fontFamily: H, fontWeight: 900, color: 'var(--text-primary)', fontSize: 'clamp(1.4rem,3vw,2rem)', marginBottom: 6 }}>
             {mode === 'login'    && 'Welcome Back'}
             {mode === 'register' && 'Create Account'}
             {mode === 'forgot'   && 'Reset Password'}
@@ -139,7 +139,7 @@ export default function AuthPage() {
           {/* Full Name */}
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-primary)' }}>
                 Full Name
               </label>
               <input
@@ -153,7 +153,7 @@ export default function AuthPage() {
 
           {/* Email */}
           <div className="form-group">
-            <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+            <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-primary)' }}>
               Email Address
             </label>
             <input
@@ -167,7 +167,7 @@ export default function AuthPage() {
           {/* Password */}
           {mode !== 'forgot' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-primary)' }}>
                 Password
               </label>
               <div style={{ position: 'relative' }}>
@@ -187,7 +187,7 @@ export default function AuthPage() {
           {/* Confirm Password */}
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-primary)' }}>
                 Confirm Password
               </label>
               <input
@@ -202,7 +202,7 @@ export default function AuthPage() {
           {/* ── SCHOOL SELECTOR ── */}
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'var(--text-primary)' }}>
                 🏫 Your Nursing School
               </label>
               <select
@@ -216,19 +216,19 @@ export default function AuthPage() {
                   fontFamily: F, fontWeight: 700,
                 }}
               >
-                <option value="" disabled style={{ background: '#0A1F35', color: 'rgba(255,255,255,0.5)' }}>
+                <option value="" disabled style={{ background: '#0A1F35', color: 'var(--text-muted)' }}>
                   {schoolsLoading ? 'Loading schools…' : '— Select your school —'}
                 </option>
                 {schools.map(s => (
-                  <option key={s.id} value={s.name} style={{ background: '#0A1F35', color: '#fff' }}>
+                  <option key={s.id} value={s.name} style={{ background: '#0A1F35', color: 'var(--text-primary)' }}>
                     {s.name}
                   </option>
                 ))}
-                <option value="Other" style={{ background: '#0A1F35', color: '#fff' }}>
+                <option value="Other" style={{ background: '#0A1F35', color: 'var(--text-primary)' }}>
                   Other
                 </option>
               </select>
-              <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+              <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: 'var(--text-hint)', marginTop: 4 }}>
                 This determines which leaderboard you appear on. Can be changed in your profile.
               </p>
             </div>
@@ -280,7 +280,7 @@ export default function AuthPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
           {mode === 'login' && (
             <>
-              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700 }}>Don't have an account?</span>
+              <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>Don't have an account?</span>
               <button style={{ background: 'none', border: 'none', color: 'var(--teal-light)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
                 onClick={() => { setMode('register'); setError(''); }}>
                 Create one free
@@ -289,7 +289,7 @@ export default function AuthPage() {
           )}
           {(mode === 'register' || mode === 'forgot') && (
             <>
-              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700 }}>Already have an account?</span>
+              <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>Already have an account?</span>
               <button style={{ background: 'none', border: 'none', color: 'var(--teal-light)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
                 onClick={() => { setMode('login'); setError(''); }}>
                 Sign in
@@ -338,7 +338,7 @@ const styles = {
   input: {
     background: 'rgba(255,255,255,0.07)',
     border: '1.5px solid rgba(13,148,136,0.3)',
-    color: '#FFFFFF',
+    color: 'var(--text-primary)',
   },
   eyeBtn: {
     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
@@ -348,6 +348,6 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
     width: '100%', padding: '11px 20px', borderRadius: 10, cursor: 'pointer',
     background: 'rgba(255,255,255,0.06)', border: '1.5px solid rgba(255,255,255,0.15)',
-    color: '#fff', fontSize: 14, fontWeight: 700, transition: 'all 0.2s',
+    color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, transition: 'all 0.2s',
   },
 };

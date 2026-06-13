@@ -160,7 +160,7 @@ function BackButtonHandler() {
   return (
     <div style={{
       position: 'fixed', bottom: 48, left: '50%', transform: 'translateX(-50%)',
-      background: 'rgba(2,11,24,0.92)', color: '#fff', padding: '13px 28px',
+      background: 'rgba(2,11,24,0.92)', color: 'var(--text-primary)', padding: '13px 28px',
       borderRadius: 28, fontSize: 14, fontWeight: 700, zIndex: 99999,
       backdropFilter: 'blur(10px)', border: '1px solid rgba(13,148,136,0.4)',
       boxShadow: '0 4px 32px rgba(0,0,0,0.5)', whiteSpace: 'nowrap',
@@ -329,7 +329,7 @@ function ProfilePage() {
       <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.8rem,4vw,2.8rem)', marginBottom: 24 }}>👤 My Profile</h1>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg,#0D9488,#1E3A8A)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 28, color: '#fff', fontFamily: H, flexShrink: 0 }}>
+          <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg,#0D9488,#1E3A8A)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 28, color: 'var(--text-primary)', fontFamily: H, flexShrink: 0 }}>
             {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -365,7 +365,7 @@ function ProfilePage() {
             </div>
             {saveMsg && <div style={{ fontSize: 14, fontWeight: 700, fontFamily: F, color: saveMsg.startsWith('✅') ? '#16A34A' : '#EF4444' }}>{saveMsg}</div>}
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', background: 'var(--teal)', border: 'none', color: '#fff', borderRadius: 10, cursor: saving ? 'wait' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>
+              <button onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', background: 'var(--teal)', border: 'none', color: 'var(--text-primary)', borderRadius: 10, cursor: saving ? 'wait' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>
                 {saving ? 'Saving…' : '💾 Save Changes'}
               </button>
               <button onClick={() => setEditing(false)} style={{ padding: '10px 18px', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>Cancel</button>
@@ -403,10 +403,10 @@ function AdminAnalytics() {
 
 function NotFound() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, textAlign: 'center', padding: 24, background: '#020B18', color: '#fff' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, textAlign: 'center', padding: 24, background: '#020B18', color: 'var(--text-primary)' }}>
       <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>404</div>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: '#fff' }}>Page Not Found</h2>
-      <p style={{ color: 'rgba(255,255,255,0.5)' }}>This page doesn't exist.</p>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)' }}>Page Not Found</h2>
+      <p style={{ color: 'var(--text-muted)' }}>This page doesn't exist.</p>
       <a href="/" className="btn btn-primary">← Go Home</a>
     </div>
   );

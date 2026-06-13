@@ -319,7 +319,7 @@ export default function ExamReviewPage() {
                     <span style={{
                       width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B',
-                      color: '#fff', fontWeight: 800, fontSize: 12,
+                      color: 'var(--text-primary)', fontWeight: 800, fontSize: 12,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5 }}>
@@ -359,7 +359,7 @@ export default function ExamReviewPage() {
 
                   {!isAnswered && (
                     <div style={{
-                      fontSize: 12, color: '#64748B', fontWeight: 600, marginBottom: 8,
+                      fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8,
                       padding: '4px 10px', background: 'rgba(100,116,139,0.08)',
                       borderRadius: 6, display: 'inline-block',
                     }}>⚪ Not answered</div>
@@ -369,7 +369,7 @@ export default function ExamReviewPage() {
                     <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
                       <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 16 }}>💡</span>
-                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
                       </div>
                       <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
                         <ExplanationText text={q.explanation} />

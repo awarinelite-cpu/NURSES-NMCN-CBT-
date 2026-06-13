@@ -250,11 +250,11 @@ export function AuthProvider({ children }) {
               <h2 style={{ color: '#EF4444', fontFamily: "'Arial Black',Arial,sans-serif", margin: '0 0 12px' }}>
                 Device Not Authorised
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
-                Your access code is <strong style={{ color: '#fff' }}>locked to a different device</strong>.
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+                Your access code is <strong style={{ color: 'var(--text-primary)' }}>locked to a different device</strong>.
               </p>
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
-                Each access code can only be used on <strong style={{ color: '#fff' }}>one device</strong>.
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+                Each access code can only be used on <strong style={{ color: 'var(--text-primary)' }}>one device</strong>.
                 If you lost or changed your device, contact your admin to reset the device lock.
               </p>
               <button

@@ -71,7 +71,7 @@ img {
    Dark Mode              → Navy #020B18 base
 ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
 /* ── CSS Variables: Light Mode ────────────────────────────────────── */
 :root {
@@ -101,11 +101,11 @@ img {
   --bg-card:        #FFFFFF;
   --bg-overlay:     rgba(255,255,255,0.95);
 
-  /* Light mode text — all high contrast on white */
-  --text-primary:   #0A0A0A;
-  --text-secondary: #1A1A2E;
-  --text-muted:     #374151;
-  --text-hint:      #4B5563;
+  /* Light mode text — maximum contrast on white background */
+  --text-primary:   #050505;   /* near-black, crisp on white */
+  --text-secondary: #111827;   /* dark grey, strong contrast */
+  --text-muted:     #1F2937;   /* medium-dark, still very readable */
+  --text-hint:      #374151;   /* subtle hint text, still legible */
 
   --border:         #D1D5DB;
   --border-focus:   var(--teal);
@@ -301,16 +301,18 @@ input, button, select, textarea, label, span, div, li, td, th {
   font-weight: 700;
 }
 
-/* ── Light mode: card/page text contrast enforced ─────────────────── */
-:root .card,
-:root p,
-:root span,
-:root label,
-:root li,
-:root td,
-:root th,
-:root div {
-  color: var(--text-primary);
+/* ── Light mode: targeted contrast enforcement (no inline override) ── */
+/* Only enforce color on semantic elements, not all divs */
+:root p { color: var(--text-secondary); }
+:root label { color: var(--text-secondary); }
+:root li { color: var(--text-primary); }
+:root td, :root th { color: var(--text-primary); }
+:root .card { color: var(--text-primary); }
+
+/* Ensure muted-color text still has enough contrast on white */
+:root [style*="rgba(148,163,184"],
+:root [style*="rgba(100,116,139"] {
+  color: var(--text-muted) !important;
 }
 
 /* Let explicit color overrides in JSX win */

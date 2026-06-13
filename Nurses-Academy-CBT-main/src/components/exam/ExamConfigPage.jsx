@@ -305,13 +305,13 @@ function ToggleRow({ label, desc, checked, onChange }) {
 const styles = {
   stepActive: {
     width: 28, height: 28, borderRadius: '50%',
-    background: 'var(--teal)', color: '#fff',
+    background: 'var(--teal)', color: 'var(--text-primary)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 13, fontWeight: 900, flexShrink: 0,
   },
   stepDone: {
     width: 28, height: 28, borderRadius: '50%',
-    background: 'var(--teal)', color: '#fff',
+    background: 'var(--teal)', color: 'var(--text-primary)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 13, fontWeight: 900, flexShrink: 0,
     opacity: 0.6,

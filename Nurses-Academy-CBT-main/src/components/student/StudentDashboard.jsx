@@ -626,13 +626,13 @@ export default function StudentDashboard() {
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)` }} />
 
               <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
                   🏥 NMCN CBT Platform
                 </div>
                 <h2 style={{ color: '#fff', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
                   {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
                 </h2>
-                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
+                <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
                   {profile?.subscribed
                     ? '🌟 Premium subscriber — all content unlocked'
                     : '🎯 Free plan — upgrade to unlock all past questions'}
@@ -654,7 +654,7 @@ export default function StudentDashboard() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 2 }}>{action.label}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                       {action.desc}
                     </div>
                   </div>

@@ -52,7 +52,7 @@ function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
           Your progress will be saved. You can resume this exam later from the dashboard.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={onSaveExit} disabled={saving} style={{ padding: '13px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={onSaveExit} disabled={saving} style={{ padding: '13px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: 'var(--text-primary)', opacity: saving ? 0.7 : 1 }}>
             {saving ? '💾 Saving…' : '💾 Save & Exit'}
           </button>
           <button onClick={onAbandon} disabled={saving} style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>
@@ -617,7 +617,7 @@ export default function ExamSession() {
               <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{scorePct}%</div>
               <div style={{ fontSize: 16, color: 'var(--text-secondary)', margin: '8px 0 20px' }}>{score} / {questions.length} correct</div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-                {[{ label: 'Correct', value: score, color: '#16A34A' }, { label: 'Wrong', value: questions.length - score, color: '#EF4444' }, { label: 'Unanswered', value: unanswered, color: '#64748B' }].map(s => (
+                {[{ label: 'Correct', value: score, color: '#16A34A' }, { label: 'Wrong', value: questions.length - score, color: '#EF4444' }, { label: 'Unanswered', value: unanswered, color: 'var(--text-muted)' }].map(s => (
                   <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div></div>
                 ))}
               </div>
@@ -667,7 +667,7 @@ export default function ExamSession() {
               return (
                 <div key={q.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, borderLeft: `4px solid ${isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}` }}>
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                    <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                    <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: 'var(--text-primary)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</p>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 'auto', alignItems: 'center' }}>
                       <ReviewReadButton text={q.question} />
@@ -698,7 +698,7 @@ export default function ExamSession() {
                     <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
                       <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 16 }}>💡</span>
-                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>
+                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
                       </div>
                       <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
                         <ExplanationText text={q.explanation} />
@@ -728,7 +728,7 @@ export default function ExamSession() {
                   {showReport === q.id && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       <input value={reportText} onChange={e => setReportText(e.target.value)} placeholder="Describe the issue (wrong answer, typo, etc.)" style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13 }} />
-                      <button className="btn btn-sm" onClick={() => submitReport(q)} style={{ background: '#EF4444', color: '#fff', border: 'none', borderRadius: 8, padding: '0 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Submit</button>
+                      <button className="btn btn-sm" onClick={() => submitReport(q)} style={{ background: '#EF4444', color: 'var(--text-primary)', border: 'none', borderRadius: 8, padding: '0 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Submit</button>
                     </div>
                   )}
                 </div>

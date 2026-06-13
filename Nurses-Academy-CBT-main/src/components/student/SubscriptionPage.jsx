@@ -271,16 +271,16 @@ export default function SubscriptionPage() {
       <div style={{ padding: 24, maxWidth: 600 }}>
         <div style={{
           background: 'linear-gradient(135deg,#0D9488,#1E3A8A)', borderRadius: 20, padding: '32px 28px',
-          textAlign: 'center', color: '#fff',
+          textAlign: 'center', color: 'var(--text-primary)',
         }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>🌟</div>
-          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: '#fff', margin: '0 0 8px' }}>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)', margin: '0 0 8px' }}>
             You're a Premium Member!
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.8)', margin: '0 0 16px' }}>
+          <p style={{ color: 'var(--text-primary)', margin: '0 0 16px' }}>
             Plan: <strong>{profile.subscriptionPlan || 'Premium'}</strong>
           </p>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
             Access valid until: <strong>{exp}</strong>
           </p>
         </div>
@@ -314,7 +314,7 @@ export default function SubscriptionPage() {
                 {p.popular && (
                   <div style={{
                     position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    background: p.color, color: '#fff', fontSize: 11, fontWeight: 700,
+                    background: p.color, color: 'var(--text-primary)', fontSize: 11, fontWeight: 700,
                     padding: '3px 14px', borderRadius: 20, whiteSpace: 'nowrap',
                   }}>
                     ⭐ MOST POPULAR
@@ -507,7 +507,7 @@ const styles = {
     display: 'flex', flexDirection: 'column',
   },
   planBadge: {
-    color: '#fff', fontSize: 12, fontWeight: 700, padding: '4px 12px',
+    color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, padding: '4px 12px',
     borderRadius: 20, width: 'fit-content', marginBottom: 12,
   },
   planPrice: { fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },

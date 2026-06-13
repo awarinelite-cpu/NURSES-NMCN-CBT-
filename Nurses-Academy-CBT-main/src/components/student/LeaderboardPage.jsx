@@ -39,7 +39,7 @@ function Avatar({ name = '', size = 36 }) {
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: H, fontWeight: 900, color: '#fff',
+      fontFamily: H, fontWeight: 900, color: 'var(--text-primary)',
       fontSize: size * 0.38,
     }}>
       {initials}
@@ -201,7 +201,7 @@ export default function LeaderboardPage() {
     <div style={{
       minHeight: '100vh',
       background: 'var(--bg-primary, #020B18)',
-      color: 'var(--text-primary, #F1F5F9)',
+      color: 'var(--text-primary)',
       fontFamily: F,
       paddingBottom: 100,
     }}>
@@ -230,13 +230,13 @@ export default function LeaderboardPage() {
         <h1 style={{
           margin: 0, fontFamily: H, fontWeight: 900,
           fontSize: 'clamp(1.3rem,4vw,1.9rem)',
-          color: 'var(--text-primary, #F1F5F9)',
+          color: 'var(--text-primary)',
         }}>
           🏆 Leaderboard
         </h1>
         <p style={{
           margin: '4px 0 0', fontSize: 13, fontWeight: 700,
-          color: 'var(--text-muted, #64748B)', fontFamily: F,
+          color: 'var(--text-muted)', fontFamily: F,
         }}>
           NMCN CBT top performers · tap any student to view their profile
         </p>
@@ -255,10 +255,10 @@ export default function LeaderboardPage() {
             animation: 'fadeUp 0.3s ease',
           }}>
             <div>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: '#F1F5F9' }}>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>
                 Your current rank
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', fontFamily: F }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
                 {filter === 'all' ? 'All time' : filter === 'week' ? 'This week' : 'This month'}
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function LeaderboardPage() {
         ) : error ? (
           <div style={{
             textAlign: 'center', padding: '60px 24px',
-            fontFamily: F, color: 'var(--text-muted, #64748B)',
+            fontFamily: F, color: 'var(--text-muted)',
           }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>😕</div>
             <p style={{ fontWeight: 700, margin: 0 }}>{error}</p>
@@ -292,7 +292,7 @@ export default function LeaderboardPage() {
               onClick={load}
               style={{
                 marginTop: 16, padding: '10px 24px',
-                background: '#0D9488', color: '#fff',
+                background: '#0D9488', color: 'var(--text-primary)',
                 border: 'none', borderRadius: 10, cursor: 'pointer',
                 fontWeight: 700, fontFamily: F,
               }}
@@ -301,10 +301,10 @@ export default function LeaderboardPage() {
         ) : board.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '60px 24px',
-            fontFamily: F, color: 'var(--text-muted, #64748B)',
+            fontFamily: F, color: 'var(--text-muted)',
           }}>
             <div style={{ fontSize: 52, marginBottom: 12 }}>📭</div>
-            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-primary, #F1F5F9)', marginBottom: 8 }}>
+            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>
               No scores yet
             </div>
             <p style={{ fontWeight: 700, margin: 0, lineHeight: 1.6 }}>
@@ -336,7 +336,7 @@ export default function LeaderboardPage() {
                 gridTemplateColumns: '36px 36px 1fr 56px 56px 44px',
                 gap: 6, padding: '0 10px 6px',
                 fontSize: 10, fontWeight: 700, fontFamily: F,
-                color: 'var(--text-muted, #64748B)',
+                color: 'var(--text-muted)',
                 textTransform: 'uppercase', letterSpacing: 0.6,
               }}>
                 <div></div>
@@ -394,7 +394,7 @@ export default function LeaderboardPage() {
                       {row.school && (
                         <div style={{
                           fontSize: 10, fontWeight: 700, fontFamily: F,
-                          color: 'var(--text-muted, #64748B)',
+                          color: 'var(--text-muted)',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
                           {row.school}
@@ -421,7 +421,7 @@ export default function LeaderboardPage() {
                     {/* Exam count */}
                     <div style={{
                       textAlign: 'center', fontFamily: F, fontWeight: 700,
-                      fontSize: 12, color: 'var(--text-muted, #64748B)',
+                      fontSize: 12, color: 'var(--text-muted)',
                     }}>
                       {row.count}
                     </div>
@@ -433,7 +433,7 @@ export default function LeaderboardPage() {
             <div style={{
               textAlign: 'center', marginTop: 24,
               fontSize: 12, fontFamily: F, fontWeight: 700,
-              color: 'var(--text-muted, #64748B)',
+              color: 'var(--text-muted)',
             }}>
               Showing top {board.length} students · Tap any name to view their profile
             </div>

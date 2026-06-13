@@ -147,7 +147,7 @@ export default function CategoryPickerPage() {
                 <div style={{
                   position: 'absolute', top: 10, right: 10,
                   width: 20, height: 20, borderRadius: '50%',
-                  background: cat.color, color: '#fff',
+                  background: cat.color, color: 'var(--text-primary)',
                   fontSize: 11, fontWeight: 900,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>✓</div>
@@ -171,8 +171,8 @@ export default function CategoryPickerPage() {
               {NURSING_CATEGORIES.find(c => c.id === selected)?.icon}
             </span>
             <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Selected</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Selected</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                 {NURSING_CATEGORIES.find(c => c.id === selected)?.shortLabel}
               </div>
             </div>
@@ -189,7 +189,7 @@ export default function CategoryPickerPage() {
 const styles = {
   stepActive: {
     width: 28, height: 28, borderRadius: '50%',
-    background: 'var(--teal)', color: '#fff',
+    background: 'var(--teal)', color: 'var(--text-primary)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 13, fontWeight: 900, flexShrink: 0,
   },

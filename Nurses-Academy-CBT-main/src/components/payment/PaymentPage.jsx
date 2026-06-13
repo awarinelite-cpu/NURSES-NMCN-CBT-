@@ -248,14 +248,14 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         {/* Amount summary */}
         <div style={s.summary}>
           <div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Total Due</div>
+            <div style={{ color: 'var(--text-hint)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Total Due</div>
             <div style={{ color: '#0D9488', fontWeight: 900, fontSize: 28, lineHeight: 1.1 }}>
               ₦{plan.price.toLocaleString()}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Duration</div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{plan.days} days</div>
+            <div style={{ color: 'var(--text-hint)', fontSize: 11 }}>Duration</div>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 16 }}>{plan.days} days</div>
           </div>
         </div>
 
@@ -273,7 +273,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               }}
             >
               <span style={{ fontSize: 24 }}>💳</span>
-              <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Pay Online</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>Pay Online</span>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.4 }}>
                 Card · Transfer · USSD
               </span>
@@ -292,7 +292,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               }}
             >
               <span style={{ fontSize: 24 }}>🏦</span>
-              <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Bank Transfer</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>Bank Transfer</span>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.4 }}>
                 Manual confirmation
               </span>
@@ -307,8 +307,8 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         {method === 'paystack' && (
           <div style={s.section}>
             <div style={s.infoBox}>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-                🔒 You'll be taken to Paystack's secure checkout. Pay with <strong style={{ color: '#fff' }}>debit card</strong>, <strong style={{ color: '#fff' }}>bank transfer</strong>, or <strong style={{ color: '#fff' }}>USSD</strong>. Access is granted instantly after payment.
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+                🔒 You'll be taken to Paystack's secure checkout. Pay with <strong style={{ color: 'var(--text-primary)' }}>debit card</strong>, <strong style={{ color: 'var(--text-primary)' }}>bank transfer</strong>, or <strong style={{ color: 'var(--text-primary)' }}>USSD</strong>. Access is granted instantly after payment.
               </p>
             </div>
             {error && <p style={s.error}>⚠️ {error}</p>}
@@ -340,7 +340,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 { label: 'Amount',       value: `₦${plan.price.toLocaleString()}`, teal: true },
               ].map(row => (
                 <div key={row.label} style={s.bankRow}>
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>{row.label}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
                   <strong style={{
                     color: row.teal ? '#0D9488' : '#fff',
                     letterSpacing: row.mono ? 2 : 0,
@@ -412,7 +412,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 6, overflow: 'hidden', height: 6 }}>
                   <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#F59E0B', transition: 'width 0.3s' }} />
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, margin: '4px 0 0', textAlign: 'center' }}>Uploading… {uploadProgress}%</p>
+                <p style={{ color: 'var(--text-hint)', fontSize: 11, margin: '4px 0 0', textAlign: 'center' }}>Uploading… {uploadProgress}%</p>
               </div>
             )}
             {error && <p style={s.error}>⚠️ {error}</p>}
@@ -460,11 +460,11 @@ const s = {
     background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.2) 0%, transparent 60%)',
   },
   heading: {
-    color: '#fff', fontFamily: "'Playfair Display', serif",
+    color: 'var(--text-primary)', fontFamily: "'Playfair Display', serif",
     fontSize: '1.3rem', margin: 0, marginBottom: 4,
   },
   label: {
-    color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700,
+    color: 'var(--text-hint)', fontSize: 11, fontWeight: 700,
     letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10, marginTop: 0,
   },
   planRow: { display: 'flex', gap: 8, marginBottom: 16 },
@@ -505,12 +505,12 @@ const s = {
   input: {
     width: '100%', padding: '11px 14px',
     background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 10, color: '#fff', fontSize: 14, outline: 'none',
+    borderRadius: 10, color: 'var(--text-primary)', fontSize: 14, outline: 'none',
     boxSizing: 'border-box', marginBottom: 12,
   },
   primaryBtn: {
     width: '100%', padding: '14px', border: 'none', borderRadius: 12,
-    color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
+    color: 'var(--text-primary)', fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
     transition: 'opacity 0.2s',
   },
   error: {

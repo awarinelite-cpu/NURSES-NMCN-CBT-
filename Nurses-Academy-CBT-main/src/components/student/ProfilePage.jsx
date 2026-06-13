@@ -274,7 +274,7 @@ export default function ProfilePage() {
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Change Password</span>
           </div>
-          <p style={{ color: 'var(--text-muted, #94A3B8)', fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
             For your security, re-enter your current password before setting a new one.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -324,7 +324,7 @@ export default function ProfilePage() {
 function Field({ label, children, fullWidth, required }) {
   return (
     <div style={{ gridColumn: fullWidth ? '1 / -1' : undefined, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8 }}>
         {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
       </label>
       {children}
@@ -377,8 +377,8 @@ const styles = {
     letterSpacing: -1,
   },
   headerInfo: { flex: 1, minWidth: 0 },
-  headerName: { fontWeight: 700, fontSize: 18, color: '#F1F5F9', marginBottom: 2 },
-  headerEmail: { fontSize: 13, color: '#64748B', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  headerName: { fontWeight: 700, fontSize: 18, color: 'var(--text-primary)', marginBottom: 2 },
+  headerEmail: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   badgeRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   badge: { fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 },
 
@@ -397,7 +397,7 @@ const styles = {
   },
   statIcon: { fontSize: 20, marginBottom: 6 },
   statValue: { fontSize: 20, fontWeight: 800, lineHeight: 1 },
-  statLabel: { fontSize: 10, color: '#64748B', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
+  statLabel: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
 
   tabs: {
     display: 'flex',
@@ -410,7 +410,7 @@ const styles = {
   },
   tab: {
     flex: 1, padding: '9px 0', border: 'none',
-    background: 'transparent', color: '#64748B',
+    background: 'transparent', color: 'var(--text-muted)',
     fontSize: 13, fontWeight: 600, borderRadius: 8,
     cursor: 'pointer', transition: 'all .15s',
   },
@@ -435,7 +435,7 @@ const styles = {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 18,
   },
-  cardTitle: { fontWeight: 700, fontSize: 15, color: '#F1F5F9' },
+  cardTitle: { fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' },
   editBtn: {
     fontSize: 12, fontWeight: 600, color: '#0D9488',
     background: 'rgba(13,148,136,0.1)', border: '1px solid rgba(13,148,136,0.25)',
@@ -453,7 +453,7 @@ const styles = {
     background: 'rgba(255,255,255,0.05)',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: 8, padding: '9px 12px',
-    color: '#F1F5F9', fontSize: 14,
+    color: 'var(--text-primary)', fontSize: 14,
     outline: 'none', fontFamily: 'inherit',
     transition: 'border-color .15s',
   },
@@ -462,13 +462,13 @@ const styles = {
   },
   cancelBtn: {
     padding: '9px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-    background: 'transparent', color: '#94A3B8', fontSize: 13,
+    background: 'transparent', color: 'var(--text-muted)', fontSize: 13,
     fontWeight: 600, cursor: 'pointer',
   },
   saveBtn: {
     padding: '9px 22px', borderRadius: 8, border: 'none',
     background: 'linear-gradient(135deg,#0D9488,#0F766E)',
-    color: '#fff', fontSize: 13, fontWeight: 700,
+    color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
     cursor: 'pointer', boxShadow: '0 2px 12px rgba(13,148,136,0.3)',
   },
 
@@ -477,6 +477,6 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.06)',
     borderRadius: 10, padding: '12px 14px',
   },
-  subKey: { fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  subVal: { fontSize: 14, fontWeight: 700, color: '#F1F5F9' },
+  subKey: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  subVal: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
 };

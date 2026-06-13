@@ -47,7 +47,7 @@ function StatBox({ icon, label, value, color }) {
         lineHeight: 1,
       }}>{value}</div>
       <div style={{
-        fontSize: 10, color: 'var(--text-muted, #64748B)',
+        fontSize: 10, color: 'var(--text-muted)',
         fontFamily: F, fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: 0.7,
         marginTop: 5,
@@ -149,12 +149,12 @@ export default function StudentPublicProfile() {
         gap: 14, padding: 24, textAlign: 'center',
       }}>
         <div style={{ fontSize: 52 }}>😕</div>
-        <h3 style={{ fontFamily: H, color: '#F1F5F9', margin: 0 }}>Profile Not Found</h3>
-        <p style={{ fontFamily: F, color: '#94A3B8', margin: 0 }}>{error}</p>
+        <h3 style={{ fontFamily: H, color: 'var(--text-primary)', margin: 0 }}>Profile Not Found</h3>
+        <p style={{ fontFamily: F, color: 'var(--text-muted)', margin: 0 }}>{error}</p>
         <button
           onClick={() => navigate(-1)}
           style={{
-            padding: '11px 28px', background: '#0D9488', color: '#fff',
+            padding: '11px 28px', background: '#0D9488', color: 'var(--text-primary)',
             border: 'none', borderRadius: 10, cursor: 'pointer',
             fontWeight: 700, fontSize: 14, fontFamily: F,
           }}
@@ -167,7 +167,7 @@ export default function StudentPublicProfile() {
     <div style={{
       minHeight: '100vh',
       background: 'var(--bg-primary, #020B18)',
-      color: 'var(--text-primary, #F1F5F9)',
+      color: 'var(--text-primary)',
       fontFamily: F,
       paddingBottom: 100,
     }}>
@@ -202,13 +202,13 @@ export default function StudentPublicProfile() {
           <h1 style={{
             margin: 0, fontFamily: H, fontWeight: 900,
             fontSize: 'clamp(1.1rem, 3vw, 1.5rem)',
-            color: 'var(--text-primary, #F1F5F9)',
+            color: 'var(--text-primary)',
           }}>
             {isOwnProfile ? '👤 My Profile' : `👤 ${displayName}`}
           </h1>
           <p style={{
             margin: 0, fontSize: 12, fontFamily: F,
-            fontWeight: 700, color: 'var(--text-muted, #64748B)',
+            fontWeight: 700, color: 'var(--text-muted)',
           }}>
             Student Profile
           </p>
@@ -234,14 +234,14 @@ export default function StudentPublicProfile() {
             background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: H, fontWeight: 900, fontSize: 28,
-            color: '#fff', flexShrink: 0,
+            color: 'var(--text-primary)', flexShrink: 0,
             boxShadow: '0 0 0 3px rgba(13,148,136,0.3)',
           }}>
             {initials || '?'}
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,3vw,1.45rem)', color: '#F1F5F9', marginBottom: 4 }}>
+            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,3vw,1.45rem)', color: 'var(--text-primary)', marginBottom: 4 }}>
               {displayName}
               {isOwnProfile && (
                 <span style={{
@@ -258,7 +258,7 @@ export default function StudentPublicProfile() {
               </div>
             )}
             {specialization && (
-              <div style={{ fontSize: 12, fontWeight: 700, fontFamily: F, color: '#94A3B8' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, fontFamily: F, color: 'var(--text-muted)' }}>
                 🩺 {specialization}
               </div>
             )}
@@ -307,12 +307,12 @@ export default function StudentPublicProfile() {
           }}>
             <div style={{
               fontSize: 11, fontWeight: 700, fontFamily: F,
-              color: '#64748B', textTransform: 'uppercase',
+              color: 'var(--text-muted)', textTransform: 'uppercase',
               letterSpacing: 0.8, marginBottom: 10,
             }}>About</div>
             <p style={{
               fontFamily: F, fontWeight: 700, fontSize: 14,
-              color: '#CBD5E1', margin: 0, lineHeight: 1.7,
+              color: 'var(--text-secondary)', margin: 0, lineHeight: 1.7,
             }}>{bio}</p>
           </div>
         )}
@@ -328,7 +328,7 @@ export default function StudentPublicProfile() {
           }}>
             <div style={{
               fontSize: 11, fontWeight: 700, fontFamily: F,
-              color: '#64748B', textTransform: 'uppercase',
+              color: 'var(--text-muted)', textTransform: 'uppercase',
               letterSpacing: 0.8, marginBottom: 14,
             }}>Entrance Exam Performance</div>
 
@@ -337,7 +337,7 @@ export default function StudentPublicProfile() {
               {examStats.best !== null && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: '#CBD5E1' }}>Best Score</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: 'var(--text-secondary)' }}>Best Score</span>
                     <span style={{ fontSize: 13, fontWeight: 900, fontFamily: H, color: gradeColor(examStats.best) }}>
                       {examStats.best}%
                     </span>
@@ -357,7 +357,7 @@ export default function StudentPublicProfile() {
               {examStats.avg !== null && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: '#CBD5E1' }}>Average Score</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: 'var(--text-secondary)' }}>Average Score</span>
                     <span style={{ fontSize: 13, fontWeight: 900, fontFamily: H, color: gradeColor(examStats.avg) }}>
                       {examStats.avg}%
                     </span>
@@ -376,7 +376,7 @@ export default function StudentPublicProfile() {
 
             <div style={{
               marginTop: 14, fontSize: 12, fontWeight: 700,
-              fontFamily: F, color: '#64748B',
+              fontFamily: F, color: 'var(--text-muted)',
             }}>
               {examStats.count} entrance exam{examStats.count !== 1 ? 's' : ''} completed
             </div>
@@ -393,7 +393,7 @@ export default function StudentPublicProfile() {
               padding: '14px 20px',
               background: 'linear-gradient(135deg, #0D9488, #0F766E)',
               border: 'none', borderRadius: 12,
-              color: '#fff', fontWeight: 700, fontSize: 14,
+              color: 'var(--text-primary)', fontWeight: 700, fontSize: 14,
               fontFamily: F, cursor: 'pointer',
               textAlign: 'center',
               boxShadow: '0 4px 18px rgba(13,148,136,0.3)',
