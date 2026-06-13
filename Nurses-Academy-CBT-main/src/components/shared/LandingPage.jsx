@@ -125,7 +125,7 @@ export default function LandingPage() {
           fontFamily: "'Playfair Display',serif", fontWeight: 900, fontSize: 20,
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <span style={{ fontSize: 24 }}>📚</span>
+          <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 36, width: 'auto', objectFit: 'contain' }} />
           The Elite<span style={{ color: '#14B8A8' }}> Nurses</span>
         </div>
 

@@ -109,7 +109,7 @@ export default function AuthPage() {
       <div style={styles.card} className="anim-bounceIn">
         {/* Logo */}
         <div style={styles.logo}>
-          <div style={styles.logoIcon}>📚</div>
+          <div style={styles.logoIcon}><img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 56, width: 'auto', objectFit: 'contain' }} /></div>
           <div>
             <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: 'var(--text-primary)', letterSpacing: 1 }}>
               NMCN CBT
