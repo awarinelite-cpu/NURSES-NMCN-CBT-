@@ -628,17 +628,17 @@ export default function StudentDashboard() {
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)` }} />
 
               <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                <h1 style={{ fontSize: 'clamp(1rem,5vw,1.4rem)', color: 'rgba(255,255,255,0.9)', fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', margin: '0 0 6px' }}>
                   🏥 NMCN CBT Platform
-                </div>
-                <h2 style={{ color: '#fff', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
+                </h1>
+                <h1 style={{ color: '#fff', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1.4rem,6vw,2.4rem)', margin: '0 0 8px', lineHeight: 1.2 }}>
                   {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
-                </h2>
-                <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
+                </h1>
+                <h2 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 'clamp(0.85rem,3vw,1.1rem)', fontWeight: 500, margin: '0 0 16px', lineHeight: 1.4 }}>
                   {profile?.subscribed
                     ? '🌟 Premium subscriber — all content unlocked'
                     : '🎯 Free plan — upgrade to unlock all past questions'}
-                </p>
+                </h2>
                 <Link
                   to={action.to}
                   onClick={e => e.stopPropagation()}
@@ -647,16 +647,16 @@ export default function StudentDashboard() {
                     textDecoration: 'none', width: '100%', boxSizing: 'border-box',
                   }}
                 >
-                  <div style={{ fontSize: 28, flexShrink: 0 }}>
+                  <div style={{ fontSize: 32, flexShrink: 0 }}>
                     {action.icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', marginBottom: 2 }}>{action.label}</div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <h2 style={{ fontWeight: 800, fontSize: 'clamp(1rem,3.5vw,1.3rem)', color: '#fff', margin: '0 0 3px' }}>{action.label}</h2>
+                    <h2 style={{ fontSize: 'clamp(0.78rem,2.5vw,1rem)', fontWeight: 400, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                       {action.desc}
-                    </div>
+                    </h2>
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 900, fontSize: 22, flexShrink: 0 }}>→</div>
                 </Link>
 
                 <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
