@@ -15,8 +15,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  collection, getDocs, query, where,
-  getCountFromServer, orderBy, setDoc, doc, writeBatch,
+  collection, getDocs,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -235,7 +234,9 @@ export default function EntranceSubjectDrill() {
   const [useCustom,       setUseCustom]       = useState(false);
   const [timeLimit,       setTimeLimit]       = useState(20);
 
-  // ── Load subjects from `entranceExamSubjects`, then count questions ────────
+  // ── Load subjects by scanning entranceExamQuestions directly ──────────────
+  // This ensures the subject list ALWAYS matches what is actually in Firestore,
+  // regardless of what names are stored in entranceExamSubjects.
   useEffect(() => {
     if (!user) return;
 
@@ -243,105 +244,85 @@ export default function EntranceSubjectDrill() {
       setLoading(true);
       setError('');
       try {
-        // 1. Load admin-defined subjects
-        let subjectSnap;
+        // 1. Load icon/color metadata from entranceExamSubjects (best-effort)
+        let metaMap = {}; // lowercaseFirstWord → { icon, color, order, displayName }
         try {
-          subjectSnap = await getDocs(
-            query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc'))
-          );
-        } catch {
-          subjectSnap = await getDocs(collection(db, 'entranceExamSubjects'));
-        }
-
-        let adminSubjects = subjectSnap.docs.map(d => ({
-          id:    d.id,
-          name:  d.data().name  || d.id,
-          icon:  d.data().icon  || '📚',
-          color: d.data().color || '#0D9488',
-          order: d.data().order ?? 999,
-        }));
-
-        // ── Auto-seed if collection is empty ────────────────────────────────
-        if (adminSubjects.length === 0) {
-          await seedSubjectsCollection();
-          // Re-read after seeding
-          try {
-            const snap2 = await getDocs(collection(db, 'entranceExamSubjects'));
-            adminSubjects = snap2.docs.map(d => ({
-              id:    d.id,
-              name:  d.data().name  || d.id,
+          const metaSnap = await getDocs(collection(db, 'entranceExamSubjects'));
+          metaSnap.docs.forEach((d, i) => {
+            const name = (d.data().name || d.id || '').trim();
+            const key  = name.toLowerCase().split(/\s+/)[0];
+            metaMap[key] = {
               icon:  d.data().icon  || '📚',
               color: d.data().color || '#0D9488',
-              order: d.data().order ?? 999,
-            }));
-          } catch { /* ignore — use hardcoded fallback below */ }
-        }
+              order: d.data().order ?? i,
+              displayName: name,
+            };
+          });
+        } catch { /* metadata is optional */ }
 
-        // ── If still empty (e.g. Firestore write rules block it), use hardcoded list ──
-        if (adminSubjects.length === 0) {
-          adminSubjects = ENTRANCE_SUBJECTS.map((name, i) => ({
-            id:    name,
-            name,
-            icon:  SUBJECT_META[name]?.icon  || '📚',
-            color: SUBJECT_META[name]?.color || '#0D9488',
-            order: i,
-          }));
-        }
-
-        // 2. Count questions per subject.
-        //    Also count questions with subject='' (untagged) — add them to all subjects.
-        let untaggedCount = 0;
-        try {
-          const utSnap = await getCountFromServer(
-            query(collection(db, 'entranceExamQuestions'), where('subject', '==', ''))
-          );
-          untaggedCount = utSnap.data().count;
-        } catch { /* non-critical */ }
-
-        const enriched = await Promise.all(
-          adminSubjects.map(async subj => {
-            try {
-              const countSnap = await getCountFromServer(
-                query(
-                  collection(db, 'entranceExamQuestions'),
-                  where('subject', '==', subj.name)
-                )
-              );
-              const taggedCount  = countSnap.data().count;
-              const questionCount = taggedCount + untaggedCount;
-
-              // Available years (only read if there are tagged questions)
-              let years = [];
-              if (taggedCount > 0) {
-                const yearSnap = await getDocs(
-                  query(
-                    collection(db, 'entranceExamQuestions'),
-                    where('subject', '==', subj.name)
-                  )
-                );
-                const yearSet = new Set();
-                yearSnap.forEach(d => { if (d.data().year) yearSet.add(d.data().year); });
-                years = Array.from(yearSet).sort();
-              }
-
-              return { ...subj, questionCount, years };
-            } catch {
-              return { ...subj, questionCount: untaggedCount, years: [] };
-            }
-          })
-        );
-
-        // Sort: subjects with questions first, then by admin order
-        const sorted = enriched.sort((a, b) => {
-          if (a.questionCount > 0 && b.questionCount === 0) return -1;
-          if (a.questionCount === 0 && b.questionCount > 0) return  1;
-          return (a.order ?? 999) - (b.order ?? 999);
+        // Also pre-load SUBJECT_META as fallback for known subjects
+        Object.entries(SUBJECT_META).forEach(([name, meta]) => {
+          const key = name.toLowerCase().split(/\s+/)[0];
+          if (!metaMap[key]) {
+            metaMap[key] = { ...meta, order: 99, displayName: name };
+          }
         });
 
-        setSubjects(sorted);
+        // 2. Scan ALL entrance questions in one read — group by subject field
+        const allSnap = await getDocs(collection(db, 'entranceExamQuestions'));
 
-        // Auto-select first subject that has questions
-        const first = sorted.find(s => s.questionCount > 0);
+        const subjectMap = {}; // subject value → { count, years: Set }
+        let untagged = 0;
+
+        allSnap.forEach(d => {
+          const subj = (d.data().subject || '').trim();
+          const year = (d.data().year   || '').trim();
+          if (!subj) { untagged++; return; }
+          if (!subjectMap[subj]) subjectMap[subj] = { count: 0, years: new Set() };
+          subjectMap[subj].count++;
+          if (year) subjectMap[subj].years.add(year);
+        });
+
+        // 3. Build subject list from actual data
+        const subjects = Object.entries(subjectMap).map(([name, data]) => {
+          const key  = name.toLowerCase().split(/\s+/)[0];
+          const meta = metaMap[key] || { icon: '📚', color: '#0D9488', order: 99 };
+          return {
+            id:            name,
+            name,
+            icon:          meta.icon,
+            color:         meta.color,
+            order:         meta.order,
+            questionCount: data.count + untagged,
+            years:         Array.from(data.years).sort(),
+          };
+        });
+
+        // If no tagged questions exist, show hardcoded subjects so UI isn't empty
+        if (subjects.length === 0) {
+          const fallback = ENTRANCE_SUBJECTS.map((name, i) => ({
+            id: name, name,
+            icon:          SUBJECT_META[name]?.icon  || '📚',
+            color:         SUBJECT_META[name]?.color || '#0D9488',
+            order:         i,
+            questionCount: untagged, // untagged questions shown on all
+            years:         [],
+          }));
+          setSubjects(fallback);
+          const first = fallback.find(s => s.questionCount > 0);
+          if (first) setSelectedSubject(first);
+          setLoading(false);
+          return;
+        }
+
+        subjects.sort((a, b) => {
+          if (a.questionCount > 0 && b.questionCount === 0) return -1;
+          if (a.questionCount === 0 && b.questionCount > 0) return  1;
+          return (a.order ?? 99) - (b.order ?? 99);
+        });
+
+        setSubjects(subjects);
+        const first = subjects.find(s => s.questionCount > 0);
         if (first) setSelectedSubject(first);
 
       } catch (err) {
