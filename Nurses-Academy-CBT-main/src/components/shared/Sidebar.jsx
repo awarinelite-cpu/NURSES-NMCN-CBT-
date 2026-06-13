@@ -9,6 +9,7 @@ const STUDENT_NAV = [
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
   { to: '/mock-exams',     icon: '📋', label: 'Mock Exams'     },
   { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
+  { to: '/group-chat',     icon: '💬', label: 'Group Chat'     },
   { to: '/results',        icon: '📊', label: 'My Results'     },
   { to: '/performance',    icon: '📈', label: 'Analysis'       },
   { to: '/leaderboard',    icon: '🏆', label: 'Leaderboard'    },

@@ -236,6 +236,31 @@ service cloud.firestore {
       }
     }
 
+    // ── Group Chats ──────────────────────────────────────────────
+    match /groupChats/{groupId} {
+      // Any authenticated user can read group metadata
+      allow read: if isAuth();
+      // Any authenticated user can update (for unread counts, lastMessage)
+      allow write: if isAuth();
+
+      match /messages/{msgId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth();
+        allow delete: if isAdmin();
+      }
+
+      match /members/{memberId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && memberId == request.auth.uid;
+      }
+
+      match /typing/{typingUid} {
+        allow read: if isAuth();
+        allow write: if isAuth() && typingUid == request.auth.uid;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if isAdmin();
     }

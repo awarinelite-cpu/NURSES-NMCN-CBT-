@@ -23,6 +23,8 @@ import NotificationSettings   from './components/student/NotificationSettings';
 import StudentPublicProfile   from './components/student/StudentPublicProfile';
 import ChatPage               from './components/student/ChatPage';
 import ChatInbox              from './components/student/ChatInbox';
+import GroupChatHub           from './components/student/GroupChatHub';
+import GroupChatPage          from './components/student/GroupChatPage';
 import LeaderboardPage        from './components/student/LeaderboardPage';
 
 // Payment pages
@@ -209,6 +211,8 @@ export default function App() {
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
                 <Route path="/entrance-exam/chat-inbox"   element={<ChatInbox />} />
+                <Route path="/group-chat"                 element={<GroupChatHub />} />
+                <Route path="/group-chat/:subjectId"      element={<GroupChatPage />} />
 
                 {/* NMCN exam modes */}
                 <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
