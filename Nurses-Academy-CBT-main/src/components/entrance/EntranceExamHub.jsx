@@ -187,13 +187,6 @@ export default function EntranceExamHub() {
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
 
-  useEffect(() => {
-    setTimeout(() => setBannerVis(true), 60);
-    if (!user) { setLoading(false); return; }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
-
   const load = async () => {
     setLoading(true);
     setLoadError('');
@@ -275,7 +268,14 @@ export default function EntranceExamHub() {
     setLoading(false);
   };
 
-  const handleContinue = (exam) => {
+
+  useEffect(() => {
+    setTimeout(() => setBannerVis(true), 60);
+    if (!user) { setLoading(false); return; }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
+
     setShowPausedModal(false);
     navigate('/entrance-exam/session', {
       state: {
