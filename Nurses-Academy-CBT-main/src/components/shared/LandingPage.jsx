@@ -156,6 +156,20 @@ export default function LandingPage() {
 
         {/* Header text */}
         <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 6vw, 56px)', position: 'relative', zIndex: 1 }}>
+
+          {/* Big hero logo */}
+          <img
+            src="/logo.png"
+            alt="The Elite Nurses"
+            style={{
+              height: 'clamp(180px, 40vw, 260px)',
+              width: 'auto',
+              objectFit: 'contain',
+              marginBottom: 'clamp(16px, 3vw, 28px)',
+              filter: 'drop-shadow(0 8px 32px rgba(13,148,136,0.35))',
+            }}
+          />
+
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             background: 'rgba(245,158,11,0.12)', border: '1px solid #F59E0B',
