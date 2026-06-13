@@ -70,10 +70,15 @@ export default function Navbar({ onMenuToggle }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Dashboard destination for the current site
+  // Dashboard destination for the current site.
+  // If admin is on the admin panel, send them back to their last student-facing
+  // page (NMCN /dashboard or Entrance /entrance-exam), NOT back to /admin.
+  const isAdminPanel = location.pathname.startsWith('/admin');
   const dashboardTo = isEntrance
-    ? '/entrance-exam'
-    : isAdmin ? '/admin' : '/dashboard';
+    ? (localStorage.getItem(ENT_LAST) || '/entrance-exam')
+    : isAdminPanel
+      ? (localStorage.getItem(CBT_LAST) || '/dashboard')
+      : '/dashboard';
 
   // ── Site switch ────────────────────────────────────────────────────────────
   const handleSiteSwitch = () => {
