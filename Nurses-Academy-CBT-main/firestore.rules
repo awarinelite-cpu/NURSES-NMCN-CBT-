@@ -15,6 +15,15 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function isSubAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'subadmin';
+    }
+
+    function isAdminOrSubAdmin() {
+      return isAdmin() || isSubAdmin();
+    }
+
     function isChangingProtectedFields() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasAny([
@@ -49,27 +58,27 @@ service cloud.firestore {
 
     match /entranceExamQuestions/{questionId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
 
     match /entranceExamSchools/{schoolId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
 
     match /entranceExamSubjects/{subjId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
 
     match /entranceExamConfig/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
 
     match /dailyMockSchedule/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
 
     match /entranceExamSessions/{sessionId} {
