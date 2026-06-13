@@ -106,10 +106,25 @@ export default function EntranceSubjectSession() {
         }
 
         // FRESH START — apply FREE_CAP for unpaid users
+        // Fetch tagged questions for this subject AND untagged ones (subject='')
         const constraints = [where('subject', '==', subject.name)];
         if (year && year !== 'All Years') constraints.push(where('year', '==', year));
-        const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints));
-        let all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const [taggedSnap, untaggedSnap] = await Promise.all([
+          getDocs(query(collection(db, 'entranceExamQuestions'), ...constraints)),
+          // Untagged questions: only fetch if no year filter (they have no year set)
+          (year && year !== 'All Years')
+            ? Promise.resolve(null)
+            : getDocs(query(collection(db, 'entranceExamQuestions'), where('subject', '==', ''))),
+        ]);
+        const taggedDocs   = taggedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const untaggedDocs = untaggedSnap ? untaggedSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+        // Deduplicate by id (in case a question has been re-tagged)
+        const seen = new Set();
+        let all = [...taggedDocs, ...untaggedDocs].filter(q => {
+          if (seen.has(q.id)) return false;
+          seen.add(q.id);
+          return true;
+        });
         if (!all.length) { setLoadError(year && year !== 'All Years' ? `No ${subject.name} questions found for ${year}.` : `No questions found for ${subject.name}.`); return; }
         const effectiveCount = isPaid ? count : Math.min(count, FREE_CAP);
         all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(effectiveCount, all.length));

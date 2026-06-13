@@ -16,13 +16,48 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, getDocs, query, where,
-  getCountFromServer, orderBy,
+  getCountFromServer, orderBy, setDoc, doc, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import { ENTRANCE_SUBJECTS } from '../../utils/entranceExamParser';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
+
+// Default icon + colour for each known subject (used when seeding entranceExamSubjects)
+const SUBJECT_META = {
+  'English Language':  { icon: '📖', color: '#2563EB' },
+  'Biology':           { icon: '🫀', color: '#16A34A' },
+  'Chemistry':         { icon: '🧪', color: '#7C3AED' },
+  'Physics':           { icon: '🔭', color: '#0891B2' },
+  'Mathematics':       { icon: '📐', color: '#F59E0B' },
+  'General Studies':   { icon: '🌍', color: '#0D9488' },
+  'Nursing Aptitude':  { icon: '💉', color: '#EF4444' },
+  'Current Affairs':   { icon: '📰', color: '#64748B' },
+};
+
+/**
+ * Seed the `entranceExamSubjects` collection with default subjects.
+ * Uses setDoc with the subject name as the document ID so it is idempotent.
+ */
+async function seedSubjectsCollection() {
+  try {
+    const batch = writeBatch(db);
+    ENTRANCE_SUBJECTS.forEach((name, i) => {
+      const meta = SUBJECT_META[name] || { icon: '📚', color: '#0D9488' };
+      batch.set(doc(db, 'entranceExamSubjects', name), {
+        name,
+        icon:  meta.icon,
+        color: meta.color,
+        order: i,
+      }, { merge: true }); // merge:true so existing docs are not overwritten
+    });
+    await batch.commit();
+  } catch (e) {
+    console.warn('Subject seeding failed (non-critical):', e.message);
+  }
+}
 
 const QUESTION_PRESETS = [10, 20, 30, 50];
 const TIME_OPTIONS = [
@@ -209,56 +244,75 @@ export default function EntranceSubjectDrill() {
       setError('');
       try {
         // 1. Load admin-defined subjects
-        const subjectSnap = await getDocs(
-          query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc'))
-        ).catch(() =>
-          // Fallback if `order` field doesn't exist on all docs
-          getDocs(collection(db, 'entranceExamSubjects'))
-        );
+        let subjectSnap;
+        try {
+          subjectSnap = await getDocs(
+            query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc'))
+          );
+        } catch {
+          subjectSnap = await getDocs(collection(db, 'entranceExamSubjects'));
+        }
 
-        const adminSubjects = subjectSnap.docs.map(d => ({
+        let adminSubjects = subjectSnap.docs.map(d => ({
           id:    d.id,
-          name:  d.data().name  || 'Unknown',
+          name:  d.data().name  || d.id,
           icon:  d.data().icon  || '📚',
           color: d.data().color || '#0D9488',
           order: d.data().order ?? 999,
         }));
 
+        // ── Auto-seed if collection is empty ────────────────────────────────
         if (adminSubjects.length === 0) {
-          // ── Fallback: infer subjects directly from questions ────────────────
-          const qSnap = await getDocs(collection(db, 'entranceExamQuestions'));
-          const map = {};
-          qSnap.forEach(doc => {
-            const d    = doc.data();
-            const subj = d.subject || 'General';
-            if (!map[subj]) map[subj] = { name: subj, icon: '📚', color: '#0D9488', questionCount: 0, years: new Set() };
-            map[subj].questionCount++;
-            if (d.year) map[subj].years.add(d.year);
-          });
-          const list = Object.values(map)
-            .map(s => ({ ...s, years: Array.from(s.years).sort() }))
-            .sort((a, b) => b.questionCount - a.questionCount);
-          setSubjects(list);
-          if (list.length > 0) setSelectedSubject(list[0]);
-          return;
+          await seedSubjectsCollection();
+          // Re-read after seeding
+          try {
+            const snap2 = await getDocs(collection(db, 'entranceExamSubjects'));
+            adminSubjects = snap2.docs.map(d => ({
+              id:    d.id,
+              name:  d.data().name  || d.id,
+              icon:  d.data().icon  || '📚',
+              color: d.data().color || '#0D9488',
+              order: d.data().order ?? 999,
+            }));
+          } catch { /* ignore — use hardcoded fallback below */ }
         }
 
-        // 2. For each admin subject, get question count + available years
+        // ── If still empty (e.g. Firestore write rules block it), use hardcoded list ──
+        if (adminSubjects.length === 0) {
+          adminSubjects = ENTRANCE_SUBJECTS.map((name, i) => ({
+            id:    name,
+            name,
+            icon:  SUBJECT_META[name]?.icon  || '📚',
+            color: SUBJECT_META[name]?.color || '#0D9488',
+            order: i,
+          }));
+        }
+
+        // 2. Count questions per subject.
+        //    Also count questions with subject='' (untagged) — add them to all subjects.
+        let untaggedCount = 0;
+        try {
+          const utSnap = await getCountFromServer(
+            query(collection(db, 'entranceExamQuestions'), where('subject', '==', ''))
+          );
+          untaggedCount = utSnap.data().count;
+        } catch { /* non-critical */ }
+
         const enriched = await Promise.all(
           adminSubjects.map(async subj => {
             try {
-              // Count
               const countSnap = await getCountFromServer(
                 query(
                   collection(db, 'entranceExamQuestions'),
                   where('subject', '==', subj.name)
                 )
               );
-              const questionCount = countSnap.data().count;
+              const taggedCount  = countSnap.data().count;
+              const questionCount = taggedCount + untaggedCount;
 
-              // Years (only if there are questions — avoids empty reads)
+              // Available years (only read if there are tagged questions)
               let years = [];
-              if (questionCount > 0) {
+              if (taggedCount > 0) {
                 const yearSnap = await getDocs(
                   query(
                     collection(db, 'entranceExamQuestions'),
@@ -272,7 +326,7 @@ export default function EntranceSubjectDrill() {
 
               return { ...subj, questionCount, years };
             } catch {
-              return { ...subj, questionCount: 0, years: [] };
+              return { ...subj, questionCount: untaggedCount, years: [] };
             }
           })
         );
