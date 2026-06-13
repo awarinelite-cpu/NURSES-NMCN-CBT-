@@ -4,7 +4,7 @@ import {
   collection, getDocs, query, where,
   orderBy, limit, Timestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '../../firebase/config';
 
 // ── Helpers ──────────────────────────────────────────────────────
 const ago = days => new Date(Date.now() - days * 86400000);

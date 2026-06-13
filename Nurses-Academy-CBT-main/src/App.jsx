@@ -26,6 +26,8 @@ import ChatInbox              from './components/student/ChatInbox';
 import GroupChatHub           from './components/student/GroupChatHub';
 import GroupChatPage          from './components/student/GroupChatPage';
 import LeaderboardPage        from './components/student/LeaderboardPage';
+import ProfilePage            from './components/student/ProfilePage';
+import AdminAnalytics         from './components/admin/AdminAnalytics';
 
 // Payment pages
 import PaymentPage from './components/payment/PaymentPage';
@@ -276,141 +278,6 @@ export default function App() {
 // ── Inline pages ─────────────────────────────────────────────────
 
 // LeaderboardPage → now imported from components/student/LeaderboardPage.jsx
-
-function ProfilePage() {
-  const { user, profile, updateUserProfile } = useAuth();
-  const F = "'Times New Roman', Times, serif";
-  const H = "'Arial Black', Arial, sans-serif";
-  const [editing, setEditing] = useState(false);
-  const [name,    setName]    = useState('');
-  const [school,  setSchool]  = useState('');
-  const [schools, setSchools] = useState([]);
-  const [saving,  setSaving]  = useState(false);
-  const [saveMsg, setSaveMsg] = useState('');
-
-  // Load schools using top-level imports (already available in this file)
-  useEffect(() => {
-    if (!editing) return;
-    import('firebase/firestore').then(({ collection, getDocs, orderBy, query }) => {
-      import('./firebase/config').then(({ db }) => {
-        getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name', 'asc')))
-          .then(snap => {
-            const list = snap.docs.map(d => d.data().name).filter(Boolean);
-            setSchools(list.length > 0 ? list : []);
-          })
-          .catch(() => {
-            // Fallback: try without orderBy
-            import('firebase/firestore').then(({ collection, getDocs }) => {
-              import('./firebase/config').then(({ db }) => {
-                getDocs(collection(db, 'entranceExamSchools')).then(snap => {
-                  setSchools(snap.docs.map(d => d.data().name || d.id).filter(Boolean).sort());
-                }).catch(() => {});
-              });
-            });
-          });
-      });
-    });
-  }, [editing]);
-
-  const startEdit = () => {
-    setName(profile?.name || user?.displayName || '');
-    setSchool(profile?.school || '');
-    setSaveMsg('');
-    setEditing(true);
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) { setSaveMsg('❌ Name cannot be empty.'); return; }
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      await updateUserProfile({ name: name.trim(), school });
-      setSaveMsg('✅ Profile updated!');
-      setEditing(false);
-    } catch (e) {
-      setSaveMsg('❌ Failed to save: ' + (e.code || e.message || 'Unknown error'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={{ padding: 24, maxWidth: 600, fontFamily: F, color: 'var(--text-primary)' }}>
-      <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.8rem,4vw,2.8rem)', marginBottom: 24 }}>👤 My Profile</h1>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg,#0D9488,#1E3A8A)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 28, color: 'var(--text-primary)', fontFamily: H, flexShrink: 0 }}>
-            {(profile?.name || user?.displayName || 'S')[0].toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 18, fontFamily: H }}>{profile?.name || user?.displayName || 'Student'}</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, fontFamily: F, marginTop: 2 }}>{user?.email}</div>
-            {profile?.school && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginTop: 4, fontFamily: F }}>🏫 {profile.school}</div>}
-            <span className={`badge ${profile?.subscribed ? 'badge-teal' : 'badge-grey'}`} style={{ marginTop: 6, display: 'inline-flex' }}>
-              {profile?.subscribed ? '⭐ Premium' : '🆓 Free'}
-            </span>
-            {profile?.entranceExamPaid && (
-              <span className="badge badge-teal" style={{ marginTop: 6, marginLeft: 6, display: 'inline-flex' }}>🏫 Entrance Paid</span>
-            )}
-          </div>
-          {!editing && (
-            <button onClick={startEdit} style={{ padding: '9px 18px', borderRadius: 10, cursor: 'pointer', background: 'var(--teal-glow)', border: '1.5px solid var(--teal)', color: 'var(--teal)', fontWeight: 700, fontSize: 14, fontFamily: F }}>✏️ Edit</button>
-          )}
-        </div>
-
-        {editing && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16, background: 'var(--bg-secondary)', borderRadius: 12, border: '1.5px solid var(--border)' }}>
-            <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,2vw,1.5rem)', margin: 0 }}>Edit Profile</h3>
-            <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700 }}>Full Name</label>
-              <input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} style={{ fontFamily: F, fontWeight: 700 }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700 }}>🏫 Your School</label>
-              <select className="form-input form-select" value={school} onChange={e => setSchool(e.target.value)} style={{ fontFamily: F, fontWeight: 700 }}>
-                <option value="">— Select your school —</option>
-                {schools.map(s => <option key={s} value={s}>{s}</option>)}
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            {saveMsg && <div style={{ fontSize: 14, fontWeight: 700, fontFamily: F, color: saveMsg.startsWith('✅') ? '#16A34A' : '#EF4444' }}>{saveMsg}</div>}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', background: 'var(--teal)', border: 'none', color: 'var(--text-primary)', borderRadius: 10, cursor: saving ? 'wait' : 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>
-                {saving ? 'Saving…' : '💾 Save Changes'}
-              </button>
-              <button onClick={() => setEditing(false)} style={{ padding: '10px 18px', background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F }}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            ['Total Exams', profile?.totalExams || 0],
-            ['Avg Score',   profile?.totalExams ? Math.round((profile?.totalScore || 0) / profile.totalExams) + '%' : '—'],
-            ['Plan',        profile?.subscriptionPlan || 'Free'],
-            ['Expires',     profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry).toLocaleDateString() : 'N/A'],
-          ].map(([k, v]) => (
-            <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: F }}>{k}</div>
-              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 4, color: 'var(--text-primary)', fontFamily: H }}>{v}</div>
-            </div>
-          ))}
-        </div>
-        <NotificationSettings />
-      </div>
-    </div>
-  );
-}
-
-function AdminAnalytics() {
-  return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>📈 Platform Analytics</h2>
-      <p style={{ color: 'var(--text-muted)' }}>Advanced analytics dashboard — coming in next release.</p>
-    </div>
-  );
-}
-
 function NotFound() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, textAlign: 'center', padding: 24, background: '#020B18', color: 'var(--text-primary)' }}>
