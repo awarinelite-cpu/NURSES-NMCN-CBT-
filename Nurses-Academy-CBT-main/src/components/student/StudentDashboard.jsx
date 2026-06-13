@@ -644,23 +644,19 @@ export default function StudentDashboard() {
                   onClick={e => e.stopPropagation()}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
-                    border: `1.5px solid ${action.color}66`,
-                    borderLeft: `4px solid ${action.color}`,
-                    borderRadius: 12, padding: '10px 14px',
                     textDecoration: 'none', width: '100%', boxSizing: 'border-box',
                   }}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: `${action.color}2a`, border: `1.5px solid ${action.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                  <div style={{ fontSize: 28, flexShrink: 0 }}>
                     {action.icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#fff', marginBottom: 2 }}>{action.label}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', marginBottom: 2 }}>{action.label}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                       {action.desc}
                     </div>
                   </div>
-                  <div style={{ color: action.color, fontWeight: 900, fontSize: 16, flexShrink: 0 }}>→</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>→</div>
                 </Link>
 
                 <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
