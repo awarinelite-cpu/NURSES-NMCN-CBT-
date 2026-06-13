@@ -28,6 +28,7 @@ const ENTRANCE_NAV = [
   { to: '/entrance-exam/analysis',        icon: '📈', label: 'Analysis'             },
   { to: '/entrance-exam/leaderboard',     icon: '🏆', label: 'Leaderboard'          },
   { to: '/entrance-exam/group-chat',      icon: '👥', label: 'Community Chat'        },
+  { to: '/entrance-exam/chat-inbox',      icon: '💬', label: 'Messages'              },
   { to: '/entrance-exam/payment',          icon: '💳', label: 'Registration'         },
   { to: '/profile',                       icon: '👤', label: 'Profile'              },
 ];
