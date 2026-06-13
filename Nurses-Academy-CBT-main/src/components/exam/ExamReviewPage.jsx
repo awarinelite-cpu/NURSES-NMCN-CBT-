@@ -387,6 +387,11 @@ export default function ExamReviewPage() {
                     }}>
                       {q.question}
                     </p>
+                    {q.explanation && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                        <ExplanationText text={q.explanation} />
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -425,18 +430,6 @@ export default function ExamReviewPage() {
                       padding: '4px 10px', background: 'rgba(100,116,139,0.08)',
                       borderRadius: 6, display: 'inline-block',
                     }}>⚪ Not answered</div>
-                  )}
-
-                  {q.explanation && (
-                    <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)', width: '100%' }}>
-                      <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 16 }}>💡</span>
-                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
-                      </div>
-                      <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
-                        <ExplanationText text={q.explanation} />
-                      </div>
-                    </div>
                   )}
 
                   <button
