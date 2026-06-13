@@ -315,14 +315,20 @@ export default function ExamReviewPage() {
                   borderRadius: 14, padding: 20,
                   borderLeft: `4px solid ${isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}`,
                 }}>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                  <div style={{ marginBottom: 14 }}>
                     <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B',
-                      color: 'var(--text-primary)', fontWeight: 800, fontSize: 12,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 800, fontSize: 12,
+                      marginBottom: 10,
                     }}>{i + 1}</span>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                    <p style={{
+                      margin: 0, fontWeight: 700, fontSize: 15,
+                      color: 'var(--text-primary)', lineHeight: 1.6,
+                      textAlign: 'justify', width: '100%',
+                      fontFamily: F,
+                    }}>
                       {q.question}
                     </p>
                   </div>
