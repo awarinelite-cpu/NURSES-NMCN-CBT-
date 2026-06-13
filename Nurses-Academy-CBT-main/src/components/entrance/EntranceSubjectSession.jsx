@@ -356,7 +356,7 @@ export default function EntranceSubjectSession() {
                       : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
                   </div>
                   {q.explanation && (
-                    <div style={{ marginTop: 10, marginLeft: 34, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)' }}>
+                    <div style={{ marginTop: 10, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', width: '100%' }}>
                       <div style={{ background: 'var(--teal)', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 15 }}>💡</span>
                         <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 13, color: '#fff' }}>Explanation</span>
@@ -479,7 +479,7 @@ export default function EntranceSubjectSession() {
                 })}
               </div>
               {submitted && currentQ.explanation && (
-                <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)' }}>
+                <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)', width: '100%' }}>
                   <div style={{ background: 'var(--teal)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>💡</span>
                     <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: '#fff' }}>Explanation</span>

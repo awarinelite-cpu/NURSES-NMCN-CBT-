@@ -131,6 +131,7 @@ function IntroLine({ text }) {
     <p style={{
       margin: '0 0 8px', fontSize: 15, fontWeight: 700,
       lineHeight: 1.75, fontFamily: F, color: 'var(--text-primary)',
+      textAlign: 'justify', width: '100%',
     }}>
       {text}
     </p>
@@ -208,6 +209,7 @@ function RestLine({ item }) {
     <p style={{
       margin: '4px 0', fontSize: 15, fontWeight: 700,
       fontFamily: F, color: 'var(--text-primary)', lineHeight: 1.75,
+      textAlign: 'justify', width: '100%',
     }}>{text}</p>
   );
 }
@@ -222,7 +224,7 @@ export default function ExplanationText({ text = '', style = {} }) {
       <p style={{
         margin: 0, lineHeight: 1.75, fontSize: 15,
         fontWeight: 700, fontFamily: F,
-        color: 'var(--text-primary)', ...style,
+        color: 'var(--text-primary)', textAlign: 'justify', width: '100%', ...style,
       }}>
         {text}
       </p>

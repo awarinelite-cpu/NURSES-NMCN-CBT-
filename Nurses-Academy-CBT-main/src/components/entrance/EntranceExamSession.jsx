@@ -414,7 +414,6 @@ export default function EntranceExamSession() {
               {q.explanation && (
                 <div style={{
                   marginTop: 14,
-                  marginLeft: 36,
                   borderRadius: 14,
                   overflow: 'hidden',
                   border: '2px solid rgba(13,148,136,0.35)',
