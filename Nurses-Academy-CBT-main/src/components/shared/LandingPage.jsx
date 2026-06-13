@@ -126,7 +126,7 @@ export default function LandingPage() {
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <span style={{ fontSize: 24 }}>📚</span>
-          Nurses<span style={{ color: '#14B8A8' }}>Academy</span>
+          The Elite<span style={{ color: '#14B8A8' }}> Nurses</span>
         </div>
 
       </nav>
@@ -311,7 +311,7 @@ export default function LandingPage() {
         padding: '24px', textAlign: 'center',
         color: 'rgba(255,255,255,0.35)', fontSize: 13,
       }}>
-        © {new Date().getFullYear()} Nurses Academy · Built for Nigerian Nursing Students
+        © {new Date().getFullYear()} The Elite Nurses · Built for Nigerian Nursing Students
       </footer>
     </div>
   );
