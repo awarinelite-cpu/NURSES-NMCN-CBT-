@@ -27,7 +27,7 @@ export default function UsersManager() {
 
   const filtered = users.filter(u => {
     const matchSearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' ? true : filter === 'admin' ? u.role === 'admin' : filter === 'premium' ? u.subscribed : !u.subscribed && u.role !== 'admin';
+    const matchFilter = filter === 'all' ? true : filter === 'admin' ? u.role === 'admin' : filter === 'subadmin' ? u.role === 'subadmin' : filter === 'premium' ? u.subscribed : !u.subscribed && u.role !== 'admin' && u.role !== 'subadmin';
     return matchSearch && matchFilter;
   });
 
@@ -60,6 +60,12 @@ export default function UsersManager() {
     updateUser(u.id, { role: u.role === 'admin' ? 'student' : 'admin' });
   };
 
+  const toggleSubAdmin = (u) => {
+    const isSubAdmin = u.role === 'subadmin';
+    if (!window.confirm(`${isSubAdmin ? 'Remove' : 'Make'} ${u.name} a Sub-Admin?`)) return;
+    updateUser(u.id, { role: isSubAdmin ? 'student' : 'subadmin' });
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 1200 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -77,7 +83,7 @@ export default function UsersManager() {
         <input className="form-input" placeholder="🔍 Search name or email…" value={search}
           onChange={e => setSearch(e.target.value)} style={{ maxWidth: 280 }} />
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
-          {[['all','All'], ['free','Free'], ['premium','Premium'], ['admin','Admin']].map(([v,l]) => (
+          {[['all','All'], ['free','Free'], ['premium','Premium'], ['admin','Admin'], ['subadmin','Sub-Admin']].map(([v,l]) => (
             <button key={v} onClick={() => setFilter(v)}
               style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                 background: filter === v ? 'var(--teal)' : 'transparent', color: filter === v ? '#fff' : 'var(--text-muted)',
@@ -122,7 +128,8 @@ export default function UsersManager() {
                   </td>
                   <td style={{ fontSize: 13 }}>{u.email}</td>
                   <td>
-                    <span className={`badge ${u.role === 'admin' ? 'badge-red' : 'badge-grey'}`}>
+                    <span className={`badge ${u.role === 'admin' ? 'badge-red' : u.role === 'subadmin' ? 'badge-gold' : 'badge-grey'}`}>
+                      {u.role === 'admin' ? 'Admin' : u.role === 'subadmin' ? 'Sub-Admin' : 'Student'}
                       {u.role || 'student'}
                     </span>
                   </td>
@@ -151,6 +158,11 @@ export default function UsersManager() {
                       <button className="btn btn-ghost btn-sm" onClick={() => toggleAdmin(u)}
                         title={u.role === 'admin' ? 'Revoke admin' : 'Make admin'}>
                         {u.role === 'admin' ? '👤' : '🛡️'}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => toggleSubAdmin(u)}
+                        title={u.role === 'subadmin' ? 'Remove Sub-Admin' : 'Make Sub-Admin'}
+                        style={{ opacity: u.role === 'admin' ? 0.3 : 1, pointerEvents: u.role === 'admin' ? 'none' : 'auto' }}>
+                        {u.role === 'subadmin' ? '🔧✕' : '🔧'}
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>🗑️</button>
                     </div>

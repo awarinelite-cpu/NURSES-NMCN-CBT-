@@ -6,7 +6,7 @@ import { ThemeProvider }         from './context/ThemeContext';
 import { ToastProvider }         from './components/shared/Toast';
 import { useAuth }               from './context/AuthContext';
 
-import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, SubAdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
 import EntranceExamRoute  from './components/shared/EntranceExamRoute';
 import AppLayout      from './components/shared/AppLayout';
 import LandingPage    from './components/shared/LandingPage';
@@ -62,6 +62,7 @@ import EntranceExamPaymentPage  from './components/entrance/EntranceExamPaymentP
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
+import SubAdminDashboard     from './components/admin/SubAdminDashboard';
 import QuestionsManager      from './components/admin/QuestionsManager';
 import UsersManager          from './components/admin/UsersManager';
 import PaymentsManager       from './components/admin/PaymentsManager';
@@ -241,16 +242,17 @@ export default function App() {
 
                 {/* Admin */}
                 <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/questions"                       element={<AdminRoute><QuestionsManager /></AdminRoute>} />
+                <Route path="/subadmin"                             element={<SubAdminRoute><SubAdminDashboard /></SubAdminRoute>} />
+                <Route path="/admin/questions"                       element={<SubAdminRoute><QuestionsManager /></SubAdminRoute>} />
                 <Route path="/admin/users"                           element={<AdminRoute><UsersManager /></AdminRoute>} />
-                <Route path="/admin/payments"                        element={<AdminRoute><PaymentsManager /></AdminRoute>} />
+                <Route path="/admin/payments"                        element={<SubAdminRoute><PaymentsManager /></SubAdminRoute>} />
                 <Route path="/admin/access-codes"                    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
-                <Route path="/admin/announcements"                   element={<AdminRoute><AnnouncementsManager /></AdminRoute>} />
+                <Route path="/admin/announcements"                   element={<SubAdminRoute><AnnouncementsManager /></SubAdminRoute>} />
                 <Route path="/admin/analytics"                       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
-                <Route path="/admin/scheduled-exams"                 element={<AdminRoute><ScheduledExamsManager /></AdminRoute>} />
+                <Route path="/admin/scheduled-exams"                 element={<SubAdminRoute><ScheduledExamsManager /></SubAdminRoute>} />
                 <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
-                <Route path="/admin/entrance-exam"                   element={<AdminRoute><EntranceExamManager /></AdminRoute>} />
-                <Route path="/admin/entrance-exam/daily-mock-upload" element={<AdminRoute><EntranceDailyMockUpload /></AdminRoute>} />
+                <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
+                <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
 
               </Route>
 

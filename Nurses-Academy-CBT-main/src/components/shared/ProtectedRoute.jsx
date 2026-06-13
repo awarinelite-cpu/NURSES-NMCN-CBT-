@@ -76,11 +76,22 @@ export function AdminRoute({ children }) {
   return children;
 }
 
+/* ── SubAdminRoute — admin OR subadmin role ── */
+export function SubAdminRoute({ children }) {
+  const { user, profile, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user)   return <Navigate to="/auth" replace />;
+  const role = profile?.role;
+  if (role !== 'admin' && role !== 'subadmin') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 /* ── GuestRoute — redirects logged-in users to their chosen platform ── */
 export function GuestRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   if (user) {
+    if (profile?.role === 'subadmin') return <Navigate to="/subadmin" replace />;
     const platform = getChosenPlatform();
     const dest = platform === 'entrance' ? '/entrance-exam' : '/dashboard';
     return <Navigate to={dest} replace />;

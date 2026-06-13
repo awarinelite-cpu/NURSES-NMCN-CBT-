@@ -41,24 +41,38 @@ const ADMIN_NAV = [
   { to: '/admin/entrance-exam',    icon: '🏫',  label: 'Entrance Exam'   },
 ];
 
+const SUBADMIN_NAV = [
+  { to: '/subadmin',                        icon: '🔧', label: 'Sub-Admin Home'   },
+  { to: '/admin/questions',                 icon: '❓',  label: 'NMCN Questions'   },
+  { to: '/admin/entrance-exam',             icon: '🏫',  label: 'Entrance Exam'    },
+  { to: '/admin/payments',                  icon: '💰',  label: 'Payments'         },
+  { to: '/admin/announcements',             icon: '📢',  label: 'Announcements'    },
+  { to: '/admin/scheduled-exams',           icon: '📅',  label: 'Scheduled Exams'  },
+];
+
 export default function Sidebar({ open, onClose }) {
   const { profile, logout, isAdmin } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
 
+  const isSubAdmin    = profile?.role === 'subadmin';
   const isEntranceRoute = location.pathname.startsWith('/entrance-exam');
 
   const navItems = isAdmin
     ? ADMIN_NAV
-    : isEntranceRoute
-      ? ENTRANCE_NAV
-      : STUDENT_NAV;
+    : isSubAdmin
+      ? SUBADMIN_NAV
+      : isEntranceRoute
+        ? ENTRANCE_NAV
+        : STUDENT_NAV;
 
-  const brandLabel = isEntranceRoute && !isAdmin
+  const brandLabel = isEntranceRoute && !isAdmin && !isSubAdmin
     ? '🏫 Entrance Exam'
     : isAdmin
       ? '🛡️ Admin Mode'
-      : '🎓 Student Mode';
+      : isSubAdmin
+        ? '🔧 Sub-Admin Mode'
+        : '🎓 Student Mode';
 
   return (
     <>
@@ -127,6 +141,7 @@ export default function Sidebar({ open, onClose }) {
                   end={
                     item.to === '/dashboard' ||
                     item.to === '/admin' ||
+                    item.to === '/subadmin' ||
                     item.to === '/entrance-exam'
                   }
                   className={({ isActive }) => isActive ? 'active' : ''}

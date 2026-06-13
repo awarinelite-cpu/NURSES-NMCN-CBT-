@@ -231,6 +231,7 @@ export function AuthProvider({ children }) {
       refreshProfile, googleLogin,
       updateSchool, updateUserProfile,
       isAdmin:      profile?.role === 'admin',
+      isSubAdmin:   profile?.role === 'subadmin',
       isSubscribed: profile?.subscribed || profile?.accessLevel === 'full',
     }}>
       {!loading && (
