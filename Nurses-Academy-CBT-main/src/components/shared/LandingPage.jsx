@@ -162,10 +162,12 @@ export default function LandingPage() {
             src="/logo.png"
             alt="The Elite Nurses"
             style={{
+              display: 'block',
+              margin: '0 auto',
               height: 'clamp(180px, 40vw, 260px)',
               width: 'auto',
               objectFit: 'contain',
-              marginBottom: 'clamp(16px, 3vw, 28px)',
+              marginBottom: 'clamp(12px, 2vw, 20px)',
               filter: 'drop-shadow(0 8px 32px rgba(13,148,136,0.35))',
             }}
           />
