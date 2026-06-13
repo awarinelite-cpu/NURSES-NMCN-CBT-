@@ -406,14 +406,16 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
       const school = schools.find(s => s.id === schoolId);
       const batch = writeBatch(db);
       parsed.forEach(q => {
+        // Use auto-detected subject from heading; fall back to manually selected subject
+        const finalSubject = q._detectedSubject || subject;
         const ref = doc(collection(db, 'entranceExamQuestions'));
-        batch.set(ref, { schoolId: schoolId || null, schoolName: school?.name || '', year, subject, questionType: q.questionType, diagramUrl: q.diagramUrl || '', questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer, explanation: q.explanation || '', active: true, inDailyBank: addToDailyBank, createdAt: serverTimestamp() });
+        batch.set(ref, { schoolId: schoolId || null, schoolName: school?.name || '', year, subject: finalSubject, questionType: q.questionType, diagramUrl: q.diagramUrl || '', questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer, explanation: q.explanation || '', active: true, inDailyBank: addToDailyBank, createdAt: serverTimestamp() });
       });
       await batch.commit();
       if (schoolId) {
         try { const c = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('schoolId', '==', schoolId))); await updateDoc(doc(db, 'entranceExamSchools', schoolId), { questionCount: c.data().count }); } catch {}
       }
-      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length });
+      setImported({ count: parsed.length, diagrams: parsed.filter(q => q.questionType === 'diagram').length, autoTagged });
       setParsed([]); setRawText('');
       toast(`Imported ${parsed.length} questions ✅`, 'success');
     } catch (e) { toast('Import failed: ' + e.message, 'error'); }
@@ -422,6 +424,8 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
 
   const diagrams = parsed.filter(q => q.questionType === 'diagram').length;
   const texts    = parsed.filter(q => q.questionType === 'text').length;
+  // Count how many have auto-detected subjects
+  const autoTagged = parsed.filter(q => q._detectedSubject).length;
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -536,18 +540,28 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
               <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>✅ Parsed: {parsed.length} questions</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>📝 {texts} text · 🖼️ {diagrams} diagram</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                📝 {texts} text · 🖼️ {diagrams} diagram
+                {autoTagged > 0 && <span style={{ marginLeft: 8, color: 'var(--teal)', fontWeight: 700 }}>🏷️ {autoTagged} auto-tagged by subject heading</span>}
+                {autoTagged < parsed.length && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>· {parsed.length - autoTagged} will use default subject "{subject}"</span>}
+              </div>
             </div>
             <button className="btn btn-primary" onClick={handleImport} disabled={importing}>{importing ? '⬆️ Importing…' : `✅ Import All (${parsed.length})`}</button>
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Question Preview</th><th>Ans</th><th>Type</th></tr></thead>
+              <thead><tr><th>#</th><th>Question Preview</th><th>Subject</th><th>Ans</th><th>Type</th></tr></thead>
               <tbody>
                 {parsed.slice(0, 20).map((q, i) => (
-                  <tr key={i}><td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td><td style={{ fontSize: 12 }}>{q.questionText.slice(0, 60)}{q.questionText.length > 60 ? '…' : ''}</td><td><span className="badge badge-teal">{q.correctAnswer}</span></td><td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td></tr>
+                  <tr key={i}>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
+                    <td style={{ fontSize: 12 }}>{q.questionText.replace(/^Instructions:.*?\n/i, '').slice(0, 55)}{q.questionText.length > 55 ? '…' : ''}</td>
+                    <td><span className="badge" style={{ background: q._detectedSubject ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)', color: q._detectedSubject ? 'var(--teal)' : 'var(--text-muted)', fontSize: 11 }}>{q._detectedSubject || subject}</span></td>
+                    <td><span className="badge badge-teal">{q.correctAnswer}</span></td>
+                    <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
+                  </tr>
                 ))}
-                {parsed.length > 20 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 20} more</td></tr>}
+                {parsed.length > 20 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>… and {parsed.length - 20} more</td></tr>}
               </tbody>
             </table>
           </div>
@@ -557,7 +571,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
         <div style={{ background: 'rgba(22,163,74,0.08)', border: '1.5px solid rgba(22,163,74,0.3)', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
           <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--green)', marginBottom: 4, fontFamily: H }}>Import Complete!</div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: F }}>Imported {imported.count} questions · {imported.diagrams} with diagrams · {imported.count - imported.diagrams} text only</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: F }}>Imported {imported.count} questions · {imported.diagrams} with diagrams · {imported.count - imported.diagrams} text only{imported.autoTagged > 0 ? ` · 🏷️ ${imported.autoTagged} auto-tagged by subject` : ''}</div>
         </div>
       )}
     </div>

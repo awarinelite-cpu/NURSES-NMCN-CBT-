@@ -305,6 +305,28 @@ function extractOptionText(line) {
   return line.replace(/^(?:\-\s*)?\(([A-Da-d])\)\s*|^([A-Da-d])[\.\)\-:]\s*/i, '').trim();
 }
 
+// ── Subject heading extractor ─────────────────────────────────────────
+// Maps heading text → canonical ENTRANCE_SUBJECTS value
+
+const SUBJECT_MAP = [
+  { pattern: /math/i,                      subject: 'Mathematics'     },
+  { pattern: /physics/i,                   subject: 'Physics'         },
+  { pattern: /chem/i,                      subject: 'Chemistry'       },
+  { pattern: /biol/i,                      subject: 'Biology'         },
+  { pattern: /english|literature|lang/i,   subject: 'English Language'},
+  { pattern: /general\s*stud/i,            subject: 'General Studies' },
+  { pattern: /nursing\s*apt/i,             subject: 'Nursing Aptitude'},
+  { pattern: /current\s*affairs/i,         subject: 'Current Affairs' },
+];
+
+function extractSubjectFromHeading(line) {
+  const clean = line.replace(/\*/g, '').trim();
+  for (const { pattern, subject } of SUBJECT_MAP) {
+    if (pattern.test(clean)) return subject;
+  }
+  return null;
+}
+
 // ── Main Parser ───────────────────────────────────────────────────────
 
 export function parseEntranceQuestions(rawText, answerKeyText = '') {
@@ -348,34 +370,54 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
   const errors    = [];
   let seqCounter  = 0;
 
+  // Track current subject heading from **MATHEMATICS** / ENGLISH LANGUAGE etc.
+  let currentDetectedSubject = null;
+
   for (const block of rawBlocks) {
-    seqCounter++;
     // rawLines preserves blank lines; blockLines is the trimmed+filtered version
     // used only for structural detection (question, options, answer).
     const rawLines   = block.split('\n');
-    // For structure: trimmed non-empty lines
     const blockLines = rawLines.map(l => l.trim()).filter(Boolean);
 
-    if (blockLines.length < 2) {
-      errors.push(`Block ${seqCounter}: Too few lines (got ${blockLines.length})`);
+    if (blockLines.length === 0) continue;
+
+    // ── Pure subject-heading block → update tracker, don't count as question ──
+    if (blockLines.length === 1 && isSubjectHeading(blockLines[0])) {
+      const detected = extractSubjectFromHeading(blockLines[0]);
+      if (detected) currentDetectedSubject = detected;
       continue;
     }
 
-    // Skip pure subject-heading blocks (e.g. **MATHEMATICS**, ENGLISH LANGUAGE)
-    if (blockLines.length === 1 && isSubjectHeading(blockLines[0])) { seqCounter--; continue; }
-
-    // Skip blocks that are only instruction lines
-    if (blockLines.every(l => isInstructionLine(l) || isSubjectHeading(l))) { seqCounter--; continue; }
-
-    // We walk blockLines for structure but switch to rawLines when collecting explanation
-    let cursor = 0, diagramUrl = '', qNumber = seqCounter;
-
-    if (isDiagramUrl(blockLines[0])) { diagramUrl = blockLines[0].trim(); cursor = 1; }
-
-    // Skip leading subject headings or instruction lines within a block
-    while (cursor < blockLines.length && (isSubjectHeading(blockLines[cursor]) || isInstructionLine(blockLines[cursor]))) {
+    // ── Block starts with a subject heading (heading + questions merged) ──
+    // Peel off leading heading line(s) and update subject tracker
+    let cursor = 0;
+    while (cursor < blockLines.length && isSubjectHeading(blockLines[cursor])) {
+      const detected = extractSubjectFromHeading(blockLines[cursor]);
+      if (detected) currentDetectedSubject = detected;
       cursor++;
     }
+
+    if (cursor >= blockLines.length) continue; // nothing left after heading
+
+    // ── Collect any leading instruction lines — prepend to question text ──
+    const instructionPrefix = [];
+    while (cursor < blockLines.length && isInstructionLine(blockLines[cursor])) {
+      instructionPrefix.push(blockLines[cursor]);
+      cursor++;
+    }
+
+    if (cursor >= blockLines.length) continue; // only instructions, no question
+
+    seqCounter++;
+
+    if (blockLines.length - cursor < 2) {
+      errors.push(`Block ${seqCounter}: Too few lines (got ${blockLines.length - cursor})`);
+      continue;
+    }
+
+    let diagramUrl = '', qNumber = seqCounter;
+
+    if (isDiagramUrl(blockLines[cursor])) { diagramUrl = blockLines[cursor].trim(); cursor++; }
 
     if (cursor >= blockLines.length) { errors.push(`Block ${seqCounter}: Missing question text`); continue; }
 
@@ -384,8 +426,13 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       qNumber = getQuestionNumber(questionText) || seqCounter;
       questionText = questionText.replace(/^(\d+[\.\)\s\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
     }
-    // Strip bold markers from question text (e.g. **text**)
+    // Strip leading/trailing bold markers from question text (e.g. **text**)
     questionText = questionText.replace(/^\*{1,3}|\*{1,3}$/g, '').trim();
+
+    // Prepend instruction context if present (e.g. "Instructions: Choose the option most nearly opposite…")
+    if (instructionPrefix.length > 0) {
+      questionText = instructionPrefix.join(' ') + '\n' + questionText;
+    }
     cursor++;
 
     const optionMap = {};
@@ -417,34 +464,21 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
         const explLines = firstPart ? [firstPart] : [];
 
         // ── FIXED: Find explanation marker in rawLines, then collect ──
-        // We search rawLines for the exact line matching our explanation marker
-        // (which is the current blockLines[cursor] before trimming)
         const explMarkerText = rawLines.find(rl => rl.trim() === line);
         let rawIdx = rawLines.findIndex(rl => rl === explMarkerText);
-
-        if (rawIdx === -1) {
-          // Fallback: search by trimmed content match
-          rawIdx = rawLines.findIndex(rl => rl.trim() === line);
-        }
+        if (rawIdx === -1) rawIdx = rawLines.findIndex(rl => rl.trim() === line);
 
         if (rawIdx !== -1) {
-          // Walk rawLines from the line after the marker, collecting everything
           rawIdx++;
           while (rawIdx < rawLines.length) {
-            const nextRaw = rawLines[rawIdx];
+            const nextRaw     = rawLines[rawIdx];
             const nextTrimmed = nextRaw.trim();
-            if (
-              isQuestionLine(nextTrimmed) ||
-              isAnswerLine(nextTrimmed)
-            ) break;
-            // Keep the line (trimmed), including blank ones
+            if (isQuestionLine(nextTrimmed) || isAnswerLine(nextTrimmed)) break;
             explLines.push(nextTrimmed);
             rawIdx++;
           }
-          // Advance blockLines cursor past all lines we consumed
-          cursor = blockLines.length; // explanation goes to end of block
+          cursor = blockLines.length;
         } else {
-          // Fallback: just use remaining blockLines
           cursor++;
           while (cursor < blockLines.length) {
             const next = blockLines[cursor];
@@ -454,7 +488,6 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
           }
         }
 
-        // Drop trailing blank lines; keep internal blank lines
         while (explLines.length && explLines[explLines.length - 1] === '') explLines.pop();
         explanation = explLines.join('\n');
         continue;
@@ -496,15 +529,16 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
     }
 
     questions.push({
-      questionText: questionText.trim(),
-      options:      optionMap,
+      questionText:      questionText.trim(),
+      options:           optionMap,
       correctAnswer,
-      explanation,   // \n preserved, blank internal lines kept, no length limit
+      explanation,
       diagramUrl,
-      questionType: diagramUrl ? 'diagram' : 'text',
-      _seq:         seqCounter,
-      _qNumber:     qNumber,
-      _hasAnswer:   !!correctAnswer,
+      questionType:      diagramUrl ? 'diagram' : 'text',
+      _detectedSubject:  currentDetectedSubject,   // ← auto-tagged from heading
+      _seq:              seqCounter,
+      _qNumber:          qNumber,
+      _hasAnswer:        !!correctAnswer,
     });
   }
 
