@@ -56,7 +56,7 @@ export default function ChatInbox() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
   const location          = useLocation();
-  const isEntrance        = location.pathname.startsWith('/entrance-exam');
+  const isEntrance        = location.state?.from === 'entrance';
   const leaderboardRoute  = isEntrance ? '/entrance-exam/leaderboard' : '/leaderboard';
   const myUid             = user?.uid;
 

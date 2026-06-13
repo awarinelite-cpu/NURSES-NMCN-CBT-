@@ -191,11 +191,11 @@ export default function EntranceBottomNav() {
       // Only one conversation with unread — go directly to it
       const t = unreadThreads[0];
       navigate(`/chat/${t.otherUid}`, {
-        state: { name: t.otherName, school: t.otherSchool || '' },
+        state: { name: t.otherName, school: t.otherSchool || '', from: 'entrance' },
       });
     } else {
       // Multiple conversations — go to inbox with unread highlights
-      navigate('/chat-inbox');
+      navigate('/chat-inbox', { state: { from: 'entrance' } });
     }
   }, [unreadThreads, navigate]);
 
@@ -305,7 +305,11 @@ export default function EntranceBottomNav() {
             onClick={(e) => {
               e.stopPropagation();
               setOpen(false);
-              navigate(item.to);
+              if (item.to === '/chat-inbox') {
+                navigate('/chat-inbox', { state: { from: 'entrance' } });
+              } else {
+                navigate(item.to);
+              }
             }}
             style={{
               position: 'fixed', left, top,
