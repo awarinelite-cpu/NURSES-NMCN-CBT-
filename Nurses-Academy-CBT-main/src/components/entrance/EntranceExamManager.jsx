@@ -19,6 +19,7 @@ import {
   ENTRANCE_YEARS,
   ENTRANCE_SUBJECTS as SUBJECTS,
 } from '../../utils/entranceExamParser';
+import { readQuestionFile } from '../../utils/questionFileImport';
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -319,6 +320,17 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// ── Entrance CSV template generator ──────────────────────────────────────────
+function generateEntranceCsvTemplate() {
+  const header = 'question,option_a,option_b,option_c,option_d,answer,explanation,subject';
+  const rows = [
+    'Which of the following is NOT a function of the liver?,Detoxification of drugs,Synthesis of bile,Production of insulin,Storage of glycogen,C,Insulin is produced by the beta cells of the pancreas not the liver.,Biology',
+    'The normal adult resting heart rate is:,40-60 bpm,60-100 bpm,100-120 bpm,120-160 bpm,B,The normal adult resting heart rate ranges from 60 to 100 beats per minute.,Biology',
+    'What is the powerhouse of the cell?,Nucleus,Ribosome,Mitochondria,Golgi apparatus,C,The mitochondria produces ATP through cellular respiration and is known as the powerhouse of the cell.,Biology',
+  ];
+  return new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+}
+
 // TAB 3 — Bulk Upload
 // ═════════════════════════════════════════════════════════════════════════════
 function BulkUploadTab({ toast, schools, schoolsReady }) {
@@ -331,6 +343,55 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
   const [errors,    setErrors]    = useState([]);
   const [importing, setImporting] = useState(false);
   const [imported,  setImported]  = useState(null);
+
+  // ── File upload state ────────────────────────────────────────────────
+  const [fileImporting,  setFileImporting]  = useState(false);
+  const [fileImportInfo, setFileImportInfo] = useState('');
+  const [fileWarnings,   setFileWarnings]   = useState([]);
+
+  // ── File import handler ──────────────────────────────────────────────
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setFileImporting(true);
+    setFileImportInfo('');
+    setFileWarnings([]);
+    setParsed([]);
+    setErrors([]);
+    setImported(null);
+    setRawText('');
+    try {
+      const { text, warnings, rowCount, fileType } = await readQuestionFile(file);
+      if (!text.trim()) {
+        toast('File appears empty or could not be read.', 'error');
+        setFileImporting(false);
+        return;
+      }
+      setRawText(text);
+      if (warnings?.length > 0) setFileWarnings(warnings);
+      const lines = text.split('\n').filter(l => l.trim()).length;
+      const typeLabel = fileType === 'csv' ? `CSV (${rowCount} rows)` : fileType === 'docx' ? 'Word document' : 'text file';
+      setFileImportInfo(`📂 "${file.name}" loaded as ${typeLabel} — ${lines} lines extracted. Click "Parse & Preview All" to continue.`);
+      toast('File loaded! Click Parse & Preview All to continue.', 'success');
+    } catch (err) {
+      toast('⚠️ ' + err.message, 'error');
+    } finally {
+      setFileImporting(false);
+    }
+  };
+
+  // ── CSV template download ────────────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    const blob = generateEntranceCsvTemplate();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'entrance_exam_questions_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Template downloaded!', 'success');
+  };
 
   const handleParse = () => {
     const { results, errors: errs } = parseEntranceQuestions(rawText);
@@ -377,6 +438,88 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
         </div>
       </div>
       <FormatGuide bulk />
+
+      {/* ── File Upload Zone ── */}
+      <div style={{
+        marginBottom: 16, padding: '18px 20px', borderRadius: 14,
+        border: '2px dashed var(--border)', background: 'var(--bg-card)',
+        transition: 'border-color .2s',
+      }}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--teal)'; }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+        onDrop={e => {
+          e.preventDefault();
+          e.currentTarget.style.borderColor = 'var(--border)';
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFileImport({ target: { files: [file], value: '' } });
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
+              📁 Upload from File
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Supports <strong>.csv</strong> (spreadsheet), <strong>.docx</strong> (Word), or <strong>.txt</strong> (plain text).
+              Drag &amp; drop here or click the button. File content will be extracted and placed in the text area below for preview before uploading.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+            <label style={{
+              padding: '9px 18px', borderRadius: 10, cursor: fileImporting ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 13, border: 'none',
+              background: 'var(--teal)', color: '#fff',
+              display: 'flex', alignItems: 'center', gap: 6,
+              opacity: fileImporting ? 0.6 : 1, transition: 'opacity .2s',
+            }}>
+              {fileImporting
+                ? <><span className="spinner spinner-sm" /> Reading…</>
+                : <><span>📂</span> Choose File</>}
+              <input
+                type="file"
+                accept=".csv,.docx,.txt,.text,.md"
+                style={{ display: 'none' }}
+                onChange={handleFileImport}
+                disabled={fileImporting}
+              />
+            </label>
+            <button
+              onClick={handleDownloadTemplate}
+              style={{
+                padding: '9px 16px', borderRadius: 10, cursor: 'pointer',
+                fontWeight: 700, fontSize: 12, border: '1px solid var(--border)',
+                background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+              title="Download a sample CSV template"
+            >
+              ⬇️ CSV Template
+            </button>
+          </div>
+        </div>
+
+        {fileImportInfo && (
+          <div style={{
+            marginTop: 12, padding: '8px 14px', borderRadius: 9,
+            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+            fontSize: 12, color: 'var(--text-primary)', fontWeight: 600,
+          }}>
+            {fileImportInfo}
+          </div>
+        )}
+
+        {fileWarnings.length > 0 && (
+          <div style={{
+            marginTop: 10, padding: '10px 14px', borderRadius: 9,
+            background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)',
+            fontSize: 12, color: '#ca8a04',
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ File warnings:</div>
+            {fileWarnings.map((w, i) => <div key={i}>• {w}</div>)}
+          </div>
+        )}
+      </div>
+
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10, fontFamily: H }}>📝 Paste All Questions</div>
         <textarea className="form-input" rows={16} placeholder="Paste all your questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setErrors([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />

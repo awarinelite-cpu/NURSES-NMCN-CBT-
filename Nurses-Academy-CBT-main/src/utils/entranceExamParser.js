@@ -237,6 +237,20 @@ function extractDoubleOptions(line) {
 
 // ── Helper predicates ─────────────────────────────────────────────────
 
+// Lines that are section headings to skip (e.g. **MATHEMATICS**, ENGLISH LANGUAGE)
+const isSubjectHeading = line => {
+  const t = line.trim();
+  // Bold headings like **MATHEMATICS** or **PHYSICS**
+  if (/^\*{1,3}[A-Z\s]+\*{0,3}$/.test(t) && t.length < 60) return true;
+  // ALL-CAPS heading with no option-letter prefix (e.g. ENGLISH LANGUAGE, CHEMISTRY)
+  if (/^[A-Z][A-Z\s]+$/.test(t) && t.length < 60 && !/^[A-D]\s/.test(t)) return true;
+  return false;
+};
+
+// Lines that are instruction/meta lines to skip (e.g. "Instructions: Choose the option…")
+const isInstructionLine = line =>
+  /^(instruction|instructions|choose\s+the\s+option|in\s+each\s+of\s+the\s+following)/i.test(line.trim());
+
 // ═══════════════════════════════════════════════════════════════════════
 // CRITICAL FIX: isQuestionLine regex was too broad — it matched lines
 // starting with digits (like "35→17 r1,") as question lines, causing
@@ -246,30 +260,31 @@ const isQuestionLine = line =>
   /^(\d+[\.\):]\s+|Q\s*\d+[\.\):\s]\s+|Question\s*\d+[\.\):\s]\s+)/i.test(line);
 
 const isOptionLine = line =>
-  /^([A-Da-d][\.\)\-:]|\([A-Da-d]\))\s*.+/i.test(line);
+  /^([A-Da-d][\.\)\-:]|\([A-Da-d]\)|\-\s*\([A-Da-d]\))\s*.+/i.test(line);
 
 const isAnswerLine = line => {
   const t = line.trim();
-  if (/^\*[A-Da-d]$/.test(t))         return true;
-  if (/^__[A-Da-d]__$/.test(t))       return true;
-  if (/^\*\*[A-Da-d]\*\*$/.test(t))   return true;
-  if (/^\([A-Da-d]\)$/.test(t))       return true;
+  if (/^\*{1,3}[A-Da-d]\*{0,2}$/.test(t))  return true;  // *C  ***D**  **D**
+  if (/^__[A-Da-d]__$/.test(t))              return true;
+  if (/^\*\*[A-Da-d]\*\*$/.test(t))          return true;
+  if (/^\([A-Da-d]\)$/.test(t))              return true;
   if (/^(answer|ans|correct(?:\s+answer)?|key|solution)[\s\.\:\-]/i.test(t)) return true;
   return false;
 };
 
 const isExplanationLine = line =>
-  /^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i.test(line);
+  /^(\*{0,2}explanation|explain|rationale|reason|note)\*{0,2}[\s\.\:\-]*/i.test(line.trim());
 
 const isDiagramUrl = line => /^https?:\/\//i.test(line.trim());
 
 function extractAnswerLetter(line) {
   const t = line.trim();
-  const star   = t.match(/^\*([A-Da-d])$/i);        if (star)   return star[1].toUpperCase();
-  const dunder  = t.match(/^__([A-Da-d])__$/i);     if (dunder) return dunder[1].toUpperCase();
-  const dstar   = t.match(/^\*\*([A-Da-d])\*\*$/i); if (dstar)  return dstar[1].toUpperCase();
-  const paren   = t.match(/^\(([A-Da-d])\)$/i);     if (paren)  return paren[1].toUpperCase();
-  const labelled = t.replace(/^(answer|ans|correct(?:\s+answer)?|key|solution)[\s\.\:\-]*/i, '').trim();
+  // ***D**  ***D***  **D**  *D  formats
+  const multistar = t.match(/^\*{1,3}([A-Da-d])\*{0,2}$/i);  if (multistar) return multistar[1].toUpperCase();
+  const dunder    = t.match(/^__([A-Da-d])__$/i);              if (dunder)    return dunder[1].toUpperCase();
+  const dstar     = t.match(/^\*\*([A-Da-d])\*\*$/i);          if (dstar)     return dstar[1].toUpperCase();
+  const paren     = t.match(/^\(([A-Da-d])\)$/i);              if (paren)     return paren[1].toUpperCase();
+  const labelled  = t.replace(/^(answer|ans|correct(?:\s+answer)?|key|solution)[\s\.\:\-]*/i, '').trim();
   const m = labelled.match(/^([A-Da-d])\b/i);
   return m ? m[1].toUpperCase() : null;
 }
@@ -280,12 +295,14 @@ function getQuestionNumber(line) {
 }
 
 function extractOptionLetter(line) {
-  const m = line.match(/^([A-Da-d])[\.\)\-:]|\(([A-Da-d])\)/i);
+  // Handles: A. text  A) text  A- text  (A) text  - (A) text
+  const m = line.match(/^(?:\-\s*)?\(([A-Da-d])\)|^([A-Da-d])[\.\)\-:]/i);
   return m ? (m[1] || m[2]).toUpperCase() : null;
 }
 
 function extractOptionText(line) {
-  return line.replace(/^([A-Da-d][\.\)\-:]|\([A-Da-d]\))\s*/i, '').trim();
+  // Strip leading: - (A)   (A)   A.   A)   A-
+  return line.replace(/^(?:\-\s*)?\(([A-Da-d])\)\s*|^([A-Da-d])[\.\)\-:]\s*/i, '').trim();
 }
 
 // ── Main Parser ───────────────────────────────────────────────────────
@@ -344,10 +361,21 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       continue;
     }
 
+    // Skip pure subject-heading blocks (e.g. **MATHEMATICS**, ENGLISH LANGUAGE)
+    if (blockLines.length === 1 && isSubjectHeading(blockLines[0])) { seqCounter--; continue; }
+
+    // Skip blocks that are only instruction lines
+    if (blockLines.every(l => isInstructionLine(l) || isSubjectHeading(l))) { seqCounter--; continue; }
+
     // We walk blockLines for structure but switch to rawLines when collecting explanation
     let cursor = 0, diagramUrl = '', qNumber = seqCounter;
 
     if (isDiagramUrl(blockLines[0])) { diagramUrl = blockLines[0].trim(); cursor = 1; }
+
+    // Skip leading subject headings or instruction lines within a block
+    while (cursor < blockLines.length && (isSubjectHeading(blockLines[cursor]) || isInstructionLine(blockLines[cursor]))) {
+      cursor++;
+    }
 
     if (cursor >= blockLines.length) { errors.push(`Block ${seqCounter}: Missing question text`); continue; }
 
@@ -356,6 +384,8 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       qNumber = getQuestionNumber(questionText) || seqCounter;
       questionText = questionText.replace(/^(\d+[\.\)\s\s*|Q\s*\d+[\.\):\s]\s*|Question\s*\d+[\.\):\s]\s*)/i, '').trim();
     }
+    // Strip bold markers from question text (e.g. **text**)
+    questionText = questionText.replace(/^\*{1,3}|\*{1,3}$/g, '').trim();
     cursor++;
 
     const optionMap = {};
@@ -382,8 +412,8 @@ export function parseEntranceQuestions(rawText, answerKeyText = '') {
       }
 
       if (isExplanationLine(line)) {
-        // Strip the "Explanation:" label; keep remainder of that line as first content
-        const firstPart = line.replace(/^(explanation|explain|rationale|reason|note)[\s\.\:\-]*/i, '').trim();
+        // Strip the "Explanation:" label (including bold markers); keep remainder as first content
+        const firstPart = line.replace(/^\*{0,2}(explanation|explain|rationale|reason|note)\*{0,2}[\s\.\:\-]*/i, '').trim();
         const explLines = firstPart ? [firstPart] : [];
 
         // ── FIXED: Find explanation marker in rawLines, then collect ──
