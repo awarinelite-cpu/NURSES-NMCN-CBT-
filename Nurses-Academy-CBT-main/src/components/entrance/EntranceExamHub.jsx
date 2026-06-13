@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
-import { ensureEntranceDailyMockNotification, todayKey } from '../../utils/dailyNotifications';
+import { ensureEntranceDailyMockNotification, todayKey, maybePushEntranceDailyMockNotification } from '../../utils/dailyNotifications';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -245,7 +245,7 @@ export default function EntranceExamHub() {
       const todaySnap = await getDoc(doc(db, 'dailyMockSchedule', key));
       const ready = todaySnap.exists();
       setMockReady(ready);
-      if (ready) ensureEntranceDailyMockNotification(key);
+      if (ready) { ensureEntranceDailyMockNotification(key); maybePushEntranceDailyMockNotification(); }
 
       // Check if the user already did today's mock (completedAt >= today midnight)
       if (user && ready) {

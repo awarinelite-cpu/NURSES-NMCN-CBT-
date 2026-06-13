@@ -8,7 +8,7 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
-import { ensureCbtDailyMockNotification } from '../../utils/dailyNotifications';
+import { ensureCbtDailyMockNotification, maybePushDailyMockNotification } from '../../utils/dailyNotifications';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -492,6 +492,8 @@ export default function StudentDashboard() {
 
     // Make sure today's "Daily Practice" notification exists (idempotent)
     ensureCbtDailyMockNotification();
+    // Fire browser push once per day (no-op if permission not granted or already sent today)
+    maybePushDailyMockNotification();
 
     const loadData = async () => {
       // Recent exam sessions

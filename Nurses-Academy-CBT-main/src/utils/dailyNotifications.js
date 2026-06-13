@@ -54,3 +54,79 @@ export function ensureEntranceDailyMockNotification(date) {
     date,
   });
 }
+
+// ── Browser push notification for new daily mock ─────────────────────────────
+//
+// Shows a native browser notification once per day if:
+//   1. The user has granted notification permission
+//   2. They haven't already seen today's push (tracked in localStorage)
+//
+// Call `maybePushDailyMockNotification()` from the dashboard on mount.
+
+const PUSH_STORAGE_KEY = 'nmcn_last_push_date';
+
+export function maybePushDailyMockNotification() {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const today = todayKey();
+    const lastPush = localStorage.getItem(PUSH_STORAGE_KEY);
+    if (lastPush === today) return; // already sent today
+
+    // Send the push
+    const notif = new Notification("📅 Today's Practice Set is Ready!", {
+      body: "Fresh questions for today are available. Tap to start your daily practice now.",
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag: `nmcn-daily-${today}`,   // prevents duplicates across tabs
+      renotify: false,
+      data: { url: '/daily-practice' },
+    });
+
+    notif.onclick = () => {
+      window.focus();
+      window.location.href = notif.data?.url || '/daily-practice';
+      notif.close();
+    };
+
+    localStorage.setItem(PUSH_STORAGE_KEY, today);
+  } catch (e) {
+    // Never crash the app for a notification
+    console.warn('Push notification failed (non-critical):', e.message);
+  }
+}
+
+// ── Entrance Exam daily mock push ─────────────────────────────────────────────
+const ENTRANCE_PUSH_KEY = 'nmcn_entrance_last_push_date';
+
+export function maybePushEntranceDailyMockNotification() {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const today = todayKey();
+    if (localStorage.getItem(ENTRANCE_PUSH_KEY) === today) return;
+
+    const notif = new Notification("🗓️ New Entrance Exam Daily Mock!", {
+      body: "Today's entrance exam mock is live. Tap to take it now.",
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag: `entrance-daily-${today}`,
+      renotify: false,
+      data: { url: '/entrance-exam/daily-mock' },
+    });
+
+    notif.onclick = () => {
+      window.focus();
+      window.location.href = notif.data?.url || '/entrance-exam/daily-mock';
+      notif.close();
+    };
+
+    localStorage.setItem(ENTRANCE_PUSH_KEY, today);
+  } catch (e) {
+    console.warn('Entrance push notification failed (non-critical):', e.message);
+  }
+}

@@ -1,22 +1,55 @@
 // src/context/ThemeContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react';
+// Per-section theme memory: NMCN and Entrance each remember their own preference.
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const ThemeContext = createContext(null);
 
-export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() =>
-    localStorage.getItem('nmcn_theme') || 'dark'
-  );
+const KEY_NMCN     = 'nmcn_theme';
+const KEY_ENTRANCE = 'entrance_theme';
 
+function sectionKey(pathname) {
+  return pathname?.startsWith('/entrance') ? KEY_ENTRANCE : KEY_NMCN;
+}
+
+export function ThemeProvider({ children }) {
+  const [themes, setThemes] = useState(() => ({
+    [KEY_NMCN]:     localStorage.getItem(KEY_NMCN)     || 'dark',
+    [KEY_ENTRANCE]: localStorage.getItem(KEY_ENTRANCE) || 'dark',
+  }));
+
+  // Try to read location; fall back gracefully if called outside Router
+  let pathname = '/';
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    pathname = useLocation().pathname;
+  } catch {}
+
+  const key   = sectionKey(pathname);
+  const theme = themes[key] || 'dark';
+
+  // Apply theme to <html> whenever active section's theme changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('nmcn_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+  const toggleTheme = useCallback(() => {
+    setThemes(prev => {
+      const next = prev[key] === 'dark' ? 'light' : 'dark';
+      localStorage.setItem(key, next);
+      return { ...prev, [key]: next };
+    });
+  }, [key]);
+
+  const setTheme = useCallback((t) => {
+    setThemes(prev => {
+      localStorage.setItem(key, t);
+      return { ...prev, [key]: t };
+    });
+  }, [key]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

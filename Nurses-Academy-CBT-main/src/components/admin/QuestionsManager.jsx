@@ -54,6 +54,126 @@ const EXTENDED_EXAM_TYPES = [
   { id: 'daily_practice', label: 'Daily Practice (Legacy)', hint: '' },
 ];
 
+// ── Question Usage Stats Tab ──────────────────────────────────────────────────
+function QuestionStatsTab() {
+  const [stats,   setStats]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sortBy,  setSortBy]  = useState('attempts'); // 'attempts' | 'failRate'
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        // Read the questions collection for attemptCount / wrongCount fields
+        // (written by ExamSession via increment())
+        const snap = await getDocs(collection(db, 'questions'));
+        const rows = snap.docs
+          .map(d => {
+            const q = d.data();
+            const attempts = q.attemptCount || 0;
+            const wrong    = q.wrongCount   || 0;
+            const failRate = attempts > 0 ? Math.round((wrong / attempts) * 100) : null;
+            return {
+              id: d.id,
+              question: (q.question || '').slice(0, 90),
+              category: q.category || '',
+              attempts,
+              wrong,
+              failRate,
+            };
+          })
+          .filter(r => r.attempts > 0);
+
+        rows.sort((a, b) =>
+          sortBy === 'failRate'
+            ? (b.failRate ?? 0) - (a.failRate ?? 0)
+            : b.attempts - a.attempts
+        );
+        setStats(rows.slice(0, 50));
+      } catch (e) { console.error('Stats load error:', e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [sortBy]);
+
+  if (loading) return (
+    <div style={{ textAlign:'center', padding:'60px 0', color:'var(--text-muted)' }}>
+      <div className="spinner" style={{ width:36, height:36, margin:'0 auto 12px' }} />
+      Loading question stats…
+    </div>
+  );
+
+  if (stats.length === 0) return (
+    <div style={{ textAlign:'center', padding:'60px 0', color:'var(--text-muted)' }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>📊</div>
+      <div style={{ fontWeight:700, marginBottom:6 }}>No usage data yet</div>
+      <p style={{ fontSize:13 }}>
+        Stats appear once students start answering questions.<br />
+        Data is written to each question document via <code>attemptCount</code> and <code>wrongCount</code> fields.
+      </p>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:10 }}>
+        <div>
+          <div style={{ fontWeight:900, fontSize:16, color:'var(--text-primary)', marginBottom:3 }}>Question Usage Stats</div>
+          <div style={{ fontSize:12, color:'var(--text-muted)' }}>Top {stats.length} questions by usage. Updates as students answer.</div>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {[['attempts','Most answered'],['failRate','Highest fail rate']].map(([key, label]) => (
+            <button key={key} onClick={() => setSortBy(key)} style={{
+              padding:'6px 14px', borderRadius:20, border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:700,
+              background: sortBy === key ? 'var(--teal)' : 'var(--bg-tertiary)',
+              color:      sortBy === key ? '#fff' : 'var(--text-muted)',
+              transition:'all .15s',
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {stats.map((r, i) => {
+          const failColor = r.failRate >= 70 ? '#EF4444' : r.failRate >= 50 ? '#F59E0B' : '#10B981';
+          return (
+            <div key={r.id} style={{
+              background:'var(--bg-card)', border:'1px solid var(--border)',
+              borderRadius:10, padding:'12px 16px',
+              display:'flex', gap:12, alignItems:'center',
+            }}>
+              <div style={{
+                width:28, height:28, borderRadius:8, flexShrink:0, fontSize:12, fontWeight:900,
+                background:'rgba(13,148,136,0.1)', color:'var(--teal)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>{i + 1}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  {r.question}{r.question.length >= 90 ? '…' : ''}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{r.category}</div>
+              </div>
+              <div style={{ display:'flex', gap:14, flexShrink:0, textAlign:'center' }}>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:900, color:'var(--teal)' }}>{r.attempts}</div>
+                  <div style={{ fontSize:10, color:'var(--text-muted)' }}>attempts</div>
+                </div>
+                {r.failRate !== null && (
+                  <div>
+                    <div style={{ fontSize:16, fontWeight:900, color:failColor }}>{r.failRate}%</div>
+                    <div style={{ fontSize:10, color:'var(--text-muted)' }}>fail rate</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function QuestionsManager() {
   const { toast }    = useToast();
   const [urlParams]  = useSearchParams();
@@ -157,11 +277,31 @@ export default function QuestionsManager() {
     let parsed = parseQuestionsFromText(bulkText, answerText);
     if (parsed.length === 0) { setParseErr('Could not parse questions. Check the format guide below.'); return; }
     if (shuffleEnabled) parsed = shuffleAllQuestionsOptions(parsed);
-    const withAnswer    = parsed.filter(q => q._hasAnswer || q.correctIndex >= 0).length;
-    const withoutAnswer = parsed.length - withAnswer;
-    setParsedQs(parsed);
-    let info = `Parsed ${parsed.length} questions.`;
+
+    // ── Per-question validation ──────────────────────────────────────────
+    const validated = parsed.map((q, i) => {
+      const issues = [];
+      if (!q.question?.trim())               issues.push('Missing question text');
+      if (!q._hasAnswer && q.correctIndex < 0) issues.push('No answer set');
+      const nonEmpty = (q.options || []).filter(o => (typeof o === 'string' ? o : o?.text || '').trim());
+      if (nonEmpty.length < 2)               issues.push('Fewer than 2 options');
+      if (nonEmpty.length < 4)               issues.push(`Only ${nonEmpty.length} options (expected 4)`);
+      const emptyOpts = (q.options || []).map((o, j) => (typeof o === 'string' ? o : o?.text || '').trim() ? null : `Option ${String.fromCharCode(65+j)}`).filter(Boolean);
+      if (emptyOpts.length > 0)             issues.push(`Empty: ${emptyOpts.join(', ')}`);
+      return { ...q, _validationIssues: issues };
+    });
+
+    const withAnswer    = validated.filter(q => q._hasAnswer || q.correctIndex >= 0).length;
+    const withoutAnswer = validated.length - withAnswer;
+    const withIssues    = validated.filter(q => q._validationIssues.length > 0).length;
+    setParsedQs(validated);
+    let info = `Parsed ${validated.length} questions.`;
     if (shuffleEnabled) info += ' 🔀 Options shuffled.';
+    if (withoutAnswer > 0) info += ` ⚠️ ${withoutAnswer} have no answer.`;
+    if (withIssues > 0)    info += ` 🔴 ${withIssues} have validation issues — review below.`;
+    setParseInfo(info);
+    toast(`${validated.length} questions parsed!`, 'success');
+  };
     if (withoutAnswer > 0) info += ` ⚠️ ${withoutAnswer} have no answer.`;
     setParseInfo(info);
     toast(`${parsed.length} questions parsed!`, 'success');
@@ -310,6 +450,7 @@ export default function QuestionsManager() {
           ['list',        '📋 All Questions'],
           ['add_single',  '➕ Add Single'],
           ['bulk_upload', '📤 Bulk Upload'],
+          ['stats',       '📊 Usage Stats'],
         ].map(([id, label]) => (
           <button key={id} style={{
             ...styles.tabBtn,
@@ -714,20 +855,47 @@ export default function QuestionsManager() {
           </div>
 
           {/* Parsed preview */}
-          {parsedQs.length > 0 && (
+          {parsedQs.length > 0 && (() => {
+            const errCount = parsedQs.filter(q => q._validationIssues?.length > 0).length;
+            const okCount  = parsedQs.length - errCount;
+            return (
             <div>
-              <div style={{ fontWeight:700, marginBottom:12, color:'var(--teal)', fontSize:15 }}>
-                ✅ {parsedQs.length} questions ready — review before uploading:
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap' }}>
+                <div style={{ fontWeight:700, color:'var(--teal)', fontSize:15 }}>
+                  {parsedQs.length} questions parsed — review before uploading:
+                </div>
+                {errCount > 0 && (
+                  <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(239,68,68,0.12)', color:'#EF4444', border:'1px solid rgba(239,68,68,0.3)' }}>
+                    🔴 {errCount} with issues
+                  </span>
+                )}
+                {okCount > 0 && (
+                  <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(22,163,74,0.12)', color:'var(--green)', border:'1px solid rgba(22,163,74,0.3)' }}>
+                    ✅ {okCount} ready
+                  </span>
+                )}
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:10, maxHeight:600, overflowY:'auto', paddingRight:4 }}>
-                {parsedQs.map((q, i) => (
-                  <div key={i} style={{
-                    ...styles.parsedCard,
-                    borderLeft: `4px solid ${q._hasAnswer || q.correctIndex >= 0 ? 'var(--green)' : 'var(--gold)'}`,
-                  }}>
+                {parsedQs.map((q, i) => {
+                  const issues = q._validationIssues || [];
+                  const hasErr = issues.length > 0;
+                  const noAns  = !q._hasAnswer && q.correctIndex < 0;
+                  const bColor = hasErr ? '#EF4444' : noAns ? 'var(--gold)' : 'var(--green)';
+                  return (
+                  <div key={i} style={{ ...styles.parsedCard, borderLeft:`4px solid ${bColor}` }}>
                     <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
                       <span style={{ fontWeight:700, color:'var(--teal)', flexShrink:0, fontSize:13 }}>Q{i+1}.</span>
                       <div style={{ flex:1 }}>
+                        {/* Inline validation errors */}
+                        {hasErr && (
+                          <div style={{ marginBottom:8, padding:'6px 10px', borderRadius:8, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)' }}>
+                            {issues.map((issue, k) => (
+                              <div key={k} style={{ fontSize:12, color:'#EF4444', fontWeight:700, display:'flex', gap:5, lineHeight:1.6 }}>
+                                <span>⚠</span><span>{issue}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div style={{ fontWeight:600, fontSize:14, marginBottom:8 }}>{q.question}</div>
                         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                           {q.options.map((opt, j) => (
@@ -750,12 +918,16 @@ export default function QuestionsManager() {
                         onClick={() => setParsedQs(prev => prev.filter((_,j)=>j!==i))}>×</button>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             </div>
+          );})()}
           )}
         </div>
       )}
+
+      {/* ── STATS TAB ── */}
+      {tab === 'stats' && <QuestionStatsTab />}
     </div>
   );
 }

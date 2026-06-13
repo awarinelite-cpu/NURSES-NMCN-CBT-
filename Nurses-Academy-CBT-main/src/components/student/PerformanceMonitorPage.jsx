@@ -103,6 +103,120 @@ function Tab({ active, onClick, icon, label, color }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Score Trend Chart (pure SVG, no deps) ─────────────────────────────────────
+function TrendChart({ data }) {
+  const W = 600, H = 180, PAD = { top: 16, right: 16, bottom: 36, left: 36 };
+  const iW = W - PAD.left - PAD.right;
+  const iH = H - PAD.top  - PAD.bottom;
+
+  const [animated, setAnimated] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setAnimated(true), 100); return () => clearTimeout(t); }, []);
+
+  if (!data || data.length < 2) return (
+    <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+      Complete at least 2 exams to see your trend line.
+    </div>
+  );
+
+  const scores = data.map(d => d.score);
+  const minS = Math.max(0,  Math.min(...scores) - 10);
+  const maxS = Math.min(100, Math.max(...scores) + 10);
+  const range = maxS - minS || 1;
+
+  const px = (i) => PAD.left + (i / (data.length - 1)) * iW;
+  const py = (s) => PAD.top + iH - ((s - minS) / range) * iH;
+
+  const points = data.map((d, i) => `${px(i)},${py(d.score)}`).join(' ');
+  const fill   = data.map((d, i) => `${px(i)},${py(d.score)}`).join(' ')
+               + ` ${px(data.length - 1)},${PAD.top + iH} ${px(0)},${PAD.top + iH}`;
+
+  const avgScore = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+  const avgY     = py(avgScore);
+
+  const gridLines = [25, 50, 75].filter(v => v >= minS && v <= maxS);
+
+  const [hovered, setHovered] = useState(null);
+
+  const lineColor = avgScore >= 70 ? '#10B981' : avgScore >= 50 ? '#F59E0B' : '#EF4444';
+
+  return (
+    <div style={{ position: 'relative', width: '100%', overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 300, display: 'block' }}>
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={lineColor} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={lineColor} stopOpacity="0.01" />
+          </linearGradient>
+          <clipPath id="trendClip">
+            <rect x={PAD.left} y={PAD.top} width={iW} height={iH} />
+          </clipPath>
+        </defs>
+
+        {/* Grid lines */}
+        {gridLines.map(v => (
+          <g key={v}>
+            <line x1={PAD.left} y1={py(v)} x2={PAD.left + iW} y2={py(v)}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="4,4" />
+            <text x={PAD.left - 6} y={py(v) + 4} textAnchor="end"
+              fill="var(--text-muted)" fontSize="9">{v}%</text>
+          </g>
+        ))}
+
+        {/* Avg line */}
+        <line x1={PAD.left} y1={avgY} x2={PAD.left + iW} y2={avgY}
+          stroke={lineColor} strokeWidth="1" strokeDasharray="6,4" opacity="0.4" />
+        <text x={PAD.left + iW + 4} y={avgY + 4} fill={lineColor} fontSize="9" fontWeight="700">
+          avg {avgScore}%
+        </text>
+
+        {/* Fill */}
+        <polygon points={fill} fill="url(#trendFill)" clipPath="url(#trendClip)" />
+
+        {/* Line */}
+        <polyline points={points} fill="none" stroke={lineColor} strokeWidth="2.5"
+          strokeLinejoin="round" strokeLinecap="round" clipPath="url(#trendClip)"
+          style={{ transition: animated ? 'none' : 'stroke-dashoffset 1.5s ease' }} />
+
+        {/* Data points */}
+        {data.map((d, i) => {
+          const cx = px(i), cy = py(d.score);
+          const col = d.score >= 70 ? '#10B981' : d.score >= 50 ? '#F59E0B' : '#EF4444';
+          return (
+            <g key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: 'pointer' }}
+            >
+              <circle cx={cx} cy={cy} r={hovered === i ? 7 : 4} fill={col}
+                stroke="var(--bg-card)" strokeWidth="2"
+                style={{ transition: 'r .15s' }} />
+              {/* Hover label */}
+              {hovered === i && (
+                <g>
+                  <rect x={cx - 28} y={cy - 30} width={56} height={22} rx={6}
+                    fill="var(--bg-card)" stroke={col} strokeWidth="1" />
+                  <text x={cx} y={cy - 14} textAnchor="middle" fill={col}
+                    fontSize="11" fontWeight="800">{d.score}%</text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+
+        {/* X-axis date labels (every ~4 points) */}
+        {data.map((d, i) => {
+          if (i % Math.max(1, Math.floor(data.length / 5)) !== 0 && i !== data.length - 1) return null;
+          const label = d.date?.toLocaleDateString?.('en-NG', { day: 'numeric', month: 'short' }) || '';
+          return (
+            <text key={i} x={px(i)} y={H - 6} textAnchor="middle"
+              fill="var(--text-muted)" fontSize="9">{label}</text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export default function PerformanceMonitorPage() {
   const { user } = useAuth();
 
@@ -229,6 +343,42 @@ export default function PerformanceMonitorPage() {
     return { total: completed.length, avg, strong, needWork };
   }, [sessions, dailyStats]);
 
+  // ── Score trend (last 20 exams, chronological) ───────────────────────────
+  const trendData = useMemo(() => {
+    const completed = sessions
+      .filter(s => s.scorePercent !== undefined)
+      .sort((a, b) => {
+        const ta = a.completedAt?.toDate?.()?.getTime?.() ?? 0;
+        const tb = b.completedAt?.toDate?.()?.getTime?.() ?? 0;
+        return ta - tb;
+      })
+      .slice(-20);
+    return completed.map(s => ({
+      score: s.scorePercent,
+      date: s.completedAt?.toDate ? s.completedAt.toDate() : new Date(),
+      label: s.examName || s.examType || '',
+    }));
+  }, [sessions]);
+
+  // ── Weak topic alerts (< 50% across ≥ 2 sessions) ────────────────────────
+  const weakAlerts = useMemo(() => {
+    const alerts = [];
+    // From daily stats
+    dailyStats.forEach(d => {
+      if (d.pct < 50 && d.sessions >= 2) {
+        alerts.push({ icon: d.icon || '⚡', label: d.label, pct: d.pct, sessions: d.sessions, type: 'daily' });
+      }
+    });
+    // From course stats
+    courseStats.forEach(c => {
+      if (c.total > 0 && Math.round((c.correct / c.total) * 100) < 50 && c.sessions >= 2) {
+        const pct = Math.round((c.correct / c.total) * 100);
+        alerts.push({ icon: '📖', label: c.courseLabel || c.courseId, pct, sessions: c.sessions, type: 'course' });
+      }
+    });
+    return alerts.sort((a, b) => a.pct - b.pct).slice(0, 5);
+  }, [dailyStats, courseStats]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '24px', maxWidth: 1100 }}>
@@ -281,6 +431,7 @@ export default function PerformanceMonitorPage() {
       {/* ── Tab switcher ── */}
       <FCard delay={200} style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
+          <Tab active={activeTab === 'trends'} onClick={() => setActiveTab('trends')} icon="📈" label="Score Trend"      color="#8B5CF6" />
           <Tab active={activeTab === 'daily'}  onClick={() => setActiveTab('daily')}  icon="⚡" label="Daily Practice"  color="#F59E0B" />
           <Tab active={activeTab === 'course'} onClick={() => setActiveTab('course')} icon="📖" label="Course Drill"    color="#0D9488" />
           <Tab active={activeTab === 'topic'}  onClick={() => setActiveTab('topic')}  icon="🎯" label="Topic Breakdown" color="#2563EB" />
@@ -292,6 +443,104 @@ export default function PerformanceMonitorPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[1,2,3,4,5].map(k => <Skeleton key={k} h={64} r={12} />)}
         </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* TAB: SCORE TREND                                                       */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {!loading && activeTab === 'trends' && (
+        <FCard delay={100}>
+          {/* Weak topic alerts */}
+          {weakAlerts.length > 0 && (
+            <div style={{
+              marginBottom: 24, background: 'rgba(239,68,68,0.06)',
+              border: '1px solid rgba(239,68,68,0.25)', borderRadius: 14, padding: 18,
+            }}>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: '#EF4444', marginBottom: 12 }}>
+                ⚠️ Areas Needing Attention
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {weakAlerts.map((a, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'var(--bg-card)', borderRadius: 10, padding: '10px 14px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <span style={{ fontSize: 18 }}>{a.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{a.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {a.pct}% avg · {a.sessions} session{a.sessions !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800,
+                      background: 'rgba(239,68,68,0.12)', color: '#EF4444',
+                    }}>
+                      Practice now →
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Trend chart */}
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: '20px 16px',
+          }}>
+            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+              📈 Score Trend — Last {trendData.length} Exams
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+              Each dot is one completed exam. Hover for the score.
+            </div>
+            <TrendChart data={trendData} />
+          </div>
+
+          {/* Improvement delta */}
+          {trendData.length >= 2 && (() => {
+            const first = trendData[0].score;
+            const last  = trendData[trendData.length - 1].score;
+            const delta = last - first;
+            const color = delta >= 0 ? '#10B981' : '#EF4444';
+            return (
+              <div style={{
+                marginTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap',
+              }}>
+                <div style={{
+                  flex: 1, minWidth: 120, background: 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color }}>{delta >= 0 ? '+' : ''}{delta}%</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Overall change</div>
+                </div>
+                <div style={{
+                  flex: 1, minWidth: 120, background: 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B' }}>
+                    {Math.round(trendData.reduce((s, d) => s + d.score, 0) / trendData.length)}%
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Average</div>
+                </div>
+                <div style={{
+                  flex: 1, minWidth: 120, background: 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#10B981' }}>
+                    {Math.max(...trendData.map(d => d.score))}%
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Best score</div>
+                </div>
+              </div>
+            );
+          })()}
+        </FCard>
       )}
 
       {/* ────────────────────────────────────────────────────────────────────── */}

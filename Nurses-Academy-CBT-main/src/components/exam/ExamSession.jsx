@@ -23,6 +23,8 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import VoiceExamMode         from '../shared/VoiceExamMode';
+import { useToast }          from '../shared/Toast';
+import { getSRSBoost }       from '../../hooks/useSpacedRepetition';
 
 const DAILY_PRACTICE_LIMIT = 250;
 
@@ -100,6 +102,7 @@ export default function ExamSession() {
   const auth        = useAuth();
   const currentUser = auth.currentUser || auth.user || null;
   const profile     = auth.profile;
+  const { toast }   = useToast();
 
   const examId      = state?.examId      || '';
   const examName    = state?.examName    || 'Exam';
@@ -295,7 +298,15 @@ export default function ExamSession() {
             const unseen = all.filter(q => !seenIds.includes(q.id));
             const pool   = unseen.length >= 10 ? unseen : all;
             pool.sort(() => Math.random() - 0.5);
-            qs = pool.slice(0, Math.min(count, DAILY_PRACTICE_LIMIT));
+
+            // ── Spaced repetition boost: reorder pool so overdue/weak
+            //    questions float to the top before we slice to `count`.
+            const poolIds    = pool.map(q => q.id);
+            const srsOrdered = await getSRSBoost(poolIds, currentUser?.uid);
+            const poolById   = Object.fromEntries(pool.map(q => [q.id, q]));
+            const srsPool    = srsOrdered.map(id => poolById[id]).filter(Boolean);
+
+            qs = srsPool.slice(0, Math.min(count, DAILY_PRACTICE_LIMIT));
 
           } else if (examType === 'mock_exam') {
             // ── Mock Exam ─────────────────────────────────────────────────────
@@ -431,6 +442,19 @@ export default function ExamSession() {
         [`examScores.${examId || 'pool'}`]: scorePercent,
       }).catch(e => console.warn('Profile update (non-critical):', e.message));
     } catch (e) { console.error('SAVE FAILED:', e); }
+
+    // ── Spaced repetition: record each answer async (non-blocking) ────────
+    if (examType === 'daily_practice' || examType === 'course_drill' || examType === 'topic_drill') {
+      const uid = currentUser?.uid;
+      if (uid) {
+        import('../../hooks/useSpacedRepetition').then(({ recordSRSAnswer }) => {
+          qs.forEach(q => {
+            const wasCorrect = ans[q.id] === q.correctIndex;
+            recordSRSAnswer(uid, q.id, wasCorrect).catch(() => {});
+          });
+        }).catch(() => {});
+      }
+    }
   }, [submitted, currentUser, examId, examName, category, examType, course, courseLabel, topic, profile, poolMode, state]);
 
   // ── Exit & Save ─────────────────────────────────────────────────────────────
@@ -467,6 +491,7 @@ export default function ExamSession() {
       });
 
       setExitSaving(false); setShowExitModal(false);
+      toast('✅ Progress auto-saved — resume anytime from your dashboard', 'success', 3000);
       navigate(-1);
     } catch (e) {
       console.error('Save exit failed:', e);

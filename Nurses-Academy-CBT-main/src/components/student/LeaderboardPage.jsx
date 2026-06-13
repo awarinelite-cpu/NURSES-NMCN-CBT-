@@ -273,11 +273,44 @@ export default function LeaderboardPage() {
         )}
 
         {/* ── Filter pills ── */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
           <FilterBtn label="All Time"   active={filter === 'all'}   onClick={() => setFilter('all')} />
           <FilterBtn label="This Month" active={filter === 'month'} onClick={() => setFilter('month')} />
           <FilterBtn label="This Week"  active={filter === 'week'}  onClick={() => setFilter('week')} />
         </div>
+
+        {/* Cycle reset countdown */}
+        {filter !== 'all' && (() => {
+          const now   = new Date();
+          let resets;
+          if (filter === 'week') {
+            // resets next Monday
+            const d = new Date(now);
+            d.setDate(d.getDate() + (7 - d.getDay() + 1) % 7 || 7);
+            d.setHours(0, 0, 0, 0);
+            resets = d;
+          } else {
+            // resets 1st of next month
+            resets = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          }
+          const days  = Math.ceil((resets - now) / 86400000);
+          const label = days === 1 ? 'tomorrow' : `in ${days} days`;
+          return (
+            <div style={{
+              marginBottom: 20, padding: '8px 14px', borderRadius: 10,
+              background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.2)',
+              fontSize: 12, color: 'var(--text-muted)', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span>🔄</span>
+              <span>
+                Leaderboard resets <strong style={{ color: 'var(--teal)' }}>{label}</strong>
+                {filter === 'week' ? ' — only this week\'s exams count' : ' — only this month\'s exams count'}.
+                New students compete on equal footing each cycle.
+              </span>
+            </div>
+          );
+        })()}
 
         {loading ? (
           <Spinner />

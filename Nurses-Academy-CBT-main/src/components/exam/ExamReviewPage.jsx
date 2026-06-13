@@ -188,6 +188,22 @@ export default function ExamReviewPage() {
   const scorePercent = session?.scorePercent   ?? (total > 0 ? Math.round((score / total) * 100) : 0);
   const scoreColor   = scorePercent >= 70 ? '#16A34A' : scorePercent >= 50 ? '#F59E0B' : '#EF4444';
 
+  // ── Review filter ─────────────────────────────────────────────────────────
+  const [reviewFilter, setReviewFilter] = useState('all'); // 'all' | 'wrong' | 'correct' | 'unanswered'
+
+  const filteredQuestions = questions.filter(q => {
+    const userAns   = answers[q.id];
+    const answered  = userAns !== undefined;
+    const isCorrect = answered && userAns === q.correctIndex;
+    if (reviewFilter === 'wrong')      return answered && !isCorrect;
+    if (reviewFilter === 'correct')    return isCorrect;
+    if (reviewFilter === 'unanswered') return !answered;
+    return true;
+  });
+
+  const wrongCount      = questions.filter(q => { const a = answers[q.id]; return a !== undefined && a !== q.correctIndex; }).length;
+  const unansweredCount = questions.filter(q => answers[q.id] === undefined).length;
+
   const formatDate = (ts) => {
     if (!ts) return '—';
     const d = ts?.toDate ? ts.toDate() : new Date(ts);
@@ -290,6 +306,38 @@ export default function ExamReviewPage() {
           </button>
         </div>
 
+        {/* Review filter bar */}
+        {questions.length > 0 && (
+          <div style={{
+            display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: '12px 16px',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, alignSelf: 'center', marginRight: 4 }}>
+              Filter:
+            </span>
+            {[
+              { key: 'all',        label: `All (${questions.length})`,     color: 'var(--text-muted)' },
+              { key: 'wrong',      label: `❌ Wrong (${wrongCount})`,       color: '#EF4444' },
+              { key: 'correct',    label: `✅ Correct (${score})`,          color: '#16A34A' },
+              { key: 'unanswered', label: `⚪ Skipped (${unansweredCount})`, color: '#64748B' },
+            ].map(f => (
+              <button
+                key={f.key}
+                onClick={() => setReviewFilter(f.key)}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  fontWeight: 700, fontSize: 12, fontFamily: F,
+                  background: reviewFilter === f.key ? f.color + '22' : 'transparent',
+                  color: reviewFilter === f.key ? f.color : 'var(--text-muted)',
+                  outline: reviewFilter === f.key ? `1.5px solid ${f.color}` : '1.5px solid transparent',
+                  transition: 'all .15s',
+                }}
+              >{f.label}</button>
+            ))}
+          </div>
+        )}
+
         {/* Questions */}
         {questions.length === 0 ? (
           <div style={S.emptyState}>
@@ -304,7 +352,15 @@ export default function ExamReviewPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {questions.map((q, i) => {
+            {filteredQuestions.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🎉</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>
+                  {reviewFilter === 'wrong' ? 'No wrong answers — great work!' : 'Nothing to show here.'}
+                </div>
+              </div>
+            )}
+            {filteredQuestions.map((q, i) => {
               const userAns    = answers[q.id];
               const isCorrect  = userAns === q.correctIndex;
               const isAnswered = userAns !== undefined;
