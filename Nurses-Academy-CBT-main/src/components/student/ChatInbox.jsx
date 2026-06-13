@@ -2,7 +2,7 @@
 // All direct-message conversations for the current user, with unread badges
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection, query, where, orderBy, onSnapshot,
   doc, getDoc,
@@ -55,6 +55,9 @@ function Spinner() {
 export default function ChatInbox() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
+  const location          = useLocation();
+  const isEntrance        = location.pathname.startsWith('/entrance-exam');
+  const leaderboardRoute  = isEntrance ? '/entrance-exam/leaderboard' : '/leaderboard';
   const myUid             = user?.uid;
 
   const [threads,  setThreads]  = useState([]);
@@ -199,7 +202,7 @@ export default function ChatInbox() {
             <div style={{ fontSize:13, fontWeight:700, color:'var(--text-muted,#64748B)', lineHeight:1.7 }}>
               Start a conversation from a student's profile or the leaderboard.
             </div>
-            <button onClick={() => navigate('/leaderboard')} style={{
+            <button onClick={() => navigate(leaderboardRoute)} style={{
               marginTop:8, padding:'12px 28px', borderRadius:24,
               background:'linear-gradient(135deg,#0D9488,#0f766e)',
               border:'none', color:'#fff', fontFamily:H, fontWeight:900,
