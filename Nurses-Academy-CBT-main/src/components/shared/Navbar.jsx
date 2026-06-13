@@ -249,7 +249,7 @@ const styles = {
   },
   brandLink: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    gap: 14, textDecoration: 'none', flexWrap: 'wrap',
+    gap: 4, textDecoration: 'none', flexWrap: 'wrap',
   },
   brandIcon: {
     fontSize: 'clamp(28px, 5vw, 44px)', lineHeight: 1, flexShrink: 0,
