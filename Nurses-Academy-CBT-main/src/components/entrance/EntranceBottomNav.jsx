@@ -3,15 +3,17 @@
 // Draggable FAB with full-circle orbit menu.
 // All icons appear at once, evenly spaced on a 360° ring.
 // Radius is auto-calculated so icons never overlap.
-//
-// USAGE (AppLayout.jsx — unchanged):
-//   import EntranceBottomNav from '../entrance/EntranceBottomNav';
-//   const isEntrance = location.pathname.startsWith('/entrance-exam');
-//   {isEntrance && <EntranceBottomNav />}
+// FAB shows a red message-notification badge when unread DMs arrive.
+// • 1 unread conversation  → tap badge → open that chat directly
+// • 2+ unread conversations → tap badge → open ChatInbox (threads list)
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  collection, query, where, onSnapshot,
+} from 'firebase/firestore';
+import { db } from '../../firebase/config';
 
 /* ── Base nav items (all users) ─────────────────────────────────────────── */
 const BASE_NAV = [
@@ -41,11 +43,57 @@ function calcRadius(n) {
   return Math.ceil((ICON_SIZE + MIN_GAP) / (2 * Math.sin(Math.PI / n))) + 4;
 }
 
+/* ── Hook: listen to unread DM counts ──────────────────────────────────── */
+function useUnreadMessages(myUid) {
+  // Returns: { totalUnread, unreadThreads: [{chatId, otherUid, otherName, unread}] }
+  const [state, setState] = useState({ totalUnread: 0, unreadThreads: [] });
+
+  useEffect(() => {
+    if (!myUid) return;
+    const q = query(
+      collection(db, 'directChats'),
+      where('participants', 'array-contains', myUid),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const threads = [];
+      let total = 0;
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const unread = data.unreadCounts?.[myUid] || 0;
+        if (unread > 0) {
+          const otherUid = data.participants?.find(p => p !== myUid) || '';
+          threads.push({
+            chatId: d.id,
+            otherUid,
+            // participantNames is an optional map {uid: name} some apps store;
+            // lastSenderName is written by some ChatPage versions.
+            // Fall back to 'Student' gracefully.
+            otherName:
+              data.participantNames?.[otherUid] ||
+              data.lastSenderName ||
+              'Student',
+            unread,
+          });
+          total += unread;
+        }
+      });
+      setState({ totalUnread: total, unreadThreads: threads });
+    }, () => {});
+    return unsub;
+  }, [myUid]);
+
+  return state;
+}
+
 /* ── Component ──────────────────────────────────────────────────────────── */
 export default function EntranceBottomNav() {
   const location  = useLocation();
   const navigate  = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const myUid = user?.uid;
+
+  // Unread message state
+  const { totalUnread, unreadThreads } = useUnreadMessages(myUid);
 
   // Build nav items — admin gets Control Panel appended
   const NAV_ITEMS = isAdmin ? [...BASE_NAV, ADMIN_ITEM] : BASE_NAV;
@@ -55,6 +103,20 @@ export default function EntranceBottomNav() {
   const [fabPos, setFabPos]   = useState({ fx: 0.88, fy: 0.84 });
   const [open, setOpen]       = useState(false);
   const [openPct, setOpenPct] = useState(0);
+
+  // Badge pulse animation
+  const [badgePulse, setBadgePulse] = useState(false);
+  const prevUnread = useRef(0);
+
+  useEffect(() => {
+    if (totalUnread > prevUnread.current) {
+      // New message arrived — pulse the badge
+      setBadgePulse(true);
+      const t = setTimeout(() => setBadgePulse(false), 1200);
+      return () => clearTimeout(t);
+    }
+    prevUnread.current = totalUnread;
+  }, [totalUnread]);
 
   const openPctRef   = useRef(0);
   const animFrameRef = useRef(null);
@@ -120,6 +182,22 @@ export default function EntranceBottomNav() {
     };
   }, [onPointerMove, onPointerUp]);
 
+  /* ── Badge tap handler ── */
+  const handleBadgeTap = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (unreadThreads.length === 1) {
+      // Only one conversation with unread — go directly to it
+      const t = unreadThreads[0];
+      navigate(`/chat/${t.otherUid}`, {
+        state: { name: t.otherName, school: t.otherSchool || '' },
+      });
+    } else {
+      // Multiple conversations — go to inbox with unread highlights
+      navigate('/chat-inbox');
+    }
+  }, [unreadThreads, navigate]);
+
   const vw = typeof window !== 'undefined' ? window.innerWidth  : 400;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const fabX = fabPos.fx * vw;
@@ -131,8 +209,52 @@ export default function EntranceBottomNav() {
       ? location.pathname === to
       : location.pathname.startsWith(to);
 
+  const badgeCount = totalUnread > 99 ? '99+' : totalUnread > 0 ? String(totalUnread) : null;
+
   return (
     <>
+      {/* ── Pulse keyframes injected once ────────────────────────────────── */}
+      <style>{`
+        @keyframes fabBadgePop {
+          0%   { transform: scale(1); }
+          30%  { transform: scale(1.45); }
+          60%  { transform: scale(0.9); }
+          100% { transform: scale(1); }
+        }
+        @keyframes fabBadgePulse {
+          0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+          50%     { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+        .fab-badge-btn {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          min-width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          background: #EF4444;
+          border: 2px solid #020B18;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 900;
+          font-family: 'Arial Black', Arial, sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+          cursor: pointer;
+          z-index: 8300;
+          line-height: 1;
+          animation: fabBadgePulse 2s ease-in-out infinite;
+          transition: transform 0.15s;
+          pointer-events: all;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .fab-badge-btn:hover  { transform: scale(1.15); }
+        .fab-badge-btn:active { transform: scale(0.92); }
+        .fab-badge-btn.popped { animation: fabBadgePop 0.45s ease, fabBadgePulse 2s 0.45s ease-in-out infinite; }
+      `}</style>
+
       {/* Backdrop */}
       {p > 0.02 && (
         <div
@@ -227,39 +349,67 @@ export default function EntranceBottomNav() {
         );
       })}
 
-      {/* Draggable FAB */}
+      {/* ── Draggable FAB + notification badge ──────────────────────────── */}
       <div
-        ref={fabRef}
-        onPointerDown={onPointerDown}
         style={{
           position: 'fixed',
           left: fabX - FAB_SIZE / 2,
           top:  fabY - FAB_SIZE / 2,
           width: FAB_SIZE, height: FAB_SIZE,
           zIndex: 8200,
-          borderRadius: '50%',
-          background: open ? 'linear-gradient(135deg,#0f766e,#0d9488)' : '#020B18',
-          border: `2.5px solid ${open ? '#2dd4bf' : 'rgba(13,148,136,0.65)'}`,
-          boxShadow: open
-            ? `0 0 0 ${Math.round(5 * p)}px rgba(13,148,136,0.18), 0 8px 28px rgba(13,148,136,0.35)`
-            : '0 4px 20px rgba(0,0,0,0.7), 0 0 0 1px rgba(13,148,136,0.18)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'grab',
-          touchAction: 'none',
-          userSelect: 'none', WebkitUserSelect: 'none',
-          transform: `scale(${1 + 0.1 * p})`,
-          transition: 'background 0.25s, border-color 0.25s, box-shadow 0.25s',
+          /* relative so the badge positions against it */
+          position: 'fixed',
         }}
       >
-        <svg
-          width="24" height="24" viewBox="0 0 24 24" fill="none"
-          style={{ transform: `rotate(${45 * p}deg)` }}
+        {/* The actual draggable circle */}
+        <div
+          ref={fabRef}
+          onPointerDown={onPointerDown}
+          style={{
+            position: 'absolute',
+            left: 0, top: 0,
+            width: FAB_SIZE, height: FAB_SIZE,
+            borderRadius: '50%',
+            background: open ? 'linear-gradient(135deg,#0f766e,#0d9488)' : '#020B18',
+            border: `2.5px solid ${open ? '#2dd4bf' : 'rgba(13,148,136,0.65)'}`,
+            boxShadow: open
+              ? `0 0 0 ${Math.round(5 * p)}px rgba(13,148,136,0.18), 0 8px 28px rgba(13,148,136,0.35)`
+              : '0 4px 20px rgba(0,0,0,0.7), 0 0 0 1px rgba(13,148,136,0.18)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'grab',
+            touchAction: 'none',
+            userSelect: 'none', WebkitUserSelect: 'none',
+            transform: `scale(${1 + 0.1 * p})`,
+            transition: 'background 0.25s, border-color 0.25s, box-shadow 0.25s',
+          }}
         >
-          <line x1="12" y1="4"  x2="12" y2="20"
-            stroke="#2dd4bf" strokeWidth="2.4" strokeLinecap="round"/>
-          <line x1="4"  y1="12" x2="20" y2="12"
-            stroke="#2dd4bf" strokeWidth="2.4" strokeLinecap="round"/>
-        </svg>
+          <svg
+            width="24" height="24" viewBox="0 0 24 24" fill="none"
+            style={{ transform: `rotate(${45 * p}deg)`, pointerEvents: 'none' }}
+          >
+            <line x1="12" y1="4"  x2="12" y2="20"
+              stroke="#2dd4bf" strokeWidth="2.4" strokeLinecap="round"/>
+            <line x1="4"  y1="12" x2="20" y2="12"
+              stroke="#2dd4bf" strokeWidth="2.4" strokeLinecap="round"/>
+          </svg>
+        </div>
+
+        {/* ── Message notification badge ── */}
+        {badgeCount && (
+          <button
+            className={`fab-badge-btn${badgePulse ? ' popped' : ''}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={handleBadgeTap}
+            aria-label={`${totalUnread} unread message${totalUnread > 1 ? 's' : ''}`}
+            title={
+              unreadThreads.length === 1
+                ? `New message from ${unreadThreads[0].otherName}`
+                : `${unreadThreads.length} conversations with new messages`
+            }
+          >
+            {badgeCount}
+          </button>
+        )}
       </div>
     </>
   );

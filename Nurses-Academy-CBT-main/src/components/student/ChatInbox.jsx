@@ -132,8 +132,33 @@ export default function ChatInbox() {
           from { opacity:0; transform:translateY(8px); }
           to   { opacity:1; transform:translateY(0); }
         }
+        @keyframes unreadGlow {
+          0%,100% { box-shadow: inset 3px 0 0 #0D9488; }
+          50%     { box-shadow: inset 3px 0 0 #2dd4bf, 0 0 12px rgba(13,148,136,0.15); }
+        }
         .thread-row:hover  { background:rgba(13,148,136,0.07) !important; }
         .thread-row:active { background:rgba(13,148,136,0.14) !important; }
+        .thread-row.has-unread {
+          background: rgba(13,148,136,0.055) !important;
+          animation: unreadGlow 2.4s ease-in-out infinite;
+        }
+        .thread-row.has-unread:hover {
+          background: rgba(13,148,136,0.11) !important;
+        }
+        .new-pill {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 6px;
+          border-radius: 8px;
+          background: linear-gradient(90deg,#0D9488,#0f766e);
+          color: #fff;
+          font-size: 9px;
+          font-weight: 900;
+          font-family: 'Arial Black', Arial, sans-serif;
+          letter-spacing: 0.5px;
+          flex-shrink: 0;
+          animation: fadeUp 0.3s ease both;
+        }
       `}</style>
 
       {/* Header */}
@@ -187,7 +212,7 @@ export default function ChatInbox() {
         ) : threads.map((t, i) => (
           <button
             key={t.id}
-            className="thread-row"
+            className={`thread-row${t.unread > 0 ? ' has-unread' : ''}`}
             onClick={() => navigate(`/chat/${t.otherUid}`, { state:{ name:t.theirName, school:t.theirSchool } })}
             style={{
               display:'flex', alignItems:'center', gap:14,
@@ -207,16 +232,20 @@ export default function ChatInbox() {
             {/* Name + last message */}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:4 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+                  <span style={{
+                    fontFamily:H, fontWeight:900,
+                    fontSize:15, color:'var(--text-primary,#F1F5F9)',
+                    whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                  }}>
+                    {t.theirName}
+                  </span>
+                  {/* NEW pill — only shown when there are unread messages */}
+                  {t.unread > 0 && <span className="new-pill">NEW</span>}
+                </div>
                 <span style={{
-                  fontFamily:H, fontWeight:900,
-                  fontSize:15, color:'var(--text-primary,#F1F5F9)',
-                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                }}>
-                  {t.theirName}
-                </span>
-                <span style={{
-                  fontSize:11, fontWeight:700,
-                  color: t.unread > 0 ? '#0D9488' : 'var(--text-muted,#64748B)',
+                  fontSize:11, fontWeight: t.unread > 0 ? 900 : 700,
+                  color: t.unread > 0 ? '#2dd4bf' : 'var(--text-muted,#64748B)',
                   flexShrink:0,
                 }}>
                   {timeAgo(t.updatedAt)}

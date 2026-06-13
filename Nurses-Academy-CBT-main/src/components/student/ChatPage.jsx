@@ -821,9 +821,14 @@ export default function ChatPage() {
     const init = async () => {
       try {
         // Always write participants so the doc exists before any message write.
+        // participantNames lets the FAB badge show "New message from X" without extra reads.
         // merge:true is safe — won't overwrite existing messages.
         await setDoc(doc(db, 'directChats', chatId),
-          { participants:[myUid, theirUid], updatedAt:serverTimestamp() },
+          {
+            participants: [myUid, theirUid],
+            participantNames: { [myUid]: myName, [theirUid]: theirName },
+            updatedAt: serverTimestamp(),
+          },
           { merge:true }
         );
       } catch(e) {
@@ -962,6 +967,8 @@ export default function ChatPage() {
         participants:[myUid, theirUid],
         lastMessage: trimmed,
         lastSenderId: myUid,
+        lastSenderName: myName,
+        participantNames: { [myUid]: myName, [theirUid]: theirName },
         updatedAt: serverTimestamp(),
         [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
@@ -1015,6 +1022,8 @@ export default function ChatPage() {
         participants:[myUid, theirUid],
         lastMessage: '🎤 Voice message',
         lastSenderId: myUid,
+        lastSenderName: myName,
+        participantNames: { [myUid]: myName, [theirUid]: theirName },
         updatedAt: serverTimestamp(),
         [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
@@ -1078,6 +1087,8 @@ export default function ChatPage() {
         participants:[myUid, theirUid],
         lastMessage: '📷 Photo',
         lastSenderId: myUid,
+        lastSenderName: myName,
+        participantNames: { [myUid]: myName, [theirUid]: theirName },
         updatedAt: serverTimestamp(),
         [`unreadCounts.${theirUid}`]: increment(1),
       }, { merge:true });
