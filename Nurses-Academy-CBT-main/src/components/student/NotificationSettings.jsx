@@ -7,6 +7,9 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 // ── Detect if push notifications are genuinely usable ────────────────────────
 function checkSupported() {
   try {

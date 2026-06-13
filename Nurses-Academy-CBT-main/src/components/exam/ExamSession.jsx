@@ -39,6 +39,9 @@ function fisherYatesShuffle(arr) {
 /* ── Explanation renderer — imported from shared ── */
 import ExplanationText from '../shared/ExplanationText';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -49,13 +52,13 @@ function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
           Your progress will be saved. You can resume this exam later from the dashboard.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={onSaveExit} disabled={saving} style={{ padding: '13px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={onSaveExit} disabled={saving} style={{ padding: '13px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: F, fontWeight: 800, fontSize: 15, border: 'none', background: 'var(--teal)', color: '#fff', opacity: saving ? 0.7 : 1 }}>
             {saving ? '💾 Saving…' : '💾 Save & Exit'}
           </button>
-          <button onClick={onAbandon} disabled={saving} style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>
+          <button onClick={onAbandon} disabled={saving} style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(239,68,68,0.5)', background: 'transparent', color: '#EF4444' }}>
             🗑 Exit Without Saving
           </button>
-          <button onClick={onCancel} disabled={saving} style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+          <button onClick={onCancel} disabled={saving} style={{ padding: '10px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontWeight: 600, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
             ← Keep Taking Exam
           </button>
         </div>
@@ -769,7 +772,7 @@ export default function ExamSession() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {timeLimit > 0 && <div style={{ fontWeight: 800, fontSize: 22, color: timerColor, fontVariantNumeric: 'tabular-nums' }}>⏱ {mins}:{secs}</div>}
-              <button onClick={() => setShowExitModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.4)', color: '#F59E0B', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }} title="Save your progress and exit">🚪 Exit</button>
+              <button onClick={() => setShowExitModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.4)', color: '#F59E0B', fontWeight: 700, fontSize: 12, fontFamily: F }} title="Save your progress and exit">🚪 Exit</button>
               <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm('Submit exam now?')) handleSubmit(); }}>Submit</button>
             </div>
           </div>
@@ -786,7 +789,7 @@ export default function ExamSession() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {questions.map((q, i) => {
                 const isAnswered = answers[q.id] !== undefined, isFlagged = flagged.has(q.id), isCurrent = i === current;
-                return <button key={q.id} onClick={() => setCurrent(i)} style={{ width: 36, height: 36, borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', borderColor: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--border)', background: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B18' : isAnswered ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)', color: isCurrent ? '#fff' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--text-muted)' }}>{i + 1}</button>;
+                return <button key={q.id} onClick={() => setCurrent(i)} style={{ width: 36, height: 36, borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, borderColor: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--border)', background: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B18' : isAnswered ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)', color: isCurrent ? '#fff' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--text-muted)' }}>{i + 1}</button>;
               })}
             </div>
           </div>
@@ -819,7 +822,7 @@ export default function ExamSession() {
               {q.options?.map((opt, i) => {
                 const selected = answers[q.id] === i;
                 return (
-                  <button key={i} id={`vem-opt-${i}`} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: i }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
+                  <button key={i} id={`vem-opt-${i}`} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: i }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
                     {typeof opt === 'string' ? opt : opt.text}
                   </button>

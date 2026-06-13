@@ -24,6 +24,9 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function ExamReviewPage() {
   const { user } = useAuth();
   const navigate = useNavigate();

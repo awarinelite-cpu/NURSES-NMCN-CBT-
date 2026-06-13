@@ -7,6 +7,9 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 // ─── Specialties ───────────────────────────────────────────────────────────────
 // 'id' is written to questions as mockExamId in the admin bulk-upload panel.
 // Icons, colours and labels match the screenshots exactly.
@@ -173,7 +176,7 @@ export default function MockExamPage() {
           <span style={{ fontSize: 30 }}>🏫</span>
           <h2 style={{
             margin: 0,
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: "'Arial Black', Arial, sans-serif",
             fontSize: 26, fontWeight: 800,
             color: 'var(--text-primary)',
           }}>
@@ -299,7 +302,7 @@ export default function MockExamPage() {
         <span style={{ fontSize: 28 }}>{sp.icon}</span>
         <h2 style={{
           margin: 0,
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: "'Arial Black', Arial, sans-serif",
           fontSize: 22, fontWeight: 800,
           color: 'var(--text-primary)',
         }}>

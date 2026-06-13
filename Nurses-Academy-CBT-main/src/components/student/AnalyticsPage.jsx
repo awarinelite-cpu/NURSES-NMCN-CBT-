@@ -5,6 +5,9 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function AnalyticsPage() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
@@ -68,14 +71,14 @@ export default function AnalyticsPage() {
   if (total === 0) return (
     <div style={{ padding: 24, textAlign: 'center', maxWidth: 500, margin: '60px auto' }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>📊</div>
-      <h3 style={{ fontFamily: "'Playfair Display',serif" }}>No Data Yet</h3>
+      <h3 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>No Data Yet</h3>
       <p style={{ color: 'var(--text-muted)' }}>Take some exams to see your performance analytics!</p>
     </div>
   );
 
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 6 }}>📊 My Performance Analytics</h2>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 6 }}>📊 My Performance Analytics</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>
         Based on {total} exam{total !== 1 ? 's' : ''} taken
       </p>
@@ -168,7 +171,7 @@ export default function AnalyticsPage() {
 
       {/* Recent exams table */}
       <div style={{ marginTop: 28 }}>
-        <h3 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 14 }}>🕓 Recent Exam History</h3>
+        <h3 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 14 }}>🕓 Recent Exam History</h3>
         <div className="table-wrap">
           <table>
             <thead>

@@ -22,6 +22,9 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function ExamListPage() {
   const navigate        = useNavigate();
   const { state }       = useLocation();
@@ -199,7 +202,7 @@ export default function ExamListPage() {
             <div style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {typeLabel}
             </div>
-            <h2 style={{ margin: 0, fontFamily: "'Playfair Display',serif", fontSize: '1.3rem', color: 'var(--text-primary)' }}>
+            <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '1.3rem', color: 'var(--text-primary)' }}>
               {breadcrumb()}
             </h2>
           </div>
@@ -253,7 +256,7 @@ export default function ExamListPage() {
                   style={{
                     width: '100%', background: 'none', border: 'none',
                     cursor: 'pointer', padding: '16px', textAlign: 'left',
-                    fontFamily: 'inherit',
+                    fontFamily: F,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>

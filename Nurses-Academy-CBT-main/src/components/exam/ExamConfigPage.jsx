@@ -7,6 +7,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 const QUESTION_COUNTS = [10, 20, 30, 50, 100, 200, 250];
 const TIME_OPTIONS = [
   { label: 'No Timer',  value: 0   },
@@ -113,7 +116,7 @@ export default function ExamConfigPage() {
           </div>
         )}
 
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
           ⚙️ Set Up Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
@@ -325,11 +328,11 @@ const styles = {
   typeBtn: {
     padding: '10px 12px', border: '2px solid', borderRadius: 10,
     cursor: 'pointer', fontSize: 13, fontWeight: 700,
-    fontFamily: 'inherit', transition: 'all 0.2s', textAlign: 'left',
+    fontFamily: F, transition: 'all 0.2s', textAlign: 'left',
   },
   chipBtn: {
     padding: '8px 16px', border: '2px solid', borderRadius: 8,
     cursor: 'pointer', fontSize: 13, fontWeight: 700,
-    fontFamily: 'inherit', transition: 'all 0.2s',
+    fontFamily: F, transition: 'all 0.2s',
   },
 };

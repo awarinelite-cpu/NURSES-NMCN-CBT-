@@ -20,6 +20,9 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 const QUESTION_PRESETS = [10, 20, 30, 50];
 const PASS_MARK        = 50; // percent
 
@@ -181,7 +184,7 @@ export default function TopicDrillPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>🎯</span>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
               Topic Drill
             </h2>
           </div>
@@ -299,7 +302,7 @@ export default function TopicDrillPage() {
                   display: 'flex', alignItems: 'center', gap: 14,
                   padding: '14px 18px', borderRadius: 12,
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  cursor: 'pointer', fontFamily: F, textAlign: 'left',
                   transition: 'border-color 0.15s',
                 }}
               >
@@ -379,7 +382,7 @@ export default function TopicDrillPage() {
                 key={n}
                 onClick={() => { setQCount(n); setUseCustom(false); }}
                 style={{
-                  padding: '8px 18px', borderRadius: 10, fontFamily: 'inherit',
+                  padding: '8px 18px', borderRadius: 10, fontFamily: F,
                   fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
                   border: `2px solid ${!useCustom && qCount === n ? specialty.color : 'var(--border)'}`,
                   background: !useCustom && qCount === n ? `${specialty.color}18` : 'var(--bg-tertiary)',
@@ -394,7 +397,7 @@ export default function TopicDrillPage() {
               <button
                 onClick={() => setUseCustom(true)}
                 style={{
-                  padding: '8px 14px', borderRadius: 10, fontFamily: 'inherit',
+                  padding: '8px 14px', borderRadius: 10, fontFamily: F,
                   fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
                   border: `2px solid ${useCustom ? specialty.color : 'var(--border)'}`,
                   background: useCustom ? `${specialty.color}18` : 'var(--bg-tertiary)',
@@ -415,7 +418,7 @@ export default function TopicDrillPage() {
                   style={{
                     width: 80, padding: '8px 10px', borderRadius: 10,
                     border: `2px solid ${specialty.color}`, background: 'var(--bg-tertiary)',
-                    color: 'var(--text-primary)', fontFamily: 'inherit',
+                    color: 'var(--text-primary)', fontFamily: F,
                     fontSize: 14, fontWeight: 700, outline: 'none',
                   }}
                 />
@@ -589,11 +592,11 @@ const styles = {
   backBtn:     { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 },
   sectionHead: { fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: 0.2 },
   catGrid:     { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
-  catCard:     { display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'var(--bg-card)' },
+  catCard:     { display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: F, transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'var(--bg-card)' },
   catAccent:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
   catIconBox:  { width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   courseGrid:  { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 },
-  courseCard:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 12px 14px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.18s', background: 'var(--bg-card)' },
+  courseCard:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 12px 14px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: F, transition: 'all 0.18s', background: 'var(--bg-card)' },
   courseIconBox: { width: 56, height: 56, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   emptyState:  { textAlign: 'center', padding: '60px 24px', color: 'var(--text-muted)', fontSize: 14 },
 };

@@ -1,6 +1,9 @@
 // src/components/student/QuickActionsPage.jsx
 import { Link } from 'react-router-dom';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 const actions = [
   {
     to: '/daily-practice',
@@ -58,7 +61,7 @@ export default function QuickActionsPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h2 style={{
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: "'Arial Black', Arial, sans-serif",
           fontSize: 'clamp(1.3rem, 3vw, 1.8rem)',
           color: 'var(--text-primary)',
           margin: '0 0 6px',

@@ -10,6 +10,9 @@ import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { ensureCbtDailyMockNotification } from '../../utils/dailyNotifications';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target, duration = 1600, delay = 0) {
   const [val, setVal] = useState(0);
@@ -211,8 +214,8 @@ const M = {
   card: { display: 'flex', alignItems: 'flex-start', gap: 12, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 14px 14px 18px', position: 'relative', overflow: 'hidden' },
   cardAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
   tag: { fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(13,148,136,0.12)', color: 'var(--teal)' },
-  resumeBtn: { padding: '7px 14px', borderRadius: 8, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', whiteSpace: 'nowrap' },
-  deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  resumeBtn: { padding: '7px 14px', borderRadius: 8, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: F, whiteSpace: 'nowrap' },
+  deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: F, whiteSpace: 'nowrap' },
 };
 
 // ── Quick actions data ────────────────────────────────────────────────────────
@@ -348,7 +351,7 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
   const btnBase = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
     padding: '10px 22px', borderRadius: 10, cursor: 'pointer',
-    fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+    fontWeight: 700, fontSize: 13, fontFamily: F,
     whiteSpace: 'nowrap', textDecoration: 'none', flexShrink: 0,
     transition: 'opacity .2s, transform .15s', userSelect: 'none',
   };
@@ -626,7 +629,7 @@ export default function StudentDashboard() {
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
                   🏥 NMCN CBT Platform
                 </div>
-                <h2 style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
+                <h2 style={{ color: '#fff', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1rem,4vw,1.5rem)', margin: 0, lineHeight: 1.3 }}>
                   {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
                 </h2>
                 <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: '4px 0 14px', lineHeight: 1.4 }}>
@@ -894,7 +897,7 @@ const S = {
     gap: 16, marginBottom: 32,
   },
   sectionTitle: {
-    fontFamily: "'Playfair Display', serif", fontSize: '1.1rem',
+    fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '1.1rem',
     color: 'var(--text-primary)', margin: 0,
   },
   quickGrid: {

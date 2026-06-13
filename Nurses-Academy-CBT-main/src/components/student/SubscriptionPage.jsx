@@ -6,6 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
 import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
 /* ── Get or create a stable device ID ── */
@@ -271,7 +274,7 @@ export default function SubscriptionPage() {
           textAlign: 'center', color: '#fff',
         }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>🌟</div>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff', margin: '0 0 8px' }}>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: '#fff', margin: '0 0 8px' }}>
             You're a Premium Member!
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.8)', margin: '0 0 16px' }}>
@@ -288,7 +291,7 @@ export default function SubscriptionPage() {
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <div style={{ marginBottom: 28, textAlign: 'center' }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif" }}>💎 Upgrade Your Plan</h2>
+        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>💎 Upgrade Your Plan</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>
           Unlock full access to all NMCN past questions, AI explanations & analytics
         </p>
@@ -481,7 +484,7 @@ export default function SubscriptionPage() {
         <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
           <div style={styles.successCard}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
-            <h3 style={{ fontFamily: "'Playfair Display',serif" }}>
+            <h3 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>
               {payMode === 'code' || payMode === 'paystack' ? 'Access Granted!' : 'Receipt Submitted!'}
             </h3>
             <p style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
@@ -507,7 +510,7 @@ const styles = {
     color: '#fff', fontSize: 12, fontWeight: 700, padding: '4px 12px',
     borderRadius: 20, width: 'fit-content', marginBottom: 12,
   },
-  planPrice: { fontFamily: "'Playfair Display',serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },
+  planPrice: { fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },
   payMethodCard: {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
     padding: '24px 16px', background: 'var(--bg-card)', border: '2px solid var(--border)',

@@ -8,6 +8,9 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton({ w = '100%', h = 14, r = 8 }) {
   return (
@@ -85,7 +88,7 @@ function Tab({ active, onClick, icon, label, color }) {
   return (
     <button onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 7,
-      padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+      padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontFamily: F,
       fontWeight: 700, fontSize: 13, border: 'none',
       background: active ? color + '22' : 'transparent',
       color: active ? color : 'var(--text-muted)',
@@ -236,7 +239,7 @@ export default function PerformanceMonitorPage() {
           <div style={{ fontSize: 12, color: 'var(--teal)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
             📊 Analytics
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.3rem,3vw,1.8rem)', margin: 0, color: 'var(--text-primary)' }}>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1.3rem,3vw,1.8rem)', margin: 0, color: 'var(--text-primary)' }}>
             Performance Monitor
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>

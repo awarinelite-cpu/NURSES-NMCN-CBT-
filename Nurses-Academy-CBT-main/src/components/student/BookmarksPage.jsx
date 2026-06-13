@@ -5,6 +5,9 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function BookmarksPage() {
   const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState([]);
@@ -50,7 +53,7 @@ export default function BookmarksPage() {
     <div style={{ padding: 24, maxWidth: 900 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>🔖 Bookmarked Questions</h2>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: 0 }}>🔖 Bookmarked Questions</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>{bookmarks.length} saved questions</p>
         </div>
         <input className="form-input" placeholder="🔍 Search bookmarks…" value={search}

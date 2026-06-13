@@ -5,6 +5,9 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 const SPECIALIZATIONS = [
   'Medical-Surgical Nursing',
   'Paediatric Nursing',

@@ -25,6 +25,9 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function ExamReviewStoragePage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -133,7 +136,7 @@ export default function ExamReviewStoragePage() {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <span style={{ fontSize: 32 }}>📚</span>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
             Exam Review Storage
           </h2>
         </div>

@@ -6,6 +6,9 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 export default function CategoryPickerPage() {
   const navigate     = useNavigate();
   const [params]     = useSearchParams();
@@ -70,7 +73,7 @@ export default function CategoryPickerPage() {
           </div>
         </div>
 
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
           🏥 Choose a Nursing Category
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
@@ -212,7 +215,7 @@ const styles = {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     padding: '14px 14px 12px',
     border: '2px solid', borderRadius: 12,
-    cursor: 'pointer', fontFamily: 'inherit',
+    cursor: 'pointer', fontFamily: F,
     transition: 'all 0.18s',
     background: 'var(--bg-card)',
   },

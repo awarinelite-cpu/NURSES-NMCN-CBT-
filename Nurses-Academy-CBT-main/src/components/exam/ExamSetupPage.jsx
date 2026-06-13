@@ -4,6 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
 
+const F = "'Times New Roman', Times, serif";
+const H = "'Arial Black', Arial, sans-serif";
+
 // ── FIX: Extended to support up to 250 questions.
 // The displayed buttons are dynamically filtered so only counts ≤ availableCount
 // are shown — meaning this list automatically adapts without further code changes
@@ -79,7 +82,7 @@ export default function ExamSetup() {
   return (
     <div style={{ padding: '16px', maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)', marginBottom: 6 }}>
+        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)', marginBottom: 6 }}>
           📝 Set Up Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -342,7 +345,7 @@ const styles = {
     borderRadius: 20, padding: '24px 20px',
   },
   previewHead: {
-    fontFamily: "'Playfair Display',serif", fontWeight: 700,
+    fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 700,
     fontSize: 16, color: 'var(--text-primary)', textAlign: 'center', marginBottom: 16,
   },
   previewRows: { marginBottom: 20 },
