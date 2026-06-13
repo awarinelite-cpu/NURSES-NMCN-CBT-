@@ -215,6 +215,9 @@ export default function App() {
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
                 <Route path="/entrance-exam/chat-inbox"   element={<ChatInbox />} />
+                {/* CBT (NMCN) direct chat routes */}
+                <Route path="/chat/:uid"    element={<ChatPage />} />
+                <Route path="/chat-inbox"   element={<ChatInbox />} />
                 <Route path="/group-chat"                 element={<GroupChatHub />} />
                 <Route path="/group-chat/:subjectId"      element={<GroupChatPage />} />
 

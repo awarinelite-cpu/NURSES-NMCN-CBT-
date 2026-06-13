@@ -56,8 +56,12 @@ export default function ChatInbox() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
   const location          = useLocation();
-  const leaderboardRoute  = '/entrance-exam/leaderboard';
-  const backRoute         = '/entrance-exam';
+
+  // Derive context from URL so inbox works for both CBT and Entrance sections
+  const isEntrance        = location.pathname.startsWith('/entrance-exam');
+  const chatBasePath      = isEntrance ? '/entrance-exam/chat' : '/chat';
+  const leaderboardRoute  = isEntrance ? '/entrance-exam/leaderboard' : '/leaderboard';
+  const backRoute         = isEntrance ? '/entrance-exam' : '/dashboard';
   const myUid             = user?.uid;
 
   const [threads,  setThreads]  = useState([]);
@@ -216,7 +220,7 @@ export default function ChatInbox() {
           <button
             key={t.id}
             className={`thread-row${t.unread > 0 ? ' has-unread' : ''}`}
-            onClick={() => navigate(`/entrance-exam/chat/${t.otherUid}`, { state:{ name:t.theirName, school:t.theirSchool } })}
+            onClick={() => navigate(`${chatBasePath}/${t.otherUid}`, { state:{ name:t.theirName, school:t.theirSchool } })}
             style={{
               display:'flex', alignItems:'center', gap:14,
               width:'100%', textAlign:'left',

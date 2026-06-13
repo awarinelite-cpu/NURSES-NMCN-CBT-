@@ -761,9 +761,13 @@ function QuickReactionBar({ onPick }) {
 /* ─── MAIN COMPONENT ────────────────────────────────────────── */
 export default function ChatPage() {
   const { uid: theirUid } = useParams();
-  const { state }          = useLocation();
+  const { state, pathname } = useLocation();
   const { user, profile }  = useAuth();
   const navigate           = useNavigate();
+
+  // Derive context from URL so notifications route back to the right section
+  const chatContext = pathname.startsWith('/entrance-exam') ? 'entrance' : 'nmcn';
+  const inboxPath   = chatContext === 'entrance' ? '/entrance-exam/chat-inbox' : '/chat-inbox';
 
   const myUid  = user?.uid;
   const chatId = myUid && theirUid ? getChatId(myUid, theirUid) : null;
@@ -827,6 +831,7 @@ export default function ChatPage() {
           {
             participants: [myUid, theirUid],
             participantNames: { [myUid]: myName, [theirUid]: theirName },
+            context: chatContext,
             updatedAt: serverTimestamp(),
           },
           { merge:true }
@@ -1212,7 +1217,7 @@ export default function ChatPage() {
         display:'flex', alignItems:'center', gap:12,
         flexShrink:0, zIndex:10,
       }}>
-        <button onClick={() => navigate('/entrance-exam/chat-inbox')} style={{
+        <button onClick={() => navigate(inboxPath)} style={{
           background:'none', border:'none', cursor:'pointer',
           fontSize:22, color:'#0D9488', padding:'2px 4px',
           fontWeight:900, lineHeight:1, flexShrink:0,

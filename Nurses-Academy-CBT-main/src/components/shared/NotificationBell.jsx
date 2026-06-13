@@ -36,7 +36,11 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { chatThreads, totalUnread: chatUnread }     = useChatNotifications();
+  const { chatThreads, totalUnread: chatUnread }     = useChatNotifications(mode);
+
+  // Base paths for navigation — never cross between sections
+  const chatBase  = mode === 'entrance' ? '/entrance-exam/chat' : '/chat';
+  const inboxPath = mode === 'entrance' ? '/entrance-exam/chat-inbox' : '/chat-inbox';
   const [open, setOpen] = useState(false);
   const ref    = useRef(null);
   const btnRef = useRef(null);
@@ -147,7 +151,7 @@ export default function NotificationBell() {
                   style={{ ...styles.item, ...styles.chatItem }}
                   onClick={() => {
                     setOpen(false);
-                    navigate(`/entrance-exam/chat/${unreadChats[0].otherUid}`, {
+                    navigate(`${chatBase}/${unreadChats[0].otherUid}`, {
                       state: { name: names[unreadChats[0].otherUid] || 'Student' }
                     });
                   }}
@@ -185,7 +189,7 @@ export default function NotificationBell() {
                       style={{ ...styles.item, ...styles.chatItem }}
                       onClick={() => {
                         setOpen(false);
-                        navigate(`/entrance-exam/chat/${t.otherUid}`, {
+                        navigate(`${chatBase}/${t.otherUid}`, {
                           state: { name: names[t.otherUid] || 'Student' }
                         });
                       }}
@@ -217,9 +221,7 @@ export default function NotificationBell() {
                   ))}
                   <button
                     style={styles.viewAllBtn}
-                    onClick={() => { setOpen(false); navigate('/entrance-exam/chat-inbox'); }}
-                  >
-                    View all messages →
+                    onClick={() => { setOpen(false); navigate(inboxPath); }}
                   </button>
                 </>
               )}
@@ -230,7 +232,7 @@ export default function NotificationBell() {
           {chatThreads.length > 0 && unreadChats.length === 0 && (
             <button
               style={styles.inboxLink}
-              onClick={() => { setOpen(false); navigate('/entrance-exam/chat-inbox'); }}
+              onClick={() => { setOpen(false); navigate(inboxPath); }}
             >
               💬 Open Messages Inbox
             </button>
