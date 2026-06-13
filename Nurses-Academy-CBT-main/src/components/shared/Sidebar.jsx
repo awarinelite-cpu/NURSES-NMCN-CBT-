@@ -4,12 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 
 const STUDENT_NAV = [
   { to: '/dashboard',      icon: '🏠', label: 'Dashboard'      },
-  { to: '/exams',          icon: '📝', label: 'Start Exam'     },
   { to: '/daily-practice', icon: '⚡', label: 'Daily Practice' },
   { to: '/course-drill',   icon: '📖', label: 'Course Drill'   },
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
   { to: '/mock-exams',     icon: '📋', label: 'Mock Exams'     },
-  { to: '/mock-reviews',   icon: '🗂️', label: 'Mock Reviews'  },
   { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
   { to: '/results',        icon: '📊', label: 'My Results'     },
   { to: '/performance',    icon: '📈', label: 'Analysis'       },
