@@ -106,7 +106,7 @@ export default function Navbar({ onMenuToggle }) {
       {/* Top: big bold site banner */}
       <div style={styles.brandBanner}>
         <Link to={user ? dashboardTo : '/'} style={styles.brandLink}>
-          <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 'clamp(44px, 8vw, 70px)', width: 'auto', flexShrink: 0, objectFit: 'contain' }} />
+          <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 'clamp(70px, 14vw, 110px)', width: 'auto', flexShrink: 0, objectFit: 'contain' }} />
           <span style={styles.brandText}>
             The Elite Nurses
             <span style={styles.brandTagline}>Your Path to Nursing Excellence</span>
