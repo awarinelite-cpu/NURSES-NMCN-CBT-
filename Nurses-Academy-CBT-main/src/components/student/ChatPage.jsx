@@ -1212,7 +1212,7 @@ export default function ChatPage() {
         display:'flex', alignItems:'center', gap:12,
         flexShrink:0, zIndex:10,
       }}>
-        <button onClick={() => navigate(-1)} style={{
+        <button onClick={() => navigate('/chat-inbox', { state: { from: 'entrance' } })} style={{
           background:'none', border:'none', cursor:'pointer',
           fontSize:22, color:'#0D9488', padding:'2px 4px',
           fontWeight:900, lineHeight:1, flexShrink:0,
