@@ -390,11 +390,6 @@ export function EntranceBookmarks() {
                     }}>
                       {i + 1}. {b.question || b.questionText}
                     </p>
-                    {b.explanation && (
-                      <div style={{ margin: '0 0 14px', paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                        <ExplanationText text={b.explanation} />
-                      </div>
-                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {(['A','B','C','D']).map(letter => {
                         const text = b.options?.[letter] || (Array.isArray(b.options) ? b.options[letter.charCodeAt(0) - 65] : null);
@@ -415,6 +410,11 @@ export function EntranceBookmarks() {
                         );
                       })}
                     </div>
+                    {b.explanation && (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                        <ExplanationText text={b.explanation} />
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => remove(b.id)} style={{
                     background: 'rgba(239,68,68,0.1)',

@@ -393,11 +393,6 @@ export default function EntranceExamSession() {
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: isRight ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', fontSize: 12, fontWeight: 900, fontFamily: H, color: isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B', marginBottom: 8 }}>{i + 1}</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, width: '100%', textAlign: 'justify', fontFamily: F }}><ItalicText text={q.questionText} /></div>
-                {q.explanation && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                    <ExplanationText text={q.explanation} />
-                  </div>
-                )}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 36 }}>
                 {OPTION_KEYS.map(key => {
@@ -414,6 +409,11 @@ export default function EntranceExamSession() {
                   : isRight ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
                   : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
               </div>
+              {q.explanation && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <ExplanationText text={q.explanation} />
+                </div>
+              )}
 
             </div>
           ))}
@@ -535,12 +535,7 @@ export default function EntranceExamSession() {
               </div>
             </div>
             {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: (submitted && currentQ.explanation) ? 0 : 16, fontFamily: F, textAlign: 'justify', width: '100%' }}><ItalicText text={currentQ.questionText} /></div>
-            {submitted && currentQ.explanation && (
-              <div style={{ marginTop: 10, marginBottom: 16, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                <ExplanationText text={currentQ.explanation} />
-              </div>
-            )}
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F, textAlign: 'justify', width: '100%' }}><ItalicText text={currentQ.questionText} /></div>
             {!submitted && <div style={{ marginBottom: 20 }}><VoiceExamMode question={currentQ.questionText || ''} options={voiceOptions} questionId={currentQ.id} onAnswer={handleVoiceAnswer} onNext={handleNext} hasNext={currentIndex < total - 1} continuousListen={true} /></div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {OPTION_KEYS.map((key, idx) => {
@@ -555,6 +550,11 @@ export default function EntranceExamSession() {
                 );
               })}
             </div>
+            {submitted && currentQ.explanation && (
+              <div style={{ marginTop: 16, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                <ExplanationText text={currentQ.explanation} />
+              </div>
+            )}
 
           </div>
         ) : <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontWeight: 700 }}>No questions loaded.</div>}
