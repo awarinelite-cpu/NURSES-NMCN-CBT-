@@ -65,7 +65,7 @@ export default function EntranceSchoolList() {
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
           🏫 Select a Nursing School
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>

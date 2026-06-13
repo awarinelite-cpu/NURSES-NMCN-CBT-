@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
-  limit, getCountFromServer, deleteDoc, doc, getDoc,
+  limit, getCountFromServer, deleteDoc, doc, getDoc, Timestamp,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -181,6 +181,8 @@ export default function EntranceExamHub() {
   const [loading,         setLoading]         = useState(true);
   const [loadError,       setLoadError]       = useState('');
   const [showPausedModal, setShowPausedModal] = useState(false);
+  const [mockReady,       setMockReady]       = useState(false);  // today's daily mock published?
+  const [todayMockDone,   setTodayMockDone]   = useState(false);  // user already did today's mock?
 
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
@@ -237,10 +239,36 @@ export default function EntranceExamHub() {
 
     // If today's Daily Mock has been published, make sure the
     // "new mock available" notification exists (idempotent)
+    // Also detect if the user already completed today's mock.
     try {
-      const todaySnap = await getDoc(doc(db, 'dailyMockSchedule', todayKey()));
-      if (todaySnap.exists()) {
-        ensureEntranceDailyMockNotification(todayKey());
+      const key = todayKey();
+      const todaySnap = await getDoc(doc(db, 'dailyMockSchedule', key));
+      const ready = todaySnap.exists();
+      setMockReady(ready);
+      if (ready) ensureEntranceDailyMockNotification(key);
+
+      // Check if the user already did today's mock (completedAt >= today midnight)
+      if (user && ready) {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        try {
+          const doneSnap = await getDocs(query(
+            collection(db, 'entranceExamSessions'),
+            where('userId',   '==', user.uid),
+            where('examType', '==', 'entrance_daily_mock'),
+            where('completedAt', '>=', Timestamp.fromDate(todayStart)),
+            limit(1),
+          ));
+          setTodayMockDone(!doneSnap.empty);
+        } catch {
+          // Composite index may not exist — fall back to checking loaded sessions
+          const todayStr = key;
+          const done = completedExams.some(s =>
+            s.examType === 'entrance_daily_mock' &&
+            s.completedAt?.toDate?.()?.toISOString?.()?.slice(0, 10) === todayStr
+          );
+          setTodayMockDone(done);
+        }
       }
     } catch (e) { console.error('Daily mock check error:', e.code, e.message); }
 
@@ -273,7 +301,18 @@ export default function EntranceExamHub() {
 
   // ── Feature cards ─────────────────────────────────────────────────────────
   const FEATURE_CARDS = [
-    { icon: '🗓️', label: 'Daily Mock Exam',      sub: "Today's mock is ready!",                              color: '#F59E0B', to: '/entrance-exam/daily-mock',   delay: 350 },
+    {
+      icon:  todayMockDone ? '✅' : mockReady ? '🗓️' : '🗓️',
+      label: 'Daily Mock Exam',
+      sub:   todayMockDone
+               ? "Done today! Tap to review or retry"
+               : mockReady
+                 ? "Today's mock is ready!"
+                 : "Check back — mock coming soon",
+      color: todayMockDone ? '#16A34A' : mockReady ? '#F59E0B' : '#64748B',
+      to: '/entrance-exam/daily-mock',
+      delay: 350,
+    },
     { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools available`,             color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
     { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',                             color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
     { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent session${completedExams.length !== 1 ? 's' : ''}`, color: '#7C3AED', to: '/entrance-exam/exams-taken', delay: 560 },
@@ -420,7 +459,11 @@ export default function EntranceExamHub() {
                 : avgScore >= 70
                   ? `You're averaging ${avgScore}% — great! Try a harder school's questions`
                   : "Start with any school's past questions to get your first score",
-              "Don't forget today's Daily Mock Exam",
+              todayMockDone
+                ? "Great job completing today's Daily Mock! Try a School Past Questions next"
+                : mockReady
+                  ? "Don't forget today's Daily Mock Exam — it resets at midnight"
+                  : "Try Subject Drill to sharpen your weak areas",
             ].map((tip, i) => (
               <div key={i} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: F, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <span style={{ color: 'var(--teal)', fontWeight: 900, flexShrink: 0 }}>→</span>

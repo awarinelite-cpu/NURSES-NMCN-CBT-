@@ -108,7 +108,7 @@ export default function EntranceExamDailyMockHub() {
         </button>
         <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: '32px 28px', textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 52, marginBottom: 8 }}>📅</div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Daily Mock Exam</h2>
+          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>Daily Mock Exam</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>Practice with fresh questions every day. Track your progress and build exam confidence.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
             {[

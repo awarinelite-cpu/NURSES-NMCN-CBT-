@@ -26,6 +26,7 @@ const BASE_NAV = [
   { icon: '📊', label: 'Results',    to: '/entrance-exam/my-results'    },
   { icon: '📈', label: 'Analysis',   to: '/entrance-exam/analysis'      },
   { icon: '🏆', label: 'Top',        to: '/entrance-exam/leaderboard'   },
+  { icon: '💬', label: 'Messages',   to: '/chat-inbox'                  },
 ];
 
 /* ── Admin-only extra item ──────────────────────────────────────────────── */

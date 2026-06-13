@@ -41,7 +41,7 @@ export default function EntranceDailyMockUpload() {
 
   return (
     <div style={{ padding: 24, maxWidth: 720 }}>
-      <h2 style={{ fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>
+      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 8 }}>
         📤 Upload Daily Mock — Entrance Exam
       </h2>
       <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: 14 }}>
