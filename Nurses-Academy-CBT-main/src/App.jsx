@@ -61,6 +61,8 @@ import {
 import EntranceExamDailyMockHub from './components/entrance/EntranceExamDailyMockHub';
 import EntranceExamSession      from './components/entrance/EntranceExamSession';
 import EntranceExamPaymentPage  from './components/entrance/EntranceExamPaymentPage';
+import EntranceGroupChatHub    from './components/entrance/EntranceGroupChatHub';
+import EntranceGroupChatPage   from './components/entrance/EntranceGroupChatPage';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -243,6 +245,8 @@ export default function App() {
                 <Route path="/entrance-exam/leaderboard"     element={<EntranceExamRoute><EntranceLeaderboard /></EntranceExamRoute>} />
                 <Route path="/entrance-exam/daily-mock"      element={<EntranceExamRoute><EntranceExamDailyMockHub /></EntranceExamRoute>} />
                 <Route path="/entrance-exam/session"         element={<EntranceExamRoute><EntranceExamSession /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/group-chat"          element={<EntranceExamRoute><EntranceGroupChatHub /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/group-chat/:subjectId" element={<EntranceExamRoute><EntranceGroupChatPage /></EntranceExamRoute>} />
 
                 {/* Admin */}
                 <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
