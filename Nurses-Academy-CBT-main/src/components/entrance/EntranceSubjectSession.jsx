@@ -466,10 +466,7 @@ export default function EntranceSubjectSession() {
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', background: subject.color + '22', color: subject.color, borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: F }}>Q{current + 1} / {total}</div>
               {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F }}><ItalicText text={currentQ.questionText} /></div>
-              <button onClick={handleReadQuestion} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 20, marginBottom: 18, cursor: 'pointer', background: isSpeaking ? subject.color + '22' : 'rgba(255,255,255,0.05)', border: `1.5px solid ${isSpeaking ? subject.color : 'rgba(255,255,255,0.1)'}`, color: isSpeaking ? subject.color : 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all 0.2s' }}>
-                <span style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔉'}</span>{isSpeaking ? 'Stop Reading' : 'Read Question'}
-              </button>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.65, marginBottom: 16, fontFamily: F, textAlign: 'justify', width: '100%' }}><ItalicText text={currentQ.questionText} /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {OPT_KEYS.map(key => {
                   const text = currentQ.options?.[key]; if (!text) return null;

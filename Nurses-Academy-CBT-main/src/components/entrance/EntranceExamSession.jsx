@@ -560,7 +560,7 @@ export default function EntranceExamSession() {
               </div>
             </div>
             {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F }}><ItalicText text={currentQ.questionText} /></div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F, textAlign: 'justify', width: '100%' }}><ItalicText text={currentQ.questionText} /></div>
             {!submitted && <div style={{ marginBottom: 20 }}><VoiceExamMode question={currentQ.questionText || ''} options={voiceOptions} questionId={currentQ.id} onAnswer={handleVoiceAnswer} onNext={handleNext} hasNext={currentIndex < total - 1} continuousListen={true} /></div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {OPTION_KEYS.map((key, idx) => {
