@@ -390,10 +390,9 @@ export default function EntranceExamSession() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {breakdown.map(({ q, i, chosen, correct, isRight }) => (
             <div key={q.id} style={{ background: 'var(--bg-card)', border: `1.5px solid ${isRight ? 'rgba(22,163,74,0.3)' : chosen ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderLeft: `4px solid ${isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
-                <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: isRight ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, fontFamily: H, color: isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B' }}>{i + 1}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.55, flex: 1, fontFamily: F }}><ItalicText text={q.questionText} /></div>
-                <span style={{ fontSize: 16, flexShrink: 0 }}>{isRight ? '✅' : chosen ? '❌' : '⏭'}</span>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: isRight ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', fontSize: 12, fontWeight: 900, fontFamily: H, color: isRight ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B', marginBottom: 8 }}>{i + 1}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, width: '100%', textAlign: 'justify', fontFamily: F }}><ItalicText text={q.questionText} /></div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 36 }}>
                 {OPTION_KEYS.map(key => {

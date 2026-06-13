@@ -336,10 +336,9 @@ export default function EntranceSubjectSession() {
               <div style={{ fontWeight: 800, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4, fontFamily: H }}>📋 Question-by-Question Breakdown</div>
               {result.breakdown.map(({ q, i, chosen, correct, isCorrect }) => (
                 <div key={q.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1.5px solid ${isCorrect ? 'rgba(22,163,74,0.2)' : chosen ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderLeft: `4px solid ${isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
-                    <div style={{ flexShrink: 0, width: 24, height: 24, borderRadius: '50%', background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, fontFamily: H, color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B' }}>{i + 1}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, flex: 1, fontFamily: F }}><ItalicText text={q.questionText} /></div>
-                    <span style={{ fontSize: 15 }}>{isCorrect ? '✅' : chosen ? '❌' : '⏭'}</span>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', fontSize: 11, fontWeight: 800, fontFamily: H, color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B', marginBottom: 8 }}>{i + 1}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, width: '100%', textAlign: 'justify', fontFamily: F }}><ItalicText text={q.questionText} /></div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 34, marginBottom: 8 }}>
                     {OPT_KEYS.map(key => {
