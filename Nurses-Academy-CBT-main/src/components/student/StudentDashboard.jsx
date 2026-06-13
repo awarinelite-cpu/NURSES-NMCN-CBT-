@@ -659,7 +659,7 @@ export default function StudentDashboard() {
                   <div style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 900, fontSize: 22, flexShrink: 0 }}>→</div>
                 </Link>
 
-                <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
+                <div style={{ display: 'flex', gap: 5, marginTop: 10, marginBottom: 14 }}>
                   {QUICK_ACTIONS.map((a, di) => (
                     <button
                       key={di}
@@ -673,17 +673,59 @@ export default function StudentDashboard() {
                     />
                   ))}
                 </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setShowStartModal(true); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
+                      fontWeight: 700, fontSize: 15, fontFamily: F,
+                      background: '#F59E0B', color: '#1a1a1a', border: 'none',
+                      whiteSpace: 'nowrap', flexShrink: 0,
+                    }}
+                  >
+                    ⚡ Start Exam
+                  </button>
+
+                  {pausedExams.length > 0 && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowModal(true); }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
+                        fontWeight: 700, fontSize: 15, fontFamily: F,
+                        background: 'rgba(13,148,136,0.25)', border: '1.5px solid rgba(13,148,136,0.65)', color: '#5EEAD4',
+                        whiteSpace: 'nowrap', flexShrink: 0,
+                      }}
+                    >
+                      ▶ Continue
+                      <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>
+                        {pausedExams.length}
+                      </span>
+                    </button>
+                  )}
+
+                  {!profile?.subscribed && (
+                    <Link
+                      to="/subscription"
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
+                        fontWeight: 700, fontSize: 15, fontFamily: F,
+                        background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.4)', color: '#fff',
+                        whiteSpace: 'nowrap', flexShrink: 0, textDecoration: 'none',
+                      }}
+                    >
+                      👑 Upgrade
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           ))}
         </div>
-
-        <BannerButtonStrip
-          pausedExams={pausedExams}
-          profile={profile}
-          onContinue={() => setShowModal(true)}
-          onStartExam={() => setShowStartModal(true)}
-        />
       </div>
 
       {/* ── Stats row ── */}
