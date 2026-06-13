@@ -5,7 +5,7 @@
 // Colors : CSS variables throughout → works in light AND dark mode
 // Routes : all feature cards verified against App.jsx routes
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
@@ -187,7 +187,7 @@ export default function EntranceExamHub() {
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
@@ -196,7 +196,10 @@ export default function EntranceExamHub() {
         getCountFromServer(collection(db, 'entranceExamQuestions')),
       ]);
       setStats({ schools: sc.data().count, questions: qc.data().count });
-    } catch (e) { console.error('Stats count error:', e.code, e.message); }
+    } catch (e) {
+      console.error('Stats count error:', e.code, e.message);
+      setLoadError(`Stats failed (${e.code || e.message}) — check Firestore indexes/rules`);
+    }
 
     try {
       let snap;
@@ -266,15 +269,14 @@ export default function EntranceExamHub() {
     } catch (e) { console.error('Daily mock check error:', e.code, e.message); }
 
     setLoading(false);
-  };
+  }, [user]); // useCallback dep — re-creates only when user changes
 
 
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 60);
     if (!user) { setLoading(false); return; }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
+  }, [user, authLoading, load]);
 
   const handleContinue = (exam) => {
     setShowPausedModal(false);
