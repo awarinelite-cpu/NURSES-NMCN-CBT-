@@ -601,25 +601,24 @@ export default function StudentDashboard() {
           opacity: bannerVis ? 1 : 0,
           transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
           transition: 'opacity .6s ease, transform .6s ease',
-          padding: 0, overflow: 'hidden', userSelect: 'none',
-          minHeight: 260, display: 'flex', flexDirection: 'column',
+          padding: 0, userSelect: 'none',
+          display: 'flex', flexDirection: 'column',
         }}
         onMouseDown={handlePointerDown}
         onMouseUp={handlePointerUp}
         onTouchStart={handlePointerDown}
         onTouchEnd={handlePointerUp}
       >
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ position: 'relative' }}>
           {QUICK_ACTIONS.map((action, i) => (
             <div
               key={action.label}
               style={{
-                position: 'absolute', inset: 0, width: '100%',
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 12,
+                display: i === slideIdx ? 'flex' : 'none',
+                alignItems: 'flex-start', justifyContent: 'space-between',
+                flexWrap: 'wrap', gap: 12, width: '100%',
                 padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
-                opacity: i === slideIdx ? (slideFade ? 1 : 0) : 0,
-                pointerEvents: i === slideIdx ? 'auto' : 'none',
+                opacity: slideFade ? 1 : 0,
                 transition: 'opacity .38s ease',
                 background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
                 borderRadius: 20, boxSizing: 'border-box',
