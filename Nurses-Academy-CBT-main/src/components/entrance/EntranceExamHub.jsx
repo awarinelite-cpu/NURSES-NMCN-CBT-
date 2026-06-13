@@ -276,6 +276,7 @@ export default function EntranceExamHub() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
+  const handleContinue = (exam) => {
     setShowPausedModal(false);
     navigate('/entrance-exam/session', {
       state: {
