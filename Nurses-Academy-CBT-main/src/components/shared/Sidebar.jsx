@@ -59,7 +59,8 @@ export default function Sidebar({ open, onClose }) {
   const location  = useLocation();
 
   const isSubAdmin    = profile?.role === 'subadmin';
-  const isEntranceRoute = location.pathname.startsWith('/entrance-exam');
+  const isEntranceRoute = location.pathname.startsWith('/entrance-exam') ||
+                          location.pathname.startsWith('/admin/entrance-exam');
 
   const navItems = isAdmin
     ? ADMIN_NAV
@@ -157,27 +158,45 @@ export default function Sidebar({ open, onClose }) {
             ))}
           </ul>
 
-          {/* Switch section — lets user jump between sections */}
+          {/* Switch section — lets admin jump between NMCN CBT and Entrance Exam */}
           {isAdmin && (
             <div style={{ marginTop: 16, padding: '0 6px' }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 8 }}>
                 Switch to
               </div>
-              <NavLink
-                to="/dashboard"
-                onClick={onClose}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.55)', fontSize: 13,
-                  fontWeight: 700, textDecoration: 'none',
-                  transition: 'all .2s',
-                }}
-              >
-                <span>🎓</span> Student View
-              </NavLink>
+              {isEntranceRoute ? (
+                <NavLink
+                  to="/dashboard"
+                  onClick={onClose}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
+                    fontWeight: 700, textDecoration: 'none',
+                    transition: 'all .2s',
+                  }}
+                >
+                  <span>📝</span> NMCN CBT
+                </NavLink>
+              ) : (
+                <NavLink
+                  to="/entrance-exam"
+                  onClick={onClose}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
+                    fontWeight: 700, textDecoration: 'none',
+                    transition: 'all .2s',
+                  }}
+                >
+                  <span>🏫</span> Entrance Exam
+                </NavLink>
+              )}
             </div>
           )}
           {!isAdmin && (
