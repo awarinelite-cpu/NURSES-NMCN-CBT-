@@ -11,8 +11,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
-  collection, query, where, onSnapshot,
+  collection, query, where, onSnapshot, doc,
 } from 'firebase/firestore';
+import { ENTRANCE_GROUP_SUBJECTS } from './EntranceGroupChatHub';
 import { db } from '../../firebase/config';
 
 /* ── Base nav items (all users) ─────────────────────────────────────────── */
@@ -87,6 +88,36 @@ function useUnreadMessages(myUid) {
   return state;
 }
 
+/* ── Hook: listen to unread group chat counts ───────────────────────────── */
+function useEntranceGroupUnread(myUid) {
+  const [total, setTotal] = useState(0);
+  useEffect(() => {
+    if (!myUid) return;
+    const unsubs = ENTRANCE_GROUP_SUBJECTS.map(grp => {
+      const metaRef = doc(db, 'entranceGroupChats', grp.id);
+      return onSnapshot(metaRef, snap => {
+        if (!snap.exists()) return;
+        const unread = snap.data()?.unreadCounts?.[myUid] || 0;
+        setTotal(prev => {
+          // We track each group separately via a map ref
+          return prev; // Will be replaced below
+        });
+      }, () => {});
+    });
+    // Use a map to accumulate per-group unreads
+    const unreadMap = {};
+    const unsubs2 = ENTRANCE_GROUP_SUBJECTS.map(grp => {
+      const metaRef = doc(db, 'entranceGroupChats', grp.id);
+      return onSnapshot(metaRef, snap => {
+        unreadMap[grp.id] = snap.exists() ? (snap.data()?.unreadCounts?.[myUid] || 0) : 0;
+        setTotal(Object.values(unreadMap).reduce((a, b) => a + b, 0));
+      }, () => {});
+    });
+    return () => unsubs2.forEach(u => u());
+  }, [myUid]);
+  return total;
+}
+
 /* ── Component ──────────────────────────────────────────────────────────── */
 export default function EntranceBottomNav() {
   const location  = useLocation();
@@ -96,6 +127,7 @@ export default function EntranceBottomNav() {
 
   // Unread message state
   const { totalUnread, unreadThreads } = useUnreadMessages(myUid);
+  const groupUnread = useEntranceGroupUnread(myUid);
 
   // Build nav items — admin gets Control Panel appended
   const NAV_ITEMS = isAdmin ? [...BASE_NAV, ADMIN_ITEM] : BASE_NAV;
@@ -111,13 +143,13 @@ export default function EntranceBottomNav() {
   const prevUnread = useRef(0);
 
   useEffect(() => {
-    if (totalUnread > prevUnread.current) {
+    if (combinedUnread > prevUnread.current) {
       // New message arrived — pulse the badge
       setBadgePulse(true);
       const t = setTimeout(() => setBadgePulse(false), 1200);
       return () => clearTimeout(t);
     }
-    prevUnread.current = totalUnread;
+    prevUnread.current = combinedUnread;
   }, [totalUnread]);
 
   const openPctRef   = useRef(0);
@@ -211,7 +243,8 @@ export default function EntranceBottomNav() {
       ? location.pathname === to
       : location.pathname.startsWith(to);
 
-  const badgeCount = totalUnread > 99 ? '99+' : totalUnread > 0 ? String(totalUnread) : null;
+  const combinedUnread = totalUnread + groupUnread;
+  const badgeCount = combinedUnread > 99 ? '99+' : combinedUnread > 0 ? String(combinedUnread) : null;
 
   return (
     <>
