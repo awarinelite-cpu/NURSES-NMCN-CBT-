@@ -492,7 +492,7 @@ export default function ExamSession() {
 
       setExitSaving(false); setShowExitModal(false);
       toast('✅ Progress auto-saved — resume anytime from your dashboard', 'success', 3000);
-      navigate(-1);
+      navigate('/dashboard');
     } catch (e) {
       console.error('Save exit failed:', e);
       setExitSaving(false);
@@ -500,7 +500,7 @@ export default function ExamSession() {
     }
   }, [currentUser, poolMode, examType, examId, category, course, courseLabel, topic, examName, timeLimit, navigate, state]);
 
-  const handleAbandonExit = useCallback(() => { setShowExitModal(false); navigate(-1); }, [navigate]);
+  const handleAbandonExit = useCallback(() => { setShowExitModal(false); navigate('/dashboard'); }, [navigate]);
 
   // ── AI Explain ──────────────────────────────────────────────────────────────
   const getAiExplain = async (q) => {
