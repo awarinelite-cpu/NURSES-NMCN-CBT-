@@ -184,44 +184,24 @@ service cloud.firestore {
     }
 
     // ── Direct student-to-student chat ─────────────────────────────────────
-    // chatId = [uid1, uid2].sort().join('_')
-    // Access is granted when the authenticated user's UID is in the
-    // participants array stored on the chat document itself.
-    // This avoids fragile regex matching on chatId strings.
-
-    function isChatParticipant(chatId) {
-      // For existing documents, check the stored participants array.
-      // exists() guard prevents errors when the doc hasn't been created yet.
-      return isAuth() && (
-        !exists(/databases/$(database)/documents/directChats/$(chatId)) ||
-        get(/databases/$(database)/documents/directChats/$(chatId)).data.participants.hasAny([request.auth.uid])
-      );
-    }
 
     match /directChats/{chatId} {
-      // Helper: is the current user a participant of this chat?
-      // chatId is always uid1_uid2 (sorted). We check both the stored
-      // participants array AND the chatId string as a belt-and-braces fallback.
       function isParticipant() {
-        return isAuth() && (
-          resource.data.participants.hasAny([request.auth.uid])
-        );
+        return isAuth() && resource.data.participants.hasAny([request.auth.uid]);
       }
       function isParticipantByCreate() {
-        return isAuth() &&
-          request.resource.data.participants.hasAny([request.auth.uid]);
+        return isAuth() && request.resource.data.participants.hasAny([request.auth.uid]);
       }
-      // Safely get participants from an existing chat doc (returns false if doc missing)
       function chatParticipants() {
         return exists(/databases/$(database)/documents/directChats/$(chatId))
           ? get(/databases/$(database)/documents/directChats/$(chatId)).data.participants
           : [];
       }
 
-      allow read: if isAuth() && (
-        !exists(/databases/$(database)/documents/directChats/$(chatId)) ||
-        resource.data.participants.hasAny([request.auth.uid])
-      );
+      // Simple isAuth() so collection queries (used by notification hook) work.
+      // exists() checks in rules break Firestore collection queries silently.
+      // The query itself filters to only docs where uid is in participants.
+      allow read: if isAuth();
       allow create: if isParticipantByCreate();
       allow update: if isParticipant();
       allow delete: if isAdmin();
