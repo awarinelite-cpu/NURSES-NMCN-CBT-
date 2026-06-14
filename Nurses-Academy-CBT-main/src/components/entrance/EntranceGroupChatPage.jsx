@@ -598,6 +598,37 @@ export default function EntranceGroupChatPage() {
   // Use separate Firestore collection: entranceGroupChats
   const colPath = `entranceGroupChats/${subjectId}/messages`;
 
+  /* ── Auto-send question returned from bookmarks page ── */
+  useEffect(() => {
+    if (!state?.shareQuestion || !myUid || sending) return;
+    const question = state.shareQuestion;
+    const comment  = state.shareComment || '';
+    // Clear state so a page refresh doesn't re-send
+    window.history.replaceState({}, '');
+    const doSend = async () => {
+      setSending(true);
+      try {
+        await addDoc(collection(db, colPath), {
+          type: 'question', text: comment, questionData: question,
+          senderId: myUid, senderName: myName, createdAt: serverTimestamp(),
+        });
+        await setDoc(doc(db, 'entranceGroupChats', subjectId), {
+          lastMessage: `🚩 ${myName} shared a question`,
+          lastSenderName: myName, updatedAt: serverTimestamp(),
+        }, { merge: true });
+        const memberSnap = await getDocs(collection(db, 'entranceGroupChats', subjectId, 'members'));
+        const updates = {};
+        memberSnap.docs.forEach(d => { if (d.id !== myUid) updates[`unreadCounts.${d.id}`] = increment(1); });
+        if (Object.keys(updates).length > 0) {
+          await setDoc(doc(db, 'entranceGroupChats', subjectId), updates, { merge: true });
+        }
+      } catch (e) { console.error('Auto-share failed:', e); }
+      finally { setSending(false); }
+    };
+    doSend();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ── Reset unread on open ── */
   useEffect(() => {
     if (!myUid || !subjectId) return;
@@ -864,7 +895,7 @@ export default function EntranceGroupChatPage() {
                   <div style={{ fontSize: 11, color: '#8696A0', marginTop: 1 }}>Share a bookmarked question</div>
                 </div>
               </button>
-              <button onClick={() => { setShowMenu(false); navigate('/entrance-exam/bookmarks'); }} style={{
+              <button onClick={() => { setShowMenu(false); navigate('/entrance-exam/bookmarks', { state: { fromChat: subjectId, groupLabel: grp.label } }); }} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 width: '100%', padding: '13px 16px', border: 'none', cursor: 'pointer',
                 background: 'transparent', color: '#E9EDEF',

@@ -10,7 +10,7 @@
 //          Analysis reads entranceExamSessions + users/{uid}/entranceSubjectDrills
 
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate }                       from 'react-router-dom';
+import { useNavigate, useLocation }                       from 'react-router-dom';
 import { db }                                from '../../firebase/config';
 import {
   collection, doc, getDocs, query, orderBy,
@@ -323,8 +323,37 @@ export function EntranceExamsTaken() { return <EntranceMyResults />; }
 export function EntranceBookmarks() {
   const { user }    = useAuth();
   const navigate    = useNavigate();
+  const location    = useLocation();
   const [bookmarks, setBookmarks] = useState([]);
   const [loading,   setLoading]   = useState(true);
+
+  // Detect if we arrived from a group chat to pick a question
+  const fromChat   = location.state?.fromChat;   // subjectId
+  const groupLabel = location.state?.groupLabel || 'Group Chat';
+
+  const normaliseQuestion = (b) => {
+    const opts = b.options || {};
+    const optionsArray = Array.isArray(opts)
+      ? opts
+      : ['A','B','C','D'].map(l => opts[l]).filter(Boolean);
+    return {
+      id:             b.id,
+      question:       b.question || b.questionText || '',
+      options:        optionsArray,
+      correct_answer: b.answer || b.correctAnswer || '',
+      explanation:    b.explanation || '',
+      subject:        b.subject || '',
+    };
+  };
+
+  const shareToChat = (b) => {
+    navigate(`/entrance-exam/group-chat/${fromChat}`, {
+      state: {
+        shareQuestion: normaliseQuestion(b),
+        shareComment: '',
+      },
+    });
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -357,6 +386,30 @@ export function EntranceBookmarks() {
 
   return (
     <PageShell title="Bookmarks" subtitle="Questions you saved for review">
+      {fromChat && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'rgba(13,148,136,0.12)',
+          border: '1.5px solid rgba(13,148,136,0.4)',
+          borderRadius: 12, padding: '12px 16px', marginBottom: 20,
+        }}>
+          <span style={{ fontSize: 22 }}>📤</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#0D9488', fontFamily: "'Arial Black', Arial, sans-serif" }}>
+              Sharing to {groupLabel}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F, marginTop: 2 }}>
+              Tap <strong>Share to Chat</strong> on any question below to send it to the group.
+            </div>
+          </div>
+          <button onClick={() => navigate(-1)} style={{
+            background: 'none', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 8, padding: '6px 12px',
+            color: 'var(--text-muted)', fontSize: 12, fontWeight: 700,
+            fontFamily: F, cursor: 'pointer',
+          }}>Cancel</button>
+        </div>
+      )}
       {loading ? <Spinner /> : bookmarks.length === 0 ? (
         <EmptyState icon="🔖" title="No bookmarks yet"
           sub="Tap the Bookmark button during exams to save questions here for later review."
@@ -416,13 +469,25 @@ export function EntranceBookmarks() {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => remove(b.id)} style={{
-                    background: 'rgba(239,68,68,0.1)',
-                    border: '1.5px solid rgba(239,68,68,0.35)',
-                    color: '#EF4444', borderRadius: 10,
-                    padding: '9px 14px', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 700, fontFamily: F, flexShrink: 0,
-                  }}>Remove</button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                    {fromChat && (
+                      <button onClick={() => shareToChat(b)} style={{
+                        background: 'rgba(13,148,136,0.15)',
+                        border: '1.5px solid rgba(13,148,136,0.5)',
+                        color: '#0D9488', borderRadius: 10,
+                        padding: '9px 14px', cursor: 'pointer',
+                        fontSize: 13, fontWeight: 700, fontFamily: F,
+                        whiteSpace: 'nowrap',
+                      }}>📤 Share</button>
+                    )}
+                    <button onClick={() => remove(b.id)} style={{
+                      background: 'rgba(239,68,68,0.1)',
+                      border: '1.5px solid rgba(239,68,68,0.35)',
+                      color: '#EF4444', borderRadius: 10,
+                      padding: '9px 14px', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 700, fontFamily: F,
+                    }}>Remove</button>
+                  </div>
                 </div>
               </SCard>
             ))}
