@@ -206,37 +206,60 @@ export default function Sidebar({ open, onClose }) {
                 Switch to
               </div>
               {isEntranceRoute ? (
-                <NavLink
-                  to="/dashboard"
-                  onClick={onClose}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 14px', borderRadius: 10,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
-                    fontWeight: 700, textDecoration: 'none',
-                    transition: 'all .2s',
-                  }}
-                >
-                  <span>📝</span> NMCN CBT Exams
-                </NavLink>
+                /* Currently on Entrance Exam — offer switch to NMCN CBT */
+                (() => {
+                  const nmcnPaid =
+                    profile?.subscribed === true ||
+                    profile?.accessLevel === 'full' ||
+                    ['basic','standard','premium'].includes(profile?.accessLevel);
+                  const dest  = nmcnPaid ? '/dashboard' : '/subscription';
+                  const label = nmcnPaid ? '📝 NMCN CBT Exams' : '📝 NMCN CBT (Subscribe)';
+                  return (
+                    <NavLink
+                      to={dest}
+                      onClick={onClose}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '9px 14px', borderRadius: 10,
+                        background: nmcnPaid ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.08)',
+                        border: nmcnPaid
+                          ? '1px solid rgba(255,255,255,0.1)'
+                          : '1px solid rgba(245,158,11,0.35)',
+                        color: nmcnPaid ? 'rgba(255,255,255,0.55)' : '#F59E0B',
+                        fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                        transition: 'all .2s',
+                      }}
+                    >
+                      {label}
+                    </NavLink>
+                  );
+                })()
               ) : (
-                <NavLink
-                  to="/entrance-exam"
-                  onClick={onClose}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 14px', borderRadius: 10,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.55)', fontSize: 13,
-                    fontWeight: 700, textDecoration: 'none',
-                    transition: 'all .2s',
-                  }}
-                >
-                  <span>🏫</span> Entrance Exams
-                </NavLink>
+                /* Currently on NMCN CBT — offer switch to Entrance Exam */
+                (() => {
+                  const entrancePaid = profile?.entranceExamPaid === true;
+                  const dest  = entrancePaid ? '/entrance-exam' : '/entrance-exam/payment';
+                  const label = entrancePaid ? '🏫 Entrance Exams' : '🏫 Entrance Exams (Register)';
+                  return (
+                    <NavLink
+                      to={dest}
+                      onClick={onClose}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '9px 14px', borderRadius: 10,
+                        background: entrancePaid ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.08)',
+                        border: entrancePaid
+                          ? '1px solid rgba(255,255,255,0.1)'
+                          : '1px solid rgba(245,158,11,0.35)',
+                        color: entrancePaid ? 'rgba(255,255,255,0.55)' : '#F59E0B',
+                        fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                        transition: 'all .2s',
+                      }}
+                    >
+                      {label}
+                    </NavLink>
+                  );
+                })()
               )}
             </div>
           )}

@@ -3,28 +3,25 @@
 // Guards ALL /entrance-exam/* routes.
 //
 // Logic:
-//   - Not logged in         → /auth?redirect=...
-//   - Admin                 → full access (bypass everything)
-//   - entranceExamPaid=true → full access
-//   - Logged-in unpaid user → FREE PREVIEW (10 questions per exam)
-//                             The cap is enforced inside each session
-//                             component via the isPaid flag read from profile.
-//
-// NOTE: Unpaid users are no longer redirected to /entrance-exam/payment.
-//       They see the hub and can start any exam, capped at FREE_CAP questions.
-//       Upgrade CTAs inside each session nudge them to pay.
+//   - Not logged in              → /auth?redirect=...
+//   - Profile still loading      → spinner
+//   - Admin                      → full access (bypass payment check)
+//   - entranceExamPaid === true  → full access
+//   - Logged-in but NOT paid     → /entrance-exam/payment
+//                                  (prevents NMCN-only subscribers from
+//                                   accessing entrance content for free)
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth }               from '../../context/AuthContext';
 
-export const ENTRANCE_FREE_CAP = 10;
+export const ENTRANCE_FREE_CAP = 10; // kept for any component that imports it
 
 export default function EntranceExamRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  // Wait for Firebase auth to resolve before making decisions
-  if (loading) {
+  // Spinner while Firebase auth / profile resolves
+  if (loading || (user && !profile)) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center',
@@ -45,15 +42,21 @@ export default function EntranceExamRoute({ children }) {
   if (!user) {
     return (
       <Navigate
-        to={`/auth?redirect=${encodeURIComponent(location.pathname)}`}
+        to={`/auth?redirect=${encodeURIComponent(location.pathname)}&platform=entrance`}
         replace
       />
     );
   }
 
-  // Logged-in users (paid, unpaid, or admin) → always allowed through.
-  // Paid/admin get full questions; unpaid get FREE_CAP questions per exam
-  // (enforced inside EntranceExamSession, EntranceExamDailyMockHub,
-  //  EntranceSubjectSession, etc.).
+  // Admin always gets through
+  if (profile?.role === 'admin') return children;
+
+  // Must have paid for Entrance Exam specifically
+  if (!profile?.entranceExamPaid) {
+    // Don't redirect if already on the payment page (avoids redirect loop)
+    if (location.pathname === '/entrance-exam/payment') return children;
+    return <Navigate to="/entrance-exam/payment" replace />;
+  }
+
   return children;
 }
