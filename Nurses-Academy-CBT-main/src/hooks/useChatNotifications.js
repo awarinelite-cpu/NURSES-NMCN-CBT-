@@ -7,7 +7,7 @@
 // we only need unread counts, not display order.
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDoc, doc } from 'firebase/firestore';
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 
@@ -66,16 +66,48 @@ export function useChatNotifications(mode = 'nmcn') {
   }, [myUid]);
 
   // ── 2. Group chats — collection depends on mode ───────────────
+  // Counts unread from:
+  //   a) unreadCounts[myUid]  — incremented when a member sends (joined users)
+  //   b) lastMessageAt > groupLastReadAt — fallback for non-members who never joined
   useEffect(() => {
     if (!myUid) return;
 
     const groupCol = mode === 'entrance' ? 'entranceGroupChats' : 'groupChats';
+    const lastReadKey = mode === 'entrance'
+      ? 'entranceGroupLastReadAt'
+      : 'groupLastReadAt';
+
+    // Fetch our own groupLastReadAt from user doc once
+    let myLastReadAt = null;
+    getDoc(doc(db, 'users', myUid))
+      .then(snap => {
+        if (snap.exists()) {
+          const ts = snap.data()[lastReadKey];
+          myLastReadAt = ts?.toDate?.() || null;
+        }
+      })
+      .catch(() => {});
 
     const unsub = onSnapshot(
       collection(db, groupCol),
       (snap) => {
         let total = 0;
-        snap.docs.forEach(d => { total += d.data().unreadCounts?.[myUid] || 0; });
+        snap.docs.forEach(d => {
+          const data = d.data();
+          // Primary: explicit unread count for this user (set when they're a member)
+          const explicitUnread = data.unreadCounts?.[myUid] || 0;
+          if (explicitUnread > 0) {
+            total += explicitUnread;
+          } else if (data.lastMessageBy && data.lastMessageBy !== myUid) {
+            // Fallback: message newer than our last read timestamp
+            const lastMsgAt = data.lastMessageAt?.toDate?.() || null;
+            if (lastMsgAt && myLastReadAt && lastMsgAt > myLastReadAt) {
+              total += 1; // show at least 1 badge for this group
+            } else if (lastMsgAt && !myLastReadAt) {
+              total += 1; // never read at all — show badge
+            }
+          }
+        });
         setGroupUnread(total);
       },
       err => console.error('useChatNotifications groupChats error:', err)

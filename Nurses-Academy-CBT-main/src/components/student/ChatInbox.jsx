@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  collection, query, where, orderBy, onSnapshot,
+  collection, query, where, onSnapshot,
   doc, getDoc,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
@@ -74,7 +74,8 @@ export default function ChatInbox() {
     const q = query(
       collection(db, 'directChats'),
       where('participants', 'array-contains', myUid),
-      orderBy('updatedAt', 'desc'),
+      // NOTE: No orderBy here — array-contains + orderBy on different field
+      // requires a Firestore composite index. Sort client-side instead.
     );
     const unsub = onSnapshot(q, async (snap) => {
       const chats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -109,7 +110,14 @@ export default function ChatInbox() {
         };
       }));
 
-      const valid = enriched.filter(Boolean);
+      // Sort client-side by updatedAt descending (avoids composite index requirement)
+      const valid = enriched
+        .filter(Boolean)
+        .sort((a, b) => {
+          const ta = a.updatedAt?.toMillis?.() || (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0);
+          const tb = b.updatedAt?.toMillis?.() || (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0);
+          return tb - ta;
+        });
 
       // Cache profiles
       const newProfiles = { ...profiles };

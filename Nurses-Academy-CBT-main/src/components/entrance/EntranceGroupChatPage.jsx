@@ -642,6 +642,8 @@ export default function EntranceGroupChatPage() {
       { [`unreadCounts.${myUid}`]: 0 },
       { merge: true }
     ).catch(() => {});
+    // Update entranceGroupLastReadAt on user doc so bell hook fallback clears correctly
+    updateDoc(doc(db, 'users', myUid), { entranceGroupLastReadAt: serverTimestamp() }).catch(() => {});
   }, [myUid, subjectId]);
 
   /* ── Join group ── */
@@ -748,9 +750,10 @@ export default function EntranceGroupChatPage() {
       const memberSnap = await getDocs(collection(db, 'entranceGroupChats', subjectId, 'members'));
       const updates = {};
       memberSnap.docs.forEach(d => { if (d.id !== myUid) updates[`unreadCounts.${d.id}`] = increment(1); });
-      if (Object.keys(updates).length > 0) {
-        await setDoc(doc(db, 'entranceGroupChats', subjectId), updates, { merge: true });
-      }
+      // Global lastMessageAt so non-members can detect new messages via bell hook
+      updates['lastMessageAt'] = serverTimestamp();
+      updates['lastMessageBy'] = myUid;
+      await setDoc(doc(db, 'entranceGroupChats', subjectId), updates, { merge: true });
     } catch (e) { console.error('Send failed:', e); setText(trimmed); }
     finally { setSending(false); inputRef.current?.focus(); }
   };
@@ -772,9 +775,9 @@ export default function EntranceGroupChatPage() {
       const memberSnap = await getDocs(collection(db, 'entranceGroupChats', subjectId, 'members'));
       const updates = {};
       memberSnap.docs.forEach(d => { if (d.id !== myUid) updates[`unreadCounts.${d.id}`] = increment(1); });
-      if (Object.keys(updates).length > 0) {
-        await setDoc(doc(db, 'entranceGroupChats', subjectId), updates, { merge: true });
-      }
+      updates['lastMessageAt'] = serverTimestamp();
+      updates['lastMessageBy'] = myUid;
+      await setDoc(doc(db, 'entranceGroupChats', subjectId), updates, { merge: true });
     } catch (e) { console.error('Question send failed:', e); }
     finally { setSending(false); }
   };

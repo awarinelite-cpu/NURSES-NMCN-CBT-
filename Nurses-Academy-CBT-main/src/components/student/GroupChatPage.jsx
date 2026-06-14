@@ -679,10 +679,14 @@ export default function GroupChatPage() {
   /* ── Reset unread on open ── */
   useEffect(() => {
     if (!myUid || !subjectId) return;
+    // Reset my explicit unread count on the group doc
     setDoc(doc(db, 'groupChats', subjectId),
       { [`unreadCounts.${myUid}`]: 0 },
       { merge: true }
     ).catch(() => {});
+    // Also update my groupLastReadAt on my user doc so the fallback
+    // lastMessageAt detection in useChatNotifications clears correctly
+    updateDoc(doc(db, 'users', myUid), { groupLastReadAt: serverTimestamp() }).catch(() => {});
   }, [myUid, subjectId]);
 
   /* ── Join group (record membership) ── */
@@ -810,15 +814,17 @@ export default function GroupChatPage() {
         // Increment unread for all other members
       }, { merge: true });
 
-      // Increment unread for members (we do a batch increment for members)
+      // Increment unread for members who have joined this group
       const memberSnap = await getDocs(collection(db, 'groupChats', subjectId, 'members'));
       const updates = {};
       memberSnap.docs.forEach(d => {
         if (d.id !== myUid) updates[`unreadCounts.${d.id}`] = increment(1);
       });
-      if (Object.keys(updates).length > 0) {
-        await setDoc(doc(db, 'groupChats', subjectId), updates, { merge: true });
-      }
+      // Also write global lastMessageAt so the bell hook can detect new messages
+      // even for users who have never opened this group (non-members)
+      updates['lastMessageAt'] = serverTimestamp();
+      updates['lastMessageBy'] = myUid;
+      await setDoc(doc(db, 'groupChats', subjectId), updates, { merge: true });
     } catch (e) { console.error('Send failed:', e); setText(trimmed); }
     finally { setSending(false); inputRef.current?.focus(); }
   };
@@ -845,15 +851,15 @@ export default function GroupChatPage() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // Increment unread for others
+      // Increment unread for members + write global lastMessageAt
       const memberSnap = await getDocs(collection(db, 'groupChats', subjectId, 'members'));
       const updates = {};
       memberSnap.docs.forEach(d => {
         if (d.id !== myUid) updates[`unreadCounts.${d.id}`] = increment(1);
       });
-      if (Object.keys(updates).length > 0) {
-        await setDoc(doc(db, 'groupChats', subjectId), updates, { merge: true });
-      }
+      updates['lastMessageAt'] = serverTimestamp();
+      updates['lastMessageBy'] = myUid;
+      await setDoc(doc(db, 'groupChats', subjectId), updates, { merge: true });
     } catch (e) { console.error('Question send failed:', e); }
     finally { setSending(false); }
   };
