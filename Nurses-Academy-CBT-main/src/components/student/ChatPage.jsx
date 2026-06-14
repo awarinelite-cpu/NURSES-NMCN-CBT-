@@ -262,10 +262,12 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
         paddingRight: isMe ? 0 : 48,
         position:'relative',
       }}>
-        {/* Avatar — only shown for first message in a group */}
-        <div style={{ width:32, flexShrink:0 }}>
-          {showAvatar && !isMe && <Avatar name={theirName} size={30} />}
-        </div>
+        {/* Avatar — only for other person, on first message of each group */}
+        {!isMe && (
+          <div style={{ width:32, flexShrink:0 }}>
+            {showAvatar ? <Avatar name={theirName} size={30} /> : <div style={{ width:30 }} />}
+          </div>
+        )}
 
         <div style={{ maxWidth:'78%', display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
           {/* Reply preview inside bubble */}

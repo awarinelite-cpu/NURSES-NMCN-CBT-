@@ -172,9 +172,12 @@ function QuestionCard({ question, accentColor, compact = false }) {
 }
 
 /* ─── Message Bubble ─────────────────────────────────────── */
-function Bubble({ msg, isMe, prevMsg, accentColor, onSwipeReply, onLongPress }) {
+function Bubble({ msg, isMe, prevMsg, nextMsg, accentColor, onSwipeReply, onLongPress }) {
   const showDateDiv = !prevMsg || !sameDay(prevMsg.createdAt, msg.createdAt);
-  const showName = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId || showDateDiv);
+  // Name shown on first message of a consecutive group from same sender
+  const showName   = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId || showDateDiv);
+  // Avatar shown on last message of a consecutive group (WhatsApp style)
+  const showAvatar = !isMe && (!nextMsg || nextMsg.senderId !== msg.senderId || !sameDay(msg.createdAt, nextMsg?.createdAt));
 
   // Swipe to reply
   const touchStartX = useRef(null);
@@ -247,9 +250,14 @@ function Bubble({ msg, isMe, prevMsg, accentColor, onSwipeReply, onLongPress }) 
           }}>↩️</div>
         )}
 
-        <div style={{ width: 34, flexShrink: 0 }}>
-          {!isMe && showName && <Avatar name={msg.senderName || ''} size={30} />}
-        </div>
+        {/* Avatar column — only for others, keeps alignment for consecutive msgs */}
+        {!isMe && (
+          <div style={{ width: 34, flexShrink: 0, alignSelf: 'flex-end' }}>
+            {showAvatar
+              ? <Avatar name={msg.senderName || ''} size={30} />
+              : <div style={{ width: 30 }} />}
+          </div>
+        )}
 
         <div style={{
           maxWidth: isQuestion ? '90%' : '75%',
@@ -1075,6 +1083,7 @@ export default function GroupChatPage() {
                   msg={msg}
                   isMe={msg.senderId === myUid}
                   prevMsg={i > 0 ? messages[i - 1] : null}
+                  nextMsg={i < messages.length - 1 ? messages[i + 1] : null}
                   accentColor={accentColor}
                   onSwipeReply={m => { setReplyTo(m); inputRef.current?.focus(); }}
                   onLongPress={(m, x, y) => setCtxMenu({ msg: m, x, y })}

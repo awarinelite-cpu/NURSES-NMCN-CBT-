@@ -148,9 +148,10 @@ function QuestionCard({ question, accentColor }) {
 }
 
 /* ─── Message Bubble ─────────────────────────────────────── */
-function Bubble({ msg, isMe, prevMsg, accentColor, onSwipeReply, onLongPress }) {
+function Bubble({ msg, isMe, prevMsg, nextMsg, accentColor, onSwipeReply, onLongPress }) {
   const showDateDiv = !prevMsg || !sameDay(prevMsg.createdAt, msg.createdAt);
-  const showName = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId || showDateDiv);
+  const showName   = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId || showDateDiv);
+  const showAvatar = !isMe && (!nextMsg || nextMsg.senderId !== msg.senderId || !sameDay(msg.createdAt, nextMsg?.createdAt));
   const touchStartX = useRef(null);
   const bubbleRef = useRef(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -208,9 +209,14 @@ function Bubble({ msg, isMe, prevMsg, accentColor, onSwipeReply, onLongPress }) 
             transform: isMe ? 'scaleX(-1)' : 'none',
           }}>↩️</div>
         )}
-        <div style={{ width: 34, flexShrink: 0 }}>
-          {!isMe && showName && <Avatar name={msg.senderName || ''} size={30} />}
-        </div>
+        {/* Avatar column — only for others */}
+        {!isMe && (
+          <div style={{ width: 34, flexShrink: 0, alignSelf: 'flex-end' }}>
+            {showAvatar
+              ? <Avatar name={msg.senderName || ''} size={30} />
+              : <div style={{ width: 30 }} />}
+          </div>
+        )}
         <div style={{
           maxWidth: isQuestion ? '90%' : '75%',
           width: isQuestion ? '90%' : undefined,
@@ -971,6 +977,7 @@ export default function EntranceGroupChatPage() {
                   msg={msg}
                   isMe={msg.senderId === myUid}
                   prevMsg={i > 0 ? messages[i - 1] : null}
+                  nextMsg={i < messages.length - 1 ? messages[i + 1] : null}
                   accentColor={accentColor}
                   onSwipeReply={m => { setReplyTo(m); inputRef.current?.focus(); }}
                   onLongPress={(m, x, y) => setCtxMenu({ msg: m, x, y })}
