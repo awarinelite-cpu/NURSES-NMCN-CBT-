@@ -1,7 +1,7 @@
 // src/hooks/useChatNotifications.js
 // Listens to directChats where user is a participant, filtered by context (nmcn | entrance)
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, query, where, onSnapshot, orderBy,
 } from 'firebase/firestore';
@@ -10,18 +10,23 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * @param {'nmcn'|'entrance'} mode
- *   'nmcn'     → only chats with context === 'nmcn'  (CBT section)
- *   'entrance' → only chats with context === 'entrance'
+ * Returns chatThreads filtered to the current section, with sender names
+ * read directly from the doc (no extra Firestore reads needed in the UI).
  *
- * Existing chats without a context field are treated as 'nmcn' for
- * backwards-compatibility (they were all opened from the CBT section).
+ * Context filter:
+ *   - docs WITH context field → must match mode
+ *   - docs WITHOUT context field (legacy) → included in 'nmcn' only
  */
 export function useChatNotifications(mode = 'nmcn') {
-  const { user }      = useAuth();
-  const myUid         = user?.uid;
+  const { user }    = useAuth();
+  const myUid       = user?.uid;
 
-  const [chatThreads,  setChatThreads]  = useState([]);
-  const [totalUnread,  setTotalUnread]  = useState(0);
+  const [chatThreads, setChatThreads] = useState([]);
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  // Track previous totalUnread so the bell can pulse on new messages
+  const prevUnread = useRef(0);
+  const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
     if (!myUid) return;
@@ -35,14 +40,18 @@ export function useChatNotifications(mode = 'nmcn') {
     const unsub = onSnapshot(q, (snap) => {
       const threads = snap.docs
         .map(d => {
-          const data     = d.data();
-          const unread   = data.unreadCounts?.[myUid] || 0;
-          const otherUid = data.participants?.find(p => p !== myUid) || '';
-          // Chats written before context field existed default to 'nmcn'
-          const context  = data.context || 'nmcn';
+          const data        = d.data();
+          const unread      = data.unreadCounts?.[myUid] || 0;
+          const otherUid    = data.participants?.find(p => p !== myUid) || '';
+          const context     = data.context || 'nmcn';           // legacy docs → nmcn
+          // Names already stored on the doc — no extra read needed
+          const otherName   = data.participantNames?.[otherUid]
+                           || data.lastSenderName
+                           || 'Student';
           return {
             chatId:       d.id,
             otherUid,
+            otherName,
             lastMessage:  data.lastMessage || '',
             lastSenderId: data.lastSenderId || '',
             updatedAt:    data.updatedAt,
@@ -50,10 +59,17 @@ export function useChatNotifications(mode = 'nmcn') {
             context,
           };
         })
-        // Only surface chats that belong to the current section
         .filter(t => t.context === mode);
 
       const total = threads.reduce((s, t) => s + (t.unread || 0), 0);
+
+      // Pulse the bell whenever unread count increases
+      if (total > prevUnread.current) {
+        setPulse(true);
+        setTimeout(() => setPulse(false), 1200);
+      }
+      prevUnread.current = total;
+
       setChatThreads(threads);
       setTotalUnread(total);
     }, (err) => {
@@ -63,5 +79,5 @@ export function useChatNotifications(mode = 'nmcn') {
     return unsub;
   }, [myUid, mode]);
 
-  return { chatThreads, totalUnread };
+  return { chatThreads, totalUnread, pulse };
 }

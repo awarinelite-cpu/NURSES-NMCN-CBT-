@@ -36,7 +36,27 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { chatThreads, totalUnread: chatUnread }     = useChatNotifications(mode);
+  const { chatThreads, totalUnread: chatUnread, pulse } = useChatNotifications(mode);
+
+  // Inject bell animation keyframes once
+  useEffect(() => {
+    const id = 'bell-ring-keyframes';
+    if (!document.getElementById(id)) {
+      const style = document.createElement('style');
+      style.id = id;
+      style.textContent = `
+        @keyframes bellRing {
+          0%   { transform: rotate(0deg); }
+          20%  { transform: rotate(-18deg); }
+          40%  { transform: rotate(18deg); }
+          60%  { transform: rotate(-12deg); }
+          80%  { transform: rotate(12deg); }
+          100% { transform: rotate(0deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   // Base paths for navigation — never cross between sections
   const chatBase  = mode === 'entrance' ? '/entrance-exam/chat' : '/chat';
@@ -47,28 +67,6 @@ export default function NotificationBell() {
 
   // Position state for the dropdown — recalculated each time it opens
   const [dropPos, setDropPos] = useState({ left: 'auto', right: 0, width: 320 });
-
-  // Profiles cache for chat senders
-  const [names, setNames] = useState({});
-
-  // Load other-user names for chat threads
-  useEffect(() => {
-    if (!chatThreads.length) return;
-    import('firebase/firestore').then(({ doc, getDoc }) => {
-      import('../../firebase/config').then(({ db }) => {
-        chatThreads.forEach(async (t) => {
-          if (!t.otherUid || names[t.otherUid]) return;
-          try {
-            const snap = await getDoc(doc(db, 'users', t.otherUid));
-            if (snap.exists()) {
-              const d = snap.data();
-              setNames(prev => ({ ...prev, [t.otherUid]: d.name || d.displayName || 'Student' }));
-            }
-          } catch {}
-        });
-      });
-    });
-  }, [chatThreads]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -118,7 +116,10 @@ export default function NotificationBell() {
     <div style={{ position: 'relative' }} ref={ref}>
       <button
         ref={btnRef}
-        style={styles.bellBtn}
+        style={{
+          ...styles.bellBtn,
+          ...(pulse ? styles.bellPulse : {}),
+        }}
         onClick={handleToggle}
         aria-haspopup="true"
         aria-expanded={open}
@@ -152,17 +153,17 @@ export default function NotificationBell() {
                   onClick={() => {
                     setOpen(false);
                     navigate(`${chatBase}/${unreadChats[0].otherUid}`, {
-                      state: { name: names[unreadChats[0].otherUid] || 'Student' }
+                      state: { name: unreadChats[0].otherName }
                     });
                   }}
                 >
                   <div style={styles.chatRow}>
                     <div style={styles.chatAvatar}>
-                      {(names[unreadChats[0].otherUid] || 'S')[0].toUpperCase()}
+                      {(unreadChats[0].otherName || 'S')[0].toUpperCase()}
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={styles.chatName}>
-                        {names[unreadChats[0].otherUid] || 'Student'}
+                        {unreadChats[0].otherName}
                       </div>
                       <div style={styles.chatPreview}>
                         {unreadChats[0].lastMessage === '🎤 Voice message' ? '🎤 Voice message'
@@ -190,17 +191,17 @@ export default function NotificationBell() {
                       onClick={() => {
                         setOpen(false);
                         navigate(`${chatBase}/${t.otherUid}`, {
-                          state: { name: names[t.otherUid] || 'Student' }
+                          state: { name: t.otherName }
                         });
                       }}
                     >
                       <div style={styles.chatRow}>
                         <div style={styles.chatAvatar}>
-                          {(names[t.otherUid] || 'S')[0].toUpperCase()}
+                          {(t.otherName || 'S')[0].toUpperCase()}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={styles.chatName}>
-                            {names[t.otherUid] || 'Student'}
+                            {t.otherName}
                           </div>
                           <div style={styles.chatPreview}>
                             {t.lastMessage === '🎤 Voice message' ? '🎤 Voice message'
@@ -281,6 +282,11 @@ export default function NotificationBell() {
 }
 
 const styles = {
+  bellPulse: {
+    animation: 'bellRing 0.4s ease 0s 3',
+    background: 'rgba(13,148,136,0.25)',
+    borderColor: 'rgba(13,148,136,0.6)',
+  },
   bellBtn: {
     position: 'relative',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
