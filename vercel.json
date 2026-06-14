@@ -1,4 +1,7 @@
 {
+  "root": "Nurses-Academy-CBT-main",
+  "buildCommand": "DISABLE_ESLINT_PLUGIN=true react-scripts build",
+  "outputDirectory": "Nurses-Academy-CBT-main/build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
