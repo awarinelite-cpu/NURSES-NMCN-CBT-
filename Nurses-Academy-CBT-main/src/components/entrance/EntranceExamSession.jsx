@@ -99,6 +99,8 @@ export default function EntranceExamSession() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitSaving,    setExitSaving]    = useState(false);
   const [saveError,     setSaveError]     = useState('');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const upgradeModalShown = useRef(false);
 
   const questionsRef    = useRef([]);
   const answersRef      = useRef({});
@@ -211,7 +213,16 @@ export default function EntranceExamSession() {
     if (key) setAnswers(prev => ({ ...prev, [qId]: key }));
   }, [submitted]);
 
-  const handleNext     = () => setCurrentIndex(i => Math.min(total - 1, i + 1));
+  const handleNext = () => {
+    if (!isPaid && currentIndex >= FREE_CAP - 1) {
+      if (!upgradeModalShown.current) {
+        upgradeModalShown.current = true;
+        setShowUpgradeModal(true);
+      }
+      return;
+    }
+    setCurrentIndex(i => Math.min(total - 1, i + 1));
+  };
   const handleBookmark = () => {
     if (!currentQ || !user?.uid) return;
     const qId       = currentQ.id;
@@ -450,6 +461,37 @@ export default function EntranceExamSession() {
         <ExitModal onSaveExit={handleSaveExit} onAbandon={handleAbandonExit}
           onCancel={() => { setShowExitModal(false); setSaveError(''); isSavingRef.current = false; }}
           saving={exitSaving} saveError={saveError} examName={examName} answered={answered} total={total} currentIndex={currentIndex} />
+      )}
+
+      {showUpgradeModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
+            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+              You've reached your free limit!
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
+              Free users get <strong style={{ color: '#F59E0B' }}>{FREE_CAP} questions</strong> per session.
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 24px' }}>
+              Pay <strong style={{ color: '#F59E0B' }}>₦3,000 once</strong> for <em>unlimited access</em> to all entrance exam questions, mock exams, subject drills, and more.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => navigate('/entrance-exam/payment')}
+                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+              >
+                🚀 Upgrade Now — ₦3,000 Only
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              >
+                Finish this question &amp; submit
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Header */}

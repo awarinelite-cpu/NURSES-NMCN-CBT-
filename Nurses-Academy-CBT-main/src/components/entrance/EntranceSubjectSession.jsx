@@ -61,6 +61,8 @@ export default function EntranceSubjectSession() {
   const [showReview,    setShowReview]    = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [saveError,     setSaveError]     = useState('');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const upgradeModalShown = useRef(false);
 
   const timerRef     = useRef(null);
   const isSavingRef  = useRef(false);
@@ -423,6 +425,37 @@ export default function EntranceSubjectSession() {
   return (
     <div style={S.overlay}>
       {showExitModal && <ExitModal />}
+
+      {showUpgradeModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
+            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+              You've reached your free limit!
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
+              Free users get <strong style={{ color: '#F59E0B' }}>{FREE_CAP} questions</strong> per session.
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 24px' }}>
+              Pay <strong style={{ color: '#F59E0B' }}>₦3,000 once</strong> for <em>unlimited access</em> to all entrance exam questions, subject drills, and more.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => navigate('/entrance-exam/payment')}
+                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+              >
+                🚀 Upgrade Now — ₦3,000 Only
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              >
+                Finish this question &amp; submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
 
         {/* Header */}
@@ -513,7 +546,13 @@ export default function EntranceSubjectSession() {
           <button onClick={() => setCurrent(i => Math.max(0, i - 1))} disabled={current === 0} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 700, fontSize: 14, cursor: current === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)', color: current === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)' }}>← Previous</button>
           <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.35)', fontFamily: F }}>{current + 1} / {total}</span>
           {current < total - 1 ? (
-            <button onClick={() => setCurrent(i => i + 1)} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>Next →</button>
+            <button onClick={() => {
+              if (!isPaid && current >= FREE_CAP - 1) {
+                if (!upgradeModalShown.current) { upgradeModalShown.current = true; setShowUpgradeModal(true); }
+                return;
+              }
+              setCurrent(i => i + 1);
+            }} style={{ padding: '12px 24px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: subject.color, border: 'none', color: '#fff' }}>Next →</button>
           ) : !submitted ? (
             <button onClick={handleSubmit} disabled={submitting} style={{ padding: '12px 20px', borderRadius: 12, fontFamily: F, fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#16A34A', border: 'none', color: '#fff' }}>✅ Finish</button>
           ) : (
