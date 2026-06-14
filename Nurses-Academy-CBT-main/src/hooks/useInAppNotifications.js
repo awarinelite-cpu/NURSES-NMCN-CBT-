@@ -50,7 +50,8 @@ export function useInAppNotifications(mode = 'nmcn') {
           : 'notificationsLastReadAt';
         setLastReadAt(userSnap.data()[lrKey]?.toDate?.() || null);
       }
-    } catch {
+    } catch (err) {
+      console.error('useInAppNotifications fetch error:', err);
       setItems([]);
     } finally {
       setLoading(false);

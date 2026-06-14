@@ -9,10 +9,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  collection, query, where, getDocs,
+  collection, query, where, getDocs, doc, getDoc,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import {
+  ensureEntranceDailyMockNotification,
+  maybePushEntranceDailyMockNotification,
+  todayKey,
+} from '../../utils/dailyNotifications';
 
 const QUESTION_PRESETS = [10, 20, 30, 50];
 const PASS_MARK        = 50;
@@ -72,6 +77,20 @@ export default function EntranceExamDailyMockHub() {
       .catch(() => setSessions([]))
       .finally(() => setSessLoading(false));
   }, [currentUser, subject.id]);
+
+  // Trigger the "daily mock available" notification when this page loads,
+  // in case the student came here directly without going through the hub.
+  useEffect(() => {
+    const key = todayKey();
+    getDoc(doc(db, 'dailyMockSchedule', key))
+      .then(snap => {
+        if (snap.exists()) {
+          ensureEntranceDailyMockNotification(key);
+          maybePushEntranceDailyMockNotification();
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const finalCount = useCustom
     ? Math.min(Math.max(parseInt(customCount, 10) || 20, 1), 250)
