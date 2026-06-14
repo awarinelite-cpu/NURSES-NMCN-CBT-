@@ -238,8 +238,8 @@ export default function Sidebar({ open, onClose }) {
                 /* Currently on NMCN CBT — offer switch to Entrance Exam */
                 (() => {
                   const entrancePaid = profile?.entranceExamPaid === true;
-                  const dest  = entrancePaid ? '/entrance-exam' : '/entrance-exam/payment';
-                  const label = entrancePaid ? '🏫 Entrance Exams' : '🏫 Entrance Exams (Register)';
+                  const dest  = '/entrance-exam'; // Always go to hub; session components enforce 10Q cap for unpaid
+                  const label = entrancePaid ? '🏫 Entrance Exams' : '🏫 Entrance Exams (Free Preview)';
                   return (
                     <NavLink
                       to={dest}
