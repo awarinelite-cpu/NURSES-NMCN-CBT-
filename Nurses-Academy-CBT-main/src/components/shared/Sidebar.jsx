@@ -212,8 +212,8 @@ export default function Sidebar({ open, onClose }) {
                     profile?.subscribed === true ||
                     profile?.accessLevel === 'full' ||
                     ['basic','standard','premium'].includes(profile?.accessLevel);
-                  const dest  = nmcnPaid ? '/dashboard' : '/subscription';
-                  const label = nmcnPaid ? '📝 NMCN CBT Exams' : '📝 NMCN CBT (Subscribe)';
+                  const dest  = '/dashboard'; // Always go to dashboard; ExamSession enforces 10Q cap for unpaid
+                  const label = nmcnPaid ? '📝 NMCN CBT Exams' : '📝 NMCN CBT (Free Preview)';
                   return (
                     <NavLink
                       to={dest}
