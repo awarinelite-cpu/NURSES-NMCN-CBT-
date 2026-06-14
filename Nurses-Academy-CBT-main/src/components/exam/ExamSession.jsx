@@ -69,6 +69,40 @@ function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
   );
 }
 
+/* ── Upgrade modal shown when free user reaches Q10 ─────────────────── */
+function UpgradeModal({ onContinue, onUpgrade }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(13,148,136,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
+        <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+          You've reached your free limit!
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
+          Free users get <strong style={{ color: 'var(--teal)' }}>10 questions</strong> per session.
+        </p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 24px' }}>
+          Upgrade to <strong style={{ color: '#F59E0B' }}>Nurses Academy Premium</strong> for <em>unlimited access</em> to all questions, mock exams, and daily practice.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={onUpgrade}
+            style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #0D9488, #0F766E)', color: '#fff', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+          >
+            🚀 Upgrade Now — Get Full Access
+          </button>
+          <button
+            onClick={onContinue}
+            style={{ padding: '11px', borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+          >
+            Finish this question & submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Simple read-aloud button used in the review panel ──────────────── */
 function ReviewReadButton({ text = '' }) {
   const [speaking, setSpeaking] = React.useState(false);
@@ -147,8 +181,12 @@ export default function ExamSession() {
   const [reportedQs,    setReportedQs]    = useState(new Set());
   const [reportText,    setReportText]    = useState('');
   const [showReport,    setShowReport]    = useState(null);
-  const [showExitModal, setShowExitModal] = useState(false);
-  const [exitSaving,    setExitSaving]    = useState(false);
+  const [showExitModal,    setShowExitModal]    = useState(false);
+  const [exitSaving,       setExitSaving]       = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Guard so the upgrade modal only fires once per session
+  const upgradeModalShown = useRef(false);
 
   const startedAt = useRef(null);
 
@@ -377,6 +415,17 @@ export default function ExamSession() {
     }, 1000);
     return () => clearInterval(timer);
   }, [phase]);
+
+  // ── Upgrade modal — fire when free user arrives at Q10 ─────────────────────
+  useEffect(() => {
+    if (phase !== 'exam') return;
+    if (isSub) return;                          // paid users never see this
+    if (upgradeModalShown.current) return;      // only once per session
+    if (current === 9 && questions.length > 0) { // 0-indexed → question 10
+      upgradeModalShown.current = true;
+      setShowUpgradeModal(true);
+    }
+  }, [current, phase, isSub, questions.length]);
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
@@ -783,6 +832,12 @@ export default function ExamSession() {
         </div>
       )}
       {showExitModal && <ExitModal onSaveExit={handleSaveExit} onAbandon={handleAbandonExit} onCancel={() => setShowExitModal(false)} saving={exitSaving} />}
+      {showUpgradeModal && (
+        <UpgradeModal
+          onUpgrade={() => { setShowUpgradeModal(false); navigate('/subscribe'); }}
+          onContinue={() => setShowUpgradeModal(false)}
+        />
+      )}
 
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -861,6 +916,23 @@ export default function ExamSession() {
             : <button className="btn btn-primary" onClick={() => { if (window.confirm(`Submit exam? ${unanswered > 0 ? `You have ${unanswered} unanswered question(s).` : 'All questions answered.'}`)) handleSubmit(); }}>✅ Finish</button>
           }
         </div>
+
+        {/* ── Upgrade nudge banner — visible on the last free question ── */}
+        {!isSub && current === questions.length - 1 && (
+          <div style={{ marginTop: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(13,148,136,0.12), rgba(15,118,110,0.08))', border: '1.5px solid rgba(13,148,136,0.35)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 28 }}>🔒</span>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>This is your last free question</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>Upgrade to unlock unlimited questions, mock exams &amp; more.</div>
+            </div>
+            <button
+              onClick={() => navigate('/subscribe')}
+              style={{ padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontWeight: 800, fontSize: 13, border: 'none', background: 'var(--teal)', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Arial Black', Arial, sans-serif" }}
+            >
+              Upgrade Now 🚀
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
