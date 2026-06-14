@@ -222,6 +222,8 @@ export default function NotificationBell() {
                   <button
                     style={styles.viewAllBtn}
                     onClick={() => { setOpen(false); navigate(inboxPath); }}
+                  >
+                    View all messages →
                   </button>
                 </>
               )}
