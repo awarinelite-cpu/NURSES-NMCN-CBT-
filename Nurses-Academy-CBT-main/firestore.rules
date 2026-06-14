@@ -38,10 +38,6 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Any logged-in student can READ another student's public profile.
-      // This is required for: leaderboard → public profile → chat flow.
-      // Writes remain strictly owner-only (with protected field guards).
-
       allow read:   if isAuth();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if (isOwner(userId) && !isChangingProtectedFields()) || isAdmin();
@@ -94,7 +90,7 @@ service cloud.firestore {
     }
 
     match /entrancePausedExams/{docId} {
-      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
@@ -108,7 +104,7 @@ service cloud.firestore {
     }
 
     match /pausedExams/{docId} {
-      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
@@ -122,16 +118,12 @@ service cloud.firestore {
     }
 
     match /notifications/{notifId} {
-      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read:   if isAuth();
       allow create: if isAuth();
       allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Global "new exam available" daily notifications (e.g. Daily Practice,
-    // Entrance Exam Daily Mock). Documents use a deterministic date-based ID
-    // and are created idempotently — once a doc exists for a given day it
-    // is never modified again, only read.
     match /dailyAnnouncements/{annId} {
       allow read:   if isAuth();
       allow create: if isAuth();
@@ -139,7 +131,19 @@ service cloud.firestore {
     }
 
     match /bookmarks/{bookmarkId} {
-      allow read, write: if isAuth() && (resource == null ? request.resource.data.userId == request.auth.uid : resource.data.userId == request.auth.uid || isAdmin());
+      allow read, write: if isAuth() && (
+        resource == null
+          ? request.resource.data.userId == request.auth.uid
+          : resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    match /entranceBookmarks/{bookmarkId} {
+      allow read, write: if isAuth() && (
+        resource == null
+          ? request.resource.data.userId == request.auth.uid
+          : resource.data.userId == request.auth.uid || isAdmin()
+      );
     }
 
     match /announcements/{id} {
@@ -148,7 +152,6 @@ service cloud.firestore {
     }
 
     match /accessCodes/{id} {
-      // Auth users need read to redeem codes; only admin can create/update/delete.
       allow read:  if isAuth();
       allow write: if isAdmin();
     }
@@ -183,7 +186,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ── Direct student-to-student chat ─────────────────────────────────────
+    // ── Direct student-to-student chat ────────────────────────────────────
 
     match /directChats/{chatId} {
       function isParticipant() {
@@ -198,88 +201,74 @@ service cloud.firestore {
           : [];
       }
 
-      // Simple isAuth() so collection queries (used by notification hook) work.
-      // exists() checks in rules break Firestore collection queries silently.
-      // The query itself filters to only docs where uid is in participants.
-      allow read: if isAuth();
+      allow read:   if isAuth();
       allow create: if isParticipantByCreate();
+      // Reverted: no participants-field guard — ChatPage always resends
+      // participants in every setDoc merge, so blocking it breaks sends.
       allow update: if isParticipant();
       allow delete: if isAdmin();
 
       match /messages/{msgId} {
-        // Read: participant of the parent chat
-        allow read: if isAuth() &&
-          chatParticipants().hasAny([request.auth.uid]);
-
-        // Create: participant AND sender field must match auth uid
+        allow read:   if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow create: if isAuth() &&
           chatParticipants().hasAny([request.auth.uid]) &&
           request.resource.data.senderId == request.auth.uid;
-
-        // Update: participant (for read receipts, reactions, delete flag)
-        allow update: if isAuth() &&
-          chatParticipants().hasAny([request.auth.uid]);
-
+        allow update: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow delete: if isAdmin();
       }
 
-      // Typing indicators
       match /typing/{typingUid} {
-        allow read, write: if isAuth() &&
-          chatParticipants().hasAny([request.auth.uid]);
+        allow read, write: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
       }
     }
 
-    // ── Group Chats ──────────────────────────────────────────────
+    // ── NMCN CBT Group Chats ──────────────────────────────────────────────
+
     match /groupChats/{groupId} {
-      // Any authenticated user can read group metadata
-      allow read: if isAuth();
-      // Any authenticated user can update (for unread counts, lastMessage)
+      allow read:  if isAuth();
       allow write: if isAuth();
 
       match /messages/{msgId} {
-        allow read: if isAuth();
+        allow read:   if isAuth();
         allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
         allow update: if isAuth();
         allow delete: if isAdmin();
       }
 
       match /members/{memberId} {
-        allow read: if isAuth();
+        allow read:  if isAuth();
         allow write: if isAuth() && memberId == request.auth.uid;
       }
 
       match /typing/{typingUid} {
-        allow read: if isAuth();
+        allow read:  if isAuth();
         allow write: if isAuth() && typingUid == request.auth.uid;
       }
     }
 
-    // ── Entrance Exam Group Chats ────────────────────────────────
+    // ── Entrance Exam Group Chats ─────────────────────────────────────────
+
     match /entranceGroupChats/{groupId} {
-      allow read: if isAuth();
+      allow read:  if isAuth();
       allow write: if isAuth();
 
       match /messages/{msgId} {
-        allow read: if isAuth();
+        allow read:   if isAuth();
         allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
         allow update: if isAuth();
         allow delete: if isAdmin();
       }
 
       match /members/{memberId} {
-        allow read: if isAuth();
+        allow read:  if isAuth();
         allow write: if isAuth() && memberId == request.auth.uid;
       }
 
       match /typing/{typingUid} {
-        allow read: if isAuth();
+        allow read:  if isAuth();
         allow write: if isAuth() && typingUid == request.auth.uid;
       }
     }
 
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
   }
 }
