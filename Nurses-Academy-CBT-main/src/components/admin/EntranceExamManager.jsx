@@ -57,7 +57,7 @@ const EMOJI_PICKS = ['📚','🔬','⚗️','🧬','🧪','🫀','🫁','💊','
 // ROOT
 // ═════════════════════════════════════════════════════════════════════════════
 // Valid tab IDs
-const VALID_TABS = ['schools', 'subjects', 'add_single', 'bulk', 'bank', 'daily_mock'];
+const VALID_TABS = ['schools', 'subjects', 'add_single', 'bulk', 'bank', 'daily_mock', 'payments'];
 
 export default function EntranceExamManager() {
   const { toast } = useToast();
@@ -83,11 +83,12 @@ export default function EntranceExamManager() {
 
   const TABS = [
     { id: 'schools',    label: '🏫 Manage Schools'    },
-    { id: 'subjects',   label: '📚 Manage Subjects'   },   // ← NEW
+    { id: 'subjects',   label: '📚 Manage Subjects'   },
     { id: 'add_single', label: '➕ Add Single Question' },
     { id: 'bulk',       label: '📤 Bulk Upload'        },
     { id: 'bank',       label: '📋 Question Bank'      },
     { id: 'daily_mock', label: '📅 Daily Mock'         },
+    { id: 'payments',   label: '💰 Payments'           },
   ];
 
   return (
@@ -129,6 +130,7 @@ export default function EntranceExamManager() {
       {tab === 'bulk'       && <BulkUploadTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
       {tab === 'bank'       && <QuestionBankTab toast={toast} schools={schools} schoolsReady={schoolsReady} />}
       {tab === 'daily_mock' && <DailyMockTab  toast={toast} />}
+      {tab === 'payments'   && <EntrancePaymentsTab toast={toast} />}
     </div>
   );
 }
@@ -1639,4 +1641,409 @@ function SinglePasteUpload({ onSave, saving }) {
 
 function SliderWithPresets({ value, min, max, step, presets, onChange, displayFn, color }) {
   return (<><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: color }} /><div style={{ minWidth: 58, textAlign: 'center', fontWeight: 800, fontSize: 22, color, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px', fontFamily: H }}>{displayFn(value)}</div></div><div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>{presets.map(p => { const v = typeof p === 'object' ? p.v : p; const l = typeof p === 'object' ? p.l : String(p); return (<button key={v} onClick={() => onChange(v)} style={{ padding: '5px 14px', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 12, transition: 'all .15s', borderColor: value === v ? color : 'var(--border)', background: value === v ? `${color}22` : 'var(--bg-tertiary)', color: value === v ? color : 'var(--text-muted)' }}>{l}</button>); })}</div></>);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ENTRANCE PAYMENTS TAB
+// ═════════════════════════════════════════════════════════════════════════════
+const STATUS_COLORS = {
+  confirmed: { color: '#16A34A', bg: 'rgba(22,163,74,0.12)',  label: '✅ Confirmed' },
+  pending:   { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', label: '⏳ Pending'   },
+  rejected:  { color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  label: '❌ Rejected'  },
+};
+
+function EntrancePaymentsTab({ toast }) {
+  const [payments,      setPayments]      = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [filter,        setFilter]        = useState('all');
+  const [busy,          setBusy]          = useState({});
+  const [receiptModal,  setReceiptModal]  = useState(null);
+  const [search,        setSearch]        = useState('');
+  const [revokeId,      setRevokeId]      = useState(null); // confirm revoke modal
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'payments'),
+          where('type', 'in', ['entrance_exam', 'entrance_exam_registration']),
+          orderBy('createdAt', 'desc'),
+        )
+      );
+      setPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      // fallback — load all payments and filter client-side
+      try {
+        const snap = await getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc')));
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPayments(all.filter(p => p.type === 'entrance_exam' || p.type === 'entrance_exam_registration'));
+      } catch (e2) { toast('Failed to load payments', 'error'); }
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  /* ── Stats ── */
+  const total     = payments.length;
+  const confirmed = payments.filter(p => p.status === 'confirmed').length;
+  const pending   = payments.filter(p => p.status === 'pending').length;
+  const rejected  = payments.filter(p => p.status === 'rejected').length;
+  const revenue   = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + (p.amount || 0), 0);
+
+  /* ── Confirm ── */
+  const confirm = async (payment) => {
+    setBusy(b => ({ ...b, [payment.id]: 'confirming' }));
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'payments', payment.id), {
+        status: 'confirmed', confirmedAt: serverTimestamp(),
+      });
+      batch.update(doc(db, 'users', payment.userId), {
+        entranceExamPaid:   true,
+        entranceExamPaidAt: serverTimestamp(),
+        entranceExamPlan:   payment.plan || 'full',
+        entranceExamExpiry: new Date(Date.now() + 36500 * 86400000).toISOString(),
+      });
+      await batch.commit();
+      await addDoc(collection(db, 'notifications'), {
+        userId:    payment.userId,
+        title:     '🎉 Payment Confirmed!',
+        body:      'Your entrance exam payment of ₦3,000 has been confirmed. You now have full access to all entrance exam features!',
+        type:      'payment_confirmed',
+        read:      false,
+        createdAt: serverTimestamp(),
+      });
+      setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'confirmed' } : p));
+      toast('Payment confirmed & access granted ✅', 'success');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setBusy(b => ({ ...b, [payment.id]: null })); }
+  };
+
+  /* ── Reject ── */
+  const reject = async (paymentId) => {
+    setBusy(b => ({ ...b, [paymentId]: 'rejecting' }));
+    try {
+      await updateDoc(doc(db, 'payments', paymentId), {
+        status: 'rejected', rejectedAt: serverTimestamp(),
+      });
+      setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, status: 'rejected' } : p));
+      toast('Payment rejected', 'info');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setBusy(b => ({ ...b, [paymentId]: null })); }
+  };
+
+  /* ── Revoke access ── */
+  const revokeAccess = async (payment) => {
+    setBusy(b => ({ ...b, [payment.id]: 'revoking' }));
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'payments', payment.id), {
+        status: 'rejected', revokedAt: serverTimestamp(),
+      });
+      batch.update(doc(db, 'users', payment.userId), {
+        entranceExamPaid: false,
+      });
+      await batch.commit();
+      await addDoc(collection(db, 'notifications'), {
+        userId:    payment.userId,
+        title:     '⚠️ Entrance Exam Access Revoked',
+        body:      'Your entrance exam access has been revoked by admin. Please contact support if you believe this is an error.',
+        type:      'payment_revoked',
+        read:      false,
+        createdAt: serverTimestamp(),
+      });
+      setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'rejected' } : p));
+      toast('Access revoked successfully', 'info');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setBusy(b => ({ ...b, [payment.id]: null })); setRevokeId(null); }
+  };
+
+  /* ── Grant free access (no payment) ── */
+  const grantFree = async (payment) => {
+    setBusy(b => ({ ...b, [payment.id]: 'granting' }));
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'payments', payment.id), {
+        status: 'confirmed', confirmedAt: serverTimestamp(), freeAccess: true,
+      });
+      batch.update(doc(db, 'users', payment.userId), {
+        entranceExamPaid:   true,
+        entranceExamPaidAt: serverTimestamp(),
+        entranceExamPlan:   'full',
+        entranceExamFree:   true,
+      });
+      await batch.commit();
+      setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status: 'confirmed', freeAccess: true } : p));
+      toast('Free access granted ✅', 'success');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { setBusy(b => ({ ...b, [payment.id]: null })); }
+  };
+
+  /* ── Filtered + searched list ── */
+  const filtered = payments
+    .filter(p => filter === 'all' || p.status === filter)
+    .filter(p => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        (p.userName  || '').toLowerCase().includes(q) ||
+        (p.userEmail || '').toLowerCase().includes(q) ||
+        (p.reference || '').toLowerCase().includes(q)
+      );
+    });
+
+  return (
+    <div style={{ fontFamily: F }}>
+
+      {/* ── Stats row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 24 }}>
+        {[
+          { label: 'Total',     value: total,                      color: '#60A5FA', icon: '📋' },
+          { label: 'Confirmed', value: confirmed,                   color: '#10B981', icon: '✅' },
+          { label: 'Pending',   value: pending,                     color: '#F59E0B', icon: '⏳' },
+          { label: 'Rejected',  value: rejected,                    color: '#EF4444', icon: '❌' },
+          { label: 'Revenue',   value: `₦${revenue.toLocaleString()}`, color: '#0D9488', icon: '💵' },
+        ].map(stat => (
+          <div key={stat.label} style={{
+            background: 'var(--bg-card)', border: `1.5px solid ${stat.color}33`,
+            borderRadius: 14, padding: '16px 18px',
+          }}>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>{stat.icon}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, fontFamily: H }}>{stat.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Toolbar: filter tabs + search + refresh ── */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          {['all', 'pending', 'confirmed', 'rejected'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              background: 'none', border: 'none',
+              borderBottom: `2px solid ${filter === f ? '#0D9488' : 'transparent'}`,
+              padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontFamily: F, fontWeight: filter === f ? 700 : 400,
+              color: filter === f ? '#0D9488' : 'rgba(255,255,255,0.45)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f === 'pending' && pending > 0 && (
+                <span style={{ background: '#F59E0B', color: '#000', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{pending}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="🔍 Search name / email / ref…"
+          className="form-input"
+          style={{ flex: 1, minWidth: 200, fontSize: 13, padding: '8px 12px' }}
+        />
+        <button onClick={load} className="btn btn-ghost" style={{ fontSize: 13, padding: '8px 14px' }}>
+          🔄 Refresh
+        </button>
+      </div>
+
+      {/* ── Table ── */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Loading payments…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
+          {search ? `No results for "${search}"` : 'No payments found.'}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', borderRadius: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr>
+                {['Student', 'Receipt', 'Amount', 'Method', 'Reference', 'Date', 'Status', 'Actions'].map(h => (
+                  <th key={h} style={{
+                    padding: '12px 14px', textAlign: 'left',
+                    color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 11,
+                    textTransform: 'uppercase', letterSpacing: 0.8,
+                    background: 'rgba(255,255,255,0.03)',
+                    borderBottom: '1px solid rgba(255,255,255,0.07)',
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => {
+                const st   = STATUS_COLORS[p.status] || STATUS_COLORS.pending;
+                const date = p.createdAt?.toDate?.()?.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) || '—';
+                const isBusy = !!busy[p.id];
+                return (
+                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+
+                    {/* Student */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{p.userName || '—'}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.userEmail || ''}</div>
+                      {p.freeAccess && <span style={{ fontSize: 10, background: 'rgba(139,92,246,0.2)', color: '#A78BFA', padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>🎁 Free</span>}
+                    </td>
+
+                    {/* Receipt */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      {(p.receiptUrl || p.receiptImage) ? (
+                        <button onClick={() => setReceiptModal(p.receiptImage || p.receiptUrl)} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                          background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
+                          border: '1px solid rgba(13,148,136,0.35)', cursor: 'pointer',
+                        }}>🧾 View</button>
+                      ) : (
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Amount */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontWeight: 700, color: '#0D9488' }}>
+                      ₦{(p.amount || 3000).toLocaleString()}
+                    </td>
+
+                    {/* Method */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      <span style={{ fontSize: 12, color: p.method === 'paystack' ? '#60A5FA' : '#FCD34D' }}>
+                        {p.method === 'paystack' ? '💳 Paystack' : '🏦 Manual'}
+                      </span>
+                    </td>
+
+                    {/* Reference */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', maxWidth: 150 }}>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all' }}>
+                        {p.reference || p.proof || '—'}
+                      </span>
+                    </td>
+
+                    {/* Date */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontSize: 12, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>
+                      {date}
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      <span style={{
+                        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                        background: st.bg, color: st.color,
+                      }}>{st.label}</span>
+                    </td>
+
+                    {/* Actions */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {p.status === 'pending' && (
+                          <>
+                            <button onClick={() => confirm(p)} disabled={isBusy} style={{
+                              padding: '5px 10px', border: '1px solid rgba(22,163,74,0.4)', borderRadius: 8,
+                              cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                              background: 'rgba(22,163,74,0.2)', color: '#16A34A', whiteSpace: 'nowrap',
+                            }}>
+                              {busy[p.id] === 'confirming' ? '…' : '✅ Confirm'}
+                            </button>
+                            <button onClick={() => reject(p.id)} disabled={isBusy} style={{
+                              padding: '5px 10px', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8,
+                              cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                              background: 'rgba(239,68,68,0.1)', color: '#EF4444',
+                            }}>
+                              {busy[p.id] === 'rejecting' ? '…' : '❌ Reject'}
+                            </button>
+                            <button onClick={() => grantFree(p)} disabled={isBusy} style={{
+                              padding: '5px 10px', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 8,
+                              cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                              background: 'rgba(139,92,246,0.15)', color: '#A78BFA', whiteSpace: 'nowrap',
+                            }}>
+                              🎁 Grant Free
+                            </button>
+                          </>
+                        )}
+                        {p.status === 'confirmed' && (
+                          <button onClick={() => setRevokeId(p.id)} disabled={isBusy} style={{
+                            padding: '5px 10px', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8,
+                            cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                            background: 'rgba(239,68,68,0.08)', color: '#EF4444', whiteSpace: 'nowrap',
+                          }}>
+                            {busy[p.id] === 'revoking' ? '…' : '🚫 Revoke'}
+                          </button>
+                        )}
+                        {p.status === 'rejected' && (
+                          <button onClick={() => confirm(p)} disabled={isBusy} style={{
+                            padding: '5px 10px', border: '1px solid rgba(22,163,74,0.4)', borderRadius: 8,
+                            cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                            background: 'rgba(22,163,74,0.1)', color: '#16A34A', whiteSpace: 'nowrap',
+                          }}>
+                            ↩️ Reactivate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Receipt modal ── */}
+      {receiptModal && (
+        <div onClick={() => setReceiptModal(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.92)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>🧾 Payment Receipt</span>
+              <button onClick={() => setReceiptModal(null)} style={{
+                background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff',
+                borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+              }}>✕ Close</button>
+            </div>
+            <img src={receiptModal} alt="Payment receipt" style={{
+              width: '100%', borderRadius: 12, maxHeight: '75vh', objectFit: 'contain', background: '#111',
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Revoke confirm modal ── */}
+      {revokeId && (
+        <div onClick={() => setRevokeId(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--bg-card)', border: '1.5px solid rgba(239,68,68,0.4)',
+            borderRadius: 16, padding: 28, maxWidth: 380, width: '100%', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🚫</div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#fff', marginBottom: 8, fontFamily: H }}>Revoke Access?</div>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
+              This will remove the student's entrance exam access and mark the payment as rejected.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setRevokeId(null)} className="btn btn-ghost" style={{ fontSize: 13 }}>Cancel</button>
+              <button
+                onClick={() => {
+                  const p = payments.find(x => x.id === revokeId);
+                  if (p) revokeAccess(p);
+                }}
+                style={{
+                  padding: '8px 20px', borderRadius: 10, border: '1.5px solid rgba(239,68,68,0.5)',
+                  background: 'rgba(239,68,68,0.15)', color: '#EF4444',
+                  cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                }}
+              >
+                🚫 Yes, Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
