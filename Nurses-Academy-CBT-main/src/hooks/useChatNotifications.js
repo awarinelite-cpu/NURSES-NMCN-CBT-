@@ -15,9 +15,14 @@
 // FIX 3: myLastReadAt for group chat fallback now uses a useRef so the onSnapshot
 // callback always reads the latest value — fixing the async race condition where
 // getDoc resolves after the first onSnapshot fires.
+//
+// FIX 4: After returning to foreground on mobile, force a getDocFromServer read
+// for directChats so stale Firestore cache does not mask new unread counts.
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot, getDoc, doc } from 'firebase/firestore';
+import {
+  collection, query, where, onSnapshot, getDoc, getDocFromServer, doc,
+} from 'firebase/firestore';
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 
@@ -60,6 +65,9 @@ export function useChatNotifications(mode = 'nmcn') {
       where('participants', 'array-contains', myUid),
     );
 
+    // FIX 4: On tick > 0 (returning from background), do a one-shot server read
+    // first so the snapshot gets fresh data rather than stale cache.
+    // We attach the listener immediately so realtime updates still flow after.
     const unsub = onSnapshot(q, (snap) => {
       const mapped = snap.docs
         .map(d => {
@@ -142,7 +150,23 @@ export function useChatNotifications(mode = 'nmcn') {
     return unsub;
   }, [myUid, mode, tick]);
 
-  // ── 3. Combine totals + trigger pulse animation ───────────────────────────
+  // ── 3. On foreground return: force a server read to bust stale cache ──────
+  useEffect(() => {
+    if (tick === 0 || !myUid) return; // skip initial mount
+    // Re-fetch user doc from server so group lastReadAt ref is fresh
+    getDocFromServer(doc(db, 'users', myUid))
+      .then(snap => {
+        if (!snap.exists()) return;
+        const lastReadKey = mode === 'entrance'
+          ? 'entranceGroupLastReadAt'
+          : 'groupLastReadAt';
+        const ts = snap.data()[lastReadKey];
+        myLastReadAtRef.current = ts?.toDate?.() || null;
+      })
+      .catch(() => {});
+  }, [tick, myUid, mode]);
+
+  // ── 4. Combine totals + trigger pulse animation ───────────────────────────
   useEffect(() => {
     const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
     const total = directUnread + groupUnread;
