@@ -203,11 +203,29 @@ function ReplyBar({ msg, myUid, onCancel }) {
 }
 
 /* Individual message bubble */
-function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }) {
+function Bubble({ msg, isMe, theirName, prevMsg, nextMsg, onContextMenu, onReactionPick, onSwipeReply }) {
   const longPressTimer = useRef(null);
 
   const showDateDiv = !prevMsg || !sameDay(prevMsg.createdAt, msg.createdAt);
-  const showAvatar  = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId || showDateDiv);
+  // Avatar on LAST message of consecutive group (WhatsApp style)
+  const showAvatar  = !isMe && (!nextMsg || nextMsg.senderId !== msg.senderId || !sameDay(msg.createdAt, nextMsg?.createdAt));
+
+  // Swipe-to-reply state
+  const touchStartX  = useRef(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swiping,     setSwiping]     = useState(false);
+
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; setSwiping(true); };
+  const handleTouchMove  = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    if (isMe  && dx < 0) setSwipeOffset(Math.max(dx, -60));   // my messages swipe left
+    if (!isMe && dx > 0) setSwipeOffset(Math.min(dx, 60));    // their messages swipe right
+  };
+  const handleTouchEnd = () => {
+    if (Math.abs(swipeOffset) > 35) onSwipeReply(msg);
+    setSwipeOffset(0); setSwiping(false); touchStartX.current = null;
+  };
 
   // Determine tick status
   let tickStatus = 'sent';
@@ -216,7 +234,6 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
   else if (msg.delivered) tickStatus = 'delivered';
 
   const handleLongPress = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     const y = e.touches ? e.touches[0].clientY : e.clientY;
     longPressTimer.current = setTimeout(() => onContextMenu(msg, x, y), 500);
@@ -229,8 +246,8 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
   };
 
   /* Reactions display */
-  const reactions = msg.reactions || {};
-  const reactionList = Object.entries(reactions); // [emoji, count]
+  const reactions    = msg.reactions || {};
+  const reactionList = Object.entries(reactions);
 
   return (
     <>
@@ -258,19 +275,33 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
         alignItems:'flex-end',
         gap:6,
         marginBottom: reactionList.length ? 18 : 4,
-        paddingLeft: isMe ? 48 : 0,
-        paddingRight: isMe ? 0 : 48,
+        paddingLeft:  isMe ? 48 : 0,
+        paddingRight: isMe ? 0  : 48,
         position:'relative',
+        transform: `translateX(${swipeOffset}px)`,
+        transition: swiping ? 'none' : 'transform 0.2s ease',
       }}>
-        {/* Avatar — only for other person, on first message of each group */}
+        {/* Swipe hint arrow */}
+        {Math.abs(swipeOffset) > 20 && (
+          <div style={{
+            position:'absolute',
+            [isMe ? 'right' : 'left']: -32,
+            bottom: 12,
+            fontSize: 18,
+            opacity: Math.min(1, Math.abs(swipeOffset) / 40),
+            transform: isMe ? 'scaleX(-1)' : 'none',
+          }}>↩️</div>
+        )}
+
+        {/* Avatar — only for other person, at bottom of consecutive group */}
         {!isMe && (
-          <div style={{ width:32, flexShrink:0 }}>
+          <div style={{ width:32, flexShrink:0, alignSelf:'flex-end' }}>
             {showAvatar ? <Avatar name={theirName} size={30} /> : <div style={{ width:30 }} />}
           </div>
         )}
 
         <div style={{ maxWidth:'78%', display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-          {/* Reply preview inside bubble */}
+          {/* Reply preview */}
           {msg.replyTo && (
             <div style={{
               background: isMe ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.07)',
@@ -296,8 +327,10 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
 
           {/* Main bubble */}
           <div
-            onTouchStart={handleLongPress} onTouchEnd={cancelLong} onTouchMove={cancelLong}
-            onMouseDown={handleLongPress}  onMouseUp={cancelLong}  onMouseLeave={cancelLong}
+            onTouchStart={e => { handleTouchStart(e); handleLongPress(e); }}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => { handleTouchEnd(); cancelLong(); }}
+            onMouseDown={handleLongPress} onMouseUp={cancelLong} onMouseLeave={cancelLong}
             onContextMenu={handleRightClick}
             style={{
               padding: msg.type === 'image' ? '3px' : '8px 12px 6px',
@@ -351,7 +384,6 @@ function Bubble({ msg, isMe, theirName, prevMsg, onContextMenu, onReactionPick }
             ) : (
               <>
                 <span>{msg.text}</span>
-                {/* Time + ticks inline at bottom right — WhatsApp style */}
                 <span style={{
                   float:'right', marginLeft:8, marginTop:4,
                   display:'inline-flex', alignItems:'center', gap:3,
@@ -1289,8 +1321,10 @@ export default function ChatPage() {
                   isMe={msg.senderId === myUid}
                   theirName={theirName}
                   prevMsg={i > 0 ? messages[i-1] : null}
+                  nextMsg={i < messages.length - 1 ? messages[i+1] : null}
                   onContextMenu={openContextMenu}
                   onReactionPick={reactToMessage}
+                  onSwipeReply={m => { setReplyTo(m); inputRef.current?.focus(); }}
                 />
               </div>
             ))}
