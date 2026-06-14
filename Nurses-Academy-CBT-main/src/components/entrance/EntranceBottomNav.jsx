@@ -166,6 +166,9 @@ export default function EntranceBottomNav() {
   const [open, setOpen]       = useState(false);
   const [openPct, setOpenPct] = useState(0);
 
+  // ── combinedUnread must be declared BEFORE the useEffect that depends on it ──
+  const combinedUnread = totalUnread + groupUnread;
+
   // Badge pulse animation
   const [badgePulse, setBadgePulse] = useState(false);
   const prevUnread = useRef(0);
@@ -272,7 +275,6 @@ export default function EntranceBottomNav() {
       ? location.pathname === to
       : location.pathname.startsWith(to);
 
-  const combinedUnread = totalUnread + groupUnread;
   const badgeCount = combinedUnread > 99 ? '99+' : combinedUnread > 0 ? String(combinedUnread) : null;
 
   return (
