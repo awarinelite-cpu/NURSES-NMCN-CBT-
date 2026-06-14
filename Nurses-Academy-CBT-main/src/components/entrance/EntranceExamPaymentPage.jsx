@@ -31,14 +31,14 @@ const BANK = {
   name:    'Awarin Elite',
 };
 
-// Entrance exam plan tiers — INDEPENDENT of NMCN plans
+// Entrance exam — single one-time payment plan
 const ENTRANCE_PLANS = [
   {
-    id:       'basic',
-    label:    'Basic Access',
+    id:       'full',
+    label:    'Full Access',
     price:    3000,
-    duration: '30 days',
-    days:     30,
+    duration: 'Lifetime',
+    days:     36500,
     color:    '#0D9488',
     icon:     '🎯',
     features: [
@@ -47,39 +47,8 @@ const ENTRANCE_PLANS = [
       'Subject drills',
       'Results & analytics',
       'Bookmarks',
-    ],
-  },
-  {
-    id:       'standard',
-    label:    'Standard Access',
-    price:    5000,
-    duration: '90 days',
-    days:     90,
-    color:    '#2563EB',
-    icon:     '🏆',
-    popular:  true,
-    features: [
-      'Everything in Basic',
-      '3× longer access (90 days)',
       'Leaderboard ranking',
-      'Performance trends',
       'AI-powered explanations',
-    ],
-  },
-  {
-    id:       'premium',
-    label:    'Premium Access',
-    price:    8000,
-    duration: '6 months',
-    days:     180,
-    color:    '#7C3AED',
-    icon:     '👑',
-    features: [
-      'Everything in Standard',
-      '6 months full access',
-      'Priority admin support',
-      'Study tips & resources',
-      'Unlimited retakes',
     ],
   },
 ];
@@ -185,7 +154,7 @@ export default function EntranceExamPaymentPage() {
   const { user, profile } = useAuth();
   const navigate          = useNavigate();
 
-  const [selectedPlan,   setSelectedPlan]   = useState('standard');
+  const [selectedPlan,   setSelectedPlan]   = useState('full');
   const [method,         setMethod]         = useState(null);   // 'paystack' | 'manual'
   const [step,           setStep]           = useState(1);      // 1=plans, 2=pay, 3=done
   const [fullName,       setFullName]       = useState('');
