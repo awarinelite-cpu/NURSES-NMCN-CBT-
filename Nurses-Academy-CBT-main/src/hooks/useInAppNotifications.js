@@ -1,8 +1,8 @@
 // src/hooks/useInAppNotifications.js
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  collection, query, orderBy, limit,
-  doc, getDoc, updateDoc, serverTimestamp, onSnapshot,
+  collection, query, orderBy, limit, getDocs,
+  doc, getDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
@@ -23,53 +23,41 @@ export function useInAppNotifications(mode = 'nmcn') {
   const [items,       setItems]       = useState([]);
   const [lastReadAt,  setLastReadAt]  = useState(null);
   const [loading,     setLoading]     = useState(true);
-  const lastReadRef = useRef(null);
 
-  // Load lastReadAt once (or when user/mode changes)
-  useEffect(() => {
-    if (!user) return;
-    const lrKey = mode === 'entrance'
-      ? 'entranceNotificationsLastReadAt'
-      : 'notificationsLastReadAt';
-
-    getDoc(doc(db, 'users', user.uid))
-      .then(snap => {
-        if (snap.exists()) {
-          const lrDate = snap.data()[lrKey]?.toDate?.() || null;
-          lastReadRef.current = lrDate;
-          setLastReadAt(lrDate);
-        }
-      })
-      .catch(() => {});
-  }, [user, mode]);
-
-  // Real-time listener for announcements
-  useEffect(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const allowedTypes = mode === 'entrance' ? ENTRANCE_TYPES : NMCN_TYPES;
+    try {
+      const [annSnap, userSnap] = await Promise.all([
+        getDocs(query(collection(db, 'dailyAnnouncements'), orderBy('createdAt', 'desc'), limit(MAX_ITEMS))),
+        user ? getDoc(doc(db, 'users', user.uid)) : Promise.resolve(null),
+      ]);
 
-    const q = query(
-      collection(db, 'dailyAnnouncements'),
-      orderBy('createdAt', 'desc'),
-      limit(MAX_ITEMS),
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs
+      // Filter by mode so NMCN and Entrance notifications never cross
+      const allowedTypes = mode === 'entrance' ? ENTRANCE_TYPES : NMCN_TYPES;
+      const list = annSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(item => {
+          // Items without a type are legacy NMCN announcements
           const t = item.type || 'announcement';
           return allowedTypes.has(t);
         });
-      setItems(list);
-      setLoading(false);
-    }, () => {
-      setItems([]);
-      setLoading(false);
-    });
 
-    return unsub;
-  }, [mode]);
+      setItems(list);
+
+      if (userSnap?.exists()) {
+        const lrKey = mode === 'entrance'
+          ? 'entranceNotificationsLastReadAt'
+          : 'notificationsLastReadAt';
+        setLastReadAt(userSnap.data()[lrKey]?.toDate?.() || null);
+      }
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, mode]);
+
+  useEffect(() => { load(); }, [load]);
 
   const getTime = (a) => a.createdAt?.toDate?.()?.getTime?.() || 0;
 
@@ -79,9 +67,7 @@ export function useInAppNotifications(mode = 'nmcn') {
 
   const markAllRead = useCallback(async () => {
     if (!user || items.length === 0) return;
-    const now = new Date();
-    lastReadRef.current = now;
-    setLastReadAt(now);
+    setLastReadAt(new Date());
     try {
       const lrKey = mode === 'entrance'
         ? 'entranceNotificationsLastReadAt'
@@ -92,7 +78,5 @@ export function useInAppNotifications(mode = 'nmcn') {
     }
   }, [user, items, mode]);
 
-  const reload = useCallback(() => {}, []); // no-op: onSnapshot handles updates
-
-  return { items, loading, unreadCount, lastReadAt, markAllRead, reload };
+  return { items, loading, unreadCount, lastReadAt, markAllRead, reload: load };
 }
