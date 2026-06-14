@@ -8,7 +8,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   collection, doc, addDoc, onSnapshot, query, orderBy,
   limit, serverTimestamp, updateDoc, setDoc, increment,
-  getDocs, where,
+  getDocs,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -326,30 +326,42 @@ function FlaggedQuestionPicker({ userId, onSelect, onClose, accentColor }) {
     const load = async () => {
       setLoading(true);
       try {
-        // Try entrance bookmarks first, fall back to general bookmarks
-        const snap = await getDocs(query(
-          collection(db, 'entranceBookmarks'),
-          where('userId', '==', userId),
-        ));
+        // Bookmarks are stored in users/{uid}/entranceBookmarks subcollection
+        // and already contain all question data inline — no second fetch needed
+        let snap;
+        try {
+          snap = await getDocs(query(
+            collection(db, 'users', userId, 'entranceBookmarks'),
+            orderBy('savedAt', 'desc'),
+          ));
+        } catch {
+          snap = await getDocs(collection(db, 'users', userId, 'entranceBookmarks'));
+        }
         const bms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (bms.length === 0) { setQuestions([]); setLoading(false); return; }
 
-        const enriched = await Promise.all(
-          bms.map(async bm => {
-            try {
-              const qSnap = await getDocs(query(
-                collection(db, 'entranceExamQuestions'),
-                where('__name__', '==', bm.questionId)
-              ));
-              if (!qSnap.empty) {
-                return { ...bm, question: { id: bm.questionId, ...qSnap.docs[0].data() } };
-              }
-            } catch {}
-            return { ...bm, question: null };
-          })
-        );
-        setQuestions(enriched.filter(q => q.question));
-      } catch (e) { console.error(e); }
+        // Normalise each bookmark into the shape QuestionCard expects
+        const enriched = bms.map(bm => {
+          const opts = bm.options || {};
+          // Convert {A:'text', B:'text'} → array of strings for QuestionCard
+          const optionsArray = Array.isArray(opts)
+            ? opts
+            : ['A','B','C','D'].map(l => opts[l]).filter(Boolean);
+
+          return {
+            ...bm,
+            question: {
+              id:             bm.id,
+              question:       bm.question || bm.questionText || '',
+              options:        optionsArray,
+              correct_answer: bm.answer || bm.correctAnswer || '',
+              explanation:    bm.explanation || '',
+              subject:        bm.subject || '',
+            },
+          };
+        }).filter(bm => bm.question.question);
+
+        setQuestions(enriched);
+      } catch (e) { console.error('FlaggedQuestionPicker load error:', e); }
       setLoading(false);
     };
     load();
