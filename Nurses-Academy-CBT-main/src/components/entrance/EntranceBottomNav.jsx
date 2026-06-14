@@ -88,33 +88,61 @@ function useUnreadMessages(myUid) {
   return state;
 }
 
-/* ── Hook: listen to unread group chat counts ───────────────────────────── */
+/* ── Hook: listen to unread entrance group chat counts ─────────────────── */
+// Uses a single unreadMap ref to accumulate per-group counts correctly.
+// Also handles fallback for non-members: if no explicit unreadCounts entry,
+// checks lastMessageAt vs entranceGroupLastReadAt on the user doc.
 function useEntranceGroupUnread(myUid) {
   const [total, setTotal] = useState(0);
+  const unreadMap = useRef({});
+  const myLastReadAt = useRef(null);
+
+  // Load user's entranceGroupLastReadAt once on mount
+  useEffect(() => {
+    if (!myUid) return;
+    import('firebase/firestore').then(({ getDoc, doc: fsDoc }) => {
+      getDoc(fsDoc(db, 'users', myUid))
+        .then(snap => {
+          if (snap.exists()) {
+            const ts = snap.data().entranceGroupLastReadAt;
+            myLastReadAt.current = ts?.toDate?.() || null;
+          }
+        })
+        .catch(() => {});
+    });
+  }, [myUid]);
+
   useEffect(() => {
     if (!myUid) return;
     const unsubs = ENTRANCE_GROUP_SUBJECTS.map(grp => {
-      const metaRef = doc(db, 'entranceGroupChats', grp.id);
-      return onSnapshot(metaRef, snap => {
-        if (!snap.exists()) return;
-        const unread = snap.data()?.unreadCounts?.[myUid] || 0;
-        setTotal(prev => {
-          // We track each group separately via a map ref
-          return prev; // Will be replaced below
-        });
-      }, () => {});
+      return onSnapshot(doc(db, 'entranceGroupChats', grp.id), snap => {
+        if (!snap.exists()) {
+          unreadMap.current[grp.id] = 0;
+        } else {
+          const data = snap.data();
+          const explicitUnread = data.unreadCounts?.[myUid] || 0;
+          if (explicitUnread > 0) {
+            unreadMap.current[grp.id] = explicitUnread;
+          } else if (data.lastMessageBy && data.lastMessageBy !== myUid) {
+            // Fallback for non-members: check lastMessageAt vs user's last read
+            const lastMsgAt = data.lastMessageAt?.toDate?.() || null;
+            if (lastMsgAt && myLastReadAt.current && lastMsgAt > myLastReadAt.current) {
+              unreadMap.current[grp.id] = 1;
+            } else if (lastMsgAt && !myLastReadAt.current) {
+              unreadMap.current[grp.id] = 1;
+            } else {
+              unreadMap.current[grp.id] = 0;
+            }
+          } else {
+            unreadMap.current[grp.id] = 0;
+          }
+        }
+        setTotal(Object.values(unreadMap.current).reduce((a, b) => a + b, 0));
+      }, () => { unreadMap.current[grp.id] = 0; });
     });
-    // Use a map to accumulate per-group unreads
-    const unreadMap = {};
-    const unsubs2 = ENTRANCE_GROUP_SUBJECTS.map(grp => {
-      const metaRef = doc(db, 'entranceGroupChats', grp.id);
-      return onSnapshot(metaRef, snap => {
-        unreadMap[grp.id] = snap.exists() ? (snap.data()?.unreadCounts?.[myUid] || 0) : 0;
-        setTotal(Object.values(unreadMap).reduce((a, b) => a + b, 0));
-      }, () => {});
-    });
-    return () => unsubs2.forEach(u => u());
+    return () => unsubs.forEach(u => u());
   }, [myUid]);
+
   return total;
 }
 
@@ -147,10 +175,11 @@ export default function EntranceBottomNav() {
       // New message arrived — pulse the badge
       setBadgePulse(true);
       const t = setTimeout(() => setBadgePulse(false), 1200);
+      prevUnread.current = combinedUnread;
       return () => clearTimeout(t);
     }
     prevUnread.current = combinedUnread;
-  }, [totalUnread]);
+  }, [combinedUnread]);
 
   const openPctRef   = useRef(0);
   const animFrameRef = useRef(null);
