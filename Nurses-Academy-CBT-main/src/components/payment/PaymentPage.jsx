@@ -121,7 +121,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         })
         .then(() => updateDoc(userRef, {
           subscribed:         true,
-          accessLevel:        'full',
+          accessLevel:        plan.id,
           subscriptionPlan:   plan.id,
           subscriptionExpiry: expiresAt.toISOString(),
           subscribedAt:       serverTimestamp(),

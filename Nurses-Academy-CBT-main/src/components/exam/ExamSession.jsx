@@ -115,7 +115,8 @@ export default function ExamSession() {
   // Cap at 10 questions for free (unsubscribed) users
   const now        = new Date();
   const expiry     = profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry) : null;
-  const isSub      = (profile?.subscribed === true || profile?.accessLevel === 'full') && expiry && expiry > now;
+  const PAID_LEVELS = ['full', 'basic', 'standard', 'premium'];
+  const isSub      = (profile?.subscribed === true || PAID_LEVELS.includes(profile?.accessLevel)) && expiry && expiry > now;
   const count      = isSub ? rawCount : Math.min(rawCount, 10);
   const timeLimit   = Number(state?.timeLimit || 0);
   const doShuffle   = state?.doShuffle  !== false;

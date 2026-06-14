@@ -44,7 +44,7 @@ export function SubscribedRoute({ children }) {
     : null;
 
   const isActive =
-    (profile.subscribed === true || profile.accessLevel === 'full') &&
+    (profile.subscribed === true || ['full','basic','standard','premium'].includes(profile.accessLevel)) &&
     expiry !== null &&
     expiry > now;
 

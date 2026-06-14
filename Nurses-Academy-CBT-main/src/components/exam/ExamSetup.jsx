@@ -27,14 +27,18 @@ export default function ExamSetup() {
   const [showExpl, setShowExpl]     = useState(false);
   const [error, setError]           = useState('');
 
+  const PAID_LEVELS   = ['full', 'basic', 'standard', 'premium'];
+  const now_          = new Date();
+  const expiry_       = profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry) : null;
+  const isSub         = (profile?.subscribed === true || PAID_LEVELS.includes(profile?.accessLevel)) && expiry_ && expiry_ > now_;
   const isPremiumType = (t) => ['hospital_finals', 'topic_drill'].includes(t);
   const needsYear     = ['past_questions', 'hospital_finals'].includes(examType);
 
   const handleStart = () => {
     if (!category) { setError('Please select a nursing category.'); return; }
     if (needsYear && !year) { setError('Please select an exam year.'); return; }
-    if (isPremiumType(examType) && !profile?.subscribed) {
-      setError('This exam type requires a subscription. Please upgrade your plan.');
+    if (isPremiumType(examType) && !isSub) {
+      setError('This exam type requires an active subscription. Please upgrade your plan.');
       return;
     }
     setError('');
@@ -97,7 +101,7 @@ export default function ExamSetup() {
                     borderColor: examType === et.id ? 'var(--teal)' : 'var(--border)',
                     background: examType === et.id ? 'var(--teal-glow)' : 'var(--bg-tertiary)',
                     color: examType === et.id ? 'var(--teal)' : 'var(--text-secondary)',
-                    opacity: isPremiumType(et.id) && !profile?.subscribed ? 0.6 : 1,
+                    opacity: isPremiumType(et.id) && !isSub ? 0.6 : 1,
                   }}
                 >
                   {et.icon} {et.label}

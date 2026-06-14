@@ -232,7 +232,7 @@ export function AuthProvider({ children }) {
       updateSchool, updateUserProfile,
       isAdmin:      profile?.role === 'admin',
       isSubAdmin:   profile?.role === 'subadmin',
-      isSubscribed: profile?.subscribed || profile?.accessLevel === 'full',
+      isSubscribed: profile?.subscribed || ['full','basic','standard','premium'].includes(profile?.accessLevel),
     }}>
       {!loading && (
         deviceBlocked ? (

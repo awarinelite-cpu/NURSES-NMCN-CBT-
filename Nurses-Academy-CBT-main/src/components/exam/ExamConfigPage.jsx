@@ -35,13 +35,17 @@ export default function ExamConfigPage() {
   const [showExpl,   setShowExpl]   = useState(false);
   const [error,      setError]      = useState('');
 
+  const PAID_LEVELS   = ['full', 'basic', 'standard', 'premium'];
+  const now_          = new Date();
+  const expiry_       = profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry) : null;
+  const isSub         = (profile?.subscribed === true || PAID_LEVELS.includes(profile?.accessLevel)) && expiry_ && expiry_ > now_;
   const isPremiumType = (t) => ['hospital_finals', 'topic_drill'].includes(t);
   const needsYear     = ['past_questions', 'hospital_finals'].includes(examType);
   const isDaily       = examType === 'daily_practice';
 
   const handleStart = () => {
-    if (isPremiumType(examType) && !profile?.subscribed) {
-      setError('This exam type requires a subscription. Please upgrade your plan.');
+    if (isPremiumType(examType) && !isSub) {
+      setError('This exam type requires an active subscription. Please upgrade your plan.');
       return;
     }
     if (needsYear && !year) {
@@ -131,7 +135,7 @@ export default function ExamConfigPage() {
           <div style={styles.sectionHead}>📋 Exam Type</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
             {EXAM_TYPES.map(et => {
-              const locked = isPremiumType(et.id) && !profile?.subscribed;
+              const locked = isPremiumType(et.id) && !isSub;
               return (
                 <button
                   key={et.id}
