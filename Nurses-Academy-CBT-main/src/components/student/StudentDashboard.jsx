@@ -239,7 +239,7 @@ const QUICK_ACTIONS = [
     color: '#2563EB',
   },
   {
-    to: '/mock-exams', icon: '📋', label: 'Mock Exams',
+    to: '/mock-exams', icon: '📋', label: 'Hospital Final Prep',
     sub: 'Study daily Hospital Final exam',
     desc: 'Simulate a real hospital final exam under timed conditions. Tests your full readiness before the actual NMCN exam.',
     color: '#7C3AED',

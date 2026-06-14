@@ -32,7 +32,7 @@ const actions = [
   {
     to: '/mock-exams',
     icon: '📋',
-    label: 'Mock Exams',
+    label: 'Hospital Final Prep',
     desc: 'Study daily Hospital Final exam',
     color: '#7C3AED',
     bg: 'rgba(124,58,237,0.12)',
