@@ -5,8 +5,13 @@
 // field to an array-contains query requires a composite index. Without the
 // index Firestore silently returns nothing. Sorting is unnecessary here since
 // we only need unread counts, not display order.
+//
+// FIX: Added visibilitychange listener so that when a mobile browser tab comes
+// back to the foreground, the Firestore listeners are restarted immediately.
+// Without this, the WebSocket connection dropped in the background takes 10-30s
+// to reconnect, during which new message badges don't appear.
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, query, where, onSnapshot, getDoc, doc } from 'firebase/firestore';
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
@@ -19,8 +24,22 @@ export function useChatNotifications(mode = 'nmcn') {
   const [groupUnread, setGroupUnread] = useState(0);
   const [totalUnread, setTotalUnread] = useState(0);
 
+  // Bump this counter to force listeners to remount (used on visibility change)
+  const [tick, setTick] = useState(0);
+
   const prevUnread = useRef(0);
   const [pulse, setPulse] = useState(false);
+
+  // ── Reconnect listeners when tab comes back to foreground ────────────────
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setTick(t => t + 1); // remounts both listeners below
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   // ── 1. Direct chats — NO orderBy (avoids missing composite index) ─
   useEffect(() => {
@@ -63,7 +82,7 @@ export function useChatNotifications(mode = 'nmcn') {
     }, err => console.error('useChatNotifications directChats error:', err));
 
     return unsub;
-  }, [myUid]);
+  }, [myUid, tick]);
 
   // ── 2. Group chats — collection depends on mode ───────────────
   // Counts unread from:
@@ -114,7 +133,7 @@ export function useChatNotifications(mode = 'nmcn') {
     );
 
     return unsub;
-  }, [myUid, mode]);
+  }, [myUid, mode, tick]);
 
   // ── 3. Combine + pulse ────────────────────────────────────────
   useEffect(() => {
