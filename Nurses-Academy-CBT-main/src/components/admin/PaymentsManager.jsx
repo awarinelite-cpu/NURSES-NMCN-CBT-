@@ -24,7 +24,8 @@ export default function AdminPayments() {
     setLoading(true);
     try {
       const snap = await getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc')));
-      setPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPayments(all.filter(p => p.type !== 'entrance_exam' && p.type !== 'entrance_exam_registration'));
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export default function AdminPayments() {
               💰 Payment Management
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '4px 0 0' }}>
-              Confirm manual transfers · View Paystack payments
+              NMCN subscriptions only · Confirm manual transfers · View Paystack payments
             </p>
           </div>
           {pendingCount > 0 && (
