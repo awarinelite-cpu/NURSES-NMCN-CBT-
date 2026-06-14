@@ -834,12 +834,26 @@ export default function ExamSession() {
       {showExitModal && <ExitModal onSaveExit={handleSaveExit} onAbandon={handleAbandonExit} onCancel={() => setShowExitModal(false)} saving={exitSaving} />}
       {showUpgradeModal && (
         <UpgradeModal
-          onUpgrade={() => { setShowUpgradeModal(false); navigate('/subscribe'); }}
+          onUpgrade={() => { setShowUpgradeModal(false); navigate('/subscription'); }}
           onContinue={() => setShowUpgradeModal(false)}
         />
       )}
 
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}>
+        {/* ── Free trial ribbon — only for unpaid users ── */}
+        {!isSub && phase === 'exam' && (
+          <div style={{ background: 'linear-gradient(90deg, rgba(13,148,136,0.15), rgba(245,158,11,0.1))', borderBottom: '1px solid rgba(13,148,136,0.25)', margin: '-10px -16px 10px', padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)' }}>
+              🎯 Free Trial — {current + 1}/{questions.length} questions used
+            </span>
+            <button
+              onClick={() => navigate('/subscription')}
+              style={{ padding: '3px 12px', borderRadius: 20, border: '1.5px solid var(--teal)', background: 'transparent', color: 'var(--teal)', fontSize: 11, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Upgrade for unlimited →
+            </button>
+          </div>
+        )}
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div>
@@ -926,7 +940,7 @@ export default function ExamSession() {
               <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>Upgrade to unlock unlimited questions, mock exams &amp; more.</div>
             </div>
             <button
-              onClick={() => navigate('/subscribe')}
+              onClick={() => navigate('/subscription')}
               style={{ padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontWeight: 800, fontSize: 13, border: 'none', background: 'var(--teal)', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Arial Black', Arial, sans-serif" }}
             >
               Upgrade Now 🚀

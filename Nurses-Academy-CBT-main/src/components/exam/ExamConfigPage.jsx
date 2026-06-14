@@ -44,10 +44,6 @@ export default function ExamConfigPage() {
   const isDaily       = examType === 'daily_practice';
 
   const handleStart = () => {
-    if (isPremiumType(examType) && !isSub) {
-      setError('This exam type requires an active subscription. Please upgrade your plan.');
-      return;
-    }
     if (needsYear && !year) {
       setError('Please select an exam year.');
       return;

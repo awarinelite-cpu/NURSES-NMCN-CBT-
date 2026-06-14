@@ -37,10 +37,6 @@ export default function ExamSetup() {
   const handleStart = () => {
     if (!category) { setError('Please select a nursing category.'); return; }
     if (needsYear && !year) { setError('Please select an exam year.'); return; }
-    if (isPremiumType(examType) && !isSub) {
-      setError('This exam type requires an active subscription. Please upgrade your plan.');
-      return;
-    }
     setError('');
     const p = new URLSearchParams({ category, examType, count, timeLimit, shuffle, showExpl });
     if (year) p.set('year', year);
@@ -101,11 +97,11 @@ export default function ExamSetup() {
                     borderColor: examType === et.id ? 'var(--teal)' : 'var(--border)',
                     background: examType === et.id ? 'var(--teal-glow)' : 'var(--bg-tertiary)',
                     color: examType === et.id ? 'var(--teal)' : 'var(--text-secondary)',
-                    opacity: isPremiumType(et.id) && !isSub ? 0.6 : 1,
+                    opacity: 1,
                   }}
                 >
                   {et.icon} {et.label}
-                  {isPremiumType(et.id) && <span style={{ fontSize: 10, marginLeft: 4 }}>👑</span>}
+                  {isPremiumType(et.id) && !isSub && <span style={{ fontSize: 9, marginLeft: 4, background: 'rgba(13,148,136,0.2)', color: 'var(--teal)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>FREE 10Q</span>}
                 </button>
               ))}
             </div>
