@@ -774,6 +774,44 @@ export default function StudentDashboard() {
         </ACard>
       )}
 
+      {/* ── Free plan notice for unpaid users ── */}
+      {!profile?.subscribed && (
+        <ACard delay={730} style={{ marginBottom: 20 }}>
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 14,
+            background: 'rgba(245,158,11,0.07)',
+            border: '1.5px solid rgba(245,158,11,0.35)',
+            borderRadius: 14, padding: '14px 18px',
+          }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(245,158,11,0.15)', border: '1.5px solid rgba(245,158,11,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+            }}>🎯</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#F59E0B', marginBottom: 3 }}>
+                Free Plan — 10 Question Preview
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                You can try any exam mode below. Each session gives you the same 10 starter questions
+                so you can experience the platform before upgrading.
+              </div>
+            </div>
+            <Link
+              to="/subscription"
+              style={{
+                flexShrink: 0, padding: '7px 14px', borderRadius: 8,
+                background: '#F59E0B', color: '#1a1a1a',
+                fontWeight: 700, fontSize: 12, textDecoration: 'none',
+                whiteSpace: 'nowrap', alignSelf: 'center',
+              }}
+            >
+              👑 Upgrade
+            </Link>
+          </div>
+        </ACard>
+      )}
+
       {/* ── Quick actions ── */}
       <ACard delay={750} style={{ marginBottom: 32 }}>
         <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
