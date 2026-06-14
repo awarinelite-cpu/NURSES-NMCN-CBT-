@@ -290,17 +290,18 @@ export default function ExamReviewPage() {
             📚 Back to Archive
           </button>
           <button className="btn btn-primary" onClick={() => {
-            const p = new URLSearchParams({
-              category:  session.category || category,
-              examType:  'daily_practice',
-              count:     String(session.totalQuestions || 20),
-              timeLimit: '30',
-              shuffle:   'true',
-              showExpl:  'false',
-              archiveId: archiveId || session.archiveId || '',
-              retake:    'true',
+            navigate('/exam/session', {
+              state: {
+                category: session.category || category,
+                examType: 'daily_practice',
+                count: session.totalQuestions || 20,
+                timeLimit: 30,
+                doShuffle: true,
+                showExpl: false,
+                poolMode: true,
+                examName: 'Daily Practice Retake',
+              },
             });
-            navigate(`/exam/session?${p.toString()}`);
           }}>
             🔁 Retake This Exam
           </button>

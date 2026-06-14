@@ -49,9 +49,16 @@ export default function ExamConfigPage() {
       return;
     }
     setError('');
-    const p = new URLSearchParams({ category: categoryId, examType, count, timeLimit, shuffle, showExpl });
-    if (year) p.set('year', year);
-    navigate(`/exam/session?${p.toString()}`);
+    const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
+    navigate('/exam/session', {
+      state: {
+        category: categoryId, examType, count, timeLimit,
+        doShuffle: shuffle, showExpl,
+        year: year || '',
+        poolMode: poolTypes.includes(examType),
+        examName: (cat?.label || categoryId) + ' — ' + examType.replace(/_/g, ' '),
+      },
+    });
   };
 
   // Preview rows — hide Year for daily practice

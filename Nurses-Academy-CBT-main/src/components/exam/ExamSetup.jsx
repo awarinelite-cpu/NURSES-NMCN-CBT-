@@ -38,9 +38,20 @@ export default function ExamSetup() {
     if (!category) { setError('Please select a nursing category.'); return; }
     if (needsYear && !year) { setError('Please select an exam year.'); return; }
     setError('');
-    const p = new URLSearchParams({ category, examType, count, timeLimit, shuffle, showExpl });
-    if (year) p.set('year', year);
-    navigate(`/exam/session?${p.toString()}`);
+    const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
+    navigate('/exam/session', {
+      state: {
+        category,
+        examType,
+        count,
+        timeLimit,
+        doShuffle: shuffle,
+        showExpl,
+        year: year || '',
+        poolMode: poolTypes.includes(examType),
+        examName: (NURSING_CATEGORIES.find(c => c.id === category)?.label || category) + ' — ' + examType.replace(/_/g, ' '),
+      },
+    });
   };
 
   const selectedCat = NURSING_CATEGORIES.find(c => c.id === category);

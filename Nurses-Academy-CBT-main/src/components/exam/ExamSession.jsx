@@ -13,7 +13,7 @@
 //     on separate lines instead of collapsing into one sentence.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   collection, query, where, getDocs, limit,
   addDoc, serverTimestamp, doc, updateDoc, arrayUnion,
@@ -132,30 +132,45 @@ function ReviewReadButton({ text = '' }) {
 
 export default function ExamSession() {
   const { state }   = useLocation();
+  const [sp]        = useSearchParams();   // fallback for pages that navigate via URL params
   const navigate    = useNavigate();
   const auth        = useAuth();
   const currentUser = auth.currentUser || auth.user || null;
   const profile     = auth.profile;
   const { toast }   = useToast();
 
-  const examId      = state?.examId      || '';
-  const examName    = state?.examName    || 'Exam';
-  const examType    = state?.examType    || 'daily_practice';
-  const category    = state?.category   || '';
-  const course      = state?.course     || '';
-  const courseLabel = state?.courseLabel || '';
-  const topic       = state?.topic      || '';
-  const rawCount    = Number(state?.count     || 20);
+  // Helper: prefer router state, fall back to URL search param
+  const sp_str  = (key, def = '')  => state?.[key]  ?? sp.get(key)  ?? def;
+  const sp_num  = (key, def = 0)   => Number(state?.[key] ?? sp.get(key) ?? def);
+  const sp_bool = (key, def = true) => state?.[key] !== undefined
+    ? state[key]
+    : sp.get(key) !== null
+      ? sp.get(key) !== 'false'
+      : def;
+
+  const examId      = sp_str('examId');
+  const examName    = sp_str('examName', 'Exam');
+  const examType    = sp_str('examType', 'daily_practice');
+  const category    = sp_str('category');
+  const course      = sp_str('course');
+  const courseLabel = sp_str('courseLabel');
+  const topic       = sp_str('topic');
+  const rawCount    = sp_num('count', 20);
   // Cap at 10 questions for free (unsubscribed) users
   const now        = new Date();
   const expiry     = profile?.subscriptionExpiry ? new Date(profile.subscriptionExpiry) : null;
   const PAID_LEVELS = ['full', 'basic', 'standard', 'premium'];
   const isSub      = (profile?.subscribed === true || PAID_LEVELS.includes(profile?.accessLevel)) && expiry && expiry > now;
   const count      = isSub ? rawCount : Math.min(rawCount, 10);
-  const timeLimit   = Number(state?.timeLimit || 0);
-  const doShuffle   = state?.doShuffle  !== false;
+  const timeLimit   = sp_num('timeLimit', 0);
+  const doShuffle   = sp_bool('shuffle', true);
+  const showExpl    = sp_bool('showExpl', false);
   const reviewMode  = state?.reviewMode || false;
-  const poolMode    = state?.poolMode   || false;
+  // poolMode: set explicitly in state for pool-based pages; for URL-param flows
+  // (ExamSetup/ExamConfigPage), derive from examType
+  const poolMode    = state?.poolMode !== undefined
+    ? state.poolMode
+    : ['daily_practice','course_drill','topic_drill','mock_exam'].includes(examType);
   const savedSession = state?.savedSession || null;
   const resumeMode   = state?.resumeMode   || false;
   const pausedExamId = state?.pausedExamId || null;

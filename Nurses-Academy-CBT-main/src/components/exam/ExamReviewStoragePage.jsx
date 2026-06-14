@@ -105,17 +105,20 @@ export default function ExamReviewStoragePage() {
       alert('Mock Exams require a subscription. Please upgrade your plan.');
       return;
     }
-    const p = new URLSearchParams({
-      scheduledExamId: exam.id,
-      category:  exam.category      || 'general_nursing',
-      examType:  exam.type          || 'daily_practice',
-      count:     exam.questionCount || (exam.type === 'mock_exam' ? 100 : 20),
-      timeLimit: exam.timeLimit     || (exam.type === 'mock_exam' ? 180 : 30),
-      shuffle:   exam.type === 'mock_exam' ? 'false' : 'true',
-      showExpl:  exam.type === 'mock_exam' ? 'false' : 'true',
-      retake:    'true',
+    const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
+    navigate('/exam/session', {
+      state: {
+        examId: exam.id,
+        category:  exam.category      || 'general_nursing',
+        examType:  exam.type          || 'daily_practice',
+        count:     exam.questionCount || (exam.type === 'mock_exam' ? 100 : 20),
+        timeLimit: exam.timeLimit     || (exam.type === 'mock_exam' ? 180 : 30),
+        doShuffle: exam.type !== 'mock_exam',
+        showExpl:  exam.type !== 'mock_exam',
+        poolMode:  poolTypes.includes(exam.type || 'daily_practice'),
+        examName:  exam.name || 'Retake',
+      },
     });
-    navigate(`/exam/session?${p.toString()}`);
   };
 
   // ── Derived stats ───────────────────────────────────────────────────────────
