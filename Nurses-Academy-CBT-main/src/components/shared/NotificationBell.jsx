@@ -36,7 +36,7 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { chatThreads, totalUnread: chatUnread, groupUnread, pulse } = useChatNotifications(mode);
+  const { allThreads, chatThreads, totalUnread: chatUnread, groupUnread, pulse } = useChatNotifications(mode);
 
   // Inject bell animation keyframes once
   useEffect(() => {
@@ -231,8 +231,8 @@ export default function NotificationBell() {
             </>
           )}
 
-          {/* No unread chats but has chats → show inbox link */}
-          {chatThreads.length > 0 && unreadChats.length === 0 && (
+          {/* No unread chats but has chat history → show inbox link */}
+          {allThreads.length > 0 && unreadChats.length === 0 && (
             <button
               style={styles.inboxLink}
               onClick={() => { setOpen(false); navigate(inboxPath); }}

@@ -6,12 +6,17 @@
 // index Firestore silently returns nothing. Sorting is unnecessary here since
 // we only need unread counts, not display order.
 //
-// FIX: Added visibilitychange listener so that when a mobile browser tab comes
+// FIX 1: Added visibilitychange listener so that when a mobile browser tab comes
 // back to the foreground, the Firestore listeners are restarted immediately.
-// Without this, the WebSocket connection dropped in the background takes 10-30s
-// to reconnect, during which new message badges don't appear.
+//
+// FIX 2: chatThreads now returns ALL threads (not just unread) so the bell can
+// show the "Open Messages Inbox" link even when all DMs are read.
+//
+// FIX 3: myLastReadAt for group chat fallback now uses a useRef so the onSnapshot
+// callback always reads the latest value — fixing the async race condition where
+// getDoc resolves after the first onSnapshot fires.
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, onSnapshot, getDoc, doc } from 'firebase/firestore';
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
@@ -20,28 +25,33 @@ export function useChatNotifications(mode = 'nmcn') {
   const { user }  = useAuth();
   const myUid     = user?.uid;
 
-  const [chatThreads, setChatThreads] = useState([]);
+  // All DM threads (for inbox link) + unread subset (for badge)
+  const [allThreads,  setAllThreads]  = useState([]);
+  const [chatThreads, setChatThreads] = useState([]); // unread only
   const [groupUnread, setGroupUnread] = useState(0);
   const [totalUnread, setTotalUnread] = useState(0);
 
-  // Bump this counter to force listeners to remount (used on visibility change)
+  // Bump to force listeners to remount on tab visibility change
   const [tick, setTick] = useState(0);
+
+  // useRef so onSnapshot callbacks always read the latest value (no stale closure)
+  const myLastReadAtRef = useRef(null);
 
   const prevUnread = useRef(0);
   const [pulse, setPulse] = useState(false);
 
-  // ── Reconnect listeners when tab comes back to foreground ────────────────
+  // ── Reconnect listeners when tab returns to foreground ───────────────────
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        setTick(t => t + 1); // remounts both listeners below
+        setTick(t => t + 1);
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  // ── 1. Direct chats — NO orderBy (avoids missing composite index) ─
+  // ── 1. Direct chats ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!myUid) return;
 
@@ -51,7 +61,7 @@ export function useChatNotifications(mode = 'nmcn') {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const threads = snap.docs
+      const mapped = snap.docs
         .map(d => {
           const data      = d.data();
           const unread    = data.unreadCounts?.[myUid] || 0;
@@ -70,39 +80,35 @@ export function useChatNotifications(mode = 'nmcn') {
             type: 'direct',
           };
         })
-        .filter(t => t.unread > 0)
-        // Sort client-side by updatedAt descending
         .sort((a, b) => {
           const ta = a.updatedAt?.toMillis?.() || a.updatedAt?.seconds || 0;
           const tb = b.updatedAt?.toMillis?.() || b.updatedAt?.seconds || 0;
           return tb - ta;
         });
 
-      setChatThreads(threads);
+      setAllThreads(mapped);
+      setChatThreads(mapped.filter(t => t.unread > 0));
     }, err => console.error('useChatNotifications directChats error:', err));
 
     return unsub;
   }, [myUid, tick]);
 
-  // ── 2. Group chats — collection depends on mode ───────────────
-  // Counts unread from:
-  //   a) unreadCounts[myUid]  — incremented when a member sends (joined users)
-  //   b) lastMessageAt > groupLastReadAt — fallback for non-members who never joined
+  // ── 2. Group chats — collection depends on mode ───────────────────────────
   useEffect(() => {
     if (!myUid) return;
 
-    const groupCol = mode === 'entrance' ? 'entranceGroupChats' : 'groupChats';
+    const groupCol   = mode === 'entrance' ? 'entranceGroupChats' : 'groupChats';
     const lastReadKey = mode === 'entrance'
       ? 'entranceGroupLastReadAt'
       : 'groupLastReadAt';
 
-    // Fetch our own groupLastReadAt from user doc once
-    let myLastReadAt = null;
+    // Load lastReadAt into a ref so the onSnapshot callback always sees the latest value
+    myLastReadAtRef.current = null;
     getDoc(doc(db, 'users', myUid))
       .then(snap => {
         if (snap.exists()) {
           const ts = snap.data()[lastReadKey];
-          myLastReadAt = ts?.toDate?.() || null;
+          myLastReadAtRef.current = ts?.toDate?.() || null;
         }
       })
       .catch(() => {});
@@ -113,17 +119,18 @@ export function useChatNotifications(mode = 'nmcn') {
         let total = 0;
         snap.docs.forEach(d => {
           const data = d.data();
-          // Primary: explicit unread count for this user (set when they're a member)
           const explicitUnread = data.unreadCounts?.[myUid] || 0;
           if (explicitUnread > 0) {
             total += explicitUnread;
           } else if (data.lastMessageBy && data.lastMessageBy !== myUid) {
-            // Fallback: message newer than our last read timestamp
+            // Fallback for non-members or members who cleared their unread:
+            // compare lastMessageAt against our last-read timestamp (via ref — no stale closure)
             const lastMsgAt = data.lastMessageAt?.toDate?.() || null;
-            if (lastMsgAt && myLastReadAt && lastMsgAt > myLastReadAt) {
-              total += 1; // show at least 1 badge for this group
-            } else if (lastMsgAt && !myLastReadAt) {
-              total += 1; // never read at all — show badge
+            const myLastRead = myLastReadAtRef.current;
+            if (lastMsgAt && myLastRead && lastMsgAt > myLastRead) {
+              total += 1;
+            } else if (lastMsgAt && !myLastRead) {
+              total += 1; // never visited any group — show badge
             }
           }
         });
@@ -135,7 +142,7 @@ export function useChatNotifications(mode = 'nmcn') {
     return unsub;
   }, [myUid, mode, tick]);
 
-  // ── 3. Combine + pulse ────────────────────────────────────────
+  // ── 3. Combine totals + trigger pulse animation ───────────────────────────
   useEffect(() => {
     const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
     const total = directUnread + groupUnread;
@@ -148,5 +155,5 @@ export function useChatNotifications(mode = 'nmcn') {
     setTotalUnread(total);
   }, [chatThreads, groupUnread]);
 
-  return { chatThreads, totalUnread, groupUnread, pulse };
+  return { allThreads, chatThreads, totalUnread, groupUnread, pulse };
 }
