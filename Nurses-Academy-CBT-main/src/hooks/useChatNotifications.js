@@ -1,5 +1,11 @@
 // src/hooks/useChatNotifications.js
-// Listens to directChats where user is a participant, filtered by context (nmcn | entrance)
+// Listens to direct chats + group chats and returns unread counts per mode.
+//
+// nmcn mode    → directChats (all) + groupChats
+// entrance mode→ directChats (all) + entranceGroupChats
+//
+// Direct chats are shared across modes — a message is a message.
+// Group chats are strictly separated by collection.
 
 import { useState, useEffect, useRef } from 'react';
 import {
@@ -8,26 +14,18 @@ import {
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 
-/**
- * @param {'nmcn'|'entrance'} mode
- * Returns chatThreads filtered to the current section, with sender names
- * read directly from the doc (no extra Firestore reads needed in the UI).
- *
- * Context filter:
- *   - docs WITH context field → must match mode
- *   - docs WITHOUT context field (legacy) → included in 'nmcn' only
- */
 export function useChatNotifications(mode = 'nmcn') {
-  const { user }    = useAuth();
-  const myUid       = user?.uid;
+  const { user }  = useAuth();
+  const myUid     = user?.uid;
 
-  const [chatThreads, setChatThreads] = useState([]);
+  const [chatThreads, setChatThreads] = useState([]);  // direct message threads with unread
+  const [groupUnread, setGroupUnread] = useState(0);   // total unread from group chats
   const [totalUnread, setTotalUnread] = useState(0);
 
-  // Track previous totalUnread so the bell can pulse on new messages
   const prevUnread = useRef(0);
   const [pulse, setPulse] = useState(false);
 
+  // ── 1. Direct chats listener ──────────────────────────────────
   useEffect(() => {
     if (!myUid) return;
 
@@ -40,14 +38,12 @@ export function useChatNotifications(mode = 'nmcn') {
     const unsub = onSnapshot(q, (snap) => {
       const threads = snap.docs
         .map(d => {
-          const data        = d.data();
-          const unread      = data.unreadCounts?.[myUid] || 0;
-          const otherUid    = data.participants?.find(p => p !== myUid) || '';
-          const context     = data.context || 'nmcn';           // legacy docs → nmcn
-          // Names already stored on the doc — no extra read needed
-          const otherName   = data.participantNames?.[otherUid]
-                           || data.lastSenderName
-                           || 'Student';
+          const data      = d.data();
+          const unread    = data.unreadCounts?.[myUid] || 0;
+          const otherUid  = data.participants?.find(p => p !== myUid) || '';
+          const otherName = data.participantNames?.[otherUid]
+                         || data.lastSenderName
+                         || 'Student';
           return {
             chatId:       d.id,
             otherUid,
@@ -56,28 +52,50 @@ export function useChatNotifications(mode = 'nmcn') {
             lastSenderId: data.lastSenderId || '',
             updatedAt:    data.updatedAt,
             unread,
-            context,
+            type: 'direct',
           };
         })
-        .filter(t => t.context === mode);
-
-      const total = threads.reduce((s, t) => s + (t.unread || 0), 0);
-
-      // Pulse the bell whenever unread count increases
-      if (total > prevUnread.current) {
-        setPulse(true);
-        setTimeout(() => setPulse(false), 1200);
-      }
-      prevUnread.current = total;
+        .filter(t => t.unread > 0);  // only threads with unread messages
 
       setChatThreads(threads);
-      setTotalUnread(total);
-    }, (err) => {
-      console.error('useChatNotifications error:', err);
-    });
+    }, err => console.error('useChatNotifications directChats error:', err));
+
+    return unsub;
+  }, [myUid]);
+
+  // ── 2. Group chats listener — collection depends on mode ──────
+  useEffect(() => {
+    if (!myUid) return;
+
+    const groupCol = mode === 'entrance' ? 'entranceGroupChats' : 'groupChats';
+
+    const unsub = onSnapshot(
+      collection(db, groupCol),
+      (snap) => {
+        let total = 0;
+        snap.docs.forEach(d => {
+          total += d.data().unreadCounts?.[myUid] || 0;
+        });
+        setGroupUnread(total);
+      },
+      err => console.error('useChatNotifications groupChats error:', err)
+    );
 
     return unsub;
   }, [myUid, mode]);
 
-  return { chatThreads, totalUnread, pulse };
+  // ── 3. Combine totals + pulse ─────────────────────────────────
+  useEffect(() => {
+    const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
+    const total = directUnread + groupUnread;
+
+    if (total > prevUnread.current) {
+      setPulse(true);
+      setTimeout(() => setPulse(false), 1200);
+    }
+    prevUnread.current = total;
+    setTotalUnread(total);
+  }, [chatThreads, groupUnread]);
+
+  return { chatThreads, totalUnread, groupUnread, pulse };
 }

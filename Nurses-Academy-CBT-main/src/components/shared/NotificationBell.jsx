@@ -36,7 +36,7 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { chatThreads, totalUnread: chatUnread, pulse } = useChatNotifications(mode);
+  const { chatThreads, totalUnread: chatUnread, groupUnread, pulse } = useChatNotifications(mode);
 
   // Inject bell animation keyframes once
   useEffect(() => {
@@ -241,6 +241,35 @@ export default function NotificationBell() {
             </button>
           )}
 
+          {/* ── GROUP CHAT UNREAD ── */}
+          {groupUnread > 0 && (
+            <>
+              <div style={styles.sectionLabel}>👥 Community Chat</div>
+              <button
+                style={{ ...styles.item, ...styles.chatItem }}
+                onClick={() => {
+                  setOpen(false);
+                  navigate(mode === 'entrance' ? '/entrance-exam/group-chat' : '/group-chat');
+                }}
+              >
+                <div style={styles.chatRow}>
+                  <div style={{ ...styles.chatAvatar, fontSize: 18 }}>👥</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={styles.chatName}>
+                      {mode === 'entrance' ? 'Entrance Exam Groups' : 'NMCN Study Groups'}
+                    </div>
+                    <div style={styles.chatPreview}>
+                      You have unread group messages
+                    </div>
+                  </div>
+                  <div style={styles.unreadBadge}>
+                    {groupUnread > 99 ? '99+' : groupUnread}
+                  </div>
+                </div>
+              </button>
+            </>
+          )}
+
           {/* ── EXAM ANNOUNCEMENTS SECTION ── */}
           {items.length > 0 && (
             <div style={styles.sectionLabel}>📢 Exam Updates</div>
@@ -248,7 +277,7 @@ export default function NotificationBell() {
 
           {loading ? (
             <div style={styles.empty}>Loading…</div>
-          ) : items.length === 0 && chatThreads.length === 0 ? (
+          ) : items.length === 0 && chatThreads.length === 0 && groupUnread === 0 ? (
             <div style={styles.empty}>No notifications yet</div>
           ) : (
             <div style={styles.list}>
