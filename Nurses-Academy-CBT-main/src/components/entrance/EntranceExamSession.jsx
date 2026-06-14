@@ -158,7 +158,8 @@ export default function EntranceExamSession() {
             const fsnap = await getDocs(query(collection(db, 'entranceExamQuestions'), ...fb));
             pool = fsnap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
-          if (doShuffle) pool = pool.sort(() => Math.random() - 0.5);
+          if (doShuffle && isPaid) pool = pool.sort(() => Math.random() - 0.5);
+          if (!isPaid) pool = pool.sort((a, b) => a.id < b.id ? -1 : 1);
           const cap = isPaid ? count : Math.min(count, FREE_CAP);
           setQuestions(pool.slice(0, cap));
           return;
@@ -167,7 +168,8 @@ export default function EntranceExamSession() {
         if (poolMode) {
           const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true)));
           let pool = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          if (doShuffle) pool = pool.sort(() => Math.random() - 0.5);
+          if (doShuffle && isPaid) pool = pool.sort(() => Math.random() - 0.5);
+          if (!isPaid) pool = pool.sort((a, b) => a.id < b.id ? -1 : 1);
           const cap = isPaid ? count : Math.min(count, FREE_CAP);
           setQuestions(pool.slice(0, cap));
         }

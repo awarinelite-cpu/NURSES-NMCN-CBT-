@@ -129,7 +129,9 @@ export default function EntranceSubjectSession() {
         });
         if (!all.length) { setLoadError(year && year !== 'All Years' ? `No ${subject.name} questions found for ${year}.` : `No questions found for ${subject.name}.`); return; }
         const effectiveCount = isPaid ? count : Math.min(count, FREE_CAP);
-        all = all.sort(() => Math.random() - 0.5).slice(0, Math.min(effectiveCount, all.length));
+        if (isPaid) all = all.sort(() => Math.random() - 0.5);
+        else all = all.sort((a, b) => a.id < b.id ? -1 : 1); // unpaid: same fixed 10 every time
+        all = all.slice(0, Math.min(effectiveCount, all.length));
         setQuestions(all);
       } catch (e) {
         setLoadError('Failed to load: ' + e.message);

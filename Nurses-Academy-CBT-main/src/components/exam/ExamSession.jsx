@@ -277,7 +277,8 @@ export default function ExamSession() {
           }).filter(q => q.question && q.options.some(o => o));
 
           if (pool.length === 0) { setQuestions([]); setPhase('empty'); return; }
-          if (doShuffle) pool.sort(() => Math.random() - 0.5);
+          if (!isSub) pool.sort((a, b) => a.id < b.id ? -1 : 1); // unpaid: stable order = same 10 every time
+          else if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
           setQuestions(qs); questionsRef.current = qs;
           setPhase('exam'); startedAt.current = Date.now();
@@ -395,6 +396,9 @@ export default function ExamSession() {
           if (doShuffle) pool.sort(() => Math.random() - 0.5);
           qs = pool.slice(0, count);
         }
+
+        // Unpaid users always get the same fixed questions (sorted by ID) so they repeat until subscribed
+        if (!isSub && qs.length > 0) qs = qs.sort((a, b) => a.id < b.id ? -1 : 1).slice(0, count);
 
         setQuestions(qs); questionsRef.current = qs;
         setPhase(reviewMode ? 'review' : qs.length > 0 ? 'exam' : 'empty');
