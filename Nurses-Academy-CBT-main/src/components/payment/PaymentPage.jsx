@@ -100,7 +100,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       amount:   plan.price * 100,
       currency: 'NGN',
       ref:      `NMCN-${Date.now()}`,
-      metadata: { userId: currentUser.uid, plan: plan.id },
+      metadata: { userId: currentUser.uid, plan: plan.id, type: 'nmcn_cbt' },
       callback: (response) => {
         const expiresAt   = new Date(Date.now() + plan.days * 86400000);
         const paymentsRef = collection(db, 'payments');
