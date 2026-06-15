@@ -183,23 +183,88 @@ function parseMarkdownSeparatorBlocks(rawText, startSeq = 1) {
   return questions;
 }
 
+// ── FORMAT I: Bold-Marked Correct Answer Pre-processor ───────────────
+// Handles the format where the correct answer is bolded:
+//   Blood makes up about --- of body weight
+//   a. 5%
+//   **b. 7%**          ← correct answer (bold)
+//   c. 6.5%
+//   d. 8%
+//
+//   2. The osmotic pressure of the blood is
+//   a. 45mmHg
+//   b. 35mmHg
+//   **c. 25mmHg**      ← correct (bold)
+//   d. 15mmHg
+//
+// This pre-processor converts bold options into a standard format:
+//   b. 7%
+//   Answer: B
+// so the main parser can handle them normally.
+
+function preprocessBoldAnswerFormat(rawText) {
+  const lines = rawText.split('\n');
+  const out   = [];
+  let pendingAnswer = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Detect bold option: **a. text** or **A) text** or __a. text__
+    // Also handles partial bold like: **b.** 7%  or  **b. 7%**
+    const boldOpt = trimmed.match(
+      /^\*\*([A-Ea-e])[\.\)]\s*(.*?)\*\*\s*$|^__([A-Ea-e])[\.\)]\s*(.*?)__\s*$/
+    );
+
+    if (boldOpt) {
+      const letter = (boldOpt[1] || boldOpt[3]).toUpperCase();
+      const text   = (boldOpt[2] !== undefined ? boldOpt[2] : boldOpt[4]).trim();
+      // Output the option without bold markers, track it as the answer
+      out.push(`${letter.toLowerCase()}. ${text}`);
+      pendingAnswer = letter;
+      continue;
+    }
+
+    // When we hit the next question start (numbered) or end of options block,
+    // flush the pending answer before the new question
+    const isNextQ = /^(\d+[\.\):]|\s*$)/.test(trimmed) && pendingAnswer !== null;
+    // Actually: flush answer right after the last option of a group
+    // We flush when we see a blank line or a new question line
+    if (pendingAnswer && (trimmed === '' || /^(\d+[\.\):]\s|Q\s*\d+)/.test(trimmed))) {
+      out.push(`Answer: ${pendingAnswer}`);
+      pendingAnswer = null;
+    }
+
+    out.push(line);
+  }
+
+  // Flush any remaining pending answer at end of text
+  if (pendingAnswer) {
+    out.push(`Answer: ${pendingAnswer}`);
+  }
+
+  return out.join('\n');
+}
+
 // ── Main Parser ───────────────────────────────────────────────────────
 
 export function parseQuestionsFromText(rawText, answerKeyText = '') {
   const answerKey    = parseAnswerKey(answerKeyText);
   const rationaleMap = parseRationaleKey(answerKeyText);
 
-  let cleanedText = rawText;
-  const jsonQuestions = parseJsonBlocks(rawText);
+  // Pre-process bold-marked correct answers (e.g. **b. 7%** → b. 7%\nAnswer: B)
+  let cleanedText = preprocessBoldAnswerFormat(rawText);
+  const jsonQuestions = parseJsonBlocks(cleanedText);
 
   if (jsonQuestions.length > 0) {
     let depth=0,start=-1,stripped='',lastEnd=0;
-    for (let i=0;i<rawText.length;i++) {
-      const ch=rawText[i];
+    for (let i=0;i<cleanedText.length;i++) {
+      const ch=cleanedText[i];
       if(ch==='{'){if(depth===0)start=i;depth++;}
-      else if(ch==='}'){depth--;if(depth===0&&start!==-1){const seg=rawText.slice(start,i+1);let isQ=false;try{const o=JSON.parse(seg);if(o&&(o.q||o.question||o.Question||o.Q))isQ=true;}catch(_){}if(isQ){stripped+=rawText.slice(lastEnd,start);lastEnd=i+1;}start=-1;}}
+      else if(ch==='}'){depth--;if(depth===0&&start!==-1){const seg=cleanedText.slice(start,i+1);let isQ=false;try{const o=JSON.parse(seg);if(o&&(o.q||o.question||o.Question||o.Q))isQ=true;}catch(_){}if(isQ){stripped+=cleanedText.slice(lastEnd,start);lastEnd=i+1;}start=-1;}}
     }
-    stripped+=rawText.slice(lastEnd);
+    stripped+=cleanedText.slice(lastEnd);
     cleanedText=stripped;
   }
 

@@ -847,6 +847,7 @@ export default function QuestionsManager() {
                 ['Standard (answer inline)', '1. Question?\nA. Option  B. Option  C. Option  D. Option\nAnswer: C'],
                 ['Options on separate lines', '1. Question?\nA) Option one\nB) Option two\nC) Option three\nD) Option four\nANS: B'],
                 ['Short 2-per-line options', '1. Question?\nA. Sympathy   C. Socialism\nB. Criticism  D. Empathy\nAnswer: D'],
+                ['✨ Bold correct answer (NEW)', 'Blood makes up about --- of body weight\na. 5%\n**b. 7%**\nc. 6.5%\nd. 8%\n\n2. The osmotic pressure is\na. 45mmHg\nb. 35mmHg\n**c. 25mmHg**\nd. 15mmHg'],
                 ['Separate answer key box', 'Paste questions above with NO answers,\nthen paste answer key below:\n1. C\n2. A\n3. D\n4. B'],
               ].map(([title, example]) => (
                 <div key={title} style={{ background:'var(--bg-tertiary)', borderRadius:8, padding:'10px 12px' }}>
