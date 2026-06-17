@@ -96,8 +96,22 @@ const isCapacitor = () =>
   window.Capacitor.isNativePlatform?.();
 
 function ContentProtectionActivator() {
-  const { user } = useAuth();
-  useContentProtection(!!user);
+  const { user, profile } = useAuth();
+  const isAdminOrSubAdmin = profile?.role === 'admin' || profile?.role === 'subadmin';
+
+  // Enable protection only for logged-in non-admin users
+  useContentProtection(!!user && !isAdminOrSubAdmin);
+
+  // Toggle a body class so CSS user-select rules also lift for admins
+  useEffect(() => {
+    if (isAdminOrSubAdmin) {
+      document.body.classList.add('admin-mode');
+    } else {
+      document.body.classList.remove('admin-mode');
+    }
+    return () => document.body.classList.remove('admin-mode');
+  }, [isAdminOrSubAdmin]);
+
   return null;
 }
 
