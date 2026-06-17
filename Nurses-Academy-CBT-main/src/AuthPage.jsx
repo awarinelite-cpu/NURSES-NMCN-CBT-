@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db } from '../firebase/config';
 
 export default function AuthPage() {
   const [mode, setMode]         = useState('login');
