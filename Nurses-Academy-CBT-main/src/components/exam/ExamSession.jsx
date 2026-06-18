@@ -885,7 +885,7 @@ export default function ExamSession() {
             const shareText = `🎓 I just scored ${scorePct}% in ${examLabel} on NurseAcademy CBT!
 ${scorePct >= 70 ? "✅ NMCN Pass mark cleared!" : scorePct >= 50 ? "📚 Practicing hard for NMCN!" : "💪 Every attempt makes me stronger!"}
 
-Practice free: https://nursesacademy.com.ng`;
+Practice free: https://nurses-nmcn-cbt.vercel.app`;
             const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
             const handleCopy = () => {
               navigator.clipboard?.writeText(shareText).then(() => {

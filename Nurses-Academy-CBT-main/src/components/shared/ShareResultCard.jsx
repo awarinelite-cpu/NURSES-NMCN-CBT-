@@ -114,7 +114,7 @@ async function renderCard(canvas, { scorePct, examLabel, correct, total }) {
   // Footer
   ctx.fillStyle = '#5EEAD4';
   ctx.font = '700 32px Arial';
-  ctx.fillText('Practice free → nursesacademy.com.ng', cx, CARD_H - 70);
+  ctx.fillText('Practice free → nurses-nmcn-cbt.vercel.app', cx, CARD_H - 70);
 }
 
 export default function ShareResultCard({ scorePct, examLabel, correct, total }) {
