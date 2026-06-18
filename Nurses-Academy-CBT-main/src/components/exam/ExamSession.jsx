@@ -793,6 +793,40 @@ export default function ExamSession() {
             );
           })()}
 
+          {/* ── Share Result Row (only after a real exam, not reviewMode) ── */}
+          {!reviewMode && (() => {
+            const examLabel = poolMode
+              ? examType === 'daily_practice' ? 'Daily Practice'
+              : examType === 'course_drill'   ? (courseLabel || course || 'Course Drill')
+              : examType === 'mock_exam'      ? (examName || 'Mock Exam')
+              : (topic || 'Topic Drill')
+              : (examName || 'Exam');
+            const shareText = `🎓 I just scored ${scorePct}% in ${examLabel} on NurseAcademy CBT!
+${scorePct >= 70 ? "✅ NMCN Pass mark cleared!" : scorePct >= 50 ? "📚 Practicing hard for NMCN!" : "💪 Every attempt makes me stronger!"}
+
+Practice free: https://nursesacademy.com.ng`;
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+            const handleCopy = () => {
+              navigator.clipboard?.writeText(shareText).then(() => {
+                const btn = document.getElementById('nmcn-copy-btn');
+                if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000); }
+              });
+            };
+            return (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F, flex: '1 1 120px' }}>📤 Share your result:</span>
+                <a href={waUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', fontFamily: H }}>
+                  <span style={{ fontSize: 16 }}>📱</span> WhatsApp
+                </a>
+                <button id="nmcn-copy-btn" onClick={handleCopy}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 13, border: '1px solid var(--border)', cursor: 'pointer', fontFamily: F }}>
+                  📋 Copy Text
+                </button>
+              </div>
+            );
+          })()}
+
           <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-primary)', paddingBottom: 12, paddingTop: 4 }}>
             <button className="btn btn-ghost" onClick={() => navigate(poolMode ? -1 : -2)} style={{ flex: '1 1 100px' }}>🏠 Back Home</button>
             {!reviewMode && <button className="btn btn-primary" onClick={handleRetake} style={{ flex: '1 1 100px' }}>🔄 Retake</button>}
