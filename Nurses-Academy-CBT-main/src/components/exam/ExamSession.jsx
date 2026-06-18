@@ -27,6 +27,7 @@ import { useToast }          from '../shared/Toast';
 import { getSRSBoost }       from '../../hooks/useSpacedRepetition';
 import QuestionNoteButton    from '../shared/QuestionNoteButton';
 import { fetchNotesMap }     from '../../utils/notesUtils';
+import ShareResultCard       from '../shared/ShareResultCard';
 
 // ── Confetti burst (fires on score ≥ 70%) ────────────────────────────────────
 function Confetti({ active }) {
@@ -903,6 +904,12 @@ Practice free: https://nursesacademy.com.ng`;
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 13, border: '1px solid var(--border)', cursor: 'pointer', fontFamily: F }}>
                   📋 Copy Text
                 </button>
+                <ShareResultCard
+                  scorePct={scorePct}
+                  examLabel={examLabel}
+                  correct={score}
+                  total={questions.length}
+                />
               </div>
             );
           })()}
