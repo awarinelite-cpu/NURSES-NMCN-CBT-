@@ -16,6 +16,7 @@ import {
   shuffleAllQuestionsOptions,
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
+import EditQuestionsTab from './EditQuestionsTab';
 import { readQuestionFile, generateCsvTemplate } from '../../utils/questionFileImport';
 
 const MOCK_EXAM_SPECIALTIES = [
@@ -503,6 +504,7 @@ export default function QuestionsManager() {
           ['add_single',  '➕ Add Single'],
           ['bulk_upload', '📤 Bulk Upload'],
           ['stats',       '📊 Usage Stats'],
+          ['edit',        '✏️ Edit Questions'],
         ].map(([id, label]) => (
           <button key={id} style={{
             ...styles.tabBtn,
@@ -1087,6 +1089,14 @@ export default function QuestionsManager() {
           );})()}
           )}
         </div>
+      )}
+
+      {/* ── EDIT TAB ── */}
+      {tab === 'edit' && (
+        <EditQuestionsTab
+          firestoreCourses={firestoreCourses}
+          toast={toast}
+        />
       )}
 
       {/* ── STATS TAB ── */}
