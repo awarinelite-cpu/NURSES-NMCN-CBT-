@@ -10,6 +10,8 @@ import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { ensureCbtDailyMockNotification, maybePushDailyMockNotification } from '../../utils/dailyNotifications';
 import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal';
+import { fetchBadges, evaluateBadges, syncBadges, BADGES, BADGE_MAP } from '../../utils/badgeUtils';
+import { fetchStreak } from '../../utils/streakUtils';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -665,6 +667,7 @@ export default function StudentDashboard() {
   const [bannerVis,      setBannerVis]      = useState(false);
   const [slideIdx,       setSlideIdx]       = useState(0);
   const [slideFade,      setSlideFade]      = useState(true);
+  const [earnedBadges,   setEarnedBadges]   = useState([]);
 
   const swipeStartX  = useRef(null);
   const swipeStartY  = useRef(null);
@@ -755,6 +758,19 @@ export default function StudentDashboard() {
       } catch (e) { console.warn('pausedExams load failed (non-fatal):', e.message); }
 
       setLoading(false);
+
+      // Load & sync badges (non-blocking)
+      try {
+        const allSessSnap = await getDocs(query(
+          collection(db, 'examSessions'),
+          where('userId', '==', user.uid),
+        ));
+        const allSessions = allSessSnap.docs.map(d => d.data());
+        const streakData  = await fetchStreak(user.uid);
+        const earned = evaluateBadges({ sessions: allSessions, streakData, bookmarkCount: profile?.bookmarkCount || 0 });
+        await syncBadges(user.uid, earned);
+        setEarnedBadges(earned);
+      } catch (e) { console.warn('badge sync failed (non-fatal):', e.message); }
     };
 
     loadData();
@@ -840,6 +856,40 @@ export default function StudentDashboard() {
 
       {showStartModal && (
         <StartExamModal onClose={() => setShowStartModal(false)} />
+      )}
+
+      {/* ── Badge preview strip ── */}
+      {earnedBadges.length > 0 && (
+        <div
+          onClick={() => navigate('/badges')}
+          style={{
+            background: 'linear-gradient(135deg, #0D948818 0%, #1E3A8A18 100%)',
+            border: '1.5px solid rgba(13,148,136,0.25)',
+            borderRadius: 14, padding: '12px 18px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            cursor: 'pointer', marginBottom: 16,
+            transition: 'border-color 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🏅</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: '#0D9488' }}>
+                {earnedBadges.length} Badge{earnedBadges.length !== 1 ? 's' : ''} Earned
+              </div>
+              <div style={{ fontFamily: F, fontSize: 11, color: 'var(--text-muted)' }}>
+                Tap to view your collection
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {earnedBadges.slice(0, 5).map(id => {
+              const b = BADGE_MAP[id];
+              return b ? <span key={id} style={{ fontSize: 22 }} title={b.label}>{b.icon}</span> : null;
+            })}
+            <span style={{ fontFamily: H, fontWeight: 900, fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>›</span>
+          </div>
+        </div>
       )}
 
       {/* ── Full-width carousel banner ── */}

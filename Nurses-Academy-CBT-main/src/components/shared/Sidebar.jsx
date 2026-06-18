@@ -15,6 +15,7 @@ const STUDENT_NAV = [
   { to: '/performance',    icon: '📈', label: 'Analysis'       },
   { to: '/study-plan',     icon: '📅', label: 'Study Plan'     },
   { to: '/leaderboard',    icon: '🏆', label: 'Leaderboard'    },
+  { to: '/badges',         icon: '🏅', label: 'My Badges'      },
   { to: '/subscription',   icon: '💳', label: 'Subscription'   },
   { to: '/profile',        icon: '👤', label: 'Profile'        },
 ];

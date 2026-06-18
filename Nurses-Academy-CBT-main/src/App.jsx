@@ -27,6 +27,7 @@ import GroupChatHub           from './components/student/GroupChatHub';
 import GroupChatPage          from './components/student/GroupChatPage';
 import LeaderboardPage        from './components/student/LeaderboardPage';
 import StudyPlanPage          from './components/student/StudyPlanPage';
+import BadgesPage             from './components/student/BadgesPage';
 import ProfilePage            from './components/student/ProfilePage';
 import AdminAnalytics         from './components/admin/AdminAnalytics';
 
@@ -227,6 +228,7 @@ export default function App() {
                 <Route path="/subscription" element={<SubscriptionPage />} />
                 <Route path="/leaderboard"       element={<LeaderboardPage />} />
                 <Route path="/study-plan"        element={<StudyPlanPage />} />
+                <Route path="/badges"            element={<BadgesPage />} />
                 <Route path="/profile"           element={<ProfilePage />} />
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
