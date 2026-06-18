@@ -43,6 +43,7 @@ const ADMIN_NAV = [
   { to: '/admin/payments',         icon: '💰',  label: 'Payments'        },
   { to: '/admin/access-codes',     icon: '🔑',  label: 'Access Codes'    },
   { to: '/admin/announcements',    icon: '📢',  label: 'Announcements'   },
+  { to: '/admin/daily-challenge',  icon: '⚡',  label: 'Daily Challenge'  },
   { to: '/admin/analytics',        icon: '📈',  label: 'Analytics'       },
   { to: '/admin/entrance-exam',    icon: '🏫',  label: 'Entrance Exam'   },
 ];

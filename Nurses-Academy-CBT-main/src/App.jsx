@@ -30,6 +30,7 @@ import StudyPlanPage          from './components/student/StudyPlanPage';
 import BadgesPage             from './components/student/BadgesPage';
 import ProfilePage            from './components/student/ProfilePage';
 import AdminAnalytics         from './components/admin/AdminAnalytics';
+import DailyChallengeManager from './components/admin/DailyChallengeManager';
 
 // Payment pages
 import PaymentPage from './components/payment/PaymentPage';
@@ -280,6 +281,7 @@ export default function App() {
                 <Route path="/admin/access-codes"                    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />
                 <Route path="/admin/announcements"                   element={<SubAdminRoute><AnnouncementsManager /></SubAdminRoute>} />
                 <Route path="/admin/analytics"                       element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/daily-challenge"                 element={<AdminRoute><DailyChallengeManager /></AdminRoute>} />
                 <Route path="/admin/scheduled-exams"                 element={<SubAdminRoute><ScheduledExamsManager /></SubAdminRoute>} />
                 <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
                 <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
