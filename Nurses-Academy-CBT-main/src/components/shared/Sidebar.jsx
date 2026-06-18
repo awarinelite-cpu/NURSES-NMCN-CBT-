@@ -1,7 +1,8 @@
 // src/components/shared/Sidebar.jsx
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useAuth }              from '../../context/AuthContext';
+import { useTheme }             from '../../context/ThemeContext';
+import { useChatNotifications } from '../../hooks/useChatNotifications';
 
 const STUDENT_NAV = [
   { to: '/dashboard',      icon: '🏠', label: 'Dashboard'      },
@@ -66,9 +67,11 @@ export default function Sidebar({ open, onClose }) {
   const navigate  = useNavigate();
   const location  = useLocation();
 
+  const isEntranceContext = location.pathname.startsWith('/entrance-exam');
+  const { totalUnread: dmUnread } = useChatNotifications(isEntranceContext ? 'entrance' : 'nmcn');
+
   const isSubAdmin    = profile?.role === 'subadmin';
-  const isEntranceRoute = location.pathname.startsWith('/entrance-exam') ||
-                          location.pathname.startsWith('/admin/entrance-exam');
+  const isEntranceRoute = isEntranceContext || location.pathname.startsWith('/admin/entrance-exam');
 
   const navItems = isAdmin
     ? ADMIN_NAV
@@ -161,6 +164,27 @@ export default function Sidebar({ open, onClose }) {
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}
+                  {/* Unread badge on Messages */}
+                  {(item.to === '/chat-inbox' || item.to === '/entrance-exam/chat-inbox') && dmUnread > 0 && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      background: '#ef4444',
+                      color: '#fff',
+                      borderRadius: 99,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      minWidth: 18,
+                      height: 18,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 5px',
+                      lineHeight: 1,
+                      flexShrink: 0,
+                    }}>
+                      {dmUnread > 99 ? '99+' : dmUnread}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}
