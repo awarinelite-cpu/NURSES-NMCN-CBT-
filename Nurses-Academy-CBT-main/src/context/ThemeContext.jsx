@@ -13,10 +13,15 @@ function sectionKey(pathname) {
 }
 
 export function ThemeProvider({ children }) {
-  const [themes, setThemes] = useState(() => ({
-    [KEY_NMCN]:     localStorage.getItem(KEY_NMCN)     || 'dark',
-    [KEY_ENTRANCE]: localStorage.getItem(KEY_ENTRANCE) || 'dark',
-  }));
+  const [themes, setThemes] = useState(() => {
+    // Respect system preference on first visit, then remember user choice
+    const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const fallback   = systemDark ? 'dark' : 'light';
+    return {
+      [KEY_NMCN]:     localStorage.getItem(KEY_NMCN)     || fallback,
+      [KEY_ENTRANCE]: localStorage.getItem(KEY_ENTRANCE) || fallback,
+    };
+  });
 
   // Try to read location; fall back gracefully if called outside Router
   let pathname = '/';

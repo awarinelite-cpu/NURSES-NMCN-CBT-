@@ -84,14 +84,22 @@ export default function Navbar({ onMenuToggle }) {
 
         {/* Right: theme toggle + notifications */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            style={styles.themeBtn}
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <button
+              style={{
+                ...styles.themeBtn,
+                background: theme === 'dark' ? 'rgba(245,158,11,0.15)' : 'rgba(30,58,138,0.15)',
+                border: theme === 'dark' ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(99,102,241,0.35)',
+              }}
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              <span style={{ fontSize: 18, transition: 'transform 0.35s', display: 'block', transform: `rotate(${theme === 'dark' ? 0 : 180}deg)` }}>
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </span>
+            </button>
+          </div>
 
           {user && <NotificationBell />}
 
