@@ -235,6 +235,8 @@ export default function ProgressWallPage() {
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '20px', marginBottom: 24, overflowX: 'auto' }}>
         <div style={{ fontFamily: H, fontWeight: 900, fontSize: 16, color: 'var(--text-primary)', marginBottom: 14 }}>📅 Practice History</div>
 
+        {/* Inner wrapper enforces minimum width so content isn't squashed */}
+        <div style={{ minWidth: `${weeks.length * 16 + 32}px` }}>
         {/* Month labels */}
         <div style={{ display: 'flex', gap: 3, marginBottom: 4, paddingLeft: 24 }}>
           {weeks.map((_, wi) => (
@@ -271,6 +273,7 @@ export default function ProgressWallPage() {
           ))}
           <span style={{ fontFamily: F, fontSize: 10, color: 'var(--text-muted)' }}>More</span>
         </div>
+        </div>{/* end minWidth wrapper */}
       </div>
 
       {/* ── Weak Topics ── */}

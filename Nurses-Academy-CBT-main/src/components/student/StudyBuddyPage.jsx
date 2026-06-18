@@ -235,6 +235,7 @@ export default function StudyBuddyPage() {
   const [saving,         setSaving]         = useState(false);
   const [searched,       setSearched]       = useState(false);
   const [myAvgMap,       setMyAvgMap]       = useState({});   // my category averages
+  const [avgMapReady,    setAvgMapReady]    = useState(false); // true once avgMap fetch completes
   const [setupComplete,  setSetupComplete]  = useState(false);
 
   // Load current settings on mount
@@ -250,7 +251,10 @@ export default function StudyBuddyPage() {
   // Load my category averages
   useEffect(() => {
     if (!user?.uid) return;
-    computeCategoryAverages(user.uid).then(setMyAvgMap);
+    computeCategoryAverages(user.uid).then(map => {
+      setMyAvgMap(map);
+      setAvgMapReady(true); // always mark ready, even if map is empty (new user)
+    });
   }, [user?.uid]);
 
   const toggleSubject = (id) => {
@@ -302,10 +306,12 @@ export default function StudyBuddyPage() {
       // We only compute for candidates; use their weakSubjects if set, otherwise
       // derive from their profile.totalScore / totalExams as a rough signal.
       const myWeak    = new Set(weakSubjects);   // IDs I'm weak in
+      // Only treat a subject as "strong" if user has actual session data showing >= 65%
+      // (don't assume strength from absence of data — that caused zero matches for new users)
       const myStrong  = new Set(
         NURSING_CATEGORIES
           .map(c => c.id)
-          .filter(id => !myWeak.has(id) && (myAvgMap[id] === undefined || myAvgMap[id] >= 65))
+          .filter(id => myAvgMap[id] !== undefined && myAvgMap[id] >= 65 && !myWeak.has(id))
       );
 
       const scored = candidates.map(c => {
@@ -328,6 +334,15 @@ export default function StudyBuddyPage() {
         theirWeak.forEach(id => {
           if (myStrong.has(id)) { score += 1; iHelpThemIds.push(id); }
         });
+
+        // Bonus +1 if they are searchable and have matching weak subjects
+        // so that even users without session data see some results
+        if (score === 0 && myWeak.size > 0) {
+          // Fallback: show any searchable user who shares at least one weak subject
+          let commonWeak = 0;
+          myWeak.forEach(id => { if (theirWeak.has(id)) commonWeak++; });
+          if (commonWeak > 0) score = commonWeak; // mild match — same struggles
+        }
 
         return {
           ...c,
@@ -352,13 +367,13 @@ export default function StudyBuddyPage() {
     }
   }, [user?.uid, weakSubjects, myAvgMap]);
 
-  // Auto-search once setup is loaded and we have avg data
+  // Auto-search once setup is loaded and avgMap fetch has completed (even if empty)
   useEffect(() => {
-    if (setupComplete && Object.keys(myAvgMap).length > 0 && !searched) {
+    if (setupComplete && avgMapReady && !searched) {
       findBuddies();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setupComplete, myAvgMap]);
+  }, [setupComplete, avgMapReady]);
 
   const catGroups = [
     { label: 'Basic RN',   cats: NURSING_CATEGORIES.filter(c => c.examType === 'basic')     },
@@ -552,7 +567,11 @@ export default function StudyBuddyPage() {
               <style>{`@keyframes sdShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
             </div>
           ) : buddies.length === 0 ? (
-            <EmptyState reason="No searchable students match your weak subjects yet. More students are joining daily — check back soon, or share the platform with your classmates!" />
+            <EmptyState reason={
+              weakSubjects.length === 0
+                ? "Select your weak subjects above, then search again."
+                : "No students with matching weak subjects have turned on 'Make Me Findable' yet. Try selecting more subjects, or share the platform with your classmates so more people join!"
+            } />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {buddies.map((buddy, idx) => (

@@ -74,8 +74,8 @@ function BadgeCard({ badge, earned, isNew }) {
       style={{
         background: earned
           ? `linear-gradient(135deg, ${badge.color}18 0%, ${badge.color}08 100%)`
-          : 'rgba(255,255,255,0.02)',
-        border: `2px solid ${earned ? badge.color + (hov ? 'CC' : '55') : 'rgba(255,255,255,0.06)'}`,
+          : 'var(--bg-tertiary)',
+        border: `2px solid ${earned ? badge.color + (hov ? 'CC' : '55') : 'var(--border)'}`,
         borderRadius: 20,
         padding: '24px 16px',
         textAlign: 'center',
@@ -110,7 +110,7 @@ function BadgeCard({ badge, earned, isNew }) {
       <div style={{
         fontSize: earned ? 48 : 40,
         marginBottom: 12,
-        filter: earned ? 'none' : 'grayscale(1) opacity(0.25)',
+        filter: earned ? 'none' : 'grayscale(1) opacity(0.35)',
         transition: 'all 0.3s',
         display: 'block',
         lineHeight: 1,
@@ -118,13 +118,13 @@ function BadgeCard({ badge, earned, isNew }) {
 
       <div style={{
         fontFamily: H, fontWeight: 900, fontSize: 13,
-        color: earned ? badge.color : 'rgba(255,255,255,0.2)',
+        color: earned ? badge.color : 'var(--text-muted)',
         marginBottom: 6, lineHeight: 1.3,
       }}>{badge.label}</div>
 
       <div style={{
         fontFamily: F, fontSize: 11,
-        color: earned ? 'var(--text-muted, #64748B)' : 'rgba(255,255,255,0.12)',
+        color: earned ? 'var(--text-muted)' : 'var(--text-hint)',
         lineHeight: 1.5,
       }}>{badge.desc}</div>
 
