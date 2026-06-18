@@ -26,6 +26,62 @@ import VoiceExamMode         from '../shared/VoiceExamMode';
 import { useToast }          from '../shared/Toast';
 import { getSRSBoost }       from '../../hooks/useSpacedRepetition';
 
+// ── Confetti burst (fires on score ≥ 70%) ────────────────────────────────────
+function Confetti({ active }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!active) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const COLORS = ['#0D9488','#F59E0B','#EF4444','#22C55E','#A855F7','#3B82F6','#F97316'];
+    const pieces = Array.from({ length: 160 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * 100,
+      r: Math.random() * 7 + 3,
+      d: Math.random() * 120 + 60,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      tilt: Math.random() * 10 - 10,
+      tiltAngle: 0,
+      tiltSpeed: Math.random() * 0.1 + 0.04,
+    }));
+    let alpha = 1;
+    let frame;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = alpha;
+      pieces.forEach(p => {
+        p.tiltAngle += p.tiltSpeed;
+        p.y += Math.cos(p.d) + 2.5;
+        p.tilt = Math.sin(p.tiltAngle) * 15;
+        ctx.beginPath();
+        ctx.lineWidth = p.r;
+        ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+        ctx.stroke();
+      });
+      alpha -= 0.004;
+      if (alpha > 0) frame = requestAnimationFrame(draw);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    draw();
+    return () => cancelAnimationFrame(frame);
+  }, [active]);
+  if (!active) return null;
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        pointerEvents: 'none', width: '100%', height: '100%',
+      }}
+    />
+  );
+}
+
 const DAILY_PRACTICE_LIMIT = 250;
 
 const POOL_FETCH_LIMIT = 300;
@@ -199,6 +255,7 @@ export default function ExamSession() {
   const [showExitModal,    setShowExitModal]    = useState(false);
   const [exitSaving,       setExitSaving]       = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showConfetti,     setShowConfetti]     = useState(false);
 
   // Guard so the upgrade modal only fires once per session
   const upgradeModalShown = useRef(false);
@@ -457,6 +514,8 @@ export default function ExamSession() {
     const timeTaken = Math.round((Date.now() - startedAt.current) / 1000);
     const correct = qs.reduce((a, q) => a + (ans[q.id] === q.correctIndex ? 1 : 0), 0);
     const scorePercent = Math.round((correct / qs.length) * 100);
+    // 🎉 Fire confetti for passing score
+    if (scorePercent >= 70) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 4500); }
     const questionIds = qs.map(q => q.id);
     const safeAnswers = Object.fromEntries(Object.entries(ans).map(([k, v]) => [k.replace(/\//g, '__'), v]));
     const sessionName = poolMode
@@ -704,6 +763,7 @@ export default function ExamSession() {
   if (phase === 'review') {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
+        <Confetti active={showConfetti} />
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           {!reviewMode && (() => {
             // ── Celebration score card ───────────────────────────────────────
