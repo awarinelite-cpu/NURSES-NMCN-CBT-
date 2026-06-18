@@ -500,11 +500,11 @@ export default function QuestionsManager() {
       {/* Tab bar */}
       <div style={styles.tabBar}>
         {[
-          ['list',        '📋 All Questions'],
-          ['add_single',  '➕ Add Single'],
-          ['bulk_upload', '📤 Bulk Upload'],
-          ['stats',       '📊 Usage Stats'],
-          ['edit',        '✏️ Edit Questions'],
+          ['list',        '📋 All\nQuestions'],
+          ['add_single',  '➕ Add\nSingle'],
+          ['bulk_upload', '📤 Bulk\nUpload'],
+          ['stats',       '📊 Usage\nStats'],
+          ['edit',        '✏️ Quick\nEdit'],
         ].map(([id, label]) => (
           <button key={id} style={{
             ...styles.tabBtn,
@@ -1106,8 +1106,8 @@ export default function QuestionsManager() {
 }
 
 const styles = {
-  tabBar:     { display:'flex', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'fit-content' },
-  tabBtn:     { padding:'8px 18px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700, transition:'all 0.2s' },
+  tabBar:     { display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'100%', boxSizing:'border-box' },
+  tabBtn:     { padding:'8px 4px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700, transition:'all 0.2s', textAlign:'center', lineHeight:1.3, whiteSpace:'normal', wordBreak:'break-word' },
   filterBar:  { display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' },
   metaGrid:   { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 },
   parsedCard: { background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:10, padding:'14px 16px' },
