@@ -1127,6 +1127,9 @@ export default function StudentDashboard() {
         </ACard>
       )}
 
+      {/* ── Exam date countdown ── */}
+      <ExamCountdownBanner user={user} />
+
       {/* ── Quick actions ── */}
       <ACard delay={750} style={{ marginBottom: 32 }}>
         <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
@@ -1244,6 +1247,95 @@ function StatInner({ icon, label, value, color, bg, ring }) {
 }
 
 // ── Quick action card ─────────────────────────────────────────────────────────
+// ── Exam Date Countdown Banner ───────────────────────────────────────────────
+// Reads the student's studyPlan doc for their examDate and shows a countdown.
+// Color shifts: green (>60d) → amber (30–60d) → red (<30d) → purple (today).
+function ExamCountdownBanner({ user }) {
+  const navigate = useNavigate();
+  const [examDate, setExamDate] = useState('');
+  const [loaded,   setLoaded]   = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    import('firebase/firestore').then(({ getDoc, doc: fd }) => {
+      import('../../firebase/config').then(({ db: fdb }) => {
+        getDoc(fd(fdb, 'studyPlans', user.uid)).then(snap => {
+          if (snap.exists()) setExamDate(snap.data().examDate || '');
+          setLoaded(true);
+        }).catch(() => setLoaded(true));
+      });
+    });
+  }, [user]);
+
+  if (!loaded) return null;
+
+  if (!examDate) {
+    return (
+      <div
+        onClick={() => navigate('/study-plan')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+          borderRadius: 12, background: 'rgba(13,148,136,0.08)',
+          border: '1px dashed rgba(13,148,136,0.35)',
+          cursor: 'pointer', marginBottom: 20,
+        }}
+      >
+        <span style={{ fontSize: 20 }}>📅</span>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>
+          Set your NMCN exam date → get a personalised countdown &amp; study plan
+        </span>
+        <span style={{ marginLeft: 'auto', color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>Set →</span>
+      </div>
+    );
+  }
+
+  const now   = new Date();
+  const target = new Date(examDate);
+  const days  = Math.ceil((target - now) / 86400000);
+
+  if (days < -1) return null; // exam passed more than a day ago
+
+  const isToday  = days <= 0;
+  const isUrgent = days > 0 && days <= 7;
+  const isWarn   = days > 7 && days <= 30;
+  const color    = isToday ? '#7C3AED' : isUrgent ? '#EF4444' : isWarn ? '#F59E0B' : '#0D9488';
+  const bg       = isToday ? 'rgba(124,58,237,0.12)' : isUrgent ? 'rgba(239,68,68,0.1)' : isWarn ? 'rgba(245,158,11,0.1)' : 'rgba(13,148,136,0.08)';
+  const label    = isToday ? '🎓 Exam Day!' : isUrgent ? `⚠️ ${days} day${days !== 1 ? 's' : ''} left!` : `📅 ${days} days to NMCN exam`;
+  const msg      = isToday ? "You've got this. Everything you've practiced has led to today."
+                 : isUrgent ? "Final sprint! Focus on your weak areas and trust your preparation."
+                 : days <= 30 ? "Under a month away — now is the time to push hard."
+                 : "Stay consistent. Every session brings you closer.";
+
+  return (
+    <div
+      onClick={() => navigate('/study-plan')}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+        borderRadius: 12, background: bg,
+        border: `1.5px solid ${color}40`,
+        cursor: 'pointer', marginBottom: 20,
+        animation: isUrgent ? 'countdownPulse 2s ease infinite' : 'none',
+      }}
+    >
+      <style>{`@keyframes countdownPulse { 0%,100%{box-shadow:0 0 0 0 ${color}30} 50%{box-shadow:0 0 0 6px ${color}00} }`}</style>
+      <div style={{
+        minWidth: 48, height: 48, borderRadius: 10, flexShrink: 0,
+        background: `${color}20`, border: `1px solid ${color}40`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {!isToday && <span style={{ fontSize: 18, fontWeight: 900, color, fontFamily: H, lineHeight: 1 }}>{days}</span>}
+        {!isToday && <span style={{ fontSize: 9, color, fontWeight: 700, fontFamily: F }}>DAYS</span>}
+        {isToday  && <span style={{ fontSize: 22 }}>🎓</span>}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: H }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700, marginTop: 2 }}>{msg}</div>
+      </div>
+      <span style={{ color, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>Study Plan →</span>
+    </div>
+  );
+}
+
 // ── Surprise Me Button ───────────────────────────────────────────────────────
 // Picks a random pool mode exam (10 questions) weighted toward weak areas.
 // Uses examSessions weak topic data from Firestore if available, otherwise
