@@ -1,6 +1,7 @@
 // src/components/shared/Sidebar.jsx
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const STUDENT_NAV = [
   { to: '/dashboard',      icon: '🏠', label: 'Dashboard'      },
@@ -61,6 +62,7 @@ const SUBADMIN_NAV = [
 
 export default function Sidebar({ open, onClose }) {
   const { profile, logout, isAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate  = useNavigate();
   const location  = useLocation();
 
@@ -272,6 +274,28 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Footer */}
         <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          {/* Reading / theme cycle button */}
+          <button
+            onClick={toggleTheme}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              width: '100%', padding: '9px 14px', marginBottom: 8,
+              background: theme === 'reading'
+                ? 'rgba(160,132,92,0.18)'
+                : 'rgba(255,255,255,0.05)',
+              border: theme === 'reading'
+                ? '1px solid rgba(160,132,92,0.4)'
+                : '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 10,
+              color: theme === 'reading' ? '#C9AE88' : 'rgba(255,255,255,0.55)',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>
+              {theme === 'dark' ? '☀️' : theme === 'light' ? '📖' : '🌙'}
+            </span>
+            {theme === 'dark' ? 'Light Mode' : theme === 'light' ? 'Reading Mode' : 'Dark Mode'}
+          </button>
           <button
             onClick={async () => { await logout(); navigate('/'); }}
             style={{

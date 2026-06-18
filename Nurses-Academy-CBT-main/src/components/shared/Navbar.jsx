@@ -88,15 +88,19 @@ export default function Navbar({ onMenuToggle }) {
             <button
               style={{
                 ...styles.themeBtn,
-                background: theme === 'dark' ? 'rgba(245,158,11,0.15)' : 'rgba(30,58,138,0.15)',
-                border: theme === 'dark' ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(99,102,241,0.35)',
+                background: theme === 'dark'    ? 'rgba(245,158,11,0.15)'
+                          : theme === 'reading' ? 'rgba(160,132,92,0.2)'
+                          : 'rgba(30,58,138,0.15)',
+                border:     theme === 'dark'    ? '1px solid rgba(245,158,11,0.3)'
+                          : theme === 'reading' ? '1px solid rgba(160,132,92,0.4)'
+                          : '1px solid rgba(99,102,241,0.35)',
               }}
               onClick={toggleTheme}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              title={theme === 'dark' ? 'Switch to Light Mode' : theme === 'light' ? 'Switch to Reading Mode' : 'Switch to Dark Mode'}
+              aria-label={theme === 'dark' ? 'Switch to Light Mode' : theme === 'light' ? 'Switch to Reading Mode' : 'Switch to Dark Mode'}
             >
-              <span style={{ fontSize: 18, transition: 'transform 0.35s', display: 'block', transform: `rotate(${theme === 'dark' ? 0 : 180}deg)` }}>
-                {theme === 'dark' ? '☀️' : '🌙'}
+              <span style={{ fontSize: 18, transition: 'transform 0.35s', display: 'block' }}>
+                {theme === 'dark' ? '☀️' : theme === 'light' ? '📖' : '🌙'}
               </span>
             </button>
           </div>

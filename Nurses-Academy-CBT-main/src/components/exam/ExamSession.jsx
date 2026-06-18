@@ -260,6 +260,12 @@ export default function ExamSession() {
   const [exitSaving,       setExitSaving]       = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showConfetti,     setShowConfetti]     = useState(false);
+  // Voice mode first-time nudge — shown once ever; dismissed to localStorage
+  const VOICE_NUDGE_KEY = 'nmcn_voice_nudge_seen';
+  const [showVoiceNudge, setShowVoiceNudge] = useState(() => {
+    try { return !localStorage.getItem(VOICE_NUDGE_KEY); }
+    catch { return false; }
+  });
 
   // Guard so the upgrade modal only fires once per session
   const upgradeModalShown = useRef(false);
@@ -1084,6 +1090,39 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
             </div>
             <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>
             <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+              {/* ── Voice Mode first-time discovery nudge ── */}
+              {showVoiceNudge && (
+                <div style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(37,99,235,0.1))',
+                  border: '1.5px solid rgba(124,58,237,0.3)',
+                  borderRadius: 12, padding: '10px 14px',
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>🎙️</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#A78BFA', fontFamily: "'Arial Black',Arial,sans-serif" }}>
+                      Try Voice Mode!
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
+                      Tap the 🎙️ button below to answer questions hands-free — perfect for studying on the go.
+                      Just say "A", "B", "C", or "D" and the exam moves to the next question automatically.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      try { localStorage.setItem(VOICE_NUDGE_KEY, '1'); } catch {}
+                      setShowVoiceNudge(false);
+                    }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-muted)', fontSize: 18, padding: '0 2px',
+                      lineHeight: 1, flexShrink: 0,
+                    }}
+                    title="Dismiss"
+                  >✕</button>
+                </div>
+              )}
               <VoiceExamMode
                 question={q.question}
                 options={q.options || []}

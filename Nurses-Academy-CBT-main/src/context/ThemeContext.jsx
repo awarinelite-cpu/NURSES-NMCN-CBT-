@@ -1,5 +1,7 @@
 // src/context/ThemeContext.jsx
 // Per-section theme memory: NMCN and Entrance each remember their own preference.
+// Three themes cycle: 'dark' → 'light' → 'reading' → 'dark'
+//   reading = warm sepia background, larger base text, reduced blue light
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -7,6 +9,9 @@ const ThemeContext = createContext(null);
 
 const KEY_NMCN     = 'nmcn_theme';
 const KEY_ENTRANCE = 'entrance_theme';
+
+// Ordered cycle — toggleTheme advances one step at a time
+const THEME_CYCLE = ['dark', 'light', 'reading'];
 
 function sectionKey(pathname) {
   return pathname?.startsWith('/entrance') ? KEY_ENTRANCE : KEY_NMCN;
@@ -38,9 +43,12 @@ export function ThemeProvider({ children }) {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Cycle: dark → light → reading → dark
   const toggleTheme = useCallback(() => {
     setThemes(prev => {
-      const next = prev[key] === 'dark' ? 'light' : 'dark';
+      const cur  = prev[key] || 'dark';
+      const idx  = THEME_CYCLE.indexOf(cur);
+      const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
       localStorage.setItem(key, next);
       return { ...prev, [key]: next };
     });

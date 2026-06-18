@@ -247,6 +247,41 @@ img {
   --bg-card:      #0d0d0d;
 }
 
+/* ── Reading / Night Mode ─────────────────────────────────────────── */
+/* Warm sepia background, larger base text, reduced blue light          */
+[data-theme="reading"] {
+  --bg-primary:     #F5ECD7;
+  --bg-secondary:   #EDE0C4;
+  --bg-tertiary:    #E8D9B8;
+  --bg-card:        #F9F2E3;
+  --bg-overlay:     rgba(245,236,215,0.97);
+
+  --text-primary:   #2C1A0E;
+  --text-secondary: #3D2512;
+  --text-muted:     #6B4C35;
+  --text-hint:      #8B6347;
+
+  --border:         #C9AE88;
+  --border-focus:   #A0845C;
+
+  --teal:           #2E7D5E;
+  --nav-bg:         #3B2410;
+  --sidebar-bg:     #2A1A0A;
+}
+
+/* Scale up base font size in reading mode for comfortable reading */
+[data-theme="reading"] html,
+[data-theme="reading"] body {
+  font-size: 17.5px;
+}
+
+[data-theme="reading"] p,
+[data-theme="reading"] .card p,
+[data-theme="reading"] li {
+  line-height: 1.85;
+  letter-spacing: 0.012em;
+}
+
 /* ── Reset ────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
