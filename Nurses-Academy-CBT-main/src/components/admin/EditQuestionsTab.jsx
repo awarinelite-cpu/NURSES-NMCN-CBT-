@@ -268,12 +268,13 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         : (
           <>
             {/* ── Table ─────────────────────────────────────────────────── */}
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', borderRadius:12, border:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:920, padding:4 }}>
 
               {/* Header row */}
               <div style={{
                 display:'grid',
-                gridTemplateColumns:'30px 24px 1fr 1fr 130px 100px 80px 44px',
+                gridTemplateColumns:'30px 24px minmax(220px,1fr) minmax(240px,1fr) 130px 100px 80px 44px',
                 gap:8, padding:'6px 10px',
                 fontSize:11, fontWeight:800, color:'var(--text-muted)', fontFamily:H,
                 textTransform:'uppercase', letterSpacing:0.5,
@@ -309,7 +310,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                     {/* ── Compact row ─────────────────────────────────── */}
                     <div style={{
                       display:'grid',
-                      gridTemplateColumns:'30px 24px 1fr 1fr 130px 100px 80px 44px',
+                      gridTemplateColumns:'30px 24px minmax(220px,1fr) minmax(240px,1fr) 130px 100px 80px 44px',
                       gap:8, padding:'10px 12px', alignItems:'start',
                     }}>
 
@@ -477,6 +478,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                   </div>
                 );
               })}
+            </div>
             </div>
 
             {/* ── Pagination ────────────────────────────────────────── */}
