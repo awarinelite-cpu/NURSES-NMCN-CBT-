@@ -72,6 +72,12 @@ service cloud.firestore {
       allow update: if isAuth() && resource.data.userId == uid();
       allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
     }
+    match /questionNotes/{noteId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
     match /announcements/{annId} {
       allow read:  if isAuth();
       allow write: if isAdmin();

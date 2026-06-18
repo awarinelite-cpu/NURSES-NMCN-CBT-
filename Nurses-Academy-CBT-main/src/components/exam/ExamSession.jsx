@@ -25,6 +25,8 @@ import { NURSING_CATEGORIES } from '../../data/categories';
 import VoiceExamMode         from '../shared/VoiceExamMode';
 import { useToast }          from '../shared/Toast';
 import { getSRSBoost }       from '../../hooks/useSpacedRepetition';
+import QuestionNoteButton    from '../shared/QuestionNoteButton';
+import { fetchNotesMap }     from '../../utils/notesUtils';
 
 // ── Confetti burst (fires on score ≥ 70%) ────────────────────────────────────
 function Confetti({ active }) {
@@ -249,6 +251,7 @@ export default function ExamSession() {
   const [aiExplain,     setAiExplain]     = useState({});
   const [submitted,     setSubmitted]     = useState(false);
   const [bookmarked,    setBookmarked]    = useState(new Set());
+  const [notes,         setNotes]         = useState(new Map());
   const [reportedQs,    setReportedQs]    = useState(new Set());
   const [reportText,    setReportText]    = useState('');
   const [showReport,    setShowReport]    = useState(null);
@@ -667,6 +670,23 @@ export default function ExamSession() {
     } catch (e) { console.error('Bookmark error:', e); }
   };
 
+  // ── Personal notes ───────────────────────────────────────────────────────────
+  // Loaded once per session so existing notes show as "My Note ✓" immediately,
+  // instead of only appearing after the student opens the popover.
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    fetchNotesMap(currentUser.uid).then(setNotes);
+  }, [currentUser?.uid]);
+
+  const handleNoteSaved = useCallback((questionId, text) => {
+    setNotes(prev => {
+      const next = new Map(prev);
+      if (text) next.set(questionId, { text });
+      else next.delete(questionId);
+      return next;
+    });
+  }, []);
+
   // ── Report ──────────────────────────────────────────────────────────────────
   const submitReport = async (q) => {
     if (!reportText.trim() || !currentUser?.uid) return;
@@ -941,6 +961,7 @@ Practice free: https://nursesacademy.com.ng`;
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => getAiExplain(q)} disabled={aiLoading && !aiExplain[q.id]} style={{ fontSize: 12 }}>{aiExplain[q.id] ? '🤖 AI Explained' : aiLoading ? '⏳ Loading…' : '🤖 Ask AI to Explain'}</button>
                     <button onClick={() => toggleBookmark(q)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${bookmarked.has(q.id) ? 'rgba(245,158,11,0.5)' : 'var(--border)'}`, background: bookmarked.has(q.id) ? 'rgba(245,158,11,0.12)' : 'transparent', color: bookmarked.has(q.id) ? '#F59E0B' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>🔖 {bookmarked.has(q.id) ? 'Bookmarked ✓' : 'Bookmark this Question'}</button>
+                    <QuestionNoteButton uid={currentUser?.uid} question={q} initialText={notes.get(q.id)?.text || ''} onSaved={handleNoteSaved} />
                     {!reportedQs.has(q.id) && <button onClick={() => setShowReport(showReport === q.id ? null : q.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: '5px 8px' }}>🚩 Report</button>}
                     {reportedQs.has(q.id)  && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>✓ Reported</span>}
                   </div>
@@ -1051,6 +1072,7 @@ Practice free: https://nursesacademy.com.ng`;
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                 <button onClick={() => setFlagged(prev => { const s = new Set(prev); s.has(q.id) ? s.delete(q.id) : s.add(q.id); return s; })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: flagged.has(q.id) ? 1 : 0.35 }}>🚩</button>
                 <button onClick={() => toggleBookmark(q)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: bookmarked.has(q.id) ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${bookmarked.has(q.id) ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: bookmarked.has(q.id) ? '#F59E0B' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>🔖 {bookmarked.has(q.id) ? 'Bookmarked' : 'Bookmark'}</button>
+                <QuestionNoteButton uid={currentUser?.uid} question={q} initialText={notes.get(q.id)?.text || ''} onSaved={handleNoteSaved} />
               </div>
             </div>
             <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>

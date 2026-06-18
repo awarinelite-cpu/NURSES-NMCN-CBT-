@@ -16,6 +16,7 @@ import AuthPage       from './components/auth/AuthPage';
 import StudentDashboard       from './components/student/StudentDashboard';
 import AnalyticsPage          from './components/student/AnalyticsPage';
 import BookmarksPage          from './components/student/BookmarksPage';
+import NotesPage              from './components/student/NotesPage';
 import SubscriptionPage       from './components/student/SubscriptionPage';
 import QuickActionsPage       from './components/student/QuickActionsPage';
 import PerformanceMonitorPage from './components/student/PerformanceMonitorPage';
@@ -228,6 +229,7 @@ export default function App() {
                 <Route path="/results"      element={<AnalyticsPage />} />
                 <Route path="/performance"  element={<PerformanceMonitorPage />} />
                 <Route path="/bookmarks"    element={<BookmarksPage />} />
+                <Route path="/notes"        element={<NotesPage />} />
                 <Route path="/subscription" element={<SubscriptionPage />} />
                 <Route path="/leaderboard"       element={<LeaderboardPage />} />
                 <Route path="/study-plan"        element={<StudyPlanPage />} />
