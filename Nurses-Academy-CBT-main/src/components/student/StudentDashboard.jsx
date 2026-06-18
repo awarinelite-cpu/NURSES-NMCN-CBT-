@@ -1063,6 +1063,7 @@ export default function StudentDashboard() {
       {/* ── Quick actions ── */}
       <ACard delay={750} style={{ marginBottom: 32 }}>
         <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
+        <SurpriseMeButton profile={profile} />
         <div style={S.quickGrid}>
           {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
         </div>
@@ -1130,6 +1131,107 @@ function StatInner({ icon, label, value, color, bg, ring }) {
 }
 
 // ── Quick action card ─────────────────────────────────────────────────────────
+// ── Surprise Me Button ───────────────────────────────────────────────────────
+// Picks a random pool mode exam (10 questions) weighted toward weak areas.
+// Uses examSessions weak topic data from Firestore if available, otherwise
+// picks a random NMCN category.
+function SurpriseMeButton({ profile }) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [pulse, setPulse]     = useState(false);
+
+  // Bounce pulse every 4 seconds to draw attention
+  useEffect(() => {
+    const t = setInterval(() => {
+      setPulse(true);
+      setTimeout(() => setPulse(false), 600);
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
+
+  const handleSurprise = async () => {
+    setLoading(true);
+    try {
+      // Try to find a weak category from recent sessions
+      let pickedCat = null;
+      const uid = profile?.uid;
+      if (uid) {
+        try {
+          const { getDocs: gd, collection: col, query: q, where: w } = await import('firebase/firestore');
+          const { db: fireDb } = await import('../../firebase/config');
+          const snap = await gd(q(col(fireDb, 'examSessions'), w('userId', '==', uid)));
+          const sessions = snap.docs.map(d => d.data()).filter(s => s.scorePercent !== undefined);
+          if (sessions.length >= 3) {
+            const catMap = {};
+            sessions.forEach(s => {
+              if (!s.category) return;
+              if (!catMap[s.category]) catMap[s.category] = { total: 0, sum: 0 };
+              catMap[s.category].total++;
+              catMap[s.category].sum += s.scorePercent;
+            });
+            const weakCats = Object.entries(catMap)
+              .map(([id, v]) => ({ id, avg: Math.round(v.sum / v.total) }))
+              .filter(c => c.avg < 65)
+              .sort((a, b) => a.avg - b.avg);
+            if (weakCats.length > 0) {
+              pickedCat = weakCats[0].id;
+            }
+          }
+        } catch (e) { /* fall through to random */ }
+      }
+
+      // Fall back to random category
+      if (!pickedCat) {
+        const cats = NURSING_CATEGORIES.filter(c => c.id);
+        pickedCat = cats[Math.floor(Math.random() * cats.length)].id;
+      }
+
+      navigate('/exam/session', {
+        state: {
+          poolMode:  true,
+          examType:  'daily_practice',
+          category:  pickedCat,
+          count:     10,
+          examName:  '⚡ Surprise Practice',
+          surpriseMode: true,
+        },
+      });
+    } catch (e) {
+      console.error('Surprise Me error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSurprise}
+      disabled={loading}
+      style={{
+        width: '100%', padding: '16px 20px', borderRadius: 14, border: 'none',
+        background: 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+        color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16,
+        boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+        transform: pulse ? 'scale(1.02)' : 'scale(1)',
+        transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      <span style={{ fontSize: 28 }}>{loading ? '⏳' : '🎲'}</span>
+      <div style={{ textAlign: 'left' }}>
+        <div style={{ fontSize: 16, fontWeight: 900, fontFamily: H, letterSpacing: 0.3 }}>
+          {loading ? 'Finding questions…' : 'Surprise Me!'}
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.85, fontFamily: F, fontWeight: 700 }}>
+          10 smart questions based on your weak areas • No setup needed
+        </div>
+      </div>
+      {!loading && <span style={{ marginLeft: 'auto', fontSize: 20, opacity: 0.7 }}>→</span>}
+    </button>
+  );
+}
+
 function QuickCard({ to, icon, label, sub, delay }) {
   const [vis, setVis] = useState(false);
   const [hov, setHov] = useState(false);
