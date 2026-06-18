@@ -70,11 +70,14 @@ export default function NotificationBell() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) {
+        if (open && unreadCount > 0) markAllRead();
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [open, unreadCount, markAllRead]);
 
   const handleToggle = () => {
     const next = !open;
@@ -98,7 +101,8 @@ export default function NotificationBell() {
       });
     }
     setOpen(next);
-    if (next && unreadCount > 0) markAllRead();
+    // Mark read when CLOSING (not opening) so the badge is visible while dropdown is open
+    if (!next && unreadCount > 0) markAllRead();
   };
 
   const handleItemClick = (item) => {
@@ -109,8 +113,10 @@ export default function NotificationBell() {
   // Unread chat threads (those with unread > 0)
   const unreadChats = chatThreads.filter(t => t.unread > 0);
 
-  // Total badge = exam notifications + unread chats
-  const totalBadge = unreadCount + chatUnread;
+  // Total badge = exam notifications + unread DMs + group chat unread
+  const totalBadge = unreadCount + chatUnread + groupUnread;
+  // Show a dot even when only announcements exist (items not yet opened)
+  const showDot = totalBadge === 0 && items.length > 0 && !loading;
 
   return (
     <div style={{ position: 'relative' }} ref={ref}>
@@ -128,7 +134,10 @@ export default function NotificationBell() {
       >
         🔔
         {totalBadge > 0 && (
-          <span style={styles.badge}>{totalBadge > 9 ? '9+' : totalBadge}</span>
+          <span style={styles.badge}>{totalBadge > 99 ? '99+' : totalBadge}</span>
+        )}
+        {showDot && (
+          <span style={styles.dot} />
         )}
       </button>
 
@@ -330,6 +339,12 @@ const styles = {
     borderRadius: 9, background: '#EF4444', color: '#fff',
     fontSize: 10, fontWeight: 800, lineHeight: '16px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 0 0 2px var(--nav-bg)',
+  },
+  dot: {
+    position: 'absolute', top: -2, right: -2,
+    width: 10, height: 10, borderRadius: '50%',
+    background: '#EF4444',
     boxShadow: '0 0 0 2px var(--nav-bg)',
   },
   dropdown: {
