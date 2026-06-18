@@ -9,6 +9,7 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { ensureCbtDailyMockNotification, maybePushDailyMockNotification } from '../../utils/dailyNotifications';
+import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -800,12 +801,33 @@ export default function StudentDashboard() {
   const animStreak    = useCounter(streak,     1400, 550);
   const animBookmarks = useCounter(bookmarks,  1400, 700);
 
+  // ── Streak milestone detection ───────────────────────────────────────────
+  const [streakMilestone, setStreakMilestone] = useState(0);
+  const streakCheckedRef = useRef(false);
+  useEffect(() => {
+    if (streakCheckedRef.current || !streak) return;
+    streakCheckedRef.current = true;
+    if (!MILESTONES[streak]) return;
+    const key = `nmcn_streak_milestone_${streak}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    const t = setTimeout(() => setStreakMilestone(streak), 800);
+    return () => clearTimeout(t);
+  }, [streak]);
+
   return (
     <div style={{ padding: '24px', maxWidth: 1200 }}>
       <style>{`
         .btn-strip-track::-webkit-scrollbar { display: none; }
         .btn-strip-track { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+
+      {streakMilestone > 0 && (
+        <StreakMilestoneModal
+          streak={streakMilestone}
+          onClose={() => setStreakMilestone(0)}
+        />
+      )}
 
       {showModal && (
         <PausedExamsModal
