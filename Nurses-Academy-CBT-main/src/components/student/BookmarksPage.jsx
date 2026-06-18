@@ -61,7 +61,16 @@ export default function BookmarksPage() {
       </div>
 
       {loading ? (
-        <div className="flex-center" style={{ padding: 40 }}><div className="spinner" /></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <style>{`@keyframes bmShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
+          {Array.from({length: 5}).map((_,i) => (
+            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+              <div style={{ height: 12, width: '70%', borderRadius: 4, marginBottom: 10, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'bmShimmer 1.4s infinite' }} />
+              <div style={{ height: 12, width: '90%', borderRadius: 4, marginBottom: 10, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'bmShimmer 1.4s infinite' }} />
+              <div style={{ height: 12, width: '50%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'bmShimmer 1.4s infinite' }} />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 48 }}>🔖</div>

@@ -62,9 +62,16 @@ export default function AnalyticsPage() {
   const strongAreas = catStats.filter(c => c.avgScore !== null && c.avgScore >= 70);
 
   if (loading) return (
-    <div className="flex-center" style={{ padding: 60, flexDirection: 'column', gap: 16 }}>
-      <div className="spinner" />
-      <p style={{ color: 'var(--text-muted)' }}>Loading your performance data…</p>
+    <div style={{ padding: 24, maxWidth: 1100 }}>
+      <style>{`@keyframes anShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
+      <div style={{ height: 28, width: 220, borderRadius: 6, marginBottom: 8, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'anShimmer 1.4s infinite' }} />
+      <div style={{ height: 14, width: 160, borderRadius: 4, marginBottom: 28, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'anShimmer 1.4s infinite' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 14, marginBottom: 28 }}>
+        {Array.from({length: 4}).map((_,i) => (
+          <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 16px', height: 90, background: 'linear-gradient(90deg,#111827 25%,#1e293b 50%,#111827 75%)', backgroundSize: '200% 100%', animation: `anShimmer 1.4s ${i*0.15}s infinite` }} />
+        ))}
+      </div>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, height: 180, background: 'linear-gradient(90deg,#111827 25%,#1e293b 50%,#111827 75%)', backgroundSize: '200% 100%', animation: 'anShimmer 1.4s 0.2s infinite' }} />
     </div>
   );
 

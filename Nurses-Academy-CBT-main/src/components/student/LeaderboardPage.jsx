@@ -18,19 +18,20 @@ const gradeColor = (p) =>
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 /* ── tiny helpers ── */
-function Spinner() {
+function SkeletonRow() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '72px 0' }}>
-      <div style={{
-        width: 44, height: 44,
-        border: '3px solid rgba(13,148,136,0.12)',
-        borderTopColor: '#0D9488',
-        borderRadius: '50%',
-        animation: 'spin 0.8s linear infinite',
-      }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+      <style>{`@keyframes lbShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ height: 13, width: '55%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+        <div style={{ height: 10, width: '30%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+      </div>
+      <div style={{ width: 44, height: 22, borderRadius: 6, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
     </div>
   );
 }
+function Spinner() { return <div style={{ display: 'flex', flexDirection: 'column' }}>{Array.from({length: 10}).map((_,i) => <SkeletonRow key={i} />)}</div>; }
 
 function Avatar({ name = '', size = 36 }) {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
