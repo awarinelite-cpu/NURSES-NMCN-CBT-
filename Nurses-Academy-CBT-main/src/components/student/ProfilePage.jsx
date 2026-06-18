@@ -35,6 +35,8 @@ export default function ProfilePage() {
   const [specialization, setSpecialization] = useState(profile?.specialization || '');
   const [institution, setInstitution] = useState(profile?.institution || '');
   const [bio, setBio] = useState(profile?.bio || '');
+  const [examDate,  setExamDate]  = useState(profile?.examDate  || '');
+  const [examLabel, setExamLabel] = useState(profile?.examLabel || 'NMCN Exam');
 
   // Password form state
   const [currentPw, setCurrentPw] = useState('');
@@ -79,6 +81,8 @@ export default function ProfilePage() {
         specialization,
         institution: institution.trim(),
         bio: bio.trim(),
+        examDate:  examDate  || null,
+        examLabel: examLabel.trim() || 'NMCN Exam',
       });
       setMsg({ type: 'success', text: 'Profile updated successfully.' });
       setEditing(false);
@@ -252,6 +256,18 @@ export default function ProfilePage() {
               {editing
                 ? <textarea style={{ ...styles.input, minHeight: 80, resize: 'vertical' }} value={bio} onChange={e => setBio(e.target.value)} placeholder="Tell us a little about yourself..." maxLength={200} />
                 : <Value>{bio || '—'}</Value>}
+            </Field>
+
+            {/* Exam Countdown fields */}
+            <Field label="📅 Exam Name (for countdown)">
+              {editing
+                ? <input style={styles.input} value={examLabel} onChange={e => setExamLabel(e.target.value)} placeholder="e.g. NMCN Basic Exam" />
+                : <Value>{examLabel || '—'}</Value>}
+            </Field>
+            <Field label="📅 Exam Date (for countdown)">
+              {editing
+                ? <input type="date" style={styles.input} value={examDate} onChange={e => setExamDate(e.target.value)} />
+                : <Value>{examDate ? new Date(examDate).toLocaleDateString('en-NG', { day:'numeric', month:'short', year:'numeric' }) : '—'}</Value>}
             </Field>
           </div>
 

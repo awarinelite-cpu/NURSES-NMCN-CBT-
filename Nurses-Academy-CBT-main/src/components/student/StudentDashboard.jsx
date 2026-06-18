@@ -13,6 +13,7 @@ import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal
 import { fetchBadges, evaluateBadges, syncBadges, BADGES, BADGE_MAP } from '../../utils/badgeUtils';
 import { fetchStreak } from '../../utils/streakUtils';
 import DailyChallenge from '../shared/DailyChallenge';
+import ExamCountdown from '../shared/ExamCountdown';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -892,6 +893,9 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Exam Countdown ── */}
+      <ExamCountdown />
 
       {/* ── Daily Challenge ── */}
       <DailyChallenge />
