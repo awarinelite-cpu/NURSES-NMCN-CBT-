@@ -12,6 +12,7 @@ const STUDENT_NAV = [
   { to: '/group-chat',     icon: '👥', label: 'Group Chat'     },
   { to: '/chat-inbox',     icon: '💬', label: 'Messages'        },
   { to: '/results',        icon: '📊', label: 'My Results'     },
+  { to: '/progress-wall',  icon: '🗺️', label: 'Progress Wall'  },
   { to: '/performance',    icon: '📈', label: 'Analysis'       },
   { to: '/study-plan',     icon: '📅', label: 'Study Plan'     },
   { to: '/leaderboard',    icon: '🏆', label: 'Leaderboard'    },

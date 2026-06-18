@@ -1126,6 +1126,29 @@ export default function StudentDashboard() {
       {/* ── Weak Topic Detector ── */}
       <WeakTopicDetector user={user} />
 
+      {/* ── Progress Wall shortcut ── */}
+      <ACard delay={980} style={{ marginBottom: 20 }}>
+        <div
+          onClick={() => navigate('/progress-wall')}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg,rgba(13,148,136,0.12),rgba(30,58,138,0.12))',
+            border: '1.5px solid rgba(13,148,136,0.25)',
+            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
+            transition: 'border-color 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🗺️</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Progress Wall</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Heatmap · Subject mastery · Weak spots</div>
+            </div>
+          </div>
+          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
+        </div>
+      </ACard>
+
       {/* ── Categories ── */}
       <ACard delay={1000} style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

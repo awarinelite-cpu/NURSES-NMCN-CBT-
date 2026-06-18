@@ -28,6 +28,7 @@ import GroupChatPage          from './components/student/GroupChatPage';
 import LeaderboardPage        from './components/student/LeaderboardPage';
 import StudyPlanPage          from './components/student/StudyPlanPage';
 import BadgesPage             from './components/student/BadgesPage';
+import ProgressWallPage       from './components/student/ProgressWallPage';
 import ProfilePage            from './components/student/ProfilePage';
 import AdminAnalytics         from './components/admin/AdminAnalytics';
 import DailyChallengeManager from './components/admin/DailyChallengeManager';
@@ -230,6 +231,7 @@ export default function App() {
                 <Route path="/leaderboard"       element={<LeaderboardPage />} />
                 <Route path="/study-plan"        element={<StudyPlanPage />} />
                 <Route path="/badges"            element={<BadgesPage />} />
+                <Route path="/progress-wall"     element={<ProgressWallPage />} />
                 <Route path="/profile"           element={<ProfilePage />} />
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
