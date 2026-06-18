@@ -705,18 +705,62 @@ export default function ExamSession() {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          {!reviewMode && (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 28, marginBottom: 24, textAlign: 'center' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Mock Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}</div>
-              <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{scorePct}%</div>
-              <div style={{ fontSize: 16, color: 'var(--text-secondary)', margin: '8px 0 20px' }}>{score} / {questions.length} correct</div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-                {[{ label: 'Correct', value: score, color: '#16A34A' }, { label: 'Wrong', value: questions.length - score, color: '#EF4444' }, { label: 'Unanswered', value: unanswered, color: 'var(--text-muted)' }].map(s => (
-                  <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div></div>
-                ))}
+          {!reviewMode && (() => {
+            // ── Celebration score card ───────────────────────────────────────
+            const celebEmoji   = scorePct >= 70 ? '🎉' : scorePct >= 50 ? '👍' : '💪';
+            const celebMsg     = scorePct >= 70
+              ? "Outstanding! You're NMCN Ready 🎓"
+              : scorePct >= 50
+              ? "Good effort! Keep drilling your weak areas."
+              : "Keep pushing — every nurse started here!";
+            const celebSubMsg  = scorePct >= 70
+              ? "You scored above the NMCN pass mark. Excellent preparation!"
+              : scorePct >= 50
+              ? "You're passing but there's room to improve. Review your wrong answers below."
+              : "Don't give up. Consistent practice is the key to success.";
+            const ringCirc     = 2 * Math.PI * 28;
+            return (
+              <div style={{ background: 'var(--bg-card)', border: `2px solid ${scoreColor}40`, borderRadius: 20, padding: 28, marginBottom: 24, textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                <style>{`
+                  @keyframes ringFill { from { stroke-dashoffset: ${ringCirc}; } }
+                  @keyframes scorePop { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+                  @keyframes celFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+                `}</style>
+                {/* Glow bg */}
+                <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${scoreColor}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                {/* Exam type label */}
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, fontFamily: F, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Mock Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}
+                </div>
+                {/* Animated score ring */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, animation: 'scorePop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+                  <svg width={110} height={110} viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="28" fill="none" stroke="var(--border)" strokeWidth="7" />
+                    <circle cx="36" cy="36" r="28" fill="none" stroke={scoreColor} strokeWidth="7"
+                      strokeDasharray={ringCirc}
+                      strokeDashoffset={ringCirc - (scorePct / 100) * ringCirc}
+                      strokeLinecap="round" transform="rotate(-90 36 36)"
+                      style={{ animation: `ringFill 1.4s cubic-bezier(.4,0,.2,1) forwards`, transition: 'stroke-dashoffset 1.4s' }}
+                    />
+                    <text x="36" y="38" textAnchor="middle" fill={scoreColor} fontSize="13" fontWeight="900" fontFamily="Arial Black, Arial">{scorePct}%</text>
+                  </svg>
+                </div>
+                {/* Celebration message */}
+                <div style={{ fontSize: 30, marginBottom: 6, animation: 'celFadeUp 0.5s 0.6s both' }}>{celebEmoji}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: scoreColor, fontFamily: H, marginBottom: 4, animation: 'celFadeUp 0.5s 0.7s both' }}>{celebMsg}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700, marginBottom: 20, lineHeight: 1.6, animation: 'celFadeUp 0.5s 0.8s both' }}>{celebSubMsg}</div>
+                {/* Stats row */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap', animation: 'celFadeUp 0.5s 0.9s both' }}>
+                  {[{ label: 'Correct', value: score, color: '#16A34A' }, { label: 'Wrong', value: questions.length - score, color: '#EF4444' }, { label: 'Unanswered', value: unanswered, color: 'var(--text-muted)' }].map(s => (
+                    <div key={s.label} style={{ textAlign: 'center', background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 18px' }}>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {(() => {
             const isCD = examType === 'course_drill';
