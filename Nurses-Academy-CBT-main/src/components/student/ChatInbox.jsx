@@ -1,7 +1,7 @@
 // src/components/student/ChatInbox.jsx
 // All direct-message conversations for the current user, with unread badges
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection, query, where, onSnapshot,
@@ -66,7 +66,11 @@ export default function ChatInbox() {
 
   const [threads,  setThreads]  = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [profiles, setProfiles] = useState({}); // uid → profile
+  // Profile cache lives in a ref, not state: the onSnapshot callback below
+  // only depends on [myUid], so a state-based cache would always read the
+  // value from mount time (stale closure) and re-fetch every profile on
+  // every snapshot. A ref is always current and doesn't trigger re-renders.
+  const profilesRef = useRef({}); // uid → profile
 
   /* Listen to all directChats where I'm a participant */
   useEffect(() => {
@@ -86,7 +90,7 @@ export default function ChatInbox() {
         if (!otherUid) return null;
 
         // Load their profile (cache it)
-        let theirProfile = profiles[otherUid];
+        let theirProfile = profilesRef.current[otherUid];
         if (!theirProfile) {
           try {
             const snap = await getDoc(doc(db, 'users', otherUid));
@@ -120,9 +124,7 @@ export default function ChatInbox() {
         });
 
       // Cache profiles
-      const newProfiles = { ...profiles };
-      valid.forEach(c => { if (c.otherUid) newProfiles[c.otherUid] = c.theirProfile; });
-      setProfiles(newProfiles);
+      valid.forEach(c => { if (c.otherUid) profilesRef.current[c.otherUid] = c.theirProfile; });
       setThreads(valid);
       setLoading(false);
     }, (err) => {

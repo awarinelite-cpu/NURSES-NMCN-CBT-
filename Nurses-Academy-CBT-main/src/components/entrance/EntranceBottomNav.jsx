@@ -170,6 +170,12 @@ export default function EntranceBottomNav() {
   const [badgePulse, setBadgePulse] = useState(false);
   const prevUnread = useRef(0);
 
+  // Must be declared BEFORE the useEffect below that depends on it —
+  // `const` bindings are not usable before their declaration line
+  // (temporal dead zone), so this previously crashed on every render
+  // with "Cannot access 'combinedUnread' before initialization".
+  const combinedUnread = totalUnread + groupUnread;
+
   useEffect(() => {
     if (combinedUnread > prevUnread.current) {
       // New message arrived — pulse the badge
@@ -272,7 +278,6 @@ export default function EntranceBottomNav() {
       ? location.pathname === to
       : location.pathname.startsWith(to);
 
-  const combinedUnread = totalUnread + groupUnread;
   const badgeCount = combinedUnread > 99 ? '99+' : combinedUnread > 0 ? String(combinedUnread) : null;
 
   return (
@@ -425,8 +430,6 @@ export default function EntranceBottomNav() {
           top:  fabY - FAB_SIZE / 2,
           width: FAB_SIZE, height: FAB_SIZE,
           zIndex: 8200,
-          /* relative so the badge positions against it */
-          position: 'fixed',
         }}
       >
         {/* The actual draggable circle */}
