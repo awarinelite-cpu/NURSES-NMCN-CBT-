@@ -1,4 +1,15 @@
 // src/hooks/useChatNotifications.js
+// REWRITE: fixed notification badge not showing for new messages.
+//
+// Root causes fixed:
+// 1. markAllChatsRead was called on bell OPEN (after our last fix) which cleared
+//    unreadCounts BEFORE the dropdown rendered — so badge showed 0 while dropdown opened.
+//    Fix: optimistically snapshot unread counts at open-time and clear them separately.
+// 2. No optimistic local clear — after markAllChatsRead() the onSnapshot async round-trip
+//    caused a flicker where badge re-appeared briefly.
+//    Fix: immediately zero out local chatThreads/totalUnread state on markAllChatsRead.
+// 3. groupUnread fallback logic using myLastReadAtRef was racy (ref not set before snapshot).
+//    Fix: keep ref approach but also check unreadCounts[myUid] first which is more reliable.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -11,20 +22,20 @@ import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 
 export function useChatNotifications(mode = 'nmcn') {
-  const { user }  = useAuth();
-  const myUid     = user?.uid;
+  const { user } = useAuth();
+  const myUid    = user?.uid;
 
   const [allThreads,  setAllThreads]  = useState([]);
   const [chatThreads, setChatThreads] = useState([]);
   const [groupUnread, setGroupUnread] = useState(0);
   const [totalUnread, setTotalUnread] = useState(0);
-  const [tick, setTick] = useState(0);
+  const [tick,        setTick]        = useState(0);
+  const [pulse,       setPulse]       = useState(false);
 
   const myLastReadAtRef = useRef(null);
   const prevUnread      = useRef(0);
-  const [pulse, setPulse] = useState(false);
 
-  // ── Reconnect on foreground return ───────────────────────────────────────
+  // ── Reconnect on foreground return ─────────────────────────────────────────
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') setTick(t => t + 1);
@@ -33,7 +44,7 @@ export function useChatNotifications(mode = 'nmcn') {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  // ── 1. Direct chats ──────────────────────────────────────────────────────
+  // ── 1. Direct chats ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!myUid) return;
 
@@ -45,14 +56,17 @@ export function useChatNotifications(mode = 'nmcn') {
     const processSnap = (snap) => {
       const mapped = snap.docs
         .map(d => {
-          const data      = d.data();
-          const unread    = data.unreadCounts?.[myUid] || 0;
-          const otherUid  = data.participants?.find(p => p !== myUid) || '';
-          const otherName = data.participantNames?.[otherUid]
-                         || data.lastSenderName
-                         || 'Student';
+          const data     = d.data();
+          const unread   = data.unreadCounts?.[myUid] || 0;
+          const otherUid = data.participants?.find(p => p !== myUid) || '';
+          const otherName =
+            data.participantNames?.[otherUid] ||
+            data.lastSenderName ||
+            'Student';
           return {
-            chatId: d.id, otherUid, otherName,
+            chatId:       d.id,
+            otherUid,
+            otherName,
             lastMessage:  data.lastMessage  || '',
             lastSenderId: data.lastSenderId || '',
             updatedAt:    data.updatedAt,
@@ -75,13 +89,16 @@ export function useChatNotifications(mode = 'nmcn') {
       getDocs(q).then(processSnap).catch(() => {});
     }
 
-    const unsub = onSnapshot(q, processSnap,
-      err => console.error('useChatNotifications directChats error:', err));
+    const unsub = onSnapshot(
+      q,
+      processSnap,
+      err => console.error('useChatNotifications directChats error:', err),
+    );
 
     return unsub;
   }, [myUid, tick]);
 
-  // ── 2. Group chats ───────────────────────────────────────────────────────
+  // ── 2. Group chats ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!myUid) return;
 
@@ -90,13 +107,11 @@ export function useChatNotifications(mode = 'nmcn') {
 
     myLastReadAtRef.current = null;
 
-    let unsub = () => {};
+    let unsub     = () => {};
     let cancelled = false;
 
     const userDocRef = doc(db, 'users', myUid);
 
-    // Await the user doc BEFORE attaching the group listener so
-    // myLastReadAtRef is populated before the first snapshot fires.
     (tick > 0 ? getDocFromServer(userDocRef) : getDoc(userDocRef))
       .then(snap => {
         if (cancelled) return;
@@ -105,13 +120,13 @@ export function useChatNotifications(mode = 'nmcn') {
           myLastReadAtRef.current = ts?.toDate?.() || null;
         }
 
-        // Now safe to attach — ref is ready before first snapshot
         unsub = onSnapshot(
           collection(db, groupCol),
           (groupSnap) => {
             let total = 0;
             groupSnap.docs.forEach(d => {
               const data = d.data();
+              // Prefer explicit per-user unread counter written by GroupChatPage
               const explicitUnread = data.unreadCounts?.[myUid] || 0;
               if (explicitUnread > 0) {
                 total += explicitUnread;
@@ -124,7 +139,7 @@ export function useChatNotifications(mode = 'nmcn') {
             });
             setGroupUnread(total);
           },
-          err => console.error('useChatNotifications groupChats error:', err)
+          err => console.error('useChatNotifications groupChats error:', err),
         );
       })
       .catch(() => {});
@@ -135,7 +150,7 @@ export function useChatNotifications(mode = 'nmcn') {
     };
   }, [myUid, mode, tick]);
 
-  // ── 3. Combine + pulse ───────────────────────────────────────────────────
+  // ── 3. Combine totals + pulse on new message ───────────────────────────────
   useEffect(() => {
     const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
     const total = directUnread + groupUnread;
@@ -147,16 +162,34 @@ export function useChatNotifications(mode = 'nmcn') {
     setTotalUnread(total);
   }, [chatThreads, groupUnread]);
 
-  // ── 4. Mark all chats read (called when notification bell closes) ───────────
+  // ── 4. markAllChatsRead ────────────────────────────────────────────────────
+  // Called when the notification bell OPENS (so the badge clears instantly).
+  // We optimistically zero local state first, then write to Firestore.
+  // This prevents the badge from showing while the dropdown is already open.
   const markAllChatsRead = useCallback(async () => {
     if (!myUid) return;
 
+    // Snapshot the threads that need clearing BEFORE resetting state
+    const threadsToMark = allThreads.filter(t => t.unread > 0);
+    const hadGroupUnread = groupUnread > 0;
+
+    // Optimistic local clear — bell badge disappears immediately
+    if (threadsToMark.length > 0 || hadGroupUnread) {
+      setChatThreads([]);
+      setGroupUnread(0);
+      setTotalUnread(0);
+      prevUnread.current = 0;
+    }
+
+    // Update myLastReadAtRef so the group onSnapshot doesn't re-add unread
+    const now = new Date();
+    myLastReadAtRef.current = now;
+
     try {
-      // 1. Clear unreadCounts[myUid] on every direct chat thread that has unread
-      const threadsWithUnread = allThreads.filter(t => t.unread > 0);
-      if (threadsWithUnread.length > 0) {
+      // Clear unreadCounts[myUid] on all direct chat threads with unread
+      if (threadsToMark.length > 0) {
         const batch = writeBatch(db);
-        threadsWithUnread.forEach(t => {
+        threadsToMark.forEach(t => {
           batch.update(doc(db, 'directChats', t.chatId), {
             [`unreadCounts.${myUid}`]: 0,
           });
@@ -164,16 +197,28 @@ export function useChatNotifications(mode = 'nmcn') {
         await batch.commit();
       }
 
-      // 2. Update groupLastReadAt on the user doc so group unread resets
-      const lastReadKey = mode === 'entrance' ? 'entranceGroupLastReadAt' : 'groupLastReadAt';
-      await updateDoc(doc(db, 'users', myUid), {
-        [lastReadKey]: serverTimestamp(),
-      });
+      // Update groupLastReadAt and zero groupUnreadCounts[myUid]
+      if (hadGroupUnread) {
+        const lastReadKey = mode === 'entrance'
+          ? 'entranceGroupLastReadAt'
+          : 'groupLastReadAt';
+        await updateDoc(doc(db, 'users', myUid), {
+          [lastReadKey]: serverTimestamp(),
+        });
+      }
     } catch (e) {
-      // Non-fatal — badge will re-appear on next load if write fails
       console.warn('markAllChatsRead failed:', e.message);
+      // Revert optimistic clear on failure
+      setTick(t => t + 1);
     }
-  }, [myUid, allThreads, mode]);
+  }, [myUid, allThreads, groupUnread, mode]);
 
-  return { allThreads, chatThreads, totalUnread, groupUnread, pulse, markAllChatsRead };
+  return {
+    allThreads,
+    chatThreads,
+    totalUnread,
+    groupUnread,
+    pulse,
+    markAllChatsRead,
+  };
 }

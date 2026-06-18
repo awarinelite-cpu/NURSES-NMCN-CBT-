@@ -36,7 +36,10 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { allThreads, chatThreads, totalUnread: chatUnread, groupUnread, pulse, markAllChatsRead } = useChatNotifications(mode);
+  const { allThreads, chatThreads, totalUnread, groupUnread, pulse, markAllChatsRead } = useChatNotifications(mode);
+  // directUnread = sum of unread DMs only (totalUnread already includes groupUnread,
+  // so use per-thread sum to avoid double-counting in totalBadge)
+  const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
 
   // Inject bell animation keyframes once
   useEffect(() => {
@@ -101,10 +104,11 @@ export default function NotificationBell() {
       });
     }
     setOpen(next);
-    // BUG2 FIX: mark read immediately on OPEN so badge clears the moment dropdown appears
+    // Mark read immediately on OPEN so badge clears the moment dropdown appears.
+    // Guards prevent unnecessary Firestore writes when there's nothing to clear.
     if (next) {
       if (unreadCount > 0) markAllRead();
-      if (chatUnread > 0 || groupUnread > 0) markAllChatsRead();
+      if (directUnread > 0 || groupUnread > 0) markAllChatsRead();
     }
   };
 
@@ -117,9 +121,9 @@ export default function NotificationBell() {
   const unreadChats = chatThreads.filter(t => t.unread > 0);
 
   // Total badge = exam notifications + unread DMs + group chat unread
-  const totalBadge = unreadCount + chatUnread + groupUnread;
+  const totalBadge = unreadCount + directUnread + groupUnread;
   // Show dot only when there are actual unread items
-  const showDot = totalBadge === 0 && unreadCount > 0 && !loading;
+  const showDot = totalBadge === 0 && (unreadCount > 0) && !loading;
 
   return (
     <div style={{ position: 'relative' }} ref={ref}>

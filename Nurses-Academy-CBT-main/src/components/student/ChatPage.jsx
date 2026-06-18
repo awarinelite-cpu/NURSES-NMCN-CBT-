@@ -866,7 +866,8 @@ export default function ChatPage() {
             participants: [myUid, theirUid],
             participantNames: { [myUid]: myName, [theirUid]: theirName },
             context: chatContext,
-            updatedAt: serverTimestamp(),
+            // Do NOT write updatedAt here — that would trigger the notification
+            // hook to fire and falsely re-show the unread badge on every chat open.
           },
           { merge:true }
         );
