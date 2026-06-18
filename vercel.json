@@ -1,4 +1,6 @@
 {
+  "buildCommand": "cd Nurses-Academy-CBT-main && DISABLE_ESLINT_PLUGIN=true react-scripts build",
+  "outputDirectory": "Nurses-Academy-CBT-main/build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
