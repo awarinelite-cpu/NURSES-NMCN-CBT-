@@ -80,7 +80,7 @@ export default function NotificationBell() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open, unreadCount, chatUnread, groupUnread, markAllRead, markAllChatsRead]);
+  }, [open, unreadCount, directUnread, groupUnread, markAllRead, markAllChatsRead]);
 
   const handleToggle = () => {
     const next = !open;
