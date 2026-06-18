@@ -1,5 +1,5 @@
 // src/components/student/StudentDashboard.jsx
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   collection, query, where, orderBy, limit,
@@ -109,6 +109,226 @@ function isEntranceExamType(examType) {
     t === 'entrance_past_questions' ||
     t === 'entrance_subject_drill' ||
     t === 'school_past_questions'
+  );
+}
+
+// ── Weak Topic Detector ───────────────────────────────────────────────────────
+// Analyses all of the student's examSessions to find topics where their
+// average score is below 60%. Surfaces the 3 weakest as actionable drill cards.
+// Only shown once the student has at least 5 sessions (enough signal to be
+// meaningful). Queries examSessions on mount — no extra Firestore collection.
+
+function useWeakTopics(user) {
+  const [weakTopics, setWeakTopics] = useState([]);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [wtLoading, setWtLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setWtLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'examSessions'),
+          where('userId', '==', user.uid),
+        ));
+        if (cancelled) return;
+
+        const sessions = snap.docs.map(d => d.data());
+        setSessionCount(sessions.length);
+
+        if (sessions.length < 5) { setWtLoading(false); return; }
+
+        // Aggregate by topic — only sessions that have a topic field
+        const topicMap = {};
+        sessions.forEach(s => {
+          if (!s.topic) return;
+          const key = `${s.course || ''}||${s.topic}`;
+          if (!topicMap[key]) {
+            topicMap[key] = {
+              topic:       s.topic,
+              course:      s.course      || '',
+              courseLabel: s.courseLabel || '',
+              category:    s.category    || '',
+              total: 0, sumScore: 0,
+            };
+          }
+          topicMap[key].total    += 1;
+          topicMap[key].sumScore += (s.scorePercent || 0);
+        });
+
+        const results = Object.values(topicMap)
+          .filter(t => t.total >= 2)                           // need ≥2 attempts for signal
+          .map(t => ({ ...t, avg: Math.round(t.sumScore / t.total) }))
+          .filter(t => t.avg < 60)                             // below pass threshold
+          .sort((a, b) => a.avg - b.avg)                       // weakest first
+          .slice(0, 3);
+
+        setWeakTopics(results);
+      } catch (e) {
+        console.warn('WeakTopicDetector load error (non-fatal):', e.message);
+      } finally {
+        if (!cancelled) setWtLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  return { weakTopics, sessionCount, wtLoading };
+}
+
+function WeakTopicDetector({ user }) {
+  const { weakTopics, sessionCount, wtLoading } = useWeakTopics(user);
+  const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
+
+  // Don't show until there's enough data, or after dismissal
+  if (wtLoading || dismissed || sessionCount < 5 || weakTopics.length === 0) return null;
+
+  const scoreColor = (avg) => {
+    if (avg >= 50) return { text: '#F59E0B', bg: 'rgba(245,158,11,0.12)', bar: '#F59E0B' };
+    return { text: '#EF4444', bg: 'rgba(239,68,68,0.12)', bar: '#EF4444' };
+  };
+
+  const handleDrill = (t) => {
+    navigate('/exam/session', {
+      state: {
+        poolMode:    true,
+        examType:    'topic_drill',
+        examName:    `Drill: ${t.topic}`,
+        category:    t.category,
+        course:      t.course,
+        courseLabel: t.courseLabel,
+        topic:       t.topic,
+        count:       20,
+        doShuffle:   true,
+        timeLimit:   0,
+      },
+    });
+  };
+
+  return (
+    <ACard delay={780} style={{ marginBottom: 28 }}>
+      <div style={{
+        background: 'rgba(239,68,68,0.06)',
+        border: '1.5px solid rgba(239,68,68,0.25)',
+        borderRadius: 16,
+        padding: '18px 18px 14px',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(239,68,68,0.15)', border: '1.5px solid rgba(239,68,68,0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+            }}>🎯</div>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>
+                Weak Topics Detected
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
+                Based on your last {sessionCount} sessions — drill these to improve fast
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setDismissed(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', fontSize: 16, padding: '2px 6px', lineHeight: 1,
+              borderRadius: 6, flexShrink: 0,
+            }}
+            title="Dismiss"
+          >✕</button>
+        </div>
+
+        {/* Topic cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {weakTopics.map((t, idx) => {
+            const { text, bg, bar } = scoreColor(t.avg);
+            const barWidth = Math.max(t.avg, 4);
+            return (
+              <div
+                key={`${t.course}||${t.topic}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: 12, padding: '12px 14px',
+                }}
+              >
+                {/* Rank badge */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  background: bg, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontWeight: 900, fontSize: 13, color: text,
+                  fontFamily: H,
+                }}>
+                  {idx + 1}
+                </div>
+
+                {/* Topic info + bar */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontWeight: 700, fontSize: 13, color: 'var(--text-primary)',
+                    marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {t.topic}
+                  </div>
+                  {t.courseLabel && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 5 }}>
+                      {t.courseLabel}
+                    </div>
+                  )}
+                  {/* Score bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 3, background: bar,
+                        width: `${barWidth}%`,
+                        transition: 'width 1s cubic-bezier(.4,0,.2,1)',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: text, minWidth: 32 }}>
+                      {t.avg}%
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      ({t.total} attempt{t.total !== 1 ? 's' : ''})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Drill button */}
+                <button
+                  onClick={() => handleDrill(t)}
+                  style={{
+                    flexShrink: 0, padding: '8px 14px', borderRadius: 9,
+                    cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                    fontFamily: F, border: 'none',
+                    background: 'rgba(239,68,68,0.15)',
+                    color: '#F87171',
+                    transition: 'background .2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.28)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+                >
+                  Drill →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer tip */}
+        <div style={{
+          marginTop: 12, fontSize: 11, color: 'var(--text-muted)',
+          fontStyle: 'italic', fontFamily: F,
+        }}>
+          💡 Topics below 60% need attention. Drilling weak areas is the fastest way to raise your score.
+        </div>
+      </div>
+    </ACard>
   );
 }
 
@@ -819,6 +1039,9 @@ export default function StudentDashboard() {
           {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
         </div>
       </ACard>
+
+      {/* ── Weak Topic Detector ── */}
+      <WeakTopicDetector user={user} />
 
       {/* ── Categories ── */}
       <ACard delay={1000} style={{ marginBottom: 32 }}>
