@@ -22,6 +22,7 @@ const STUDENT_NAV = [
   { to: '/badges',         icon: '🏅', label: 'My Badges'      },
   { to: '/subscription',   icon: '💳', label: 'Subscription'   },
   { to: '/profile',        icon: '👤', label: 'Profile'        },
+  { to: '/notifications',  icon: '🔔', label: 'Notifications'  },
 ];
 
 const ENTRANCE_NAV = [

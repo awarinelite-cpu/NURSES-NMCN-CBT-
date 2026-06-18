@@ -236,6 +236,7 @@ export default function App() {
                 <Route path="/badges"            element={<BadgesPage />} />
                 <Route path="/progress-wall"     element={<ProgressWallPage />} />
                 <Route path="/profile"           element={<ProfilePage />} />
+                <Route path="/notifications"    element={<NotificationSettings />} />
                 <Route path="/study-buddy"       element={<StudyBuddyPage />} />
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />

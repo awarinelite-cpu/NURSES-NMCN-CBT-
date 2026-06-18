@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth } from '../../firebase/config';
+import NotificationSettings from './NotificationSettings';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -180,6 +181,7 @@ export default function ProfilePage() {
         {[
           { id: 'profile', label: '👤 Profile' },
           { id: 'security', label: '🔒 Security' },
+          { id: 'notifications', label: '🔔 Notifications' },
         ].map(t => (
           <button
             key={t.id}
@@ -310,6 +312,11 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── Notifications Tab ───────────────────────── */}
+      {tab === 'notifications' && (
+        <NotificationSettings embedded />
       )}
 
       {/* ── Subscription info ──────────────────────── */}
