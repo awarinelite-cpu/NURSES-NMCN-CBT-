@@ -16,7 +16,14 @@ const NMCN_TYPES     = new Set(['cbt_daily_mock', 'announcement']);
 export function useInAppNotifications(mode = 'nmcn') {
   const { user } = useAuth();
   const [items,      setItems]      = useState([]);
-  const [lastReadAt, setLastReadAt] = useState(null);
+  // BUG4 FIX: seed lastReadAt from localStorage so badge doesn't flash on first render
+  const [lastReadAt, setLastReadAt] = useState(() => {
+    try {
+      const key = mode === 'entrance' ? 'nmcn_entrance_notif_lastread' : 'nmcn_cbt_notif_lastread';
+      const stored = localStorage.getItem(key);
+      return stored ? new Date(parseInt(stored, 10)) : null;
+    } catch { return null; }
+  });
   const [loading,    setLoading]    = useState(true);
 
   // ── 1. Live listener on dailyAnnouncements ─────────────────────────────────
@@ -70,8 +77,14 @@ export function useInAppNotifications(mode = 'nmcn') {
 
   // ── 4. Mark all read ───────────────────────────────────────────────────────
   const markAllRead = useCallback(async () => {
-    if (!user || items.length === 0) return;
-    setLastReadAt(new Date());
+    if (!user) return;
+    const now = new Date();
+    setLastReadAt(now);
+    // BUG4 FIX: persist to localStorage so next mount starts with badge already cleared
+    try {
+      const lsKey = mode === 'entrance' ? 'nmcn_entrance_notif_lastread' : 'nmcn_cbt_notif_lastread';
+      localStorage.setItem(lsKey, String(now.getTime()));
+    } catch {}
     try {
       const lrKey = mode === 'entrance'
         ? 'entranceNotificationsLastReadAt'
@@ -80,7 +93,7 @@ export function useInAppNotifications(mode = 'nmcn') {
     } catch {
       // best-effort
     }
-  }, [user, items, mode]);
+  }, [user, mode]);
 
   return { items, loading, unreadCount, lastReadAt, markAllRead };
 }

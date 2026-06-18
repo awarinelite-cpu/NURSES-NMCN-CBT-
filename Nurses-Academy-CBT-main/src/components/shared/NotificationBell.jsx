@@ -71,10 +71,7 @@ export default function NotificationBell() {
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        if (open) {
-          if (unreadCount > 0) markAllRead();
-          if (chatUnread > 0 || groupUnread > 0) markAllChatsRead();
-        }
+        // No need to re-mark on outside-click — already marked on open
         setOpen(false);
       }
     };
@@ -104,8 +101,8 @@ export default function NotificationBell() {
       });
     }
     setOpen(next);
-    // Mark read when CLOSING so badge is visible while dropdown is open
-    if (!next) {
+    // BUG2 FIX: mark read immediately on OPEN so badge clears the moment dropdown appears
+    if (next) {
       if (unreadCount > 0) markAllRead();
       if (chatUnread > 0 || groupUnread > 0) markAllChatsRead();
     }
@@ -121,8 +118,8 @@ export default function NotificationBell() {
 
   // Total badge = exam notifications + unread DMs + group chat unread
   const totalBadge = unreadCount + chatUnread + groupUnread;
-  // Show a dot even when only announcements exist (items not yet opened)
-  const showDot = totalBadge === 0 && items.length > 0 && !loading;
+  // Show dot only when there are actual unread items
+  const showDot = totalBadge === 0 && unreadCount > 0 && !loading;
 
   return (
     <div style={{ position: 'relative' }} ref={ref}>
