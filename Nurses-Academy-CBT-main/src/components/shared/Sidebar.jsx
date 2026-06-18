@@ -13,6 +13,7 @@ const STUDENT_NAV = [
   { to: '/chat-inbox',     icon: '💬', label: 'Messages'        },
   { to: '/results',        icon: '📊', label: 'My Results'     },
   { to: '/performance',    icon: '📈', label: 'Analysis'       },
+  { to: '/study-plan',     icon: '📅', label: 'Study Plan'     },
   { to: '/leaderboard',    icon: '🏆', label: 'Leaderboard'    },
   { to: '/subscription',   icon: '💳', label: 'Subscription'   },
   { to: '/profile',        icon: '👤', label: 'Profile'        },

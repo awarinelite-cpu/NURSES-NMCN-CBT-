@@ -476,6 +476,12 @@ const QUICK_ACTIONS = [
     desc: 'Review questions you saved during past exams. Great for revisiting difficult questions you want to master.',
     color: '#A855F7',
   },
+  {
+    to: '/study-plan', icon: '📅', label: 'Study Plan',
+    sub: 'AI-generated week-by-week plan',
+    desc: 'Get a personalised study plan built around your exam date, weak topics, and available time. Powered by Claude AI.',
+    color: '#7C3AED',
+  },
 ];
 
 // ── Start Exam Modal ──────────────────────────────────────────────────────────
