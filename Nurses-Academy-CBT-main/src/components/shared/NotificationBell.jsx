@@ -36,7 +36,7 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { allThreads, chatThreads, totalUnread: chatUnread, groupUnread, pulse } = useChatNotifications(mode);
+  const { allThreads, chatThreads, totalUnread: chatUnread, groupUnread, pulse, markAllChatsRead } = useChatNotifications(mode);
 
   // Inject bell animation keyframes once
   useEffect(() => {
@@ -71,13 +71,16 @@ export default function NotificationBell() {
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        if (open && unreadCount > 0) markAllRead();
+        if (open) {
+          if (unreadCount > 0) markAllRead();
+          if (chatUnread > 0 || groupUnread > 0) markAllChatsRead();
+        }
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open, unreadCount, markAllRead]);
+  }, [open, unreadCount, chatUnread, groupUnread, markAllRead, markAllChatsRead]);
 
   const handleToggle = () => {
     const next = !open;
@@ -101,8 +104,11 @@ export default function NotificationBell() {
       });
     }
     setOpen(next);
-    // Mark read when CLOSING (not opening) so the badge is visible while dropdown is open
-    if (!next && unreadCount > 0) markAllRead();
+    // Mark read when CLOSING so badge is visible while dropdown is open
+    if (!next) {
+      if (unreadCount > 0) markAllRead();
+      if (chatUnread > 0 || groupUnread > 0) markAllChatsRead();
+    }
   };
 
   const handleItemClick = (item) => {

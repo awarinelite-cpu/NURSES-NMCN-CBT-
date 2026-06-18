@@ -1,10 +1,11 @@
 // src/hooks/useChatNotifications.js
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, query, where,
   onSnapshot, getDoc, getDocs,
   doc, getDocFromServer,
+  updateDoc, writeBatch, serverTimestamp,
 } from 'firebase/firestore';
 import { db }      from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
@@ -146,5 +147,33 @@ export function useChatNotifications(mode = 'nmcn') {
     setTotalUnread(total);
   }, [chatThreads, groupUnread]);
 
-  return { allThreads, chatThreads, totalUnread, groupUnread, pulse };
+  // ── 4. Mark all chats read (called when notification bell closes) ───────────
+  const markAllChatsRead = useCallback(async () => {
+    if (!myUid) return;
+
+    try {
+      // 1. Clear unreadCounts[myUid] on every direct chat thread that has unread
+      const threadsWithUnread = allThreads.filter(t => t.unread > 0);
+      if (threadsWithUnread.length > 0) {
+        const batch = writeBatch(db);
+        threadsWithUnread.forEach(t => {
+          batch.update(doc(db, 'directChats', t.chatId), {
+            [`unreadCounts.${myUid}`]: 0,
+          });
+        });
+        await batch.commit();
+      }
+
+      // 2. Update groupLastReadAt on the user doc so group unread resets
+      const lastReadKey = mode === 'entrance' ? 'entranceGroupLastReadAt' : 'groupLastReadAt';
+      await updateDoc(doc(db, 'users', myUid), {
+        [lastReadKey]: serverTimestamp(),
+      });
+    } catch (e) {
+      // Non-fatal — badge will re-appear on next load if write fails
+      console.warn('markAllChatsRead failed:', e.message);
+    }
+  }, [myUid, allThreads, mode]);
+
+  return { allThreads, chatThreads, totalUnread, groupUnread, pulse, markAllChatsRead };
 }
