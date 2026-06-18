@@ -14,6 +14,7 @@ import { fetchBadges, evaluateBadges, syncBadges, BADGES, BADGE_MAP } from '../.
 import { fetchStreak } from '../../utils/streakUtils';
 import DailyChallenge from '../shared/DailyChallenge';
 import ExamCountdown from '../shared/ExamCountdown';
+import TipOfDay from '../shared/TipOfDay';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -896,6 +897,9 @@ export default function StudentDashboard() {
 
       {/* ── Exam Countdown ── */}
       <ExamCountdown />
+
+      {/* ── Tip of the Day ── */}
+      <TipOfDay />
 
       {/* ── Daily Challenge ── */}
       <DailyChallenge />
