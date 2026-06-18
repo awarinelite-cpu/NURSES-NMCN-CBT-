@@ -15,6 +15,7 @@ import { fetchStreak } from '../../utils/streakUtils';
 import DailyChallenge from '../shared/DailyChallenge';
 import ExamCountdown from '../shared/ExamCountdown';
 import TipOfDay from '../shared/TipOfDay';
+import StreakReminderBanner from '../shared/StreakReminderBanner';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -671,6 +672,7 @@ export default function StudentDashboard() {
   const [slideIdx,       setSlideIdx]       = useState(0);
   const [slideFade,      setSlideFade]      = useState(true);
   const [earnedBadges,   setEarnedBadges]   = useState([]);
+  const [streakReminderData, setStreakReminderData] = useState(null);
 
   const swipeStartX  = useRef(null);
   const swipeStartY  = useRef(null);
@@ -770,6 +772,7 @@ export default function StudentDashboard() {
         ));
         const allSessions = allSessSnap.docs.map(d => d.data());
         const streakData  = await fetchStreak(user.uid);
+        setStreakReminderData(streakData);
         const earned = evaluateBadges({ sessions: allSessions, streakData, bookmarkCount: profile?.bookmarkCount || 0 });
         await syncBadges(user.uid, earned);
         setEarnedBadges(earned);
@@ -847,6 +850,8 @@ export default function StudentDashboard() {
           onClose={() => setStreakMilestone(0)}
         />
       )}
+
+      {streakReminderData && <StreakReminderBanner streakData={streakReminderData} />}
 
       {showModal && (
         <PausedExamsModal
