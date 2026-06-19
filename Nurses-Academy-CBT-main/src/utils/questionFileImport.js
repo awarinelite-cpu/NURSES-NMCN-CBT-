@@ -88,11 +88,12 @@ function extractRowFields(row, colMap) {
   const answerLetter = resolveAnswerLetter(rawAnswer, options);
 
   // Inline metadata
-  const course = get(colMap.course);
-  const topic  = get(colMap.topic);
-  const year   = get(colMap.year);
+  const course    = get(colMap.course);
+  const topic     = get(colMap.topic);
+  const year      = get(colMap.year);
+  const category  = get(colMap.category);
 
-  return { question, options, answerLetter, explanation, course, topic, year };
+  return { question, options, answerLetter, explanation, course, topic, year, category };
 }
 
 /**
@@ -150,7 +151,7 @@ function detectColumnMap(headers) {
   const map = {
     question: null, optA: null, optB: null, optC: null, optD: null, optE: null,
     answer: null, explanation: null, optionsJson: null,
-    course: null, topic: null, year: null,
+    course: null, topic: null, year: null, category: null,
   };
 
   headers.forEach(h => {
@@ -191,6 +192,10 @@ function detectColumnMap(headers) {
       map.topic = h;
     if (!map.year && (n === 'year' || n === 'examyear' || n === 'pastyear' || n === 'date'))
       map.year = h;
+
+    // Category (nursing specialty)
+    if (!map.category && (n === 'category' || n === 'specialty' || n === 'nursing_specialty' || n === 'nursingspecialty' || n === 'speciality'))
+      map.category = h;
   });
 
   return map;
@@ -417,9 +422,10 @@ export function readCsvFileAsQuestions(file) {
               imageUrl:             '',
               explanationImageUrl:  '',
               _hasAnswer:           letterIdx >= 0,
-              _inlineCourse:        course || '',
-              _inlineTopic:         topic  || '',
-              _inlineYear:          year   || '',
+              _inlineCourse:        course    || '',
+              _inlineTopic:         topic     || '',
+              _inlineYear:          year      || '',
+              _inlineCategory:      category  || '',
             });
           });
 
@@ -436,11 +442,17 @@ export function readCsvFileAsQuestions(file) {
  * Returns a Blob the caller can trigger a download from.
  */
 export function generateCsvTemplate() {
-  const header = 'question,option_a,option_b,option_c,option_d,answer,explanation,course,topic,year';
+  // Valid category values (must match Firestore category IDs exactly):
+  // general_nursing | midwifery | public_health_nursing | psychiatric_nursing
+  // paediatric_nursing | theatre_nursing | orthopaedic_nursing | ophthalmic_nursing
+  // accident_emergency | ent_nursing | oncology_nursing
+  const header = 'question,option_a,option_b,option_c,option_d,answer,explanation,course,topic,year,category';
   const rows = [
-    'What is the normal adult resting heart rate?,40–60 bpm,60–100 bpm,100–120 bpm,120–160 bpm,B,The normal adult resting heart rate is 60–100 beats per minute.,Medical-Surgical,Cardiovascular,2023',
-    'Which electrolyte imbalance causes Chvostek\'s sign?,Hyponatremia,Hypocalcemia,Hypokalemia,Hypermagnesemia,B,Hypocalcemia causes increased neuromuscular excitability.,Medical-Surgical,Fluid & Electrolytes,2022',
-    'The priority nursing action for a patient in anaphylaxis is:,Administer antihistamine,Elevate the head of bed,Administer epinephrine IM,Apply a cold pack,C,Epinephrine is the first-line treatment for anaphylaxis.,Pharmacology,Emergency Drugs,2024',
+    'What is the normal adult resting heart rate?,40-60 bpm,60-100 bpm,100-120 bpm,120-160 bpm,B,The normal adult resting heart rate is 60-100 beats per minute.,Medical-Surgical,Cardiovascular,2023,general_nursing',
+    "Which electrolyte imbalance causes Chvostek's sign?,Hyponatremia,Hypocalcemia,Hypokalemia,Hypermagnesemia,B,Hypocalcemia causes increased neuromuscular excitability.,Medical-Surgical,Fluid & Electrolytes,2022,general_nursing",
+    'The priority nursing action for a patient in anaphylaxis is:,Administer antihistamine,Elevate the head of bed,Administer epinephrine IM,Apply a cold pack,C,Epinephrine is the first-line treatment for anaphylaxis.,Pharmacology,Emergency Drugs,2024,general_nursing',
+    'The most common cause of maternal mortality in Nigeria is:,Sepsis,Haemorrhage,Eclampsia,Anaemia,B,Postpartum haemorrhage is the leading cause of maternal death.,Obstetrics,Maternal Health,2023,midwifery',
+    'A child with meningitis will typically present with:,Bradycardia and hypotension,Neck stiffness and photophobia,Hypoglycaemia and polyuria,Rash and joint pain,B,Classic signs of meningitis include neck stiffness and photophobia.,Paediatric Nursing,Neurological Conditions,2022,paediatric_nursing',
   ];
   const csv = [header, ...rows].join('\n');
   return new Blob([csv], { type: 'text/csv;charset=utf-8;' });
