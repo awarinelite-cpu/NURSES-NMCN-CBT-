@@ -268,8 +268,12 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         : (
           <>
             {/* ── Table ─────────────────────────────────────────────────── */}
-            <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', borderRadius:12, border:'1px solid var(--border)' }}>
-            <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:920, padding:4 }}>
+            {/* scroll hint on mobile */}
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6, display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:14 }}>↔</span> Scroll horizontally to see all columns
+            </div>
+            <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', borderRadius:12, border:'1px solid var(--border)', position:'relative' }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:'960px', padding:4 }}>
 
               {/* Header row */}
               <div style={{
@@ -278,6 +282,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                 gap:8, padding:'6px 10px',
                 fontSize:11, fontWeight:800, color:'var(--text-muted)', fontFamily:H,
                 textTransform:'uppercase', letterSpacing:0.5,
+                minWidth:'960px',
               }}>
                 <span><input type="checkbox"
                   onChange={e => setSelected(e.target.checked ? new Set(paged.map(q=>q.id)) : new Set())}
@@ -302,9 +307,10 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                   <div key={q.id} style={{
                     background:'var(--bg-card)',
                     border:`1.5px solid ${isDirty ? GOLD+'80' : 'var(--border)'}`,
-                    borderRadius:12, overflow:'hidden',
+                    borderRadius:12,
                     boxShadow: isDirty ? `0 2px 12px ${GOLD}20` : 'none',
                     transition:'border-color .2s, box-shadow .2s',
+                    minWidth:'960px',
                   }}>
 
                     {/* ── Compact row ─────────────────────────────────── */}
@@ -312,6 +318,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                       display:'grid',
                       gridTemplateColumns:'30px 24px minmax(220px,1fr) minmax(240px,1fr) 130px 100px 80px 44px',
                       gap:8, padding:'10px 12px', alignItems:'start',
+                      minWidth:'960px',
                     }}>
 
                       {/* Checkbox */}
