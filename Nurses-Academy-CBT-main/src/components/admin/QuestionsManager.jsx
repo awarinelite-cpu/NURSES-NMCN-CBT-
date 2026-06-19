@@ -53,9 +53,13 @@ const EXTENDED_EXAM_TYPES = [
   // hospital_finals, past_questions, and all legacy types excluded from upload options
 ];
 
-// Filter dropdown: active types + legacy (for viewing old data). No hospital/past_questions.
+// Filter dropdown: active types + legacy (for viewing old data).
+// past_questions IS included here (unlike hospital_finals) because Question
+// Bank uploads with an inline CSV year get auto-tagged into it — see the
+// hasRealYear logic in the bulk save handler below.
 const FILTER_EXAM_TYPES = [
   ...EXTENDED_EXAM_TYPES,
+  { id: 'past_questions', label: '📚 Past Questions (auto-tagged)' },
   { id: 'topic_drill',    label: 'Topic Drill (Legacy)'    },
   { id: 'course_drill',   label: 'Course Drill (Legacy)'   },
   { id: 'daily_practice', label: 'Daily Practice (Legacy)' },
@@ -524,8 +528,18 @@ export default function QuestionsManager() {
           const ref  = doc(collection(db, 'questions'));
           // Per-question inline course/topic/year overrides global bulkMeta.
           // Inline course names are resolved to a real course doc ID above.
+          //
+          // A Question Bank row that carries a real inline CSV year is a past
+          // exam question, not generic pool content — tag it examType:
+          // 'past_questions' instead of 'question_bank' so it actually shows
+          // up on the student Past Questions screen (which filters strictly
+          // on examType). This is safe: Course Drill, Topic Drill, and Daily
+          // Practice all match on course/topic/category only and never check
+          // examType, so visibility there is unaffected either way.
+          const hasRealYear = isQBank && !!q._inlineYear;
           const qMeta = {
             ...bulkMeta,
+            examType: hasRealYear ? 'past_questions' : bulkMeta.examType,
             course: q._inlineCourse ? resolveCourseId(q._inlineCourse) : (bulkMeta.course || ''),
             topic:  q._inlineTopic  || bulkMeta.topic  || '',
             year:   q._inlineYear   || bulkMeta.year   || '2024',
@@ -722,10 +736,12 @@ export default function QuestionsManager() {
                           <span className={`badge ${
                             q.examType === 'question_bank' ? 'badge-teal'
                           : q.examType === 'mock_exam'     ? 'badge-gold'
+                          : q.examType === 'past_questions' ? 'badge-blue'
                           : 'badge-grey'}`}>
                             {q.examType === 'question_bank' ? '⭐ Pool'
                            : q.examType === 'mock_exam'
                              ? `🏥 ${MOCK_EXAM_SPECIALTIES.find(s => s.id === q.mockExamId)?.label?.replace(/^.{2}/,'').trim() || 'Mock'}`
+                           : q.examType === 'past_questions' ? `📚 Past (${q.year || '—'})`
                            : q.examType === 'topic_drill'    ? '📚 Topic (Legacy)'
                            : q.examType === 'course_drill'   ? '📖 Course (Legacy)'
                            : q.examType === 'daily_practice' ? '📅 Daily (Legacy)'
@@ -960,6 +976,14 @@ export default function QuestionsManager() {
                   💡 CSV tip: add <code>course</code>, <code>topic</code>, <code>year</code> columns — each question will be tagged individually.
                   Missing courses will be <strong>auto-created</strong> and instantly visible to students.
                 </span>
+                {parsedQs.some(q => q._inlineYear) && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(13,148,136,0.25)', color: 'var(--blue-mid)', fontSize: 12 }}>
+                    📚 {parsedQs.filter(q => q._inlineYear).length} of {parsedQs.length} row(s) have an inline year —
+                    those will <strong>also appear on the student Past Questions screen</strong> under
+                    their category &amp; year, in addition to Course/Topic Drill and Daily Practice.
+                    Rows with no year stay Question-Bank-only.
+                  </div>
+                )}
               </div>
             )}
 
