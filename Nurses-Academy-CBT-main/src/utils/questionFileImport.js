@@ -407,7 +407,7 @@ export function readCsvFileAsQuestions(file) {
 
           const questions = [];
           rows.forEach((row, i) => {
-            const { question, options, answerLetter, explanation, course, topic, year } = extractRowFields(row, colMap);
+            const { question, options, answerLetter, explanation, course, topic, year, category } = extractRowFields(row, colMap);
             if (!question) return; // skip blank rows
 
             // Resolve correctIndex from answerLetter
