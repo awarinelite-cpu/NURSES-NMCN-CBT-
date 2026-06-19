@@ -281,11 +281,14 @@ export default function ExamSession() {
   // (ExamSetup/ExamConfigPage), derive from examType
   const poolMode    = state?.poolMode !== undefined
     ? state.poolMode
-    : ['daily_practice','course_drill','topic_drill','mock_exam'].includes(examType);
+    : ['daily_practice','course_drill','topic_drill','mock_exam','past_questions'].includes(examType);
   const savedSession = state?.savedSession || null;
   const resumeMode   = state?.resumeMode   || false;
   const pausedExamId = state?.pausedExamId || null;
   const resumeData   = state?.resumeData   || null;
+
+  // Past questions year filter
+  const examYear = state?.examYear || '';
 
   // Entrance exam fields
   const isEntranceExam       = state?.isEntranceExam       || false;
@@ -491,6 +494,30 @@ export default function ExamSession() {
             qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             qs.sort(() => Math.random() - 0.5);
             qs = qs.slice(0, count || qs.length);
+
+          } else if (examType === 'past_questions' && category) {
+            // ── Past Questions ────────────────────────────────────────────────
+            // Query by category + examType; optionally filter by year client-side
+            // (Firestore inequality filters need composite indexes; year filter in JS is safer)
+            const snap = await getDocs(query(
+              collection(db, 'questions'),
+              where('examType',  '==', 'past_questions'),
+              where('category',  '==', category),
+              where('active',    '==', true),
+              limit(fetchLim),
+            ));
+            let pool = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Filter by year in JS — no composite index needed
+            if (examYear) {
+              const filtered = pool.filter(q => String(q.year || '').trim() === String(examYear).trim());
+              // Only apply year filter if it yields results — avoids empty exam if year mismatch
+              if (filtered.length > 0) pool = filtered;
+            }
+            const seenIds2 = profile?.seenQuestions || [];
+            const unseen2  = pool.filter(q => !seenIds2.includes(q.id));
+            const activePool = unseen2.length >= 5 ? unseen2 : pool;
+            if (doShuffle) activePool.sort(() => Math.random() - 0.5);
+            qs = activePool.slice(0, Math.min(count, activePool.length));
 
           } else {
             // ── Generic fallback (avoid full-collection scan) ─────────────────
