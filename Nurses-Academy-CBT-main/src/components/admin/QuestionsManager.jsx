@@ -50,10 +50,10 @@ const EXTENDED_EXAM_TYPES = [
     label: '🏥 Mock Exam (by Specialty)',
     hint:  'Select the specialty below. Questions appear instantly on the student Mock Exam page.',
   },
-  ...ALL_EXAM_TYPES.filter(t => !['topic_drill','course_drill','daily_practice','mock_exam','question_bank'].includes(t.id)),
+  // hospital_finals, past_questions, and all legacy types excluded from upload options
 ];
 
-// Legacy types kept ONLY for the filter/list view — not shown as upload options
+// Filter dropdown: active types + legacy (for viewing old data). No hospital/past_questions.
 const FILTER_EXAM_TYPES = [
   ...EXTENDED_EXAM_TYPES,
   { id: 'topic_drill',    label: 'Topic Drill (Legacy)'    },
