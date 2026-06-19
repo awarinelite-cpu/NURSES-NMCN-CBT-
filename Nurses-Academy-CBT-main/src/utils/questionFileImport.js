@@ -87,7 +87,12 @@ function extractRowFields(row, colMap) {
   const rawAnswer = get(colMap.answer);
   const answerLetter = resolveAnswerLetter(rawAnswer, options);
 
-  return { question, options, answerLetter, explanation };
+  // Inline metadata
+  const course = get(colMap.course);
+  const topic  = get(colMap.topic);
+  const year   = get(colMap.year);
+
+  return { question, options, answerLetter, explanation, course, topic, year };
 }
 
 /**
@@ -145,6 +150,7 @@ function detectColumnMap(headers) {
   const map = {
     question: null, optA: null, optB: null, optC: null, optD: null, optE: null,
     answer: null, explanation: null, optionsJson: null,
+    course: null, topic: null, year: null,
   };
 
   headers.forEach(h => {
@@ -177,6 +183,14 @@ function detectColumnMap(headers) {
     // Explanation
     if (!map.explanation && (n === 'explanation' || n === 'rationale' || n === 'reason' || n === 'explain' || n === 'note' || n === 'notes' || n === 'solution'))
       map.explanation = h;
+
+    // Inline metadata — course, topic, year
+    if (!map.course && (n === 'course' || n === 'coursename' || n === 'subject' || n === 'module'))
+      map.course = h;
+    if (!map.topic && (n === 'topic' || n === 'topicname' || n === 'subtopic' || n === 'unit'))
+      map.topic = h;
+    if (!map.year && (n === 'year' || n === 'examyear' || n === 'pastyear' || n === 'date'))
+      map.year = h;
   });
 
   return map;
@@ -209,10 +223,11 @@ function csvRowsToQuestionText(rows) {
     warnings.push('No answer column found — questions will be uploaded without a marked correct answer.');
   }
 
-  const lines = [];
+  const lines  = [];
+  const rowMeta = []; // per-question inline metadata: [{course, topic, year}, ...]
 
   rows.forEach((row, i) => {
-    const { question, options, answerLetter, explanation } = extractRowFields(row, colMap);
+    const { question, options, answerLetter, explanation, course, topic, year } = extractRowFields(row, colMap);
 
     if (!question) return; // skip blank rows
 
@@ -234,9 +249,12 @@ function csvRowsToQuestionText(rows) {
     }
 
     lines.push(''); // blank separator between questions
+
+    // Collect per-row metadata for inline course/topic/year override
+    rowMeta.push({ course: course || '', topic: topic || '', year: year || '' });
   });
 
-  return { text: lines.join('\n'), warnings };
+  return { text: lines.join('\n'), warnings, rowMeta };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -268,16 +286,16 @@ export function readCsvFile(file) {
         complete: results => {
           const rows = results.data || [];
           if (rows.length === 0) {
-            resolve({ text: '', warnings: ['CSV appears to be empty.'], rowCount: 0 });
+            resolve({ text: '', warnings: ['CSV appears to be empty.'], rowCount: 0, rowMeta: [] });
             return;
           }
-          const { text, warnings } = csvRowsToQuestionText(rows);
+          const { text, warnings, rowMeta } = csvRowsToQuestionText(rows);
           // Add PapaParse errors as warnings
           if (results.errors?.length > 0) {
             const errMsgs = results.errors.slice(0, 3).map(e => `Row ${e.row}: ${e.message}`);
             warnings.push(...errMsgs);
           }
-          resolve({ text, warnings, rowCount: rows.length });
+          resolve({ text, warnings, rowCount: rows.length, rowMeta });
         },
         error: err => reject(new Error('CSV parse error: ' + err.message)),
       });
@@ -350,11 +368,11 @@ export async function readQuestionFile(file) {
  * Returns a Blob the caller can trigger a download from.
  */
 export function generateCsvTemplate() {
-  const header = 'question,option_a,option_b,option_c,option_d,answer,explanation';
+  const header = 'question,option_a,option_b,option_c,option_d,answer,explanation,course,topic,year';
   const rows = [
-    'What is the normal adult resting heart rate?,40–60 bpm,60–100 bpm,100–120 bpm,120–160 bpm,B,The normal adult resting heart rate is 60–100 beats per minute.',
-    'Which electrolyte imbalance causes Chvostek\'s sign?,Hyponatremia,Hypocalcemia,Hypokalemia,Hypermagnesemia,B,Hypocalcemia causes increased neuromuscular excitability. Chvostek\'s sign is elicited by tapping the facial nerve.',
-    'The priority nursing action for a patient in anaphylaxis is:,Administer antihistamine,Elevate the head of bed,Administer epinephrine IM,Apply a cold pack,C,Epinephrine (adrenaline) is the first-line treatment for anaphylaxis — it reverses bronchospasm and hypotension.',
+    'What is the normal adult resting heart rate?,40–60 bpm,60–100 bpm,100–120 bpm,120–160 bpm,B,The normal adult resting heart rate is 60–100 beats per minute.,Medical-Surgical,Cardiovascular,2023',
+    'Which electrolyte imbalance causes Chvostek\'s sign?,Hyponatremia,Hypocalcemia,Hypokalemia,Hypermagnesemia,B,Hypocalcemia causes increased neuromuscular excitability.,Medical-Surgical,Fluid & Electrolytes,2022',
+    'The priority nursing action for a patient in anaphylaxis is:,Administer antihistamine,Elevate the head of bed,Administer epinephrine IM,Apply a cold pack,C,Epinephrine is the first-line treatment for anaphylaxis.,Pharmacology,Emergency Drugs,2024',
   ];
   const csv = [header, ...rows].join('\n');
   return new Blob([csv], { type: 'text/csv;charset=utf-8;' });

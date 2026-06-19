@@ -232,6 +232,7 @@ export default function QuestionsManager() {
   const [fileImporting,  setFileImporting]  = useState(false);
   const [fileImportInfo, setFileImportInfo] = useState('');
   const [fileWarnings,   setFileWarnings]   = useState([]);
+  const [csvRowMeta,     setCsvRowMeta]     = useState([]); // per-row {course,topic,year} from CSV
   const [bulkMeta,       setBulkMeta]       = useState({
     category: 'general_nursing', examType: 'question_bank',
     year: '2024', subject: '', difficulty: 'medium', source: '',
@@ -314,7 +315,7 @@ export default function QuestionsManager() {
     setParseInfo('');
 
     try {
-      const { text, warnings, rowCount, fileType } = await readQuestionFile(file);
+      const { text, warnings, rowCount, fileType, rowMeta } = await readQuestionFile(file);
 
       if (!text.trim()) {
         setParseErr('The file appears to be empty or could not be read. Check the format and try again.');
@@ -324,6 +325,7 @@ export default function QuestionsManager() {
 
       setBulkText(text);
       if (warnings?.length > 0) setFileWarnings(warnings);
+      if (rowMeta?.length > 0)  setCsvRowMeta(rowMeta); else setCsvRowMeta([]);
 
       const lines = text.split('\n').filter(l => l.trim()).length;
       const typeLabel = fileType === 'csv' ? `CSV (${rowCount} rows)` : fileType === 'docx' ? 'Word document' : 'text file';
@@ -355,6 +357,19 @@ export default function QuestionsManager() {
     let parsed = parseQuestionsFromText(bulkText, answerText);
     if (parsed.length === 0) { setParseErr('Could not parse questions. Check the format guide below.'); return; }
     if (shuffleEnabled) parsed = shuffleAllQuestionsOptions(parsed);
+
+    // ── Merge inline CSV row metadata (course/topic/year per question) ───
+    if (csvRowMeta.length > 0) {
+      parsed = parsed.map((q, i) => {
+        const meta = csvRowMeta[i] || {};
+        return {
+          ...q,
+          _inlineCourse: meta.course || '',
+          _inlineTopic:  meta.topic  || '',
+          _inlineYear:   meta.year   || '',
+        };
+      });
+    }
 
     // ── Per-question validation ──────────────────────────────────────────
     const validated = parsed.map((q, i) => {
@@ -391,8 +406,10 @@ export default function QuestionsManager() {
     if (isMockExam && !bulkMeta.mockExamId) {
       toast('⚠️ Please select a Specialty for Mock Exam uploads.', 'error'); return;
     }
-    if (isQBank && !bulkMeta.course) {
-      toast('⚠️ Please select a Course for Question Bank uploads.', 'error'); return;
+    // For Question Bank: course is optional when CSV has inline course per question
+    const hasInlineCourses = parsedQs.some(q => q._inlineCourse);
+    if (isQBank && !bulkMeta.course && !hasInlineCourses) {
+      toast('⚠️ Please select a Course, or use a CSV with a "course" column for per-question courses.', 'error'); return;
     }
     if (!isQBank && bulkMeta.examType === 'course_drill' && !bulkMeta.course) {
       toast('⚠️ Please select a Course before uploading course drill questions.', 'error'); return;
@@ -445,7 +462,14 @@ export default function QuestionsManager() {
         const batch = writeBatch(db);
         parsedQs.slice(i, i + batchSize).forEach(q => {
           const ref  = doc(collection(db, 'questions'));
-          const data = formatQuestionForFirestore(q, bulkMeta);
+          // Per-question inline course/topic/year overrides global bulkMeta
+          const qMeta = {
+            ...bulkMeta,
+            course: q._inlineCourse || bulkMeta.course || '',
+            topic:  q._inlineTopic  || bulkMeta.topic  || '',
+            year:   q._inlineYear   || bulkMeta.year   || '2024',
+          };
+          const data = formatQuestionForFirestore(q, qMeta);
           batch.set(ref, {
             ...data,
             examId,
@@ -457,6 +481,51 @@ export default function QuestionsManager() {
           });
         });
         await batch.commit();
+      }
+
+      // ── Auto-create any missing courses in Firestore ─────────────────────
+      // Collect unique course names from inline CSV data
+      const inlineCourseNames = [...new Set(
+        parsedQs.map(q => q._inlineCourse).filter(Boolean)
+      )];
+
+      if (inlineCourseNames.length > 0) {
+        // Fetch existing course labels to avoid duplicates
+        const existingSnap = await getDocs(collection(db, 'courses'));
+        const existingLabels = new Set(
+          existingSnap.docs.map(d => (d.data().label || '').toLowerCase().trim())
+        );
+
+        const newCoursesBatch = writeBatch(db);
+        let newCoursesCount = 0;
+
+        for (const courseName of inlineCourseNames) {
+          if (!existingLabels.has(courseName.toLowerCase().trim())) {
+            // Generate a slug id from the course name
+            const newId = courseName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+            const courseRef = doc(db, 'courses', newId);
+            newCoursesBatch.set(courseRef, {
+              label:     courseName.trim(),
+              icon:      '📖',
+              category:  bulkMeta.category || 'general_nursing',
+              active:    true,
+              order:     999,
+              createdAt: serverTimestamp(),
+              autoCreated: true, // flag so admin knows it was auto-created
+            }, { merge: true }); // merge:true so existing docs aren't overwritten
+            newCoursesCount++;
+          }
+        }
+
+        if (newCoursesCount > 0) {
+          await newCoursesBatch.commit();
+          // Refresh local courses list
+          const refreshed = await getDocs(collection(db, 'courses'));
+          const all = refreshed.docs.map(d => ({ id: d.id, ...d.data() }));
+          all.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+          setFirestoreCourses(all);
+          toast(`✅ ${newCoursesCount} new course(s) auto-created and visible to students!`, 'success');
+        }
       }
 
       toast(`✅ "${examName}" — ${parsedQs.length} questions uploaded!`, 'success');
@@ -812,22 +881,31 @@ export default function QuestionsManager() {
                 background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.35)',
                 borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)',
               }}>
-                ⭐ <strong>Question Bank (Unified Pool)</strong> — upload once, used everywhere.
-                Tag with <strong>Course + Topic</strong>. They will feed Course Drill, Topic Drill, and Daily Practice automatically.
+                ⭐ <strong>Question Bank (Unified Pool)</strong> — upload once, used everywhere.<br />
+                Tag with <strong>Course + Topic + Year</strong> either here (applies to all) or per-row in your CSV.<br />
+                <span style={{ color:'var(--teal)', fontSize:12 }}>
+                  💡 CSV tip: add <code>course</code>, <code>topic</code>, <code>year</code> columns — each question will be tagged individually.
+                  Missing courses will be <strong>auto-created</strong> and instantly visible to students.
+                </span>
               </div>
             )}
 
             {showCourseField(bulkMeta.examType) && (
               <div className="form-group">
-                <label className="form-label" style={{ color:'var(--gold)' }}>Course * (required)</label>
+                <label className="form-label">
+                  Course {parsedQs.some(q => q._inlineCourse) ? '(optional — CSV has inline courses)' : '* (required)'}
+                </label>
                 <select className="form-input" value={bulkMeta.course} onChange={e=>setBulkMeta(m=>({...m,course:e.target.value}))}>
-                  <option value="">— Select Course —</option>
+                  <option value="">— Select Course (fallback) —</option>
                   {filteredCoursesFor(firestoreCourses, bulkMeta.category).map(c=>(
                     <option key={c.id} value={c.id}>{c.label}</option>
                   ))}
                 </select>
                 <div className="form-hint" style={{ fontSize:11 }}>
-                  Showing courses for <strong>{NURSING_CATEGORIES.find(c=>c.id===bulkMeta.category)?.shortLabel || bulkMeta.category}</strong>
+                  {parsedQs.some(q => q._inlineCourse)
+                    ? `✅ ${[...new Set(parsedQs.map(q=>q._inlineCourse).filter(Boolean))].length} unique course(s) detected in CSV — will be auto-assigned per question`
+                    : `Showing courses for ${NURSING_CATEGORIES.find(c=>c.id===bulkMeta.category)?.shortLabel || bulkMeta.category}`
+                  }
                 </div>
               </div>
             )}
@@ -846,10 +924,15 @@ export default function QuestionsManager() {
 
             {!['course_drill','topic_drill','daily_practice','question_bank','mock_exam'].includes(bulkMeta.examType) && (
               <div className="form-group">
-                <label className="form-label">Year</label>
+                <label className="form-label">Year {parsedQs.some(q => q._inlineYear) ? '(fallback — CSV has inline years)' : ''}</label>
                 <select className="form-input" value={bulkMeta.year} onChange={e=>setBulkMeta(m=>({...m,year:e.target.value}))}>
                   {EXAM_YEARS.map(y=><option key={y} value={y}>{y}</option>)}
                 </select>
+                {parsedQs.some(q => q._inlineYear) && (
+                  <div className="form-hint" style={{ color:'var(--teal)', fontSize:11 }}>
+                    ✅ Per-question years detected in CSV — used as override; this is only the fallback
+                  </div>
+                )}
               </div>
             )}
             <div className="form-group">
@@ -1102,6 +1185,26 @@ export default function QuestionsManager() {
                           </div>
                         )}
                         <div style={{ fontWeight:600, fontSize:14, marginBottom:8 }}>{q.question}</div>
+                        {/* Inline metadata badges */}
+                        {(q._inlineCourse || q._inlineTopic || q._inlineYear) && (
+                          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
+                            {q._inlineCourse && (
+                              <span style={{ fontSize:11, padding:'2px 8px', borderRadius:12, background:'rgba(13,148,136,0.12)', color:'var(--teal)', border:'1px solid rgba(13,148,136,0.3)', fontWeight:700 }}>
+                                📖 {q._inlineCourse}
+                              </span>
+                            )}
+                            {q._inlineTopic && (
+                              <span style={{ fontSize:11, padding:'2px 8px', borderRadius:12, background:'rgba(99,102,241,0.1)', color:'#6366f1', border:'1px solid rgba(99,102,241,0.25)', fontWeight:700 }}>
+                                🎯 {q._inlineTopic}
+                              </span>
+                            )}
+                            {q._inlineYear && (
+                              <span style={{ fontSize:11, padding:'2px 8px', borderRadius:12, background:'rgba(245,158,11,0.1)', color:'var(--gold)', border:'1px solid rgba(245,158,11,0.25)', fontWeight:700 }}>
+                                📅 {q._inlineYear}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                           {q.options.map((opt, j) => (
                             <div key={j} style={{
