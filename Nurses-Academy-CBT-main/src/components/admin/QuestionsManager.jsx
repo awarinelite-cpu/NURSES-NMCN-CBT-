@@ -201,6 +201,193 @@ function QuestionStatsTab() {
   );
 }
 
+
+// ── Admin Tools Tab ───────────────────────────────────────────────────────────
+function AdminToolsTab() {
+  const [retagState,  setRetagState]  = useState('idle'); // idle | scanning | done | error
+  const [retagCount,  setRetagCount]  = useState(0);
+  const [retagTotal,  setRetagTotal]  = useState(0);
+  const [retagLog,    setRetagLog]    = useState([]);
+  const [previewRows, setPreviewRows] = useState([]);
+  const [previewing,  setPreviewing]  = useState(false);
+
+  // Preview: find question_bank docs that have a year value
+  const handlePreview = async () => {
+    setPreviewing(true);
+    setPreviewRows([]);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('examType', '==', 'question_bank'),
+        where('active',   '==', true),
+      ));
+      const candidates = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(q => q.year && String(q.year).trim());
+      setPreviewRows(candidates.slice(0, 20)); // show first 20
+      setRetagTotal(candidates.length);
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  // Re-tag: update all qualifying docs in batches of 500
+  const handleRetag = async () => {
+    setRetagState('scanning');
+    setRetagCount(0);
+    setRetagLog([]);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('examType', '==', 'question_bank'),
+        where('active',   '==', true),
+      ));
+      const candidates = snap.docs
+        .map(d => ({ id: d.id, ref: d.ref, ...d.data() }))
+        .filter(q => q.year && String(q.year).trim());
+
+      setRetagTotal(candidates.length);
+      if (candidates.length === 0) {
+        setRetagLog(['No question_bank questions with a year value found — nothing to re-tag.']);
+        setRetagState('done');
+        return;
+      }
+
+      const BATCH_SIZE = 500;
+      let updated = 0;
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const slice = candidates.slice(i, i + BATCH_SIZE);
+        slice.forEach(q => {
+          batch.update(q.ref, { examType: 'past_questions', updatedAt: serverTimestamp() });
+        });
+        await batch.commit();
+        updated += slice.length;
+        setRetagCount(updated);
+        setRetagLog(prev => [...prev, `Batch ${Math.ceil((i+1)/BATCH_SIZE)}: updated ${slice.length} questions (${updated}/${candidates.length} total)`]);
+      }
+      setRetagState('done');
+    } catch(e) {
+      setRetagLog(prev => [...prev, 'ERROR: ' + e.message]);
+      setRetagState('error');
+    }
+  };
+
+  const TEAL = 'var(--teal)';
+  const done = retagState === 'done';
+  const running = retagState === 'scanning';
+
+  return (
+    <div style={{ maxWidth: 680 }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 900, fontSize: 18, color: 'var(--text-primary)', marginBottom: 6 }}>
+          🔧 Admin Tools
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          One-click utilities for fixing data issues.
+        </div>
+      </div>
+
+      {/* ── Re-tag Tool ── */}
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 16, padding: 24, marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 24 }}>🏷️</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+              Re-tag Questions as Past Questions
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Finds all <code style={{ background:'var(--bg-tertiary)', padding:'1px 5px', borderRadius:4 }}>question_bank</code> questions
+              that have a <strong>year</strong> value and changes their
+              <code style={{ background:'var(--bg-tertiary)', padding:'1px 5px', borderRadius:4 }}>examType</code> to
+              <code style={{ background:'var(--bg-tertiary)', padding:'1px 5px', borderRadius:4 }}>past_questions</code>.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#92400E',
+        }}>
+          ⚠️ This updates Firestore directly and cannot be undone. Preview first to confirm which questions will be affected.
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handlePreview}
+            disabled={previewing || running}
+            style={{ fontWeight: 700 }}
+          >
+            {previewing ? '⏳ Scanning…' : '🔍 Preview Affected Questions'}
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleRetag}
+            disabled={running || done}
+            style={{ fontWeight: 700, background: done ? '#16A34A' : undefined }}
+          >
+            {running ? `⏳ Updating… (${retagCount}/${retagTotal})` : done ? `✅ Done — ${retagCount} updated` : '🚀 Run Re-tag'}
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        {running && retagTotal > 0 && (
+          <div style={{ background: 'var(--bg-tertiary)', borderRadius: 99, height: 8, marginBottom: 12, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 99, background: TEAL,
+              width: `${Math.round((retagCount / retagTotal) * 100)}%`,
+              transition: 'width 0.3s',
+            }} />
+          </div>
+        )}
+
+        {/* Preview rows */}
+        {previewRows.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              Preview — first {previewRows.length} of {retagTotal} questions that will be re-tagged:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+              {previewRows.map(q => (
+                <div key={q.id} style={{
+                  background: 'var(--bg-tertiary)', borderRadius: 8, padding: '6px 10px',
+                  fontSize: 12, display: 'flex', gap: 10, alignItems: 'center',
+                }}>
+                  <span style={{ color: '#F59E0B', fontWeight: 700, flexShrink: 0 }}>📅 {q.year}</span>
+                  <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{q.category}</span>
+                  <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(q.question || '').slice(0, 80)}…
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Log */}
+        {retagLog.length > 0 && (
+          <div style={{
+            background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 14px',
+            fontSize: 12, fontFamily: 'monospace', maxHeight: 160, overflowY: 'auto',
+            color: retagState === 'error' ? '#EF4444' : 'var(--text-primary)',
+          }}>
+            {retagLog.map((line, i) => <div key={i}>{line}</div>)}
+            {done && <div style={{ color: '#16A34A', fontWeight: 700, marginTop: 4 }}>
+              ✅ All done! Refresh the Questions list to verify.
+            </div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function QuestionsManager() {
   const { toast }    = useToast();
   const [urlParams]  = useSearchParams();
@@ -682,6 +869,7 @@ export default function QuestionsManager() {
           ['bulk_upload', '📤 Bulk\nUpload'],
           ['stats',       '📊 Usage\nStats'],
           ['edit',        '✏️ Quick\nEdit'],
+          ['tools',       '🔧 Admin\nTools'],
         ].map(([id, label]) => (
           <button key={id} style={{
             ...styles.tabBtn,
@@ -1341,12 +1529,15 @@ export default function QuestionsManager() {
 
       {/* ── STATS TAB ── */}
       {tab === 'stats' && <QuestionStatsTab />}
+
+      {/* ── TOOLS TAB ── */}
+      {tab === 'tools' && <AdminToolsTab />}
     </div>
   );
 }
 
 const styles = {
-  tabBar:     { display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'100%', boxSizing:'border-box' },
+  tabBar:     { display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'100%', boxSizing:'border-box' },
   tabBtn:     { padding:'8px 4px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700, transition:'all 0.2s', textAlign:'center', lineHeight:1.3, whiteSpace:'normal', wordBreak:'break-word' },
   filterBar:  { display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' },
   metaGrid:   { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 },
