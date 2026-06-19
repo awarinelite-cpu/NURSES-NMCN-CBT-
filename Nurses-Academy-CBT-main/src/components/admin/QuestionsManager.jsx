@@ -494,16 +494,39 @@ export default function QuestionsManager() {
       });
       const examId = examDoc.id;
 
+      // ── Resolve inline CSV course names → real course doc IDs ────────────
+      // Course/Topic Drill query questions with where('course','==', course.id),
+      // so a question's `course` field must always be an actual courses/{id},
+      // never the raw CSV label. Look up existing courses by label first;
+      // only fall back to a fresh slug for genuinely new courses.
+      const hasInlineCourseRows = parsedQs.some(q => q._inlineCourse);
+      let existingCoursesSnap = null;
+      const labelToId = new Map();
+      if (hasInlineCourseRows) {
+        existingCoursesSnap = await getDocs(collection(db, 'courses'));
+        existingCoursesSnap.docs.forEach(d => {
+          const label = (d.data().label || '').toLowerCase().trim();
+          if (label) labelToId.set(label, d.id);
+        });
+      }
+      const resolveCourseId = (rawName) => {
+        const trimmed = (rawName || '').trim();
+        if (!trimmed) return '';
+        return labelToId.get(trimmed.toLowerCase())
+          || trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      };
+
       // Upload questions in batches of 500
       const batchSize = 500;
       for (let i = 0; i < parsedQs.length; i += batchSize) {
         const batch = writeBatch(db);
         parsedQs.slice(i, i + batchSize).forEach(q => {
           const ref  = doc(collection(db, 'questions'));
-          // Per-question inline course/topic/year overrides global bulkMeta
+          // Per-question inline course/topic/year overrides global bulkMeta.
+          // Inline course names are resolved to a real course doc ID above.
           const qMeta = {
             ...bulkMeta,
-            course: q._inlineCourse || bulkMeta.course || '',
+            course: q._inlineCourse ? resolveCourseId(q._inlineCourse) : (bulkMeta.course || ''),
             topic:  q._inlineTopic  || bulkMeta.topic  || '',
             year:   q._inlineYear   || bulkMeta.year   || '2024',
           };
@@ -522,46 +545,38 @@ export default function QuestionsManager() {
       }
 
       // ── Auto-create any missing courses in Firestore ─────────────────────
-      // Collect unique course names from inline CSV data
-      const inlineCourseNames = [...new Set(
-        parsedQs.map(q => q._inlineCourse).filter(Boolean)
-      )];
+      // Group inline CSV rows by the *same resolved course ID* used on the
+      // questions above, so topics and course docs stay in sync with them.
+      if (hasInlineCourseRows) {
+        const existingIds = new Set(existingCoursesSnap.docs.map(d => d.id));
+        const courseGroups = {}; // courseId -> { label, topics: Set }
 
-      if (inlineCourseNames.length > 0) {
-        // Fetch existing course labels to avoid duplicates
-        const existingSnap = await getDocs(collection(db, 'courses'));
-        const existingLabels = new Set(
-          existingSnap.docs.map(d => (d.data().label || '').toLowerCase().trim())
-        );
+        parsedQs.forEach(q => {
+          const rawName = (q._inlineCourse || '').trim();
+          if (!rawName) return;
+          const courseId = resolveCourseId(rawName);
+          if (!courseId) return;
+          if (!courseGroups[courseId]) courseGroups[courseId] = { label: rawName, topics: new Set() };
+          const tp = (q._inlineTopic || '').trim();
+          if (tp) courseGroups[courseId].topics.add(tp);
+        });
 
         const newCoursesBatch = writeBatch(db);
         let newCoursesCount = 0;
 
-        // Build map: courseName -> unique topics from CSV rows
-        const courseTopicsMap = {};
-        parsedQs.forEach(q => {
-          const cn = (q._inlineCourse || '').trim();
-          const tp = (q._inlineTopic  || '').trim();
-          if (cn) {
-            if (!courseTopicsMap[cn]) courseTopicsMap[cn] = new Set();
-            if (tp) courseTopicsMap[cn].add(tp);
-          }
-        });
+        for (const [courseId, { label, topics: topicSet }] of Object.entries(courseGroups)) {
+          const topics    = [...topicSet];
+          const courseRef = doc(db, 'courses', courseId);
 
-        for (const courseName of inlineCourseNames) {
-          const topics    = [...(courseTopicsMap[courseName] || [])];
-          const newId     = courseName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-          const courseRef = doc(db, 'courses', newId);
-
-          if (!existingLabels.has(courseName.toLowerCase().trim())) {
+          if (!existingIds.has(courseId)) {
             // New course — create with topics array populated from the CSV
             newCoursesBatch.set(courseRef, {
-              label:       courseName.trim(),
+              label,
               icon:        '📖',
               category:    bulkMeta.category || 'general_nursing',
               active:      true,
               order:       999,
-              topics:      topics,
+              topics,
               createdAt:   serverTimestamp(),
               autoCreated: true,
             }, { merge: true });
@@ -574,7 +589,7 @@ export default function QuestionsManager() {
           }
         }
 
-        if (newCoursesCount > 0 || inlineCourseNames.length > 0) {
+        if (Object.keys(courseGroups).length > 0) {
           await newCoursesBatch.commit();
           // Refresh local courses list
           const refreshed = await getDocs(collection(db, 'courses'));
