@@ -29,6 +29,58 @@ import QuestionNoteButton    from '../shared/QuestionNoteButton';
 import { fetchNotesMap }     from '../../utils/notesUtils';
 import ShareResultCard       from '../shared/ShareResultCard';
 
+// ── Personal Note Modal ───────────────────────────────────────────────────────
+function NoteModal({ questionId, userId, existingNote, onClose, onSaved }) {
+  const [text, setText] = useState(existingNote || '');
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      const { doc: fDoc, setDoc: fSetDoc, serverTimestamp: fST, deleteDoc: fDel } = await import('firebase/firestore');
+      const { db: fDb } = await import('../../firebase/config');
+      const noteId = `${userId}_${questionId.replace(/\//g, '__')}`;
+      const ref = fDoc(fDb, 'questionNotes', noteId);
+      if (text.trim()) {
+        await fSetDoc(ref, { userId, questionId, note: text.trim(), updatedAt: fST() }, { merge: true });
+        onSaved(questionId, text.trim());
+      } else {
+        await fDel(ref).catch(() => {});
+        onSaved(questionId, '');
+      }
+      onClose();
+    } catch (e) { console.error('Note save error:', e); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: '20px 20px 16px 16px', padding: 24, width: '100%', maxWidth: 560, boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>📝 Personal Note</div>
+          <button onClick={onClose} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, fontFamily: "'Times New Roman', Times, serif" }}>
+          Private note — only you can see this.
+        </div>
+        <textarea
+          value={text} onChange={e => setText(e.target.value)}
+          placeholder={'e.g. "Remember: Digoxin toxicity → bradycardia + yellow halos."'}
+          rows={4}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, resize: 'vertical', boxSizing: 'border-box' }}
+          autoFocus
+        />
+        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '11px', borderRadius: 10, cursor: saving ? 'not-allowed' : 'pointer', background: 'var(--teal)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : text.trim() ? '💾 Save Note' : '🗑 Delete Note'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Confetti burst (fires on score ≥ 70%) ────────────────────────────────────
 function Confetti({ active }) {
   const canvasRef = useRef(null);
