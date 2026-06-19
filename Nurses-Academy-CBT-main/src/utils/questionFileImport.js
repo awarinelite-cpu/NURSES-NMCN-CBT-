@@ -363,6 +363,74 @@ export async function readQuestionFile(file) {
   );
 }
 
+
+/**
+ * Parse a CSV file directly into question objects — bypasses the text round-trip
+ * so course/topic/year per row are always accurately preserved.
+ * Returns Promise<{ questions[], warnings[], rowCount }>
+ * Each question object has the same shape as parseQuestionsFromText output plus
+ * _inlineCourse, _inlineTopic, _inlineYear fields.
+ */
+export function readCsvFileAsQuestions(file) {
+  return new Promise((resolve, reject) => {
+    import('papaparse').then(({ default: Papa }) => {
+      Papa.parse(file, {
+        header:           true,
+        skipEmptyLines:   true,
+        transformHeader:  h => h.trim(),
+        complete: results => {
+          const rows = results.data || [];
+          if (rows.length === 0) {
+            resolve({ questions: [], warnings: ['CSV appears to be empty.'], rowCount: 0 });
+            return;
+          }
+
+          const headers = Object.keys(rows[0]);
+          const colMap  = detectColumnMap(headers);
+          const warnings = [];
+
+          if (!colMap.question) {
+            colMap.question = headers[0];
+            warnings.push(`No "question" column — using first column "${headers[0]}" as question text.`);
+          }
+          if (!colMap.answer) {
+            warnings.push('No answer column found — questions uploaded without a marked correct answer.');
+          }
+          if (results.errors?.length > 0) {
+            results.errors.slice(0, 3).forEach(e => warnings.push(`Row ${e.row}: ${e.message}`));
+          }
+
+          const questions = [];
+          rows.forEach((row, i) => {
+            const { question, options, answerLetter, explanation, course, topic, year } = extractRowFields(row, colMap);
+            if (!question) return; // skip blank rows
+
+            // Resolve correctIndex from answerLetter
+            const letterIdx = answerLetter ? OPT_LETTERS.indexOf(answerLetter.toUpperCase()) : -1;
+            const correctIndex = letterIdx >= 0 ? letterIdx : 0;
+
+            questions.push({
+              question:             question.trim(),
+              options:              options.length >= 2 ? options : ['', '', '', ''],
+              correctIndex,
+              explanation:          explanation || '',
+              imageUrl:             '',
+              explanationImageUrl:  '',
+              _hasAnswer:           letterIdx >= 0,
+              _inlineCourse:        course || '',
+              _inlineTopic:         topic  || '',
+              _inlineYear:          year   || '',
+            });
+          });
+
+          resolve({ questions, warnings, rowCount: rows.length });
+        },
+        error: err => reject(new Error('CSV parse error: ' + err.message)),
+      });
+    }).catch(reject);
+  });
+}
+
 /**
  * Generate a downloadable CSV template so admins know the expected format.
  * Returns a Blob the caller can trigger a download from.
