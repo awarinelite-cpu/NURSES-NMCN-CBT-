@@ -50,10 +50,15 @@ const EXTENDED_EXAM_TYPES = [
     label: '🏥 Mock Exam (by Specialty)',
     hint:  'Select the specialty below. Questions appear instantly on the student Mock Exam page.',
   },
-  ...ALL_EXAM_TYPES.filter(t => !['topic_drill','course_drill','daily_practice','mock_exam'].includes(t.id)),
-  { id: 'topic_drill',    label: 'Topic Drill (Legacy)', hint: '' },
-  { id: 'course_drill',   label: 'Course Drill (Legacy)', hint: '' },
-  { id: 'daily_practice', label: 'Daily Practice (Legacy)', hint: '' },
+  ...ALL_EXAM_TYPES.filter(t => !['topic_drill','course_drill','daily_practice','mock_exam','question_bank'].includes(t.id)),
+];
+
+// Legacy types kept ONLY for the filter/list view — not shown as upload options
+const FILTER_EXAM_TYPES = [
+  ...EXTENDED_EXAM_TYPES,
+  { id: 'topic_drill',    label: 'Topic Drill (Legacy)'    },
+  { id: 'course_drill',   label: 'Course Drill (Legacy)'   },
+  { id: 'daily_practice', label: 'Daily Practice (Legacy)' },
 ];
 
 // ── Question Usage Stats Tab ──────────────────────────────────────────────────
@@ -524,7 +529,7 @@ export default function QuestionsManager() {
             </select>
             <select className="form-input" style={{ height:38, width:230 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
               <option value="">All Types</option>
-              {EXTENDED_EXAM_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              {FILTER_EXAM_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
             <select className="form-input" style={{ height:38, width:120 }} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
               <option value="">All Years</option>
@@ -563,6 +568,9 @@ export default function QuestionsManager() {
                             {q.examType === 'question_bank' ? '⭐ Pool'
                            : q.examType === 'mock_exam'
                              ? `🏥 ${MOCK_EXAM_SPECIALTIES.find(s => s.id === q.mockExamId)?.label?.replace(/^.{2}/,'').trim() || 'Mock'}`
+                           : q.examType === 'topic_drill'    ? '📚 Topic (Legacy)'
+                           : q.examType === 'course_drill'   ? '📖 Course (Legacy)'
+                           : q.examType === 'daily_practice' ? '📅 Daily (Legacy)'
                            : q.examType}
                           </span>
                         </td>
@@ -609,6 +617,9 @@ export default function QuestionsManager() {
               <select className="form-input" value={form.examType} onChange={e=>setForm(f=>({...f,examType:e.target.value,course:'',topic:'',mockExamId:''}))}>
                 {EXTENDED_EXAM_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
+              <div className="form-hint" style={{ color:'var(--teal)', fontSize:11 }}>
+                💡 Use <strong>Question Bank</strong> for all drills (replaces legacy Topic/Course/Daily types)
+              </div>
             </div>
 
             {/* Mock Exam specialty picker */}
@@ -734,6 +745,9 @@ export default function QuestionsManager() {
               <select className="form-input" value={bulkMeta.examType} onChange={e=>setBulkMeta(m=>({...m,examType:e.target.value,course:'',topic:'',mockExamId:''}))}>
                 {EXTENDED_EXAM_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
+              <div className="form-hint" style={{ color:'var(--teal)', fontSize:11 }}>
+                💡 Use <strong>Question Bank</strong> for all drills — it replaces Topic Drill, Course Drill &amp; Daily Practice (legacy types removed from upload)
+              </div>
             </div>
 
             {bulkMeta.examType !== 'mock_exam' && (
