@@ -724,12 +724,23 @@ export default function QuestionsManager() {
           // Practice all match on course/topic/category only and never check
           // examType, so visibility there is unaffected either way.
           const hasRealYear = isQBank && !!q._inlineYear;
+
+          // Resolve inline category: if CSV row has a category column, use it.
+          // Accepts slug (general_nursing) or human label (General Nursing → general_nursing).
+          const resolvedCategory = (() => {
+            const raw = (q._inlineCategory || '').trim();
+            if (!raw) return bulkMeta.category || 'general_nursing';
+            if (/^[a-z0-9_]+$/.test(raw)) return raw; // already a slug
+            return raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/, '');
+          })();
+
           const qMeta = {
             ...bulkMeta,
             examType: hasRealYear ? 'past_questions' : bulkMeta.examType,
-            course: q._inlineCourse ? resolveCourseId(q._inlineCourse) : (bulkMeta.course || ''),
-            topic:  q._inlineTopic  || bulkMeta.topic  || '',
-            year:   q._inlineYear   || bulkMeta.year   || '2024',
+            course:   q._inlineCourse ? resolveCourseId(q._inlineCourse) : (bulkMeta.course || ''),
+            topic:    q._inlineTopic    || bulkMeta.topic  || '',
+            year:     q._inlineYear     || bulkMeta.year   || '2024',
+            category: resolvedCategory,
           };
           const data = formatQuestionForFirestore(q, qMeta);
           batch.set(ref, {
@@ -774,7 +785,7 @@ export default function QuestionsManager() {
             newCoursesBatch.set(courseRef, {
               label,
               icon:        '📖',
-              category:    bulkMeta.category || 'general_nursing',
+              category:    bulkMeta.category || resolvedCategory || 'general_nursing',
               active:      true,
               order:       999,
               topics,
