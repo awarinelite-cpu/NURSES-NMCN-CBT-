@@ -17,7 +17,7 @@ import {
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
 import EditQuestionsTab from './EditQuestionsTab';
-import { readQuestionFile, generateCsvTemplate } from '../../utils/questionFileImport';
+import { readQuestionFile, readCsvFileAsQuestions, generateCsvTemplate } from '../../utils/questionFileImport';
 
 const MOCK_EXAM_SPECIALTIES = [
   { id: 'general_nursing',     label: '🏥 General Nursing'     },
@@ -315,6 +315,42 @@ export default function QuestionsManager() {
     setParseInfo('');
 
     try {
+      const ext = (file.name || '').toLowerCase().split('.').pop();
+
+      if (ext === 'csv') {
+        // ── Direct CSV parse: bypass text round-trip to preserve course/topic/year ──
+        const { questions: directQs, warnings, rowCount } = await readCsvFileAsQuestions(file);
+        if (directQs.length === 0) {
+          setParseErr('CSV appears to be empty or could not be parsed. Check the format and try again.');
+          setFileImporting(false);
+          return;
+        }
+        if (warnings?.length > 0) setFileWarnings(warnings);
+        // Validate each question
+        const validated = directQs.map((q, i) => {
+          const issues = [];
+          if (!q.question?.trim())               issues.push('Missing question text');
+          if (!q._hasAnswer)                     issues.push('No answer set');
+          const nonEmpty = (q.options || []).filter(o => o.trim());
+          if (nonEmpty.length < 2)               issues.push('Fewer than 2 options');
+          if (nonEmpty.length < 4)               issues.push(`Only ${nonEmpty.length} options (expected 4)`);
+          return { ...q, _validationIssues: issues };
+        });
+        const withIssues = validated.filter(q => q._validationIssues.length > 0).length;
+        const withoutAnswer = validated.filter(q => !q._hasAnswer).length;
+        setParsedQs(validated);
+        let info = `Parsed ${validated.length} questions from CSV.`;
+        if (withoutAnswer > 0) info += ` ⚠️ ${withoutAnswer} have no answer.`;
+        if (withIssues > 0)    info += ` 🔴 ${withIssues} have validation issues.`;
+        setParseInfo(info);
+        setBulkText(''); // clear text area — not needed for CSV
+        setFileImportInfo(`📂 "${file.name}" — ${rowCount} CSV rows parsed directly. ${validated.length} questions ready to upload.`);
+        toast(`${validated.length} questions parsed! Review then upload.`, 'success');
+        setFileImporting(false);
+        return;
+      }
+
+      // ── Non-CSV (docx, txt): use text round-trip as before ──
       const { text, warnings, rowCount, fileType, rowMeta } = await readQuestionFile(file);
 
       if (!text.trim()) {
@@ -328,7 +364,7 @@ export default function QuestionsManager() {
       if (rowMeta?.length > 0)  setCsvRowMeta(rowMeta); else setCsvRowMeta([]);
 
       const lines = text.split('\n').filter(l => l.trim()).length;
-      const typeLabel = fileType === 'csv' ? `CSV (${rowCount} rows)` : fileType === 'docx' ? 'Word document' : 'text file';
+      const typeLabel = fileType === 'docx' ? 'Word document' : 'text file';
       setFileImportInfo(`📂 "${file.name}" loaded as ${typeLabel} — ${lines} lines of question text extracted. Click "Parse Questions" to preview.`);
 
       toast(`File loaded! Click Parse Questions to continue.`, 'success');
@@ -358,15 +394,17 @@ export default function QuestionsManager() {
     if (parsed.length === 0) { setParseErr('Could not parse questions. Check the format guide below.'); return; }
     if (shuffleEnabled) parsed = shuffleAllQuestionsOptions(parsed);
 
-    // ── Merge inline CSV row metadata (course/topic/year per question) ───
+    // ── Merge inline CSV row metadata for non-CSV uploads (txt/docx) ───────
+    // For CSV files this is handled at parse time in readCsvFileAsQuestions.
+    // For text/docx, use index-based rowMeta as best-effort fallback.
     if (csvRowMeta.length > 0) {
       parsed = parsed.map((q, i) => {
         const meta = csvRowMeta[i] || {};
         return {
           ...q,
-          _inlineCourse: meta.course || '',
-          _inlineTopic:  meta.topic  || '',
-          _inlineYear:   meta.year   || '',
+          _inlineCourse: q._inlineCourse || meta.course || '',
+          _inlineTopic:  q._inlineTopic  || meta.topic  || '',
+          _inlineYear:   q._inlineYear   || meta.year   || '',
         };
       });
     }
