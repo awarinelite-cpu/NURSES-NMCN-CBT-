@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc,
-  query, where, orderBy, serverTimestamp, writeBatch
+  query, where, orderBy, serverTimestamp, writeBatch, arrayUnion
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { NURSING_CATEGORIES, ALL_EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS, DEFAULT_NURSING_COURSES } from '../../data/categories';
@@ -499,32 +499,52 @@ export default function QuestionsManager() {
         const newCoursesBatch = writeBatch(db);
         let newCoursesCount = 0;
 
+        // Build map: courseName -> unique topics from CSV rows
+        const courseTopicsMap = {};
+        parsedQs.forEach(q => {
+          const cn = (q._inlineCourse || '').trim();
+          const tp = (q._inlineTopic  || '').trim();
+          if (cn) {
+            if (!courseTopicsMap[cn]) courseTopicsMap[cn] = new Set();
+            if (tp) courseTopicsMap[cn].add(tp);
+          }
+        });
+
         for (const courseName of inlineCourseNames) {
+          const topics    = [...(courseTopicsMap[courseName] || [])];
+          const newId     = courseName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+          const courseRef = doc(db, 'courses', newId);
+
           if (!existingLabels.has(courseName.toLowerCase().trim())) {
-            // Generate a slug id from the course name
-            const newId = courseName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-            const courseRef = doc(db, 'courses', newId);
+            // New course — create with topics array populated from the CSV
             newCoursesBatch.set(courseRef, {
-              label:     courseName.trim(),
-              icon:      '📖',
-              category:  bulkMeta.category || 'general_nursing',
-              active:    true,
-              order:     999,
-              createdAt: serverTimestamp(),
-              autoCreated: true, // flag so admin knows it was auto-created
-            }, { merge: true }); // merge:true so existing docs aren't overwritten
+              label:       courseName.trim(),
+              icon:        '📖',
+              category:    bulkMeta.category || 'general_nursing',
+              active:      true,
+              order:       999,
+              topics:      topics,
+              createdAt:   serverTimestamp(),
+              autoCreated: true,
+            }, { merge: true });
             newCoursesCount++;
+          } else if (topics.length > 0) {
+            // Existing course — merge new topics without overwriting existing ones
+            newCoursesBatch.update(courseRef, {
+              topics: arrayUnion(...topics),
+            });
           }
         }
 
-        if (newCoursesCount > 0) {
+        if (newCoursesCount > 0 || inlineCourseNames.length > 0) {
           await newCoursesBatch.commit();
           // Refresh local courses list
           const refreshed = await getDocs(collection(db, 'courses'));
           const all = refreshed.docs.map(d => ({ id: d.id, ...d.data() }));
           all.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
           setFirestoreCourses(all);
-          toast(`✅ ${newCoursesCount} new course(s) auto-created and visible to students!`, 'success');
+          if (newCoursesCount > 0)
+            toast(`✅ ${newCoursesCount} new course(s) auto-created with topics!`, 'success');
         }
       }
 
