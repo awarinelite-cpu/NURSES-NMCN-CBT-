@@ -761,14 +761,26 @@ export default function QuestionsManager() {
       // questions above, so topics and course docs stay in sync with them.
       if (hasInlineCourseRows) {
         const existingIds = new Set(existingCoursesSnap.docs.map(d => d.id));
-        const courseGroups = {}; // courseId -> { label, topics: Set }
+        const courseGroups = {}; // courseId -> { label, topics: Set, category }
+
+        // Resolve a question's inline category to a slug, same logic as the
+        // upload loop above (kept local here since that variable is scoped
+        // to the other loop's callback and isn't accessible in this one).
+        const resolveQCategory = (q) => {
+          const raw = (q._inlineCategory || '').trim();
+          if (!raw) return bulkMeta.category || 'general_nursing';
+          if (/^[a-z0-9_]+$/.test(raw)) return raw;
+          return raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        };
 
         parsedQs.forEach(q => {
           const rawName = (q._inlineCourse || '').trim();
           if (!rawName) return;
           const courseId = resolveCourseId(rawName);
           if (!courseId) return;
-          if (!courseGroups[courseId]) courseGroups[courseId] = { label: rawName, topics: new Set() };
+          if (!courseGroups[courseId]) {
+            courseGroups[courseId] = { label: rawName, topics: new Set(), category: resolveQCategory(q) };
+          }
           const tp = (q._inlineTopic || '').trim();
           if (tp) courseGroups[courseId].topics.add(tp);
         });
@@ -776,7 +788,7 @@ export default function QuestionsManager() {
         const newCoursesBatch = writeBatch(db);
         let newCoursesCount = 0;
 
-        for (const [courseId, { label, topics: topicSet }] of Object.entries(courseGroups)) {
+        for (const [courseId, { label, topics: topicSet, category: groupCategory }] of Object.entries(courseGroups)) {
           const topics    = [...topicSet];
           const courseRef = doc(db, 'courses', courseId);
 
@@ -785,7 +797,7 @@ export default function QuestionsManager() {
             newCoursesBatch.set(courseRef, {
               label,
               icon:        '📖',
-              category:    bulkMeta.category || resolvedCategory || 'general_nursing',
+              category:    groupCategory || bulkMeta.category || 'general_nursing',
               active:      true,
               order:       999,
               topics,
