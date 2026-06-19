@@ -7,7 +7,7 @@ import {
   query, where, orderBy, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { NURSING_CATEGORIES, ALL_EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS } from '../../data/categories';
+import { NURSING_CATEGORIES, ALL_EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS, DEFAULT_NURSING_COURSES } from '../../data/categories';
 import {
   parseQuestionsFromText,
   parseAnswerKey,
@@ -60,6 +60,22 @@ const FILTER_EXAM_TYPES = [
   { id: 'course_drill',   label: 'Course Drill (Legacy)'   },
   { id: 'daily_practice', label: 'Daily Practice (Legacy)' },
 ];
+
+// ── Return courses relevant to a given category ───────────────────────────────
+// Merges Firestore courses with DEFAULT_NURSING_COURSES, deduplicates by id,
+// then filters to only those whose `category` matches the selected category.
+// Falls back to ALL courses if none match (shouldn't happen in practice).
+function filteredCoursesFor(firestoreCourses, category) {
+  // Merge: Firestore wins on duplicates (admin may have customised labels)
+  const firestoreIds = new Set(firestoreCourses.map(c => c.id));
+  const merged = [
+    ...firestoreCourses,
+    ...DEFAULT_NURSING_COURSES.filter(c => !firestoreIds.has(c.id)),
+  ];
+  const filtered = merged.filter(c => c.category === category);
+  // If no courses tagged for this specialty, fall back to all
+  return filtered.length > 0 ? filtered : merged;
+}
 
 // ── Question Usage Stats Tab ──────────────────────────────────────────────────
 function QuestionStatsTab() {
@@ -608,7 +624,7 @@ export default function QuestionsManager() {
           <div style={styles.metaGrid}>
             <div className="form-group">
               <label className="form-label">Category</label>
-              <select className="form-input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+              <select className="form-input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value,course:''}))}>
                 {NURSING_CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.shortLabel}</option>)}
               </select>
             </div>
@@ -663,8 +679,13 @@ export default function QuestionsManager() {
                 <label className="form-label">Course *</label>
                 <select className="form-input" value={form.course} onChange={e=>setForm(f=>({...f,course:e.target.value}))}>
                   <option value="">— Select Course —</option>
-                  {firestoreCourses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  {filteredCoursesFor(firestoreCourses, form.category).map(c=>(
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
                 </select>
+                <div className="form-hint" style={{ fontSize:11 }}>
+                  Showing courses for <strong>{NURSING_CATEGORIES.find(c=>c.id===form.category)?.shortLabel || form.category}</strong>
+                </div>
               </div>
             )}
             {showTopicField(form.examType) && (
@@ -753,7 +774,7 @@ export default function QuestionsManager() {
             {bulkMeta.examType !== 'mock_exam' && (
               <div className="form-group">
                 <label className="form-label">Category</label>
-                <select className="form-input" value={bulkMeta.category} onChange={e=>setBulkMeta(m=>({...m,category:e.target.value}))}>
+                <select className="form-input" value={bulkMeta.category} onChange={e=>setBulkMeta(m=>({...m,category:e.target.value,course:''}))}>
                   {NURSING_CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.shortLabel}</option>)}
                 </select>
               </div>
@@ -801,8 +822,13 @@ export default function QuestionsManager() {
                 <label className="form-label" style={{ color:'var(--gold)' }}>Course * (required)</label>
                 <select className="form-input" value={bulkMeta.course} onChange={e=>setBulkMeta(m=>({...m,course:e.target.value}))}>
                   <option value="">— Select Course —</option>
-                  {firestoreCourses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  {filteredCoursesFor(firestoreCourses, bulkMeta.category).map(c=>(
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
                 </select>
+                <div className="form-hint" style={{ fontSize:11 }}>
+                  Showing courses for <strong>{NURSING_CATEGORIES.find(c=>c.id===bulkMeta.category)?.shortLabel || bulkMeta.category}</strong>
+                </div>
               </div>
             )}
             {showTopicField(bulkMeta.examType) && (
