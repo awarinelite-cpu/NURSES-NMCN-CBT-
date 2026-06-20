@@ -42,7 +42,7 @@
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const OPT_LETTERS = ['A', 'B', 'C', 'D', 'E'];
+export const OPT_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 /**
  * Normalize a header string for loose matching.
@@ -100,7 +100,7 @@ function extractRowFields(row, colMap) {
  * Turn a freeform "answer" cell value into a letter A-E (or null).
  * Handles: "B", "b", "2", "B. Some text", full option text, "2nd option", etc.
  */
-function resolveAnswerLetter(raw, options) {
+export function resolveAnswerLetter(raw, options) {
   if (!raw) return null;
   const s = raw.trim();
 

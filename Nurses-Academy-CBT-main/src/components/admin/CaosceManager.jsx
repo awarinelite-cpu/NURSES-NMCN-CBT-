@@ -13,7 +13,7 @@
 //     active, createdAt, updatedAt
 //   }
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   collection, getDocs, addDoc, deleteDoc, updateDoc,
   doc, serverTimestamp, query, where, writeBatch,
@@ -21,6 +21,7 @@ import {
 import { db } from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import { useToast } from '../shared/Toast';
+import { readCaosceCsvFile, generateCaosceCsvTemplate } from '../../utils/caosceCsvImport';
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -66,6 +67,8 @@ export default function CaosceManager() {
   const [showBulk,          setShowBulk]          = useState(false);
   const [bulkText,          setBulkText]          = useState('');
   const [bulkBusy,          setBulkBusy]          = useState(false);
+  const [csvBusy,           setCsvBusy]           = useState(false);
+  const csvInputRef = useRef(null);
 
   // Form state
   const [fTopic,    setFTopic]    = useState('');
@@ -246,6 +249,41 @@ export default function CaosceManager() {
     }
   };
 
+  // ── CSV file upload → populates the same bulk textarea as JSON paste ───────
+  const handleCsvFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvBusy(true);
+    try {
+      const { cases, warnings, rowCount } = await readCaosceCsvFile(file, selectedSpecialty?.id);
+      if (cases.length === 0) {
+        toast?.(warnings[0] || 'No valid cases found in CSV', 'error');
+        return;
+      }
+      setBulkText(JSON.stringify(cases, null, 2));
+      const msg = `Loaded ${cases.length} case${cases.length !== 1 ? 's' : ''} from ${rowCount} row${rowCount !== 1 ? 's' : ''} — review below, then click Import Cases`;
+      toast?.(warnings.length ? `${msg}. ${warnings[0]}` : msg, warnings.length ? 'warning' : 'success');
+    } catch (err) {
+      console.error(err);
+      toast?.(err.message || 'Failed to read CSV file', 'error');
+    } finally {
+      setCsvBusy(false);
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const blob = generateCaosceCsvTemplate();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'caosce_cases_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // ── Procedure/CBT row helpers ────────────────────────────────────────────────
   const updateProcedure = (idx, patch) => setFProcedures(prev => prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
   const addProcedureRow = () => setFProcedures(prev => [...prev, BLANK_PROCEDURE()]);
@@ -340,6 +378,29 @@ export default function CaosceManager() {
             <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>View expected JSON format</summary>
             <pre style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, fontSize: 11, overflowX: 'auto', marginTop: 8, color: 'var(--text-muted)' }}>{EXAMPLE_JSON}</pre>
           </details>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            background: 'var(--bg-secondary)', borderRadius: 10, padding: 12, marginBottom: 14,
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📄 Or upload a CSV file:</span>
+            <button
+              className="btn btn-secondary btn-sm"
+              disabled={csvBusy}
+              onClick={() => csvInputRef.current?.click()}
+            >
+              {csvBusy ? 'Reading…' : '📤 Choose CSV File'}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={downloadCsvTemplate}>
+              ⬇️ Download CSV Template
+            </button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleCsvFile}
+              style={{ display: 'none' }}
+            />
+          </div>
           <textarea
             className="form-input"
             rows={10}
