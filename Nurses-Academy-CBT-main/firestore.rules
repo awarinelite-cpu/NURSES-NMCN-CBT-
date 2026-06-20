@@ -179,6 +179,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── CAOSCE Prep (OSCE case bank + student results) ─────────────────────
+
+    match /caosceCases/{caseId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
+    match /caosceResults/{resultId} {
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
     match /leaderboard/{id} {
       allow read:  if isAuth();
       allow write: if isAuth();
