@@ -16,7 +16,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   collection, query, where, getDocs, limit,
-  addDoc, serverTimestamp, doc, updateDoc, arrayUnion,
+  addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove,
   deleteDoc, increment,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
@@ -486,14 +486,25 @@ export default function ExamSession() {
             qs = srsPool.slice(0, Math.min(count, DAILY_PRACTICE_LIMIT));
 
           } else if (examType === 'mock_exam') {
-            // ── Mock Exam ─────────────────────────────────────────────────────
+            // ── Hospital Final Exam (mock_exam) ─────────────────────────────────
+            // No question-count selector here — every attempt draws from the
+            // full active question bank for the chosen specialty, MINUS any
+            // question the student has already answered correctly in a
+            // previous attempt (tracked in profile.mockMastered.{mockId}).
+            // Questions answered WRONGLY always stay eligible so they keep
+            // being retested. Once every question in the bank has been
+            // mastered, the bank is "complete" and is served again in full.
             const mockId = state?.mockExamId || examId || '';
-            const constraints = [where('active', '==', true), limit(fetchLim)];
+            const mockFetchLim = Math.min(Math.max((count || 100) * 4, 100), 1000);
+            const constraints = [where('active', '==', true), limit(mockFetchLim)];
             if (mockId) constraints.unshift(where('mockExamId', '==', mockId));
             const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const allMock     = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const masteredIds = (mockId && profile?.mockMastered?.[mockId]) || [];
+            const notMastered = allMock.filter(q => !masteredIds.includes(q.id));
+            // Bank exhausted (everything mastered) → reset and serve full bank again
+            qs = notMastered.length > 0 ? notMastered : allMock;
             qs.sort(() => Math.random() - 0.5);
-            qs = qs.slice(0, count || qs.length);
 
           } else if (examType === 'past_questions' && category) {
             // ── Past Questions ────────────────────────────────────────────────
@@ -610,7 +621,7 @@ export default function ExamSession() {
     const sessionName = poolMode
       ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
       : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
-      : examType === 'mock_exam'      ? `${examName} — Mock Exam`
+      : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
       : `${topic} — Topic Drill`
       : examName;
 
@@ -658,6 +669,28 @@ export default function ExamSession() {
         streak: newStreak, lastPracticeDate: today,
         [`examScores.${examId || 'pool'}`]: scorePercent,
       }).catch(e => console.warn('Profile update (non-critical):', e.message));
+
+      // ── Hospital Final Exam mastery tracking ──────────────────────────────
+      // Questions answered CORRECTLY are added to the mastery list for this
+      // specialty so they stop appearing on future attempts. Questions
+      // answered WRONGLY are removed from the mastery list (in case a
+      // previously-mastered question slips back in) so they keep repeating
+      // until the student gets them right. The whole bank resets once every
+      // question has been mastered (handled at load time, not here).
+      if (examType === 'mock_exam' && state?.mockExamId) {
+        const mockId     = state.mockExamId;
+        const fieldPath   = `mockMastered.${mockId}`;
+        const correctIds  = qs.filter(q => ans[q.id] === q.correctIndex).map(q => q.id);
+        const wrongIds    = qs.filter(q => ans[q.id] !== q.correctIndex).map(q => q.id);
+        if (correctIds.length > 0) {
+          updateDoc(doc(db, 'users', currentUser.uid), { [fieldPath]: arrayUnion(...correctIds) })
+            .catch(e => console.warn('Mock mastery update (non-critical):', e.message));
+        }
+        if (wrongIds.length > 0) {
+          updateDoc(doc(db, 'users', currentUser.uid), { [fieldPath]: arrayRemove(...wrongIds) })
+            .catch(e => console.warn('Mock mastery update (non-critical):', e.message));
+        }
+      }
     } catch (e) { console.error('SAVE FAILED:', e); }
 
     // ── Spaced repetition: record each answer async (non-blocking) ────────
@@ -690,7 +723,7 @@ export default function ExamSession() {
       const sessionName = poolMode
         ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
         : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
-        : examType === 'mock_exam'      ? `${examName} — Mock Exam`
+        : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
         : `${topic} — Topic Drill`
         : examName;
 
@@ -896,7 +929,7 @@ export default function ExamSession() {
                 <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${scoreColor}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
                 {/* Exam type label */}
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, fontFamily: F, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
-                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Mock Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}
+                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Hospital Final Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}
                 </div>
                 {/* Animated score ring */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, animation: 'scorePop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
@@ -964,7 +997,7 @@ export default function ExamSession() {
             const examLabel = poolMode
               ? examType === 'daily_practice' ? 'Daily Practice'
               : examType === 'course_drill'   ? (courseLabel || course || 'Course Drill')
-              : examType === 'mock_exam'      ? (examName || 'Mock Exam')
+              : examType === 'mock_exam'      ? (examName || 'Hospital Final Exam')
               : (topic || 'Topic Drill')
               : (examName || 'Exam');
             const shareText = `🎓 I just scored ${scorePct}% in ${examLabel} on NurseAcademy CBT!

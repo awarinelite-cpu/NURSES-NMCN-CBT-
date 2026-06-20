@@ -180,7 +180,7 @@ export default function MockExamPage() {
             fontSize: 26, fontWeight: 800,
             color: 'var(--text-primary)',
           }}>
-            Mock Exam
+            Hospital Final Exam
           </h2>
         </div>
         <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
@@ -339,7 +339,7 @@ export default function MockExamPage() {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', lineHeight: 1.25 }}>
-              Hospital Final Mock Exam
+              Hospital Final Exam
             </div>
             <div style={{ fontSize: 12, color: sp.color, fontWeight: 600, marginTop: 2 }}>
               {sp.label}

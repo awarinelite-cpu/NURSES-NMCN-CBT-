@@ -102,7 +102,7 @@ export default function ExamReviewStoragePage() {
 
   const handleRetake = (exam) => {
     if (exam.type === 'mock_exam' && !profile?.subscribed) {
-      alert('Mock Exams require a subscription. Please upgrade your plan.');
+      alert('Hospital Final Exam requires a subscription. Please upgrade your plan.');
       return;
     }
     const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
@@ -177,7 +177,7 @@ export default function ExamReviewStoragePage() {
         {[
           { id: 'all',   label: '📋 All',            count: allExams.length },
           { id: 'daily', label: '⚡ Daily Practice',  count: allExams.filter(e => e.type === 'daily_practice').length },
-          { id: 'mock',  label: '📝 Mock Exams',      count: allExams.filter(e => e.type === 'mock_exam').length },
+          { id: 'mock',  label: '📝 Hospital Final Exam', count: allExams.filter(e => e.type === 'mock_exam').length },
         ].map(t => (
           <button
             key={t.id}
@@ -235,14 +235,14 @@ export default function ExamReviewStoragePage() {
             No completed exams yet
           </div>
           <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 380, margin: '0 auto 24px' }}>
-            Once you finish a Daily Practice quiz or a Mock Exam, it will appear here for review.
+            Once you finish a Daily Practice quiz or a Hospital Final Exam, it will appear here for review.
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={() => navigate('/exam/daily')}>
               ⚡ Go to Daily Practice
             </button>
             <button className="btn btn-ghost" onClick={() => navigate('/exam/mock')}>
-              📝 Go to Mock Exams
+              📝 Go to Hospital Final Exam
             </button>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function ExamReviewStoragePage() {
                     {/* Title + badges */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
                       <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-                        {exam.title || (isMock ? `Mock Exam — ${exam.category}` : `Daily Practice — ${exam.scheduledDate}`)}
+                        {exam.title || (isMock ? `Hospital Final Exam — ${exam.category}` : `Daily Practice — ${exam.scheduledDate}`)}
                       </span>
                       <span style={badge(isMock ? '#7C3AED' : 'var(--teal)')}>
                         {isMock ? '📝 Mock' : '⚡ Daily'}

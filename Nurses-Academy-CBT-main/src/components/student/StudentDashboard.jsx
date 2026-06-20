@@ -94,7 +94,7 @@ function examTypeLabel(type) {
     case 'course_drill':   return '📖 Course Drill';
     case 'topic_drill':    return '🎯 Topic Drill';
     case 'daily_practice': return '⚡ Daily Practice';
-    case 'mock_exam':      return '📋 Mock Exam';
+    case 'mock_exam':      return '📋 Hospital Final Exam';
     case 'past_questions': return '📜 Past Questions';
     default:               return type?.replace(/_/g, ' ') || 'Exam';
   }

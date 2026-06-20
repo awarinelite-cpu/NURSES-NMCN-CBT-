@@ -9,7 +9,7 @@ const STUDENT_NAV = [
   { to: '/daily-practice', icon: '⚡', label: 'Daily Practice' },
   { to: '/course-drill',   icon: '📖', label: 'Course Drill'   },
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
-  { to: '/mock-exams',     icon: '📋', label: 'Mock Exams'     },
+  { to: '/mock-exams',     icon: '📋', label: 'Hospital Final Exam' },
   { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
   { to: '/notes',          icon: '📝', label: 'My Notes'       },
   { to: '/group-chat',     icon: '👥', label: 'Group Chat'     },
