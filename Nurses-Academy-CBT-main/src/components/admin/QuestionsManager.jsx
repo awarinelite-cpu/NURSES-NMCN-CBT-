@@ -221,6 +221,17 @@ function getQuestionIssues(q) {
   return issues;
 }
 
+// Single source of truth for the 5 flaggable issue types — icon + label,
+// used to build the "Flag Incomplete" dropdown options and to colour the
+// row warning badge consistently.
+const ISSUE_TYPES = [
+  { id: 'No Category',        icon: '🏷️' },
+  { id: 'No Course',          icon: '📖' },
+  { id: 'No Topic',           icon: '🎯' },
+  { id: 'No Year',            icon: '📅' },
+  { id: 'Incomplete Options', icon: '🧩' },
+];
+
 
 // ── Admin Tools Tab ───────────────────────────────────────────────────────────
 function AdminToolsTab() {
@@ -693,7 +704,7 @@ export default function QuestionsManager() {
   const [filterType, setFilterType] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [search,     setSearch]     = useState('');
-  const [flagIncomplete, setFlagIncomplete] = useState(false);
+  const [flagFilter, setFlagFilter] = useState(''); // '' | one of ISSUE_TYPES below
   const [page,       setPage]       = useState(0);
   const PAGE_SIZE = 20;
 
@@ -1163,8 +1174,8 @@ export default function QuestionsManager() {
     } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
   };
 
-  const displayedQuestions = flagIncomplete
-    ? questions.filter(q => getQuestionIssues(q).length > 0)
+  const displayedQuestions = flagFilter
+    ? questions.filter(q => getQuestionIssues(q).includes(flagFilter))
     : questions;
   const paged = displayedQuestions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -1213,18 +1224,32 @@ export default function QuestionsManager() {
             </select>
             <input className="form-input" style={{ height:38, width:220 }} placeholder="🔍 Search…" value={search} onChange={e => setSearch(e.target.value)} />
             <button className="btn btn-secondary btn-sm" onClick={loadQuestions}>↻ Refresh</button>
-            <button
-              className="btn btn-sm"
-              onClick={() => { setFlagIncomplete(v => !v); setPage(0); }}
-              title="Show only questions missing a category, course, topic, year, or with incomplete options"
+            <select
+              className="form-input"
               style={{
-                background: flagIncomplete ? '#F59E0B' : 'transparent',
-                color:      flagIncomplete ? '#fff' : '#F59E0B',
-                border: '1.5px solid #F59E0B',
+                height: 38, width: 240,
+                border: `1.5px solid ${flagFilter ? '#F59E0B' : 'var(--border)'}`,
+                background: flagFilter ? 'rgba(245,158,11,0.12)' : undefined,
+                color: flagFilter ? '#F59E0B' : undefined,
+                fontWeight: flagFilter ? 700 : 400,
               }}
+              value={flagFilter}
+              onChange={e => { setFlagFilter(e.target.value); setPage(0); }}
+              title="Show only questions with a specific data-quality issue"
             >
-              ⚠️ Flag Incomplete {flagIncomplete ? `(${questions.filter(q => getQuestionIssues(q).length > 0).length})` : ''}
-            </button>
+              <option value="">⚠️ Flag Incomplete…</option>
+              {ISSUE_TYPES.map(t => {
+                const count = questions.filter(q => getQuestionIssues(q).includes(t.id)).length;
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.icon} {t.id} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            {flagFilter && (
+              <button className="btn btn-ghost btn-sm" onClick={() => { setFlagFilter(''); setPage(0); }}>✕ Clear flag</button>
+            )}
             {selected.size > 0 && (
               <button className="btn btn-danger btn-sm" onClick={deleteSelected}>🗑️ Delete {selected.size}</button>
             )}
@@ -1292,7 +1317,7 @@ export default function QuestionsManager() {
               </div>
               <div style={{ display:'flex', gap:10, marginTop:12, alignItems:'center' }}>
                 <button className="btn btn-ghost btn-sm" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
-                <span style={{ fontSize:13, color:'var(--text-muted)' }}>Page {page+1} of {Math.max(1,Math.ceil(displayedQuestions.length/PAGE_SIZE))} ({displayedQuestions.length}{flagIncomplete ? ' flagged' : ' total'})</span>
+                <span style={{ fontSize:13, color:'var(--text-muted)' }}>Page {page+1} of {Math.max(1,Math.ceil(displayedQuestions.length/PAGE_SIZE))} ({displayedQuestions.length}{flagFilter ? ` flagged: ${flagFilter}` : ' total'})</span>
                 <button className="btn btn-ghost btn-sm" disabled={(page+1)*PAGE_SIZE>=displayedQuestions.length} onClick={()=>setPage(p=>p+1)}>Next →</button>
               </div>
             </>
