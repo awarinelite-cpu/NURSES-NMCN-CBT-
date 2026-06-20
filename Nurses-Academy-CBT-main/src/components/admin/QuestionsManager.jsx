@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc,
+  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc,
   query, where, orderBy, serverTimestamp, writeBatch, arrayUnion
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -211,6 +211,18 @@ function AdminToolsTab() {
   const [previewRows, setPreviewRows] = useState([]);
   const [previewing,  setPreviewing]  = useState(false);
 
+  // ── Fix Missing Course/Topic tool state ──────────────────────────────────
+  const [fixPreviewing,    setFixPreviewing]    = useState(false);
+  const [fixGroups,        setFixGroups]        = useState([]); // [{categoryId,total,missingCourse,missingTopic,sample}]
+  const [fixSelectedCat,   setFixSelectedCat]   = useState('');
+  const [fixCourseInput,   setFixCourseInput]   = useState('');
+  const [fixTopicInput,    setFixTopicInput]    = useState('');
+  const [fixApplying,      setFixApplying]      = useState(false);
+  const [fixUpdatedCount,  setFixUpdatedCount]  = useState(0);
+  const [fixTargetTotal,   setFixTargetTotal]   = useState(0);
+  const [fixLog,           setFixLog]           = useState([]);
+  const [fixDone,          setFixDone]          = useState(false);
+
   // Preview: find question_bank docs that have a year value
   const handlePreview = async () => {
     setPreviewing(true);
@@ -272,6 +284,125 @@ function AdminToolsTab() {
     } catch(e) {
       setRetagLog(prev => [...prev, 'ERROR: ' + e.message]);
       setRetagState('error');
+    }
+  };
+
+  // Preview: find active questions that have a category but are missing
+  // course and/or topic, grouped by category so the admin can fix one
+  // specialty at a time.
+  const handlePreviewMissing = async () => {
+    setFixPreviewing(true);
+    setFixGroups([]);
+    setFixSelectedCat('');
+    setFixDone(false);
+    setFixLog([]);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('active', '==', true),
+      ));
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const flagged = all.filter(q =>
+        q.category && (!q.course || !q.course.trim() || !q.topic || !q.topic.trim())
+      );
+
+      const groups = {};
+      flagged.forEach(q => {
+        const cat = q.category;
+        if (!groups[cat]) groups[cat] = { categoryId: cat, total: 0, missingCourse: 0, missingTopic: 0, sample: [] };
+        groups[cat].total++;
+        if (!q.course || !q.course.trim()) groups[cat].missingCourse++;
+        if (!q.topic  || !q.topic.trim())  groups[cat].missingTopic++;
+        if (groups[cat].sample.length < 5) groups[cat].sample.push(q);
+      });
+
+      setFixGroups(Object.values(groups).sort((a, b) => b.total - a.total));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFixPreviewing(false);
+    }
+  };
+
+  // Apply: bulk-assign a course and/or topic to all flagged questions in the
+  // selected category. Auto-creates the course doc (with the typed topic
+  // added) if it doesn't already exist — same pattern as CSV bulk upload.
+  const handleApplyFix = async () => {
+    if (!fixSelectedCat) return;
+    const courseName = fixCourseInput.trim();
+    const topicName   = fixTopicInput.trim();
+    if (!courseName && !topicName) return;
+
+    setFixApplying(true);
+    setFixDone(false);
+    setFixLog([]);
+    setFixUpdatedCount(0);
+
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('category', '==', fixSelectedCat),
+        where('active',   '==', true),
+      ));
+      const all = snap.docs.map(d => ({ id: d.id, ref: d.ref, ...d.data() }));
+      const targets = all.filter(q =>
+        (courseName && (!q.course || !q.course.trim())) ||
+        (topicName  && (!q.topic  || !q.topic.trim()))
+      );
+
+      setFixTargetTotal(targets.length);
+      if (targets.length === 0) {
+        setFixLog(['No matching questions found for this category — nothing to fix.']);
+        setFixDone(true);
+        setFixApplying(false);
+        return;
+      }
+
+      // Resolve / auto-create the course doc if a course name was given
+      let courseId = '';
+      if (courseName) {
+        courseId = courseName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        const courseRef  = doc(db, 'courses', courseId);
+        const courseSnap = await getDoc(courseRef);
+        if (!courseSnap.exists()) {
+          await setDoc(courseRef, {
+            label:       courseName,
+            icon:        '📖',
+            category:    fixSelectedCat,
+            active:      true,
+            order:       999,
+            topics:      topicName ? [topicName] : [],
+            createdAt:   serverTimestamp(),
+            autoCreated: true,
+          }, { merge: true });
+          setFixLog(prev => [...prev, `Created new course "${courseName}".`]);
+        } else if (topicName) {
+          await updateDoc(courseRef, { topics: arrayUnion(topicName) });
+        }
+      }
+
+      const BATCH_SIZE = 500;
+      let updated = 0;
+      for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const slice = targets.slice(i, i + BATCH_SIZE);
+        slice.forEach(q => {
+          const upd = { updatedAt: serverTimestamp() };
+          if (courseId && (!q.course || !q.course.trim())) upd.course = courseId;
+          if (topicName && (!q.topic || !q.topic.trim()))  upd.topic  = topicName;
+          batch.update(q.ref, upd);
+        });
+        await batch.commit();
+        updated += slice.length;
+        setFixUpdatedCount(updated);
+        setFixLog(prev => [...prev, `Batch ${Math.ceil((i + 1) / BATCH_SIZE)}: updated ${slice.length} (${updated}/${targets.length})`]);
+      }
+      setFixLog(prev => [...prev, `✅ Done — ${updated} questions updated.`]);
+      setFixDone(true);
+    } catch (e) {
+      setFixLog(prev => [...prev, 'ERROR: ' + e.message]);
+    } finally {
+      setFixApplying(false);
     }
   };
 
@@ -381,6 +512,144 @@ function AdminToolsTab() {
             {done && <div style={{ color: '#16A34A', fontWeight: 700, marginTop: 4 }}>
               ✅ All done! Refresh the Questions list to verify.
             </div>}
+          </div>
+        )}
+      </div>
+
+      {/* ── Fix Missing Course/Topic Tool ── */}
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 16, padding: 24, marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 24 }}>🧩</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+              Fix Questions Missing Course/Topic
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Finds active questions that have a <strong>specialty (category)</strong> set
+              but are missing <strong>course</strong> and/or <strong>topic</strong>, grouped
+              by specialty, so you can bulk-assign them.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#92400E',
+        }}>
+          ⚠️ This updates Firestore directly and cannot be undone. Preview first, then pick one
+          specialty at a time to fix — every flagged question in that specialty gets the same
+          course/topic assigned. Use Quick Edit instead if different questions need different topics.
+        </div>
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={handlePreviewMissing}
+          disabled={fixPreviewing || fixApplying}
+          style={{ fontWeight: 700, marginBottom: 16 }}
+        >
+          {fixPreviewing ? '⏳ Scanning…' : '🔍 Preview Affected Questions'}
+        </button>
+
+        {/* Grouped results by category */}
+        {fixGroups.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
+              Found {fixGroups.reduce((s, g) => s + g.total, 0)} questions across {fixGroups.length} specialt{fixGroups.length === 1 ? 'y' : 'ies'} missing course/topic:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {fixGroups.map(g => {
+                const catLabel = NURSING_CATEGORIES.find(c => c.id === g.categoryId)?.shortLabel || g.categoryId;
+                const isSelected = fixSelectedCat === g.categoryId;
+                return (
+                  <button
+                    key={g.categoryId}
+                    onClick={() => { setFixSelectedCat(g.categoryId); setFixDone(false); setFixLog([]); }}
+                    style={{
+                      textAlign: 'left', cursor: 'pointer',
+                      background: isSelected ? 'rgba(20,184,166,0.12)' : 'var(--bg-tertiary)',
+                      border: `1.5px solid ${isSelected ? TEAL : 'transparent'}`,
+                      borderRadius: 10, padding: '10px 14px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{catLabel}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.total} affected</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {g.missingCourse} missing course · {g.missingTopic} missing topic
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Bulk-fix form for the selected category */}
+        {fixSelectedCat && (
+          <div style={{
+            background: 'var(--bg-tertiary)', borderRadius: 12, padding: 16, marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
+              Assign to all flagged questions in{' '}
+              {NURSING_CATEGORIES.find(c => c.id === fixSelectedCat)?.shortLabel || fixSelectedCat}:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Course name (e.g. Medical-Surgical) — leave blank to skip"
+                value={fixCourseInput}
+                onChange={e => setFixCourseInput(e.target.value)}
+                style={{
+                  padding: '10px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                  background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13,
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Topic name (e.g. Cardiovascular) — leave blank to skip"
+                value={fixTopicInput}
+                onChange={e => setFixTopicInput(e.target.value)}
+                style={{
+                  padding: '10px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                  background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13,
+                }}
+              />
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleApplyFix}
+              disabled={fixApplying || (!fixCourseInput.trim() && !fixTopicInput.trim())}
+              style={{ fontWeight: 700, background: fixDone ? '#16A34A' : undefined }}
+            >
+              {fixApplying ? `⏳ Updating… (${fixUpdatedCount}/${fixTargetTotal})`
+                : fixDone ? `✅ Done — ${fixUpdatedCount} updated`
+                : '🚀 Apply Fix'}
+            </button>
+
+            {fixApplying && fixTargetTotal > 0 && (
+              <div style={{ background: 'var(--bg-card)', borderRadius: 99, height: 8, marginTop: 12, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 99, background: TEAL,
+                  width: `${Math.round((fixUpdatedCount / fixTargetTotal) * 100)}%`,
+                  transition: 'width 0.3s',
+                }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Log */}
+        {fixLog.length > 0 && (
+          <div style={{
+            background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 14px',
+            fontSize: 12, fontFamily: 'monospace', maxHeight: 160, overflowY: 'auto',
+            color: 'var(--text-primary)',
+          }}>
+            {fixLog.map((line, i) => <div key={i}>{line}</div>)}
           </div>
         )}
       </div>
