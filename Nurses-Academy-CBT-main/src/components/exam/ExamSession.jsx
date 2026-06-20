@@ -141,6 +141,18 @@ const DAILY_PRACTICE_LIMIT = 250;
 
 const POOL_FETCH_LIMIT = 300;
 
+// Turn any freeform string (course label, topic name, category id) into a
+// safe Firestore map-field key: lowercase, alphanumeric + underscore only.
+// Used for the per-bucket mastery tracking fields (courseMastered.{key},
+// topicMastered.{key}, categoryMastered.{key}, mockMastered.{key}).
+function sanitizeKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 120);
+}
+
 function fisherYatesShuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -424,7 +436,11 @@ export default function ExamSession() {
 
         // ── Pool mode (daily practice / course drill / topic drill / mock exam) ─
         if (poolMode) {
-          const seenIds  = profile?.seenQuestions || [];
+          // Note: course_drill / topic_drill / daily_practice / mock_exam now use
+          // per-bucket mastery tracking (courseMastered / topicMastered /
+          // categoryMastered / mockMastered) instead of the generic seenQuestions
+          // list, so correctly-answered questions are excluded per-bank rather
+          // than globally, and wrong answers always stay eligible to repeat.
           const fetchLim = Math.min(
             Math.max(count * 4, 100),
             POOL_FETCH_LIMIT
@@ -432,6 +448,9 @@ export default function ExamSession() {
 
           if (examType === 'course_drill' && course) {
             // ── Course Drill ──────────────────────────────────────────────────
+            // Correctly-answered questions are excluded until the whole course
+            // bank has been mastered (tracked in profile.courseMastered.{key}).
+            // Wrongly-answered questions always stay eligible so they repeat.
             const snap = await getDocs(query(
               collection(db, 'questions'),
               where('course', '==', course),
@@ -440,13 +459,16 @@ export default function ExamSession() {
             ));
             const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             if (all.length === 0) { setQuestions([]); setPhase('empty'); return; }
-            const unseen = all.filter(q => !seenIds.includes(q.id));
-            const pool   = unseen.length >= 5 ? unseen : all;
+            const courseKey    = sanitizeKey(course);
+            const masteredIds  = profile?.courseMastered?.[courseKey] || [];
+            const notMastered  = all.filter(q => !masteredIds.includes(q.id));
+            const pool = notMastered.length > 0 ? notMastered : all; // bank exhausted → reset
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
 
           } else if (examType === 'topic_drill' && topic) {
             // ── Topic Drill ───────────────────────────────────────────────────
+            // Same mastery-based exclusion as Course Drill, scoped per topic.
             const snap = await getDocs(query(
               collection(db, 'questions'),
               where('topic',  '==', topic),
@@ -454,13 +476,16 @@ export default function ExamSession() {
               limit(fetchLim),
             ));
             const all    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const unseen = all.filter(q => !seenIds.includes(q.id));
-            const pool   = unseen.length >= 5 ? unseen : all;
+            const topicKey     = sanitizeKey(topic);
+            const masteredIds2 = profile?.topicMastered?.[topicKey] || [];
+            const notMastered2 = all.filter(q => !masteredIds2.includes(q.id));
+            const pool = notMastered2.length > 0 ? notMastered2 : all; // bank exhausted → reset
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, pool.length));
 
           } else if (examType === 'daily_practice' && category) {
             // ── Daily Practice ────────────────────────────────────────────────
+            // Same mastery-based exclusion, scoped per specialty category.
             const dailyFetchLim = Math.min(
               Math.max(count * 4, 100),
               POOL_FETCH_LIMIT,
@@ -472,8 +497,10 @@ export default function ExamSession() {
               limit(dailyFetchLim),
             ));
             const all    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const unseen = all.filter(q => !seenIds.includes(q.id));
-            const pool   = unseen.length >= 10 ? unseen : all;
+            const categoryKey  = sanitizeKey(category);
+            const masteredIds3 = profile?.categoryMastered?.[categoryKey] || [];
+            const notMastered3 = all.filter(q => !masteredIds3.includes(q.id));
+            const pool = notMastered3.length > 0 ? notMastered3 : all; // bank exhausted → reset
             pool.sort(() => Math.random() - 0.5);
 
             // ── Spaced repetition boost: reorder pool so overdue/weak
@@ -670,25 +697,36 @@ export default function ExamSession() {
         [`examScores.${examId || 'pool'}`]: scorePercent,
       }).catch(e => console.warn('Profile update (non-critical):', e.message));
 
-      // ── Hospital Final Exam mastery tracking ──────────────────────────────
-      // Questions answered CORRECTLY are added to the mastery list for this
-      // specialty so they stop appearing on future attempts. Questions
-      // answered WRONGLY are removed from the mastery list (in case a
-      // previously-mastered question slips back in) so they keep repeating
-      // until the student gets them right. The whole bank resets once every
-      // question has been mastered (handled at load time, not here).
-      if (examType === 'mock_exam' && state?.mockExamId) {
-        const mockId     = state.mockExamId;
-        const fieldPath   = `mockMastered.${mockId}`;
-        const correctIds  = qs.filter(q => ans[q.id] === q.correctIndex).map(q => q.id);
-        const wrongIds    = qs.filter(q => ans[q.id] !== q.correctIndex).map(q => q.id);
+      // ── Mastery tracking (Hospital Final Exam / Course Drill / Topic Drill
+      //    / Daily Practice — NOT Past Questions, which uses its own
+      //    seenQuestions-based logic) ────────────────────────────────────────
+      // Questions answered CORRECTLY are added to the mastery list for that
+      // bucket so they stop appearing on future attempts. Questions answered
+      // WRONGLY are removed from the mastery list (in case a previously-
+      // mastered question slips back in) so they keep repeating until the
+      // student gets them right. The whole bank resets once every question
+      // has been mastered (handled at load time, not here).
+      const masteryConfig = examType === 'mock_exam' && state?.mockExamId
+        ? { field: 'mockMastered',     key: state.mockExamId }
+        : examType === 'course_drill' && course
+        ? { field: 'courseMastered',   key: sanitizeKey(course) }
+        : examType === 'topic_drill' && topic
+        ? { field: 'topicMastered',    key: sanitizeKey(topic) }
+        : examType === 'daily_practice' && category
+        ? { field: 'categoryMastered', key: sanitizeKey(category) }
+        : null;
+
+      if (masteryConfig) {
+        const fieldPath  = `${masteryConfig.field}.${masteryConfig.key}`;
+        const correctIds = qs.filter(q => ans[q.id] === q.correctIndex).map(q => q.id);
+        const wrongIds   = qs.filter(q => ans[q.id] !== q.correctIndex).map(q => q.id);
         if (correctIds.length > 0) {
           updateDoc(doc(db, 'users', currentUser.uid), { [fieldPath]: arrayUnion(...correctIds) })
-            .catch(e => console.warn('Mock mastery update (non-critical):', e.message));
+            .catch(e => console.warn('Mastery update (non-critical):', e.message));
         }
         if (wrongIds.length > 0) {
           updateDoc(doc(db, 'users', currentUser.uid), { [fieldPath]: arrayRemove(...wrongIds) })
-            .catch(e => console.warn('Mock mastery update (non-critical):', e.message));
+            .catch(e => console.warn('Mastery update (non-critical):', e.message));
         }
       }
     } catch (e) { console.error('SAVE FAILED:', e); }
@@ -825,8 +863,10 @@ export default function ExamSession() {
     const load = async () => {
       try {
         let qs = [];
-        const justSeen  = questionsRef.current.map(q => q.id);
-        const seenIds   = [...(profile?.seenQuestions || []), ...justSeen];
+        // Retake uses the same per-bucket mastery exclusion as the initial
+        // load (courseMastered / topicMastered / categoryMastered /
+        // mockMastered) — correct answers stay excluded, wrong answers
+        // always stay eligible, and the bank resets once fully mastered.
         const fetchLim  = Math.min(Math.max(count * 4, 100), POOL_FETCH_LIMIT);
 
         if (poolMode) {
@@ -838,19 +878,24 @@ export default function ExamSession() {
               limit(fetchLim),
             ));
             const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const pool = all.filter(q => !seenIds.includes(q.id)).length >= 5
-              ? all.filter(q => !seenIds.includes(q.id)) : all;
+            const courseKey   = sanitizeKey(course);
+            const masteredIds = profile?.courseMastered?.[courseKey] || [];
+            const notMastered = all.filter(q => !masteredIds.includes(q.id));
+            const pool = notMastered.length > 0 ? notMastered : all;
             fisherYatesShuffle(pool);
             qs = pool.slice(0, Math.min(count, pool.length));
 
           } else if (examType === 'mock_exam') {
             const mockId = state?.mockExamId || examId || '';
-            const constraints = [where('active', '==', true), limit(fetchLim)];
+            const mockFetchLim = Math.min(Math.max((count || 100) * 4, 100), 1000);
+            const constraints = [where('active', '==', true), limit(mockFetchLim)];
             if (mockId) constraints.unshift(where('mockExamId', '==', mockId));
             const snap = await getDocs(query(collection(db, 'questions'), ...constraints));
-            qs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const allMock      = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const masteredIds  = (mockId && profile?.mockMastered?.[mockId]) || [];
+            const notMastered  = allMock.filter(q => !masteredIds.includes(q.id));
+            qs = notMastered.length > 0 ? notMastered : allMock;
             qs.sort(() => Math.random() - 0.5);
-            qs = qs.slice(0, count || qs.length);
 
           } else {
             const bc = [where('active', '==', true), limit(fetchLim)];
@@ -858,9 +903,12 @@ export default function ExamSession() {
             else if (examType === 'daily_practice' && category) bc.unshift(where('category', '==', category));
             const snap = await getDocs(query(collection(db, 'questions'), ...bc));
             const all  = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const minV = examType === 'daily_practice' ? 10 : 5;
-            const pool = all.filter(q => !seenIds.includes(q.id)).length >= minV
-              ? all.filter(q => !seenIds.includes(q.id)) : all;
+            const bucketKey   = examType === 'daily_practice' ? sanitizeKey(category) : sanitizeKey(topic);
+            const masteredIds = examType === 'daily_practice'
+              ? (profile?.categoryMastered?.[bucketKey] || [])
+              : (profile?.topicMastered?.[bucketKey] || []);
+            const notMastered = all.filter(q => !masteredIds.includes(q.id));
+            const pool = notMastered.length > 0 ? notMastered : all;
             pool.sort(() => Math.random() - 0.5);
             qs = pool.slice(0, Math.min(count, examType === 'daily_practice' ? DAILY_PRACTICE_LIMIT : pool.length));
           }
