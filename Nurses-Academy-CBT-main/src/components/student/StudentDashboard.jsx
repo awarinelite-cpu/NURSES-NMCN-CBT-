@@ -1036,32 +1036,35 @@ export default function StudentDashboard() {
                     </Link>
                   )}
                 </div>
+
+                {/* ── Live stats — moved inside banner, frosted chips ── */}
+                <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }} onClick={e => e.stopPropagation()}>
+                  {[
+                    { icon: '📝', label: 'Exams Taken', value: animExams,      to: null },
+                    { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, to: null },
+                    { icon: '🔥', label: 'Day Streak',  value: animStreak,     to: null },
+                    { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,  to: '/bookmarks' },
+                  ].map(s => {
+                    const chip = (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 12, padding: '10px 16px' }}>
+                        <span style={{ fontSize: 18 }}>{s.icon}</span>
+                        <div>
+                          <div style={{ fontWeight: 900, fontSize: 18, color: '#fff', lineHeight: 1, fontFamily: H }}>{s.value}</div>
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginTop: 2 }}>{s.label}</div>
+                        </div>
+                      </div>
+                    );
+                    return s.to ? (
+                      <Link key={s.label} to={s.to} style={{ textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{chip}</Link>
+                    ) : (
+                      <div key={s.label}>{chip}</div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Stats row ── */}
-      <div style={S.statsGrid}>
-        {[
-          { icon: '📝', label: 'Exams Taken', value: animExams,      raw: totalExams, color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: null,         delay: 200 },
-          { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, raw: null,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: null,         delay: 320, ring: avgScore },
-          { icon: '🔥', label: 'Day Streak',  value: animStreak,     raw: streak,     color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: null,         delay: 440 },
-          { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,  raw: bookmarks,  color: '#7C3AED', bg: 'rgba(124,58,237,0.12)', to: '/bookmarks', delay: 560 },
-        ].map(s => (
-          <ACard key={s.label} delay={s.delay}>
-            {s.to ? (
-              <Link to={s.to} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <StatInner {...s} />
-              </Link>
-            ) : (
-              <div className="stat-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <StatInner {...s} />
-              </div>
-            )}
-          </ACard>
-        ))}
       </div>
 
       {/* ── Paused inline banner ── */}
