@@ -201,6 +201,26 @@ function QuestionStatsTab() {
   );
 }
 
+// ── Question data-quality check ──────────────────────────────────────────────
+// Returns a list of human-readable issues for a question — used by both the
+// "Flag Incomplete" list filter and the row-level warning badge.
+function getQuestionIssues(q) {
+  const issues = [];
+  if (!q.category || !String(q.category).trim()) issues.push('No Category');
+  if (!q.course  || !String(q.course).trim())     issues.push('No Course');
+  if (!q.topic   || !String(q.topic).trim())      issues.push('No Topic');
+  if (!q.year    || !String(q.year).trim())       issues.push('No Year');
+
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const hasBlankOption   = opts.some(o => !o || !String(o).trim());
+  const wrongOptionCount = opts.length < 4;
+  const badCorrectIndex  = q.correctIndex === undefined || q.correctIndex === null ||
+                            q.correctIndex < 0 || q.correctIndex >= opts.length;
+  if (wrongOptionCount || hasBlankOption || badCorrectIndex) issues.push('Incomplete Options');
+
+  return issues;
+}
+
 
 // ── Admin Tools Tab ───────────────────────────────────────────────────────────
 function AdminToolsTab() {
@@ -673,6 +693,7 @@ export default function QuestionsManager() {
   const [filterType, setFilterType] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [search,     setSearch]     = useState('');
+  const [flagIncomplete, setFlagIncomplete] = useState(false);
   const [page,       setPage]       = useState(0);
   const PAGE_SIZE = 20;
 
@@ -1142,7 +1163,10 @@ export default function QuestionsManager() {
     } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
   };
 
-  const paged = questions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const displayedQuestions = flagIncomplete
+    ? questions.filter(q => getQuestionIssues(q).length > 0)
+    : questions;
+  const paged = displayedQuestions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const showCourseField = (t) => ['question_bank', 'course_drill', 'topic_drill'].includes(t);
   const showTopicField  = (t) => ['question_bank', 'topic_drill', 'course_drill'].includes(t);
@@ -1189,6 +1213,18 @@ export default function QuestionsManager() {
             </select>
             <input className="form-input" style={{ height:38, width:220 }} placeholder="🔍 Search…" value={search} onChange={e => setSearch(e.target.value)} />
             <button className="btn btn-secondary btn-sm" onClick={loadQuestions}>↻ Refresh</button>
+            <button
+              className="btn btn-sm"
+              onClick={() => { setFlagIncomplete(v => !v); setPage(0); }}
+              title="Show only questions missing a category, course, topic, year, or with incomplete options"
+              style={{
+                background: flagIncomplete ? '#F59E0B' : 'transparent',
+                color:      flagIncomplete ? '#fff' : '#F59E0B',
+                border: '1.5px solid #F59E0B',
+              }}
+            >
+              ⚠️ Flag Incomplete {flagIncomplete ? `(${questions.filter(q => getQuestionIssues(q).length > 0).length})` : ''}
+            </button>
             {selected.size > 0 && (
               <button className="btn btn-danger btn-sm" onClick={deleteSelected}>🗑️ Delete {selected.size}</button>
             )}
@@ -1200,7 +1236,7 @@ export default function QuestionsManager() {
                 <table>
                   <thead>
                     <tr>
-                      <th><input type="checkbox" onChange={e => setSelected(e.target.checked ? new Set(questions.map(q=>q.id)) : new Set())} /></th>
+                      <th><input type="checkbox" onChange={e => setSelected(e.target.checked ? new Set(displayedQuestions.map(q=>q.id)) : new Set())} /></th>
                       <th>TYPE</th><th>COURSE</th><th>TOPIC</th><th>CATEGORY</th><th>CREATED</th><th>D</th>
                     </tr>
                   </thead>
@@ -1227,6 +1263,14 @@ export default function QuestionsManager() {
                            : q.examType === 'daily_practice' ? '📅 Daily (Legacy)'
                            : q.examType}
                           </span>
+                          {getQuestionIssues(q).length > 0 && (
+                            <span
+                              title={getQuestionIssues(q).join(', ')}
+                              style={{ marginLeft: 6, color: '#F59E0B', fontSize: 13, cursor: 'help' }}
+                            >
+                              ⚠️
+                            </span>
+                          )}
                         </td>
                         <td style={{ fontSize:12 }}>{firestoreCourses.find(c=>c.id===q.course)?.label || q.course || '—'}</td>
                         <td style={{ fontSize:12 }}>{q.topic || '—'}</td>
@@ -1248,8 +1292,8 @@ export default function QuestionsManager() {
               </div>
               <div style={{ display:'flex', gap:10, marginTop:12, alignItems:'center' }}>
                 <button className="btn btn-ghost btn-sm" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
-                <span style={{ fontSize:13, color:'var(--text-muted)' }}>Page {page+1} of {Math.max(1,Math.ceil(questions.length/PAGE_SIZE))} ({questions.length} total)</span>
-                <button className="btn btn-ghost btn-sm" disabled={(page+1)*PAGE_SIZE>=questions.length} onClick={()=>setPage(p=>p+1)}>Next →</button>
+                <span style={{ fontSize:13, color:'var(--text-muted)' }}>Page {page+1} of {Math.max(1,Math.ceil(displayedQuestions.length/PAGE_SIZE))} ({displayedQuestions.length}{flagIncomplete ? ' flagged' : ' total'})</span>
+                <button className="btn btn-ghost btn-sm" disabled={(page+1)*PAGE_SIZE>=displayedQuestions.length} onClick={()=>setPage(p=>p+1)}>Next →</button>
               </div>
             </>
           )}
