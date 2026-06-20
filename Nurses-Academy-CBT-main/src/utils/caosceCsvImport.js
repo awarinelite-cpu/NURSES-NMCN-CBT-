@@ -4,27 +4,33 @@
 // "paste JSON array" bulk importer already accepts, so CaosceManager.jsx can
 // reuse handleBulkImport() unchanged — the CSV path just produces JSON text.
 //
-// EXPECTED CSV COLUMNS (one row = one case)
-// ──────────────────────────────────────────
-//   specialty*   — e.g. "paediatric" (optional if a defaultSpecialty is passed,
-//                  i.e. the admin is already inside that specialty's page)
-//   topic
-//   year
-//   title
-//   scenario*    — required, the clinical scenario text
-//   procedures   — pipe "|" separated list. Mark a step optional by adding
-//                  "(optional)" after it, e.g.:
-//                  "Wash hands|Confirm patient ID|Document findings (optional)"
-//   active       — "yes"/"no"/"true"/"false" (defaults to yes)
+// CSV LAYOUT — "grouped rows" format (recommended)
+// ──────────────────────────────────────────────────
+// One CASE ROW followed by zero or more QUESTION ROWS directly under it.
+// A row is a CASE ROW if its "scenario" cell is filled. A row with a blank
+// scenario is treated as an extra CBT question (or extra procedures) that
+// belongs to the case above it — so a case can have as many questions as
+// you like, just keep adding rows underneath it.
 //
-//   CBT questions — numbered column groups, as many as needed:
-//     cbt1_question, cbt1_option_a, cbt1_option_b, cbt1_option_c, cbt1_option_d,
-//     cbt1_answer, cbt1_explanation
-//     cbt2_question, cbt2_option_a, ... etc.
-//   The "answer" cell accepts a letter (A-D), a number (1-4), or the full
-//   text of the correct option.
+//   specialty, topic, year, title, scenario, procedures, active,
+//   question, option_a, option_b, option_c, option_d, answer, explanation
 //
-// * = required column
+//   Row 1 (case):     paediatric, ..., "A baby is born...", "Dry & stimulate|...", yes, "Q1 text", A, B, C, D, A, "..."
+//   Row 2 (question): (scenario blank) ,,,,,,, "Q2 text", A, B, C, D, B, "..."
+//   Row 3 (question): (scenario blank) ,,,,,,, "Q3 text", A, B, C, D, C, "..."
+//   Row 4 (new case): general_nursing, ..., "Next scenario...", ...
+//
+//   - procedures is pipe "|" separated; add "(optional)" after a step to
+//     mark it not required, e.g. "Wash hands|Document findings (optional)"
+//   - answer accepts a letter (A-D), a number (1-4), or the full option text
+//   - active accepts yes/no/true/false (defaults to yes)
+//
+// LEGACY LAYOUT — wide numbered columns (still supported)
+// ──────────────────────────────────────────────────────────
+//   cbt1_question, cbt1_option_a..d, cbt1_answer, cbt1_explanation,
+//   cbt2_question, cbt2_option_a..d, cbt2_answer, cbt2_explanation, ...
+//   These can sit on the case row itself, or even on question rows —
+//   any group with a non-empty question cell is included.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { resolveAnswerLetter, OPT_LETTERS } from './questionFileImport';
@@ -53,50 +59,64 @@ function parseProcedures(raw) {
 }
 
 /**
- * Detect, for each header, whether it belongs to a numbered CBT question
- * group (cbt1_question, cbt2_option_a, ...) and which field it represents.
- * Returns a Map<number, { question, optA, optB, optC, optD, answer, explanation }>
- * where each value holds the actual header string for that field.
+ * Detect question column groups in the header row. Supports both the plain
+ * unprefixed columns (question, option_a, ..., answer, explanation) used on
+ * "question rows", and legacy numbered columns (cbt1_question, cbt2_..., etc).
+ * Returns Map<'generic'|number, { question, optA, optB, optC, optD, optE, answer, explanation }>
  */
-function detectCbtGroups(headers) {
+function detectQuestionGroups(headers) {
   const groups = new Map();
-  const re = /^cbt(\d+)(question|q|optiona|optionb|optionc|optiond|optione|a|b|c|d|e|answer|correct|correctanswer|explanation|rationale)$/;
+  const re = /^(?:cbt(\d+))?(question|q|stem|optiona|optionb|optionc|optiond|optione|option1|option2|option3|option4|option5|a|b|c|d|e|answer|correct|correctanswer|key|explanation|rationale)$/;
 
   headers.forEach(h => {
     const n = nh(h);
     const m = n.match(re);
     if (!m) return;
-    const idx = Number(m[1]);
-    const field = m[2];
+
+    const idx = m[1] !== undefined ? Number(m[1]) : 'generic';
+    const token = m[2];
+    let field = null;
+    if (token === 'question' || token === 'q' || token === 'stem') field = 'question';
+    else if (token === 'optiona' || token === 'a' || token === 'option1') field = 'optA';
+    else if (token === 'optionb' || token === 'b' || token === 'option2') field = 'optB';
+    else if (token === 'optionc' || token === 'c' || token === 'option3') field = 'optC';
+    else if (token === 'optiond' || token === 'd' || token === 'option4') field = 'optD';
+    else if (token === 'optione' || token === 'e' || token === 'option5') field = 'optE';
+    else if (token === 'answer' || token === 'correct' || token === 'correctanswer' || token === 'key') field = 'answer';
+    else if (token === 'explanation' || token === 'rationale') field = 'explanation';
+    if (!field) return;
+
     if (!groups.has(idx)) {
       groups.set(idx, { question: null, optA: null, optB: null, optC: null, optD: null, optE: null, answer: null, explanation: null });
     }
-    const g = groups.get(idx);
-    if (field === 'question' || field === 'q') g.question = h;
-    else if (field === 'optiona' || field === 'a') g.optA = h;
-    else if (field === 'optionb' || field === 'b') g.optB = h;
-    else if (field === 'optionc' || field === 'c') g.optC = h;
-    else if (field === 'optiond' || field === 'd') g.optD = h;
-    else if (field === 'optione' || field === 'e') g.optE = h;
-    else if (field === 'answer' || field === 'correct' || field === 'correctanswer') g.answer = h;
-    else if (field === 'explanation' || field === 'rationale') g.explanation = h;
+    groups.get(idx)[field] = h;
   });
 
   return groups;
 }
 
-function buildCbtQuestions(row, cbtGroups) {
+/**
+ * Build zero or more question objects from a single CSV row, using every
+ * detected group (generic + any numbered legacy groups) that has text in
+ * its question cell.
+ */
+function buildQuestionsFromRow(row, questionGroups) {
+  const indices = [...questionGroups.keys()].sort((a, b) => {
+    if (a === 'generic') return -1;
+    if (b === 'generic') return 1;
+    return a - b;
+  });
+
   const out = [];
-  const indices = [...cbtGroups.keys()].sort((a, b) => a - b);
   indices.forEach(idx => {
-    const g = cbtGroups.get(idx);
+    const g = questionGroups.get(idx);
     const question = (g.question ? row[g.question] : '') || '';
-    if (!String(question).trim()) return; // skip empty CBT slots
+    if (!String(question).trim()) return;
 
     const options = [g.optA, g.optB, g.optC, g.optD, g.optE]
       .map(key => (key ? row[key] : ''))
       .map(v => String(v || '').trim())
-      .filter((v, i, arr) => i < 4 || v); // keep first 4 always, 5th only if filled
+      .filter((v, i) => i < 4 || v);
 
     const rawAnswer = g.answer ? row[g.answer] : '';
     const letter = resolveAnswerLetter(String(rawAnswer || '').trim(), options);
@@ -114,10 +134,12 @@ function buildCbtQuestions(row, cbtGroups) {
 
 /**
  * Parse a CSV file into an array of CAOSCE case objects ready to be
- * JSON.stringify'd into the bulk-import textarea.
+ * JSON.stringify'd into the bulk-import textarea. A row with a filled
+ * "scenario" cell starts a new case; a row with a blank scenario adds its
+ * question(s) (and any procedures) to the case directly above it.
  *
  * @param {File} file
- * @param {string} [defaultSpecialty] - used when a row has no specialty column
+ * @param {string} [defaultSpecialty] - used when a case row has no specialty
  * @returns {Promise<{ cases: object[], warnings: string[], rowCount: number }>}
  */
 export function readCaosceCsvFile(file, defaultSpecialty) {
@@ -153,36 +175,53 @@ export function readCaosceCsvFile(file, defaultSpecialty) {
           });
 
           if (!colMap.scenario) {
-            resolve({ cases: [], warnings: ['No "scenario" column found — every case needs a scenario. Check your CSV headers.'], rowCount: rows.length });
+            resolve({ cases: [], warnings: ['No "scenario" column found — every case row needs a scenario. Check your CSV headers.'], rowCount: rows.length });
             return;
           }
           if (!colMap.specialty && !defaultSpecialty) {
             warnings.push('No "specialty" column found and no default specialty selected — rows may be skipped.');
           }
 
-          const cbtGroups = detectCbtGroups(headers);
+          const questionGroups = detectQuestionGroups(headers);
 
           const cases = [];
-          let skipped = 0;
+          let currentCase = null;
+          let orphanRows = 0;
+          let blankRows = 0;
+
           rows.forEach(row => {
             const scenario = (row[colMap.scenario] || '').trim();
-            if (!scenario) { skipped++; return; }
+            const rowQuestions = buildQuestionsFromRow(row, questionGroups);
+            const rowProcedures = parseProcedures(colMap.procedures ? row[colMap.procedures] : '');
 
-            const specialty = colMap.specialty ? (row[colMap.specialty] || '').trim() : '';
-
-            cases.push({
-              specialty: specialty || defaultSpecialty || '',
-              topic: colMap.topic ? (row[colMap.topic] || '').trim() : '',
-              year: colMap.year ? (row[colMap.year] || '').trim() : '',
-              title: colMap.title ? (row[colMap.title] || '').trim() : '',
-              scenario,
-              procedures: parseProcedures(colMap.procedures ? row[colMap.procedures] : ''),
-              cbtQuestions: buildCbtQuestions(row, cbtGroups),
-              active: colMap.active ? toBool(row[colMap.active]) : true,
-            });
+            if (scenario) {
+              if (currentCase) cases.push(currentCase);
+              const specialty = colMap.specialty ? (row[colMap.specialty] || '').trim() : '';
+              currentCase = {
+                specialty: specialty || defaultSpecialty || '',
+                topic: colMap.topic ? (row[colMap.topic] || '').trim() : '',
+                year: colMap.year ? (row[colMap.year] || '').trim() : '',
+                title: colMap.title ? (row[colMap.title] || '').trim() : '',
+                scenario,
+                procedures: rowProcedures,
+                cbtQuestions: rowQuestions,
+                active: colMap.active ? toBool(row[colMap.active]) : true,
+              };
+            } else if (rowQuestions.length || rowProcedures.length) {
+              if (!currentCase) {
+                orphanRows++;
+                return;
+              }
+              currentCase.cbtQuestions.push(...rowQuestions);
+              currentCase.procedures.push(...rowProcedures);
+            } else {
+              blankRows++;
+            }
           });
+          if (currentCase) cases.push(currentCase);
 
-          if (skipped > 0) warnings.push(`Skipped ${skipped} row${skipped !== 1 ? 's' : ''} with no scenario text.`);
+          if (orphanRows > 0) warnings.push(`Skipped ${orphanRows} question row${orphanRows !== 1 ? 's' : ''} that appeared before any case row.`);
+          if (blankRows > 0) warnings.push(`Skipped ${blankRows} row${blankRows !== 1 ? 's' : ''} with no scenario, question, or procedures.`);
           if (results.errors?.length > 0) {
             results.errors.slice(0, 3).forEach(e => warnings.push(`Row ${e.row}: ${e.message}`));
           }
@@ -197,30 +236,48 @@ export function readCaosceCsvFile(file, defaultSpecialty) {
 
 /**
  * Generate a downloadable CSV template so admins know the expected format.
+ * Demonstrates one case with 3 stacked CBT questions, then a second case.
  * Returns a Blob the caller can trigger a download from.
  */
 export function generateCaosceCsvTemplate() {
   const header = [
     'specialty', 'topic', 'year', 'title', 'scenario', 'procedures', 'active',
-    'cbt1_question', 'cbt1_option_a', 'cbt1_option_b', 'cbt1_option_c', 'cbt1_option_d', 'cbt1_answer', 'cbt1_explanation',
-    'cbt2_question', 'cbt2_option_a', 'cbt2_option_b', 'cbt2_option_c', 'cbt2_option_d', 'cbt2_answer', 'cbt2_explanation',
+    'question', 'option_a', 'option_b', 'option_c', 'option_d', 'answer', 'explanation',
   ].join(',');
 
-  const row1 = [
-    'paediatric',
-    'Neonatal Resuscitation',
-    '2024',
-    'Station 2 — Neonatal Resuscitation',
-    '"A baby is born at term and is not breathing spontaneously..."',
-    '"Dry and stimulate the baby|Call for senior help immediately|Give the baby to the mother for skin-to-skin first (optional)"',
-    'yes',
-    'What is the first step in neonatal resuscitation?',
-    'Dry and stimulate', 'Give oxygen', 'Chest compressions', 'Call doctor',
-    'A',
-    'Drying and stimulating often initiates breathing.',
-    '', '', '', '', '', '', '',
-  ].join(',');
+  const rows = [
+    [
+      'paediatric', 'Neonatal Resuscitation', '2024', 'Station 2 — Neonatal Resuscitation',
+      '"A baby is born at term and is not breathing spontaneously..."',
+      '"Dry and stimulate the baby|Call for senior help immediately|Give the baby to the mother for skin-to-skin first (optional)"',
+      'yes',
+      'What is the first step in neonatal resuscitation?',
+      'Dry and stimulate', 'Give oxygen', 'Chest compressions', 'Call doctor', 'A',
+      'Drying and stimulating often initiates breathing.',
+    ].join(','),
+    [
+      '', '', '', '', '', '', '',
+      'Which sign indicates successful resuscitation?',
+      'Crying and pink color', 'Cyanosis', 'Apnea', 'Bradycardia', 'A',
+      'Crying and improving color confirm effective resuscitation.',
+    ].join(','),
+    [
+      '', '', '', '', '', '', '',
+      'What should be done if heart rate remains below 60 bpm after ventilation?',
+      'Continue ventilation only', 'Begin chest compressions', 'Stop resuscitation', 'Give oral fluids', 'B',
+      'Chest compressions are indicated when heart rate stays below 60 bpm despite adequate ventilation.',
+    ].join(','),
+    [
+      'general_nursing', 'Wound Care', '2023', 'Station 5 — Post-operative Wound Dressing',
+      '"A patient is 2 days post-laparotomy with a clean surgical wound requiring dressing change."',
+      '"Perform hand hygiene|Don sterile gloves|Clean wound with antiseptic|Apply sterile dressing|Document procedure (optional)"',
+      'yes',
+      'What is the priority action before starting a dressing change?',
+      'Perform hand hygiene', 'Inform the doctor', 'Give analgesia', 'Take photographs', 'A',
+      'Hand hygiene reduces infection risk and is the first step in any aseptic procedure.',
+    ].join(','),
+  ];
 
-  const csv = [header, row1].join('\n');
+  const csv = [header, ...rows].join('\n');
   return new Blob([csv], { type: 'text/csv;charset=utf-8;' });
 }

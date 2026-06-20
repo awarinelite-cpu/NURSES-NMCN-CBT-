@@ -261,7 +261,8 @@ export default function CaosceManager() {
         return;
       }
       setBulkText(JSON.stringify(cases, null, 2));
-      const msg = `Loaded ${cases.length} case${cases.length !== 1 ? 's' : ''} from ${rowCount} row${rowCount !== 1 ? 's' : ''} — review below, then click Import Cases`;
+      const totalQuestions = cases.reduce((sum, c) => sum + (c.cbtQuestions?.length || 0), 0);
+      const msg = `Loaded ${cases.length} case${cases.length !== 1 ? 's' : ''} (${totalQuestions} CBT question${totalQuestions !== 1 ? 's' : ''}) from ${rowCount} row${rowCount !== 1 ? 's' : ''} — review below, then click Import Cases`;
       toast?.(warnings.length ? `${msg}. ${warnings[0]}` : msg, warnings.length ? 'warning' : 'success');
     } catch (err) {
       console.error(err);
@@ -382,7 +383,7 @@ export default function CaosceManager() {
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
             background: 'var(--bg-secondary)', borderRadius: 10, padding: 12, marginBottom: 14,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📄 Or upload a CSV file:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📄 Or upload a CSV (add extra question rows below a case to stack as many CBT questions as you need):</span>
             <button
               className="btn btn-secondary btn-sm"
               disabled={csvBusy}
