@@ -85,7 +85,6 @@ const cardStyle = {
   border: '1px solid rgba(255,255,255,0.07)',
   borderRadius: 14,
   padding: '18px 20px',
-  scrollSnapAlign: 'start',
 };
 
 // ── Main Component ───────────────────────────────────────────────
@@ -457,13 +456,13 @@ const styles = {
   kpiScroll: {
     overflowX: 'auto',
     WebkitOverflowScrolling: 'touch',
-    scrollSnapType: 'x proximity',
+    touchAction: 'pan-x',
     marginBottom: 6,
     paddingBottom: 6,
   },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 200px)',
+    gridTemplateColumns: 'repeat(2, 215px)',
     gridAutoRows: 'min-content',
     gap: 12,
     width: 'max-content',
