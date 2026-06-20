@@ -123,6 +123,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
   const [filterTopic,  setFilterTopic]  = useState('');
   const [search,     setSearch]     = useState('');
   const [page,       setPage]       = useState(0);
+  const [jumpPageInput, setJumpPageInput] = useState('');
   const [loading,    setLoading]    = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [questions,  setQuestions]  = useState([]);   // original from Firestore
@@ -489,7 +490,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
             </div>
 
             {/* ── Pagination ────────────────────────────────────────── */}
-            <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center' }}>
+            <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center', flexWrap:'wrap' }}>
               <button className="btn btn-ghost btn-sm" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
               <span style={{ fontSize:13, color:'var(--text-muted)' }}>
                 Page {page+1} of {Math.max(1,Math.ceil(questions.length/PAGE_SZ))} ({questions.length} total)
@@ -497,6 +498,38 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
               <button className="btn btn-ghost btn-sm"
                 disabled={(page+1)*PAGE_SZ>=questions.length}
                 onClick={()=>setPage(p=>p+1)}>Next →</button>
+
+              {/* ── Jump to page ──────────────────────────────────────── */}
+              {(() => {
+                const totalPages = Math.max(1, Math.ceil(questions.length / PAGE_SZ));
+                const goToPage = () => {
+                  const n = parseInt(jumpPageInput, 10);
+                  if (!Number.isNaN(n) && n >= 1 && n <= totalPages) {
+                    setPage(n - 1);
+                  }
+                  setJumpPageInput('');
+                };
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginLeft:4 }}>
+                    <span style={{ fontSize:12, color:'var(--text-muted)' }}>Go to:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      placeholder="#"
+                      value={jumpPageInput}
+                      onChange={e => setJumpPageInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') goToPage(); }}
+                      style={{
+                        width:56, padding:'6px 8px', borderRadius:8,
+                        border:'1.5px solid var(--border)', background:'var(--bg-card)',
+                        color:'var(--text-primary)', fontSize:13, textAlign:'center',
+                      }}
+                    />
+                    <button className="btn btn-ghost btn-sm" onClick={goToPage}>Go</button>
+                  </div>
+                );
+              })()}
 
               {dirtyCount > 0 && (
                 <button
