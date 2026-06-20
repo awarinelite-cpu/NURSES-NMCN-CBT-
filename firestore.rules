@@ -7,6 +7,10 @@ service cloud.firestore {
       return isAuth() &&
         get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
     }
+    function isSubAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(uid())).data.role == 'subadmin';
+    }
     match /users/{userId} {
       allow read:   if isAuth();
       allow create: if isAuth() && uid() == userId;
@@ -130,6 +134,16 @@ service cloud.firestore {
       allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
     }
     match /entrancePausedExams/{docId} {
+      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == uid();
+      allow update: if isAuth() && resource.data.userId == uid();
+      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
+    }
+    match /caosceCases/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin() || isSubAdmin();
+    }
+    match /caosceResults/{docId} {
       allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
       allow create: if isAuth() && request.resource.data.userId == uid();
       allow update: if isAuth() && resource.data.userId == uid();

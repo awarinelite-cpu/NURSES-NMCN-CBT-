@@ -50,6 +50,8 @@ import DailyPracticePage  from './components/exam/DailyPracticePage';
 import MockExamPage       from './components/exam/MockExamPage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
+import CaosceHub          from './components/exam/CaosceHub';
+import CaosceExamSession  from './components/exam/CaosceExamSession';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
 // Entrance Exam
@@ -82,6 +84,7 @@ import AccessCodesManager    from './components/admin/AccessCodesManager';
 import AnnouncementsManager  from './components/admin/AnnouncementsManager';
 import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
 import CoursesManager        from './components/admin/CoursesManager';
+import CaosceManager         from './components/admin/CaosceManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
 
 import './styles/global.css';
@@ -255,6 +258,8 @@ export default function App() {
                 <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
                 <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
                 <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
+                <Route path="/caosce"          element={<FreeTrialRoute><CaosceHub /></FreeTrialRoute>} />
+                <Route path="/caosce/exam"     element={<FreeTrialRoute><CaosceExamSession /></FreeTrialRoute>} />
                 <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
                 <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
@@ -291,6 +296,7 @@ export default function App() {
                 <Route path="/admin/daily-challenge"                 element={<AdminRoute><DailyChallengeManager /></AdminRoute>} />
                 <Route path="/admin/scheduled-exams"                 element={<SubAdminRoute><ScheduledExamsManager /></SubAdminRoute>} />
                 <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
+                <Route path="/admin/caosce"                          element={<SubAdminRoute><CaosceManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
 

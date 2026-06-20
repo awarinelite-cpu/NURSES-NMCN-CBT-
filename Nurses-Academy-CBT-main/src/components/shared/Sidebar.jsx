@@ -9,6 +9,7 @@ const STUDENT_NAV = [
   { to: '/daily-practice', icon: '⚡', label: 'Daily Practice' },
   { to: '/course-drill',   icon: '📖', label: 'Course Drill'   },
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
+  { to: '/caosce',         icon: '🩺', label: 'CAOSCE Prep'    },
   { to: '/mock-exams',     icon: '📋', label: 'Hospital Final Exam' },
   { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
   { to: '/notes',          icon: '📝', label: 'My Notes'       },
@@ -51,12 +52,14 @@ const ADMIN_NAV = [
   { to: '/admin/daily-challenge',  icon: '⚡',  label: 'Daily Challenge'  },
   { to: '/admin/analytics',        icon: '📈',  label: 'Analytics'       },
   { to: '/admin/entrance-exam',    icon: '🏫',  label: 'Entrance Exam'   },
+  { to: '/admin/caosce',           icon: '🩺',  label: 'CAOSCE Prep'     },
 ];
 
 const SUBADMIN_NAV = [
   { to: '/subadmin',                        icon: '🔧', label: 'Sub-Admin Home'   },
   { to: '/admin/questions',                 icon: '❓',  label: 'NMCN Questions'   },
   { to: '/admin/entrance-exam',             icon: '🏫',  label: 'Entrance Exam'    },
+  { to: '/admin/caosce',                    icon: '🩺',  label: 'CAOSCE Prep'      },
   { to: '/admin/payments',                  icon: '💰',  label: 'Payments'         },
   { to: '/admin/announcements',             icon: '📢',  label: 'Announcements'    },
   { to: '/admin/scheduled-exams',           icon: '📅',  label: 'Scheduled Exams'  },

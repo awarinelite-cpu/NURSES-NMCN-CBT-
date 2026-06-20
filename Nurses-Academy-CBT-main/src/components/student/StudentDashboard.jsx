@@ -489,6 +489,12 @@ const QUICK_ACTIONS = [
     desc: 'Get a personalised study plan built around your exam date, weak topics, and available time. Powered by Claude AI.',
     color: '#7C3AED',
   },
+  {
+    to: '/caosce', icon: '🩺', label: 'CAOSCE PREP',
+    sub: 'Computer-Based OSCE Practical Exam',
+    desc: 'Practice real OSCE-style clinical stations: read the scenario, tick the procedures you would perform, then answer CBT questions on the case.',
+    color: '#0D9488',
+  },
 ];
 
 // ── Start Exam Modal ──────────────────────────────────────────────────────────

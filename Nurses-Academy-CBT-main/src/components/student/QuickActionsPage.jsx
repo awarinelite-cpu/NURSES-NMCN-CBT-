@@ -53,6 +53,14 @@ const actions = [
     color: '#7C3AED',
     bg: 'rgba(124,58,237,0.12)',
   },
+  {
+    to: '/caosce',
+    icon: '🩺',
+    label: 'CAOSCE PREP',
+    desc: 'Computer-Based OSCE Practical Exam',
+    color: '#0D9488',
+    bg: 'rgba(13,148,136,0.12)',
+  },
 ];
 
 export default function QuickActionsPage() {
