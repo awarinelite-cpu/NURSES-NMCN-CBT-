@@ -85,6 +85,7 @@ const cardStyle = {
   border: '1px solid rgba(255,255,255,0.07)',
   borderRadius: 14,
   padding: '18px 20px',
+  scrollSnapAlign: 'start',
 };
 
 // ── Main Component ───────────────────────────────────────────────
@@ -246,8 +247,9 @@ export default function AdminAnalytics() {
 
       {!loading && data && (
         <>
-          {/* ── KPI grid ──────────────────────────────────── */}
-          <div style={styles.kpiGrid}>
+          {/* ── KPI grid (swipeable, fixed 2-col width) ───── */}
+          <div style={styles.kpiScroll}>
+            <div style={styles.kpiGrid}>
             <StatCard
               icon="👥" label={`Total Users`}
               value={data.totalUsers}
@@ -293,7 +295,9 @@ export default function AdminAnalytics() {
               value={data.usedCodes + data.unusedCodes}
               sub={`${data.usedCodes} used · ${data.unusedCodes} unused`}
             />
+            </div>
           </div>
+          <div style={styles.kpiHint}>← Swipe to see more →</div>
 
           {/* ── 2-col lower section ───────────────────────── */}
           <div style={styles.lowerGrid}>
@@ -450,10 +454,24 @@ const styles = {
     padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: 14,
   },
+  kpiScroll: {
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    scrollSnapType: 'x proximity',
+    marginBottom: 6,
+    paddingBottom: 6,
+  },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gridTemplateColumns: 'repeat(2, 200px)',
+    gridAutoRows: 'min-content',
     gap: 12,
+    width: 'max-content',
+  },
+  kpiHint: {
+    fontSize: 11,
+    color: '#475569',
+    textAlign: 'center',
     marginBottom: 12,
   },
   lowerGrid: {
