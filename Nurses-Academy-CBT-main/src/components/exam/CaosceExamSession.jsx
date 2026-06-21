@@ -57,6 +57,7 @@ export default function CaosceExamSession() {
   const [finished,   setFinished]   = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
+  const [savedResultId, setSavedResultId] = useState(null);
   const [startedAt]  = useState(Date.now());
 
   const specialty = NURSING_CATEGORIES.find(c => c.id === state?.specialty);
@@ -147,8 +148,9 @@ export default function CaosceExamSession() {
     if (saving || saved) return;
     setSaving(true);
     try {
-      const { caseResults, totalCorrect, totalItems, scorePercent } = buildResults();
-      await addDoc(collection(db, 'caosceResults'), {
+      const built = buildResults();
+      const { caseResults, totalCorrect, totalItems, scorePercent } = built;
+      const docRef = await addDoc(collection(db, 'caosceResults'), {
         userId:        user?.uid,
         specialty:     state?.specialty,
         caseIds:       cases.map(c => c.id),
@@ -159,6 +161,7 @@ export default function CaosceExamSession() {
         durationSeconds: Math.round((Date.now() - startedAt) / 1000),
         createdAt:     serverTimestamp(),
       });
+      setSavedResultId(docRef.id);
       setSaved(true);
     } catch (e) {
       console.error('Save CAOSCE result error:', e);
@@ -166,6 +169,22 @@ export default function CaosceExamSession() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReviewAnswers = () => {
+    const { caseResults, totalCorrect, totalItems, scorePercent } = buildResults();
+    navigate('/caosce/review', {
+      state: {
+        resultId:        savedResultId,
+        cases,                       // full case docs already in memory — no refetch needed
+        caseResults,
+        specialty:        state?.specialty,
+        totalCorrect,
+        totalQuestions:   totalItems,
+        scorePercent,
+        durationSeconds:  Math.round((Date.now() - startedAt) / 1000),
+      },
+    });
   };
 
   // ── Results summary screen ───────────────────────────────────────────────────
@@ -202,14 +221,22 @@ export default function CaosceExamSession() {
               {saving ? '💾 Saving…' : '💾 Save Exam'}
             </button>
           ) : (
-            <div style={{
-              padding: '13px', borderRadius: 12, textAlign: 'center', fontWeight: 800, fontSize: 14,
-              background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.4)', color: '#0D9488',
-            }}>
-              ✅ Saved! Great work.
-            </div>
+            <>
+              <div style={{
+                padding: '13px', borderRadius: 12, textAlign: 'center', fontWeight: 800, fontSize: 14,
+                background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.4)', color: '#0D9488',
+              }}>
+                ✅ Saved! Great work.
+              </div>
+              <button onClick={handleReviewAnswers} style={styles.primaryBtn}>
+                🔍 Review Answers
+              </button>
+            </>
           )}
           <button onClick={() => navigate('/caosce')} style={styles.ghostBtn}>← Back to CAOSCE Prep</button>
+          <button onClick={() => navigate('/caosce/history')} style={{ ...styles.ghostBtn, border: 'none', fontSize: 12.5 }}>
+            📜 My CAOSCE Results
+          </button>
         </div>
       </div>
     );

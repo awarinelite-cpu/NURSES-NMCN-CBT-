@@ -113,11 +113,16 @@ export default function CaosceHub() {
     return (
       <div style={{ padding: '24px', maxWidth: 900 }}>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <span style={{ fontSize: 32 }}>🩺</span>
-            <h2 style={{ fontFamily: H, margin: 0, color: 'var(--text-primary)' }}>
-              CAOSCE PREP
-            </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 32 }}>🩺</span>
+              <h2 style={{ fontFamily: H, margin: 0, color: 'var(--text-primary)' }}>
+                CAOSCE PREP
+              </h2>
+            </div>
+            <button onClick={() => navigate('/caosce/history')} style={styles.historyBtn}>
+              📜 My Past Results
+            </button>
           </div>
           <p style={{ color: 'var(--teal)', fontSize: 13, margin: '0 0 6px 0', fontWeight: 600 }}>
             Computer-Based OSCE Practical Exam
@@ -284,6 +289,7 @@ export default function CaosceHub() {
 
 const styles = {
   backBtn:    { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 },
+  historyBtn: { background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 12.5, fontFamily: F },
   sectionHead:{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: 0.2 },
   catGrid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
   catCard:    { display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: '1.5px solid', fontFamily: F, transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'var(--bg-card)' },

@@ -52,6 +52,8 @@ import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import CaosceHub          from './components/exam/CaosceHub';
 import CaosceExamSession  from './components/exam/CaosceExamSession';
+import CaosceReviewPage   from './components/exam/CaosceReviewPage';
+import CaosceHistoryPage  from './components/exam/CaosceHistoryPage';
 import PastQuestionsPage  from './components/exam/PastQuestionsPage';
 
 // Entrance Exam
@@ -260,6 +262,8 @@ export default function App() {
                 <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
                 <Route path="/caosce"          element={<FreeTrialRoute><CaosceHub /></FreeTrialRoute>} />
                 <Route path="/caosce/exam"     element={<FreeTrialRoute><CaosceExamSession /></FreeTrialRoute>} />
+                <Route path="/caosce/review"   element={<FreeTrialRoute><CaosceReviewPage /></FreeTrialRoute>} />
+                <Route path="/caosce/history"  element={<FreeTrialRoute><CaosceHistoryPage /></FreeTrialRoute>} />
                 <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
                 <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
