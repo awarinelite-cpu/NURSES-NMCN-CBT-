@@ -20,18 +20,18 @@ function pct(a, b) {
 }
 
 // ── Mini sparkline (SVG) ─────────────────────────────────────────
-function Sparkline({ data = [], color = '#0D9488', height = 36 }) {
+function Sparkline({ data = [], color = '#0D9488', height = 28 }) {
   if (data.length < 2) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data);
-  const w = 120, h = height;
+  const w = 100, h = height; // internal coordinate system, scales via viewBox
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
     const y = h - ((v - min) / (max - min || 1)) * (h - 4) - 2;
     return `${x},${y}`;
   }).join(' ');
   return (
-    <svg width={w} height={h} style={{ overflow: 'visible' }}>
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" style={{ display: 'block', marginTop: 8 }}>
       <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
@@ -59,18 +59,14 @@ function HBar({ label, value, max, color = '#0D9488' }) {
 function StatCard({ icon, label, value, sub, spark, sparkColor, trend }) {
   return (
     <div style={cardStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>
-            {icon} {label}
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#F1F5F9', lineHeight: 1 }}>
-            {value === null ? <span style={{ fontSize: 16, color: '#475569' }}>Loading…</span> : fmt(value)}
-          </div>
-          {sub && <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{sub}</div>}
-        </div>
-        {spark && <Sparkline data={spark} color={sparkColor} />}
+      <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>
+        {icon} {label}
       </div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: '#F1F5F9', lineHeight: 1 }}>
+        {value === null ? <span style={{ fontSize: 16, color: '#475569' }}>Loading…</span> : fmt(value)}
+      </div>
+      {sub && <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{sub}</div>}
+      {spark && <Sparkline data={spark} color={sparkColor} />}
       {trend !== undefined && (
         <div style={{ marginTop: 8, fontSize: 12, color: trend >= 0 ? '#10B981' : '#F87171', fontWeight: 600 }}>
           {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}% vs last 7d
@@ -84,7 +80,9 @@ const cardStyle = {
   background: 'var(--bg-secondary, rgba(255,255,255,0.03))',
   border: '1px solid rgba(255,255,255,0.07)',
   borderRadius: 14,
-  padding: '18px 20px',
+  padding: '18px 16px',
+  minWidth: 0,
+  overflow: 'hidden',
 };
 
 // ── Main Component ───────────────────────────────────────────────
@@ -246,9 +244,8 @@ export default function AdminAnalytics() {
 
       {!loading && data && (
         <>
-          {/* ── KPI grid (swipeable, fixed 2-col width) ───── */}
-          <div style={styles.kpiScroll}>
-            <div style={styles.kpiGrid}>
+          {/* ── KPI grid (fluid, always fits screen width) ──── */}
+          <div style={styles.kpiGrid}>
             <StatCard
               icon="👥" label={`Total Users`}
               value={data.totalUsers}
@@ -294,9 +291,7 @@ export default function AdminAnalytics() {
               value={data.usedCodes + data.unusedCodes}
               sub={`${data.usedCodes} used · ${data.unusedCodes} unused`}
             />
-            </div>
           </div>
-          <div style={styles.kpiHint}>← Swipe to see more →</div>
 
           {/* ── 2-col lower section ───────────────────────── */}
           <div style={styles.lowerGrid}>
@@ -453,24 +448,10 @@ const styles = {
     padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: 14,
   },
-  kpiScroll: {
-    overflowX: 'auto',
-    WebkitOverflowScrolling: 'touch',
-    touchAction: 'pan-x',
-    marginBottom: 6,
-    paddingBottom: 6,
-  },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 215px)',
-    gridAutoRows: 'min-content',
-    gap: 12,
-    width: 'max-content',
-  },
-  kpiHint: {
-    fontSize: 11,
-    color: '#475569',
-    textAlign: 'center',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 10,
     marginBottom: 12,
   },
   lowerGrid: {
