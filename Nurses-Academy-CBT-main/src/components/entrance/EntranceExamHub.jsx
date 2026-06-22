@@ -5,7 +5,7 @@
 // Colors : CSS variables throughout → works in light AND dark mode
 // Routes : all feature cards verified against App.jsx routes
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
@@ -14,6 +14,12 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { ensureEntranceDailyMockNotification, todayKey, maybePushEntranceDailyMockNotification } from '../../utils/dailyNotifications';
+import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal';
+import { fetchBadges, evaluateBadges, syncBadges, BADGE_MAP } from '../../utils/badgeUtils';
+import { fetchStreak } from '../../utils/streakUtils';
+import DailyChallenge from '../shared/DailyChallenge';
+import TipOfDay from '../shared/TipOfDay';
+import StreakReminderBanner from '../shared/StreakReminderBanner';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -183,6 +189,10 @@ export default function EntranceExamHub() {
   const [showPausedModal, setShowPausedModal] = useState(false);
   const [mockReady,       setMockReady]       = useState(false);  // today's daily mock published?
   const [todayMockDone,   setTodayMockDone]   = useState(false);  // user already did today's mock?
+  const [earnedBadges,    setEarnedBadges]    = useState([]);
+  const [streakReminderData, setStreakReminderData] = useState(null);
+  const [streakMilestone, setStreakMilestone] = useState(0);
+  const streakCheckedRef = useRef(false);
 
   const animSchools   = useCounter(stats.schools,   1200, 300);
   const animQuestions = useCounter(stats.questions, 1400, 400);
@@ -270,6 +280,20 @@ export default function EntranceExamHub() {
       }
     } catch (e) { console.error('Daily mock check error:', e.code, e.message); }
 
+    // ── Load badges & streak data (non-blocking) ──────────────────────────
+    try {
+      const allSessSnap = await getDocs(query(
+        collection(db, 'entranceExamSessions'),
+        where('userId', '==', user.uid),
+      ));
+      const allSessions = allSessSnap.docs.map(d => d.data());
+      const streakData  = await fetchStreak(user.uid);
+      setStreakReminderData(streakData);
+      const earned = evaluateBadges({ sessions: allSessions, streakData, bookmarkCount: profile?.bookmarkCount || 0 });
+      await syncBadges(user.uid, earned);
+      setEarnedBadges(earned);
+    } catch (e) { console.warn('Badge/streak load failed (non-fatal):', e.message); }
+
     setLoading(false);
   }, [user]); // useCallback dep — re-creates only when user changes
 
@@ -279,6 +303,20 @@ export default function EntranceExamHub() {
     if (!user) { setLoading(false); return; }
     load();
   }, [user, authLoading, load]);
+
+  // ── Streak milestone detection (uses separate localStorage key to avoid
+  //    collision with NMCN CBT milestone tracking) ───────────────────────────
+  const streak = profile?.streak || 0;
+  useEffect(() => {
+    if (streakCheckedRef.current || !streak) return;
+    streakCheckedRef.current = true;
+    if (!MILESTONES[streak]) return;
+    const key = `entrance_streak_milestone_${streak}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    const t = setTimeout(() => setStreakMilestone(streak), 800);
+    return () => clearTimeout(t);
+  }, [streak]);
 
   const handleContinue = (exam) => {
     setShowPausedModal(false);
@@ -333,6 +371,56 @@ export default function EntranceExamHub() {
       {showPausedModal && (
         <PausedModal exams={pausedExams} onContinue={handleContinue} onDiscard={handleDiscard} onClose={() => setShowPausedModal(false)} />
       )}
+
+      {/* ── Streak Milestone Modal ── */}
+      {streakMilestone > 0 && (
+        <StreakMilestoneModal
+          streak={streakMilestone}
+          onClose={() => setStreakMilestone(0)}
+        />
+      )}
+
+      {/* ── Streak Reminder Banner ── */}
+      {streakReminderData && <StreakReminderBanner streakData={streakReminderData} />}
+
+      {/* ── Badge Preview Strip ── */}
+      {earnedBadges.length > 0 && (
+        <div
+          onClick={() => navigate('/badges')}
+          style={{
+            background: 'linear-gradient(135deg, #0D948818 0%, #1E3A8A18 100%)',
+            border: '1.5px solid rgba(13,148,136,0.25)',
+            borderRadius: 14, padding: '12px 18px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            cursor: 'pointer', marginBottom: 16,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🏅</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: '#0D9488' }}>
+                {earnedBadges.length} Badge{earnedBadges.length !== 1 ? 's' : ''} Earned
+              </div>
+              <div style={{ fontFamily: F, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
+                Tap to view your collection
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {earnedBadges.slice(0, 5).map(id => {
+              const b = BADGE_MAP[id];
+              return b ? <span key={id} style={{ fontSize: 22 }} title={b.label}>{b.icon}</span> : null;
+            })}
+            <span style={{ fontFamily: H, fontWeight: 900, fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>›</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tip of the Day ── */}
+      <TipOfDay />
+
+      {/* ── Daily Challenge ── */}
+      <DailyChallenge />
 
       {loadError && (
         <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#EF4444', fontWeight: 700, fontFamily: F, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
