@@ -1,129 +1,221 @@
 // src/components/entrance/EntranceTipOfDay.jsx
 // "Tip of the Day" for the Nursing School Entrance Exam dashboard.
-// These are O-level / JAMB-style tips covering the subjects tested in Nigerian
-// nursing school entrance exams: English Language, Mathematics, Biology,
-// Chemistry, Physics, and General Knowledge / Current Affairs.
 //
-// Completely separate from the NMCN CBT TipOfDay (which covers professional
-// nursing topics). Uses its own localStorage key so the two never interfere.
+// AI-POWERED: Fetches a random sample of entrance exam questions from Firestore,
+// sends them to Claude API, and receives a freshly generated study tip tailored
+// to the actual question bank. The tip is cached in localStorage per day so
+// the API is only called once per day per device.
+//
+// Fallback: If the API call fails or there are no questions yet, falls back to
+// a local static tip so the component never shows an error to the student.
+//
+// Completely separate from the NMCN CBT TipOfDay (separate localStorage key).
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, getDocs, limit, query } from 'firebase/firestore';
+import { db } from '../../firebase/config';
 
 const H = "'Arial Black', Arial, sans-serif";
 const F = "'Times New Roman', Times, serif";
 
-const TIPS = [
-  // ── English Language ─────────────────────────────────────────────────────
-  { icon: '📝', cat: 'English Language', tip: 'Concord (subject-verb agreement): A collective noun takes a singular verb when acting as a unit ("The team is ready") but plural when members act individually ("The team are arguing"). Nigerian entrance exams test this constantly.' },
-  { icon: '📝', cat: 'English Language', tip: 'Comprehension strategy: Read the questions BEFORE the passage. This primes your brain to notice relevant details as you read, saving time and improving accuracy.' },
-  { icon: '📝', cat: 'English Language', tip: 'Common confused words: "Affect" (verb – to influence) vs "Effect" (noun – the result). "Principle" (a rule/belief) vs "Principal" (head of a school, or main/primary). These appear in every entrance exam.' },
-  { icon: '📝', cat: 'English Language', tip: 'Antonyms trick: For antonym questions, eliminate options that are synonyms or unrelated first. The correct antonym is usually the most direct opposite, not a word that is merely "different".' },
-  { icon: '📝', cat: 'English Language', tip: 'Tense consistency: If a passage or sentence begins in past tense, all subsequent verbs describing the same sequence of events must also be past tense. Switching tenses mid-sentence is a common trap.' },
-  { icon: '📝', cat: 'English Language', tip: 'Idioms to know: "By hook or by crook" (by any means possible), "A bolt from the blue" (unexpected event), "Bite the bullet" (endure pain), "Burn the midnight oil" (study/work late). These appear in comprehension and idiom questions.' },
-  { icon: '📝', cat: 'English Language', tip: 'Sentence structure: A sentence must have a subject and a predicate (verb). A common exam trap presents a phrase as a sentence — if there is no main verb, it is a fragment, not a complete sentence.' },
+// ── Cache keys ───────────────────────────────────────────────────────────────
+const CACHE_KEY    = 'entrance_ai_tip_v1';
+const DISMISS_KEY  = 'entrance_tip_dismissed';
 
-  // ── Mathematics ──────────────────────────────────────────────────────────
-  { icon: '🔢', cat: 'Mathematics', tip: 'BODMAS rule (order of operations): Brackets → Orders (powers/roots) → Division → Multiplication → Addition → Subtraction. Always work strictly left to right within the same level of priority.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Percentage shortcuts: To find 10% of any number, move the decimal one place left. 5% = half of 10%. 15% = 10% + 5%. 20% = double of 10%. Mental arithmetic using these saves time on the exam.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Quadratic equations: Always try factorisation first (fastest). If it does not factorise cleanly, use the quadratic formula: x = (−b ± √(b²−4ac)) / 2a. The discriminant (b²−4ac) tells you the nature of roots: positive = 2 real roots, zero = 1 root, negative = no real roots.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Fractions tip: To compare fractions quickly, cross-multiply. For 3/4 vs 5/7 — compare 3×7=21 with 5×4=20. Since 21>20, then 3/4 > 5/7. No need to find common denominators for comparison.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Circle geometry: Angle in a semicircle = 90°. Angles in the same segment are equal. Angle at centre = twice angle at circumference subtended by same arc. These three rules answer most circle theorem questions.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Simple vs compound interest: Simple Interest = PRT/100. Compound Interest = P(1 + R/100)ⁿ − P. The difference between them is the interest-on-interest effect, which entrance exams love to test.' },
-  { icon: '🔢', cat: 'Mathematics', tip: 'Sets and Venn diagrams: For two overlapping sets A and B: n(A∪B) = n(A) + n(B) − n(A∩B). For three sets, add the three individual sets, subtract the three pairwise intersections, then add back the triple intersection.' },
+// ── Colour accent per subject ─────────────────────────────────────────────────
+const SUBJECT_COLOR = {
+  'English Language': '#2563EB',
+  'English':          '#2563EB',
+  'Mathematics':      '#7C3AED',
+  'Maths':            '#7C3AED',
+  'Biology':          '#16A34A',
+  'Chemistry':        '#D97706',
+  'Physics':          '#0891B2',
+  'General Knowledge':'#DC2626',
+  'General Science':  '#DC2626',
+};
 
-  // ── Biology ──────────────────────────────────────────────────────────────
-  { icon: '🧬', cat: 'Biology', tip: 'Cell organelles — the key ones for entrance exams: Mitochondria = powerhouse (ATP via aerobic respiration). Ribosome = protein synthesis. Chloroplast = photosynthesis (plant cells only). Nucleus = genetic information. Cell membrane = selective permeability.' },
-  { icon: '🧬', cat: 'Biology', tip: 'Photosynthesis equation: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂. Light reaction occurs in thylakoids (produces ATP and NADPH). Dark reaction (Calvin cycle) occurs in stroma (fixes CO₂ into glucose).' },
-  { icon: '🧬', cat: 'Biology', tip: 'Genetics ratios: A monohybrid cross of two heterozygotes (Aa × Aa) gives the 3:1 phenotype ratio. A dihybrid cross (AaBb × AaBb) gives the 9:3:3:1 ratio. Blood groups follow co-dominance — IA and IB are both dominant over i.' },
-  { icon: '🧬', cat: 'Biology', tip: 'Digestive enzymes: Salivary amylase (mouth) → breaks starch. Pepsin (stomach) → breaks proteins. Lipase (small intestine) → breaks fats. Trypsin (small intestine) → breaks proteins. Remember the site and substrate for each.' },
-  { icon: '🧬', cat: 'Biology', tip: 'Osmosis vs diffusion: Diffusion = movement of molecules from high to low concentration (no membrane needed). Osmosis = movement of WATER across a semi-permeable membrane from low solute to high solute concentration. Osmosis is a specific type of diffusion.' },
-  { icon: '🧬', cat: 'Biology', tip: 'Classification of organisms (mnemonic): "King Philip Came Over For Good Spaghetti" — Kingdom, Phylum, Class, Order, Family, Genus, Species. Humans = Kingdom Animalia, Phylum Chordata, Class Mammalia, Order Primates, Family Hominidae, Genus Homo, Species sapiens.' },
-  { icon: '🧬', cat: 'Biology', tip: 'Ecosystem terms: Producer = makes own food via photosynthesis (plants, algae). Primary consumer = eats producers (herbivores). Secondary consumer = eats primary consumers. Decomposer = breaks down dead matter (bacteria, fungi). Energy flows in one direction; nutrients are cycled.' },
-
-  // ── Chemistry ────────────────────────────────────────────────────────────
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Periodic table trends (going left to right across a period): Atomic number increases. Atomic radius decreases (more protons pull electrons closer). Ionisation energy increases. Electronegativity increases. Metallic character decreases.' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Valency shortcut: Group I → valency 1. Group II → valency 2. Group III → valency 3. Group IV → valency 4. Group V → valency 3. Group VI → valency 2. Group VII → valency 1. Group 0 → valency 0 (noble gases). Use this to write chemical formulae quickly.' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Acid-base indicators: Litmus — red in acid, blue in alkali. Phenolphthalein — colourless in acid, pink in alkali. Methyl orange — red in acid, yellow in alkali. Universal indicator gives a full pH colour range from red (pH 1) to violet (pH 14).' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Electrolysis rules: At the cathode (−ve electrode): cations (positive ions) are reduced (gain electrons). At the anode (+ve electrode): anions (negative ions) are oxidised (lose electrons). Mnemonic: OILRIG — Oxidation Is Loss, Reduction Is Gain (of electrons).' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Mole calculations: Moles = Mass ÷ Molar mass. Moles = Volume (dm³) ÷ 22.4 (at STP for gases). Moles = Concentration (mol/dm³) × Volume (dm³). Memorise these three forms — mole questions appear in every entrance exam.' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Organic chemistry naming: Meth- (1 carbon), Eth- (2), Prop- (3), But- (4), Pent- (5), Hex- (6). Suffix: -ane (alkane, single bond), -ene (alkene, double bond), -yne (alkyne, triple bond), -anol (alcohol), -anoic acid (carboxylic acid).' },
-  { icon: '⚗️', cat: 'Chemistry', tip: 'Solubility rules: All nitrates are soluble. All sodium, potassium, and ammonium salts are soluble. Most chlorides are soluble (except AgCl, PbCl₂). Most sulphates are soluble (except BaSO₄, PbSO₄, CaSO₄). Most carbonates and hydroxides are insoluble (except Group I and ammonium).' },
-
-  // ── Physics ──────────────────────────────────────────────────────────────
-  { icon: '⚡', cat: 'Physics', tip: 'Newton\'s three laws: (1) An object stays at rest or moves at constant velocity unless acted upon by a net external force. (2) F = ma (force = mass × acceleration). (3) Every action has an equal and opposite reaction. These are the backbone of mechanics questions.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Ohm\'s law and circuits: V = IR (Voltage = Current × Resistance). In series circuits: total resistance = R₁ + R₂ + R₃ (resistances add). In parallel circuits: 1/Rₜ = 1/R₁ + 1/R₂ + 1/R₃ (reciprocals add). Current is the same in series; voltage divides.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Equations of motion (for uniform acceleration): v = u + at. s = ut + ½at². v² = u² + 2as. Where u = initial velocity, v = final velocity, a = acceleration, s = displacement, t = time. Learn which equation to use based on which variable is missing.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Wave properties: Speed = Frequency × Wavelength (v = fλ). Transverse waves (e.g. light, water waves) — oscillation perpendicular to wave direction. Longitudinal waves (e.g. sound) — oscillation parallel to wave direction. Sound cannot travel in a vacuum; light can.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Pressure formulas: Pressure = Force ÷ Area (P = F/A) for solids. Pressure in a liquid = ρgh (density × gravitational field strength × depth). Atmospheric pressure at sea level ≈ 101,325 Pa ≈ 760 mmHg. Hydraulic machines use Pascal\'s principle: pressure is transmitted equally in all directions.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Electromagnetic spectrum (lowest to highest frequency): Radio waves → Microwaves → Infrared → Visible light → Ultraviolet → X-rays → Gamma rays. All travel at the speed of light (3 × 10⁸ m/s) in a vacuum. Higher frequency = higher energy = shorter wavelength.' },
-  { icon: '⚡', cat: 'Physics', tip: 'Work, energy, power: Work = Force × Distance (W = Fd). Kinetic Energy = ½mv². Potential Energy = mgh. Power = Work ÷ Time (P = W/t). Efficiency = (Useful energy output ÷ Total energy input) × 100%. Energy is always conserved — it converts, never disappears.' },
-
-  // ── General Knowledge / Current Affairs ──────────────────────────────────
-  { icon: '🌍', cat: 'General Knowledge', tip: 'Nigeria\'s government structure: Three tiers — Federal, State, Local Government. Three arms — Executive (President/Governor), Legislature (NASS/State House of Assembly), Judiciary (Courts). Nigeria operates a presidential system (unlike the UK\'s parliamentary system).' },
-  { icon: '🌍', cat: 'General Knowledge', tip: 'Nursing regulatory body: The Nursing and Midwifery Council of Nigeria (NMCN) regulates nursing and midwifery practice in Nigeria. It was established by Decree No. 89 of 1979. Knowing NMCN\'s role is essential for any nursing school application.' },
-  { icon: '🌍', cat: 'General Knowledge', tip: 'HIV/AIDS facts for entrance exams: HIV attacks CD4+ T-cells (helper T-lymphocytes), weakening the immune system. AIDS is the advanced stage. Transmission: unprotected sex, contaminated needles, mother-to-child (pregnancy/birth/breastfeeding). Not transmitted by casual contact.' },
-  { icon: '🌍', cat: 'General Knowledge', tip: 'First aid priorities — the ABCs: Airway (ensure it is open), Breathing (check and support), Circulation (control bleeding, check pulse). In any emergency, secure the airway first before anything else. This is the universal first aid foundation.' },
-  { icon: '🌍', cat: 'General Knowledge', tip: 'Nigeria geography essentials: Capital = Abuja (FCT). Largest city by population = Lagos. Highest mountain = Chappal Waddi (Taraba State). Longest river = River Niger (flows through Nigeria into the Niger Delta). These facts appear frequently in GK sections.' },
-  { icon: '🌍', cat: 'General Knowledge', tip: 'Common logical reasoning traps: Correlation ≠ Causation. "All A are B" does NOT mean "All B are A". A valid argument can have a false conclusion if the premises are false. Practice spotting these in verbal reasoning questions.' },
+// ── Fallback static tips (used if AI fails or no questions available) ─────────
+const FALLBACK_TIPS = [
+  { icon: '🧬', cat: 'Biology', tip: 'Photosynthesis equation: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂. Light reactions occur in thylakoids; the Calvin cycle (dark reaction) occurs in the stroma. Always remember both stages for entrance exam questions.' },
+  { icon: '🔢', cat: 'Mathematics', tip: 'BODMAS rule: Brackets → Orders → Division → Multiplication → Addition → Subtraction. Apply strictly left-to-right within the same priority level. Nigerian entrance exams test this in nearly every paper.' },
+  { icon: '⚗️', cat: 'Chemistry', tip: 'OILRIG: Oxidation Is Loss, Reduction Is Gain (of electrons). At the cathode (−ve): reduction occurs. At the anode (+ve): oxidation occurs. Memorise this for electrolysis questions.' },
+  { icon: '⚡', cat: 'Physics', tip: 'Equations of motion: v = u + at · s = ut + ½at² · v² = u² + 2as. Identify which variable is missing, then pick the equation that does not contain it.' },
+  { icon: '📝', cat: 'English Language', tip: 'Concord tip: Collective nouns (team, committee, jury) take a singular verb when acting as a unit ("The jury has reached a verdict") but plural when members act individually.' },
 ];
 
-function todayTipIndex() {
-  const d = new Date();
-  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
-  return dayOfYear % TIPS.length;
+function todayKey() {
+  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
-// Distinct localStorage key from the NMCN TipOfDay to prevent cross-contamination
-const DISMISS_KEY = 'entrance_tip_dismissed';
+// ── Fetch a random-ish sample of questions from Firestore ────────────────────
+// Firestore doesn't support ORDER BY RAND(), so we read up to 40 docs and
+// shuffle locally, then pass the first ~12 to Claude.
+async function sampleQuestions(n = 40) {
+  const snap = await getDocs(query(collection(db, 'entranceExamQuestions'), limit(n)));
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Fisher-Yates shuffle
+  for (let i = docs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [docs[i], docs[j]] = [docs[j], docs[i]];
+  }
+  return docs.slice(0, 12);
+}
 
-export default function EntranceTipOfDay() {
-  const [dismissed, setDismissed] = useState(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return localStorage.getItem(DISMISS_KEY) === today;
+// ── Call Claude API to generate a tip ────────────────────────────────────────
+async function generateAITip(questions) {
+  // Build a compact question digest for the prompt
+  const digest = questions.map((q, i) => {
+    const text    = q.question || q.questionText || '';
+    const subject = q.subject  || 'General';
+    const answer  = q.answer   || '';
+    const exp     = q.explanation ? ` Explanation: ${q.explanation.slice(0, 120)}` : '';
+    return `Q${i + 1} [${subject}]: ${text.slice(0, 200)}${answer ? ` (Answer: ${answer})` : ''}${exp}`;
+  }).join('\n');
+
+  const prompt = `You are a study coach for Nigerian nursing school entrance exam candidates.
+Below is a sample of actual questions from the exam question bank.
+
+${digest}
+
+Based on THESE specific questions, generate ONE concise, high-value "Tip of the Day" that:
+- Targets a concept, pattern, or trick directly relevant to the questions shown
+- Is practical and immediately actionable (not vague advice like "study hard")
+- Is 2–4 sentences long
+- Includes the subject name (English Language / Mathematics / Biology / Chemistry / Physics / General Knowledge)
+
+Respond ONLY with a valid JSON object — no markdown, no backticks, no preamble:
+{"icon":"<single emoji>","cat":"<subject>","tip":"<tip text>"}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
   });
-  const [expanded, setExpanded] = useState(true);
+
+  if (!response.ok) throw new Error(`API error ${response.status}`);
+  const data = await response.json();
+  const raw  = data.content?.find(b => b.type === 'text')?.text || '';
+  // Strip accidental code fences
+  const clean = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function EntranceTipOfDay() {
+  const today = todayKey();
+
+  const [tip,       setTip]       = useState(null);   // { icon, cat, tip, ai }
+  const [loading,   setLoading]   = useState(true);
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISS_KEY) === today);
+  const [expanded,  setExpanded]  = useState(true);
+
+  useEffect(() => {
+    if (dismissed) { setLoading(false); return; }
+
+    // Check cache first
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached?.date === today && cached?.tip) {
+        setTip(cached.tip);
+        setLoading(false);
+        return;
+      }
+    } catch (_) { /* ignore bad cache */ }
+
+    // Generate fresh tip
+    (async () => {
+      try {
+        const questions = await sampleQuestions(40);
+        if (questions.length === 0) throw new Error('no questions');
+
+        const aiTip = await generateAITip(questions);
+        const result = { ...aiTip, ai: true };
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ date: today, tip: result }));
+        setTip(result);
+      } catch (err) {
+        console.warn('[EntranceTipOfDay] AI generation failed, using fallback:', err.message);
+        // Fallback: pick one of the static tips for today
+        const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+        const fallback  = { ...FALLBACK_TIPS[dayOfYear % FALLBACK_TIPS.length], ai: false };
+        setTip(fallback);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [dismissed, today]);
 
   if (dismissed) return null;
 
-  const tip = TIPS[todayTipIndex()];
-
   const handleDismiss = () => {
-    const today = new Date().toISOString().slice(0, 10);
     localStorage.setItem(DISMISS_KEY, today);
     setDismissed(true);
   };
 
-  // Colour accent per subject
-  const catColor = {
-    'English Language': '#2563EB',
-    'Mathematics':      '#7C3AED',
-    'Biology':          '#16A34A',
-    'Chemistry':        '#D97706',
-    'Physics':          '#0891B2',
-    'General Knowledge':'#DC2626',
-  }[tip.cat] || '#0D9488';
+  // ── Loading skeleton ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{
+        background:    'linear-gradient(135deg, var(--teal)10 0%, var(--teal)06 100%)',
+        border:        '1.5px solid var(--border)',
+        borderRadius:  14,
+        marginBottom:  20,
+        padding:       '14px 16px',
+        display:       'flex',
+        alignItems:    'center',
+        gap:           12,
+      }}>
+        <span style={{ fontSize: 20 }}>💡</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: 'var(--teal)', marginBottom: 6 }}>
+            💡 Entrance Exam Tip of the Day
+          </div>
+          <div style={{
+            height: 12, borderRadius: 6, background: 'var(--bg-tertiary)',
+            width: '80%', marginBottom: 6,
+            animation: 'pulse 1.4s ease-in-out infinite',
+          }} />
+          <div style={{
+            height: 12, borderRadius: 6, background: 'var(--bg-tertiary)',
+            width: '60%',
+            animation: 'pulse 1.4s ease-in-out infinite',
+          }} />
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: F, marginTop: 6 }}>
+            ✨ AI is generating your personalised tip…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tip) return null;
+
+  const catColor = SUBJECT_COLOR[tip.cat] || '#0D9488';
 
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${catColor}10 0%, ${catColor}06 100%)`,
-      border: `1.5px solid ${catColor}30`,
-      borderRadius: 14, marginBottom: 20, overflow: 'hidden',
+      background:   `linear-gradient(135deg, ${catColor}10 0%, ${catColor}06 100%)`,
+      border:       `1.5px solid ${catColor}30`,
+      borderRadius: 14,
+      marginBottom: 20,
+      overflow:     'hidden',
     }}>
-      {/* Header row */}
+      {/* ── Header row ──────────────────────────────────────────────────────── */}
       <div
         onClick={() => setExpanded(v => !v)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '12px 16px', cursor: 'pointer',
-        }}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer' }}
       >
-        <span style={{ fontSize: 20 }}>{tip.icon}</span>
+        <span style={{ fontSize: 20 }}>{tip.icon || '💡'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: catColor }}>
             💡 Entrance Exam Tip of the Day
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: F }}>
-            {tip.cat} · Changes daily
+            {tip.cat} · {tip.ai ? '✨ AI-generated from your question bank' : 'Changes daily'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
@@ -150,18 +242,24 @@ export default function EntranceTipOfDay() {
         </div>
       </div>
 
-      {/* Tip body */}
+      {/* ── Tip body ─────────────────────────────────────────────────────────── */}
       {expanded && (
-        <div style={{
-          padding: '0 16px 14px',
-          borderTop: `1px solid ${catColor}18`,
-        }}>
+        <div style={{ padding: '0 16px 14px', borderTop: `1px solid ${catColor}18` }}>
           <p style={{
             fontFamily: F, fontSize: 14, color: 'var(--text-primary)',
             lineHeight: 1.75, margin: '12px 0 0', fontWeight: 700,
           }}>
             {tip.tip}
           </p>
+          {tip.ai && (
+            <div style={{
+              marginTop: 10, fontSize: 11, color: 'var(--text-muted)',
+              fontFamily: F, display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              <span>✨</span>
+              <span>Auto-generated from your live question bank · Refreshes tomorrow</span>
+            </div>
+          )}
         </div>
       )}
     </div>
