@@ -17,10 +17,9 @@ import { ensureEntranceDailyMockNotification, todayKey, maybePushEntranceDailyMo
 import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal';
 import { fetchBadges, evaluateBadges, syncBadges, BADGE_MAP } from '../../utils/badgeUtils';
 import { fetchStreak } from '../../utils/streakUtils';
-import DailyChallenge from '../shared/DailyChallenge';
-import TipOfDay from '../shared/TipOfDay';
+import EntranceDailyChallenge from './EntranceDailyChallenge';
+import EntranceTipOfDay from './EntranceTipOfDay';
 import StreakReminderBanner from '../shared/StreakReminderBanner';
-
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
 
@@ -416,11 +415,11 @@ export default function EntranceExamHub() {
         </div>
       )}
 
-      {/* ── Tip of the Day ── */}
-      <TipOfDay />
+      {/* ── Tip of the Day (Entrance Exam — O-level subjects) ── */}
+      <EntranceTipOfDay />
 
-      {/* ── Daily Challenge ── */}
-      <DailyChallenge />
+      {/* ── Daily Challenge (Entrance Exam — reads entranceDailyChallenge) ── */}
+      <EntranceDailyChallenge />
 
       {loadError && (
         <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#EF4444', fontWeight: 700, fontFamily: F, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
