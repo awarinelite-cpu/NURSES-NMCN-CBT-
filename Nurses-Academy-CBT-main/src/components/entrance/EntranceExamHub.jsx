@@ -51,7 +51,7 @@ const FEATURE_CARDS = [
   {
     icon: '🏫', label: 'School Past Questions',
     sub: 'Practice with real past questions per school',
-    desc: 'Pick any Nigerian nursing school and drill their actual past questions. The fastest way to understand each school's pattern.',
+    desc: "Pick any Nigerian nursing school and drill their actual past questions. The fastest way to understand each school's pattern.",
     color: '#0D9488', to: '/entrance-exam/schools',
   },
   {
