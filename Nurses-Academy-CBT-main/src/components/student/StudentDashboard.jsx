@@ -1174,7 +1174,28 @@ export default function StudentDashboard() {
         </div>
       </ACard>
 
-
+      {/* ── Study Buddy shortcut ── */}
+      <ACard delay={990} style={{ marginBottom: 20 }}>
+        <div
+          onClick={() => navigate('/study-buddy')}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(13,148,136,0.1))',
+            border: '1.5px solid rgba(124,58,237,0.25)',
+            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
+            transition: 'border-color 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🤝</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Study Buddy Finder</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Match with students who complement your weak subjects</div>
+            </div>
+          </div>
+          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
+        </div>
+      </ACard>
 
       {/* ── Categories ── */}
       <ACard delay={1000} style={{ marginBottom: 32 }}>
