@@ -11,7 +11,7 @@ import { useNavigate, useLocation }                  from 'react-router-dom';
 import { useAuth }                                   from '../../context/AuthContext';
 import {
   collection, getDocs, query, where, addDoc,
-  serverTimestamp, deleteDoc, doc, setDoc,
+  serverTimestamp, deleteDoc, doc, setDoc, updateDoc, arrayUnion, arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import ItalicText      from '../shared/ItalicText';
@@ -21,6 +21,11 @@ const OPT_KEYS = ['A', 'B', 'C', 'D'];
 const F        = "'Times New Roman', Times, serif";
 const H        = "'Arial Black', Arial, sans-serif";
 const FREE_CAP = 10; // max questions for unpaid users
+
+// Mirror of ExamSession's sanitizeKey — makes a Firestore-safe map key
+function sanitizeKey(str) {
+  return (str || '').replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').toLowerCase();
+}
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtTime(s) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
@@ -188,6 +193,44 @@ export default function EntranceSubjectSession() {
           answers: ans, questionIds: qs.map(q => q.id), createdAt: serverTimestamp(),
         });
       } catch (e) { console.warn('Save drill error:', e); }
+
+      // ── Mastery tracking ────────────────────────────────────────────────
+      // Correctly-answered questions are added to entranceSubjectMastered.{subjectKey}
+      // so they are excluded from future drills for that subject.
+      // Wrongly-answered questions are removed so they keep repeating.
+      // When all questions in a subject are mastered the hub resets the bank.
+      // For mixed drills (subject.id === 'mixed_weak') group by each question's
+      // own subject field instead of the session-level subject name.
+      try {
+        const isMixed  = subject.id === 'mixed_weak';
+        const userRef  = doc(db, 'users', user.uid);
+
+        if (!isMixed) {
+          // Single-subject drill — one mastery key
+          const subjectKey = sanitizeKey(subject.name);
+          const correctIds = qs.filter(q => ans[q.id] === q.correctAnswer).map(q => q.id);
+          const wrongIds   = qs.filter(q => ans[q.id] !== q.correctAnswer && ans[q.id]).map(q => q.id);
+          const fieldPath  = `entranceSubjectMastered.${subjectKey}`;
+          if (correctIds.length > 0)
+            updateDoc(userRef, { [fieldPath]: arrayUnion(...correctIds) }).catch(e => console.warn('Mastery +:', e.message));
+          if (wrongIds.length > 0)
+            updateDoc(userRef, { [fieldPath]: arrayRemove(...wrongIds) }).catch(e => console.warn('Mastery -:', e.message));
+        } else {
+          // Mixed drill — group updates by each question's own subject field
+          const bySubject = {};
+          qs.forEach(q => {
+            const key = sanitizeKey(q.subject || 'untagged');
+            if (!bySubject[key]) bySubject[key] = { correct: [], wrong: [] };
+            if (ans[q.id] === q.correctAnswer) bySubject[key].correct.push(q.id);
+            else if (ans[q.id]) bySubject[key].wrong.push(q.id);
+          });
+          Object.entries(bySubject).forEach(([key, { correct: cIds, wrong: wIds }]) => {
+            const fp = `entranceSubjectMastered.${key}`;
+            if (cIds.length > 0) updateDoc(userRef, { [fp]: arrayUnion(...cIds)  }).catch(e => console.warn('Mastery +:', e.message));
+            if (wIds.length > 0) updateDoc(userRef, { [fp]: arrayRemove(...wIds) }).catch(e => console.warn('Mastery -:', e.message));
+          });
+        }
+      } catch (e) { console.warn('Mastery tracking (non-fatal):', e.message); }
     }
     setResult({ subject: subject.name, score, correct, total: qs.length, breakdown });
     setSubmitted(true);

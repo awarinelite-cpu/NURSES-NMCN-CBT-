@@ -230,15 +230,24 @@ function WeakSubjectsPanel({ user }) {
     setDrillError('');
     try {
       const perSubject = Math.ceil(10 / weakSubjects.length);
+      // Fetch questions and mastery data in parallel
       const fetches = weakSubjects.map(s =>
         getDocs(query(collection(db, 'entranceExamQuestions'), where('subject', '==', s.subject)))
       );
       const snaps = await Promise.all(fetches);
 
+      // Read mastered IDs per subject from profile (already in context)
+      const masteredMap = profile?.entranceSubjectMastered || {};
+
       let pool = [];
-      snaps.forEach(snap => {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const shuffled = docs.sort(() => Math.random() - 0.5);
+      snaps.forEach((snap, idx) => {
+        const subjectKey = (weakSubjects[idx].subject || '').replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').toLowerCase();
+        const masteredIds = masteredMap[subjectKey] || [];
+        let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Exclude correctly-answered questions; if all mastered reset that subject
+        const unmastered = docs.filter(d => !masteredIds.includes(d.id));
+        const eligible   = unmastered.length > 0 ? unmastered : docs; // reset if bank exhausted
+        const shuffled   = eligible.sort(() => Math.random() - 0.5);
         pool.push(...shuffled.slice(0, perSubject));
       });
       pool = pool.sort(() => Math.random() - 0.5).slice(0, 10);
