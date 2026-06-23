@@ -211,12 +211,72 @@ function useWeakSubjects(user) {
 
 function WeakSubjectsPanel({ user }) {
   const { weakSubjects, sessionCount, loading } = useWeakSubjects(user);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed,  setDismissed]  = useState(false);
+  const [drilling,   setDrilling]   = useState(false);
+  const [drillError, setDrillError] = useState('');
   const navigate = useNavigate();
+
   if (loading || dismissed || sessionCount < 5 || weakSubjects.length === 0) return null;
+
   const scoreColor = avg => avg >= 50
     ? { text: '#F59E0B', bg: 'rgba(245,158,11,0.12)', bar: '#F59E0B' }
     : { text: '#EF4444', bg: 'rgba(239,68,68,0.12)', bar: '#EF4444' };
+
+  // Fetch questions from ALL weak subjects, spread evenly, shuffle, take 10.
+  // Passes pre-loaded questionIds via resumeData so EntranceSubjectSession
+  // skips its own single-subject fetch.
+  const handleMixedDrill = async () => {
+    setDrilling(true);
+    setDrillError('');
+    try {
+      const perSubject = Math.ceil(10 / weakSubjects.length);
+      const fetches = weakSubjects.map(s =>
+        getDocs(query(collection(db, 'entranceExamQuestions'), where('subject', '==', s.subject)))
+      );
+      const snaps = await Promise.all(fetches);
+
+      let pool = [];
+      snaps.forEach(snap => {
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const shuffled = docs.sort(() => Math.random() - 0.5);
+        pool.push(...shuffled.slice(0, perSubject));
+      });
+      pool = pool.sort(() => Math.random() - 0.5).slice(0, 10);
+
+      if (pool.length === 0) {
+        setDrillError('No questions found for your weak subjects yet.');
+        setDrilling(false);
+        return;
+      }
+
+      const subjectNames = weakSubjects.map(s => s.subject).join(', ');
+      navigate('/entrance-exam/subject-session', {
+        state: {
+          subject: { id: 'mixed_weak', name: 'Mixed Weak Subjects', icon: '🎯', color: '#EF4444', questionCount: pool.length },
+          year:         'All Years',
+          count:        pool.length,
+          timeLimitMin: 15,
+          doShuffle:    false,
+          resumeMode:   true,
+          pausedExamId: null,
+          resumeData: {
+            questionIds:  pool.map(q => q.id),
+            answers:      {},
+            flagged:      {},
+            currentIndex: 0,
+            timeLeft:     15 * 60,
+            _preloaded:   pool,
+          },
+          _mixedLabel: 'Weak drill: ' + subjectNames,
+        },
+      });
+    } catch (e) {
+      setDrillError('Failed to load questions. Please try again.');
+      console.error('Mixed drill error:', e);
+      setDrilling(false);
+    }
+  };
+
   return (
     <ACard delay={780} style={{ marginBottom: 28 }}>
       <div style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.25)', borderRadius: 16, padding: '18px 18px 14px' }}>
@@ -230,7 +290,8 @@ function WeakSubjectsPanel({ user }) {
           </div>
           <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '2px 6px', borderRadius: 6, flexShrink: 0 }}>✕</button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {weakSubjects.map((s, idx) => {
             const { text, bg, bar } = scoreColor(s.avg);
             return (
@@ -240,32 +301,44 @@ function WeakSubjectsPanel({ user }) {
                   <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.subject.replace(/_/g, ' ')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1, height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 3, background: bar, width: `${Math.max(s.avg, 4)}%`, transition: 'width 1s cubic-bezier(.4,0,.2,1)' }} />
+                      <div style={{ height: '100%', borderRadius: 3, background: bar, width: Math.max(s.avg, 4) + '%', transition: 'width 1s cubic-bezier(.4,0,.2,1)' }} />
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 800, color: text, minWidth: 32 }}>{s.avg}%</span>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({s.total} attempt{s.total !== 1 ? 's' : ''})</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => navigate('/entrance-exam/subject-session', {
-                    state: {
-                      subject:      { id: s.subject, name: s.subject, icon: '🎯', color: '#EF4444', questionCount: 999 },
-                      year:         'All Years',
-                      count:        10,
-                      timeLimitMin: 15,
-                      doShuffle:    true,
-                    },
-                  })}
-                  style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, border: 'none', background: 'rgba(239,68,68,0.15)', color: '#F87171' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.28)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
-                >⚡ Drill 10 Qs →</button>
               </div>
             );
           })}
         </div>
-        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', fontFamily: F }}>
-          💡 Subjects below 60% need attention. Drilling weak areas is the fastest way to pass.
+
+        {drillError && (
+          <div style={{ fontSize: 12, color: '#EF4444', fontWeight: 700, fontFamily: F, marginBottom: 10 }}>
+            Warning: {drillError}
+          </div>
+        )}
+
+        <button
+          onClick={handleMixedDrill}
+          disabled={drilling}
+          style={{
+            width: '100%', padding: '13px 18px', borderRadius: 12, border: 'none',
+            background: drilling ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.85)',
+            color: '#fff', cursor: drilling ? 'not-allowed' : 'pointer',
+            fontFamily: H, fontWeight: 900, fontSize: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            transition: 'background .2s',
+          }}
+          onMouseEnter={e => { if (!drilling) e.currentTarget.style.background = '#EF4444'; }}
+          onMouseLeave={e => { if (!drilling) e.currentTarget.style.background = 'rgba(239,68,68,0.85)'; }}
+        >
+          {drilling
+            ? 'Loading questions...'
+            : 'Drill 10 Mixed Questions — ' + weakSubjects.map(s => s.subject.split(' ')[0]).join(' + ')}
+        </button>
+
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', fontFamily: F }}>
+          Questions are drawn from all {weakSubjects.length} weak subjects and shuffled together.
         </div>
       </div>
     </ACard>
