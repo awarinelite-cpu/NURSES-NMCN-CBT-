@@ -173,6 +173,154 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
   );
 }
 
+/* ── Weak Subjects Detector (entrance-specific) ─────────────────────────────── */
+function useWeakSubjects(user) {
+  const [weakSubjects, setWeakSubjects] = useState([]);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
+        if (cancelled) return;
+        const sessions = snap.docs.map(d => d.data());
+        setSessionCount(sessions.length);
+        if (sessions.length < 5) { setLoading(false); return; }
+        const subjectMap = {};
+        sessions.forEach(s => {
+          const key = s.subject || s.examType || '';
+          if (!key) return;
+          if (!subjectMap[key]) subjectMap[key] = { subject: key, total: 0, sumScore: 0 };
+          subjectMap[key].total += 1;
+          subjectMap[key].sumScore += (s.scorePercent || 0);
+        });
+        const results = Object.values(subjectMap)
+          .filter(s => s.total >= 2)
+          .map(s => ({ ...s, avg: Math.round(s.sumScore / s.total) }))
+          .filter(s => s.avg < 60).sort((a, b) => a.avg - b.avg).slice(0, 3);
+        setWeakSubjects(results);
+      } catch (e) { console.warn('EntranceWeakSubjects (non-fatal):', e.message); }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+  return { weakSubjects, sessionCount, loading };
+}
+
+function WeakSubjectsPanel({ user }) {
+  const { weakSubjects, sessionCount, loading } = useWeakSubjects(user);
+  const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
+  if (loading || dismissed || sessionCount < 5 || weakSubjects.length === 0) return null;
+  const scoreColor = avg => avg >= 50
+    ? { text: '#F59E0B', bg: 'rgba(245,158,11,0.12)', bar: '#F59E0B' }
+    : { text: '#EF4444', bg: 'rgba(239,68,68,0.12)', bar: '#EF4444' };
+  return (
+    <ACard delay={780} style={{ marginBottom: 28 }}>
+      <div style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.25)', borderRadius: 16, padding: '18px 18px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: 'rgba(239,68,68,0.15)', border: '1.5px solid rgba(239,68,68,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎯</div>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Weak Subjects Detected</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>Based on your last {sessionCount} sessions — drill these to improve fast</div>
+            </div>
+          </div>
+          <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '2px 6px', borderRadius: 6, flexShrink: 0 }}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {weakSubjects.map((s, idx) => {
+            const { text, bg, bar } = scoreColor(s.avg);
+            return (
+              <div key={s.subject} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, color: text, fontFamily: H }}>{idx + 1}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.subject.replace(/_/g, ' ')}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 3, background: bar, width: `${Math.max(s.avg, 4)}%`, transition: 'width 1s cubic-bezier(.4,0,.2,1)' }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: text, minWidth: 32 }}>{s.avg}%</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({s.total} attempt{s.total !== 1 ? 's' : ''})</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/entrance-exam/subject-drill', { state: { subject: s.subject } })}
+                  style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, border: 'none', background: 'rgba(239,68,68,0.15)', color: '#F87171' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.28)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+                >Drill →</button>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', fontFamily: F }}>
+          💡 Subjects below 60% need attention. Drilling weak areas is the fastest way to pass.
+        </div>
+      </div>
+    </ACard>
+  );
+}
+
+/* ── Surprise Me Button (entrance version) ──────────────────────────────────── */
+function SurpriseMeButton({ user }) {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => { setPulse(true); setTimeout(() => setPulse(false), 600); }, 4000);
+    return () => clearInterval(t);
+  }, []);
+  const handleSurprise = async () => {
+    setIsLoading(true);
+    try {
+      let pickedSubject = null;
+      if (user?.uid) {
+        try {
+          const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
+          const sessions = snap.docs.map(d => d.data()).filter(s => s.scorePercent !== undefined);
+          if (sessions.length >= 3) {
+            const subjectMap = {};
+            sessions.forEach(s => {
+              const key = s.subject || s.examType || '';
+              if (!key) return;
+              if (!subjectMap[key]) subjectMap[key] = { total: 0, sum: 0 };
+              subjectMap[key].total++; subjectMap[key].sum += s.scorePercent;
+            });
+            const weakOnes = Object.entries(subjectMap)
+              .map(([id, v]) => ({ id, avg: Math.round(v.sum / v.total) }))
+              .filter(c => c.avg < 65).sort((a, b) => a.avg - b.avg);
+            if (weakOnes.length > 0) pickedSubject = weakOnes[0].id;
+          }
+        } catch { /* fall through */ }
+      }
+      navigate('/entrance-exam/subject-drill', pickedSubject ? { state: { subject: pickedSubject } } : undefined);
+    } catch (e) { console.error('Surprise Me error:', e); }
+    finally { setIsLoading(false); }
+  };
+  return (
+    <button onClick={handleSurprise} disabled={isLoading} style={{
+      width: '100%', padding: '16px 20px', borderRadius: 14, border: 'none',
+      background: 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+      color: '#fff', cursor: isLoading ? 'not-allowed' : 'pointer',
+      display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20,
+      boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+      transform: pulse ? 'scale(1.02)' : 'scale(1)',
+      transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+      opacity: isLoading ? 0.7 : 1,
+    }}>
+      <span style={{ fontSize: 28 }}>{isLoading ? '⏳' : '🎲'}</span>
+      <div style={{ textAlign: 'left' }}>
+        <div style={{ fontSize: 16, fontWeight: 900, fontFamily: H }}>{isLoading ? 'Finding questions…' : 'Surprise Me!'}</div>
+        <div style={{ fontSize: 12, opacity: 0.85, fontFamily: F, fontWeight: 700 }}>Jumps to your weakest subject drill • No setup needed</div>
+      </div>
+      {!isLoading && <span style={{ marginLeft: 'auto', fontSize: 20, opacity: 0.7 }}>→</span>}
+    </button>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════════════════ */
 export default function EntranceExamHub() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -533,8 +681,26 @@ export default function EntranceExamHub() {
         <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: 'var(--text-primary)', margin: '0 0 16px' }}>
           ⚡ What do you want to do?
         </h2>
+        <SurpriseMeButton user={user} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
           {FEATURE_CARDS.map(card => <FeatureCard key={card.label} {...card} />)}
+        </div>
+      </ACard>
+
+      {/* ── Weak Subjects Detector ── */}
+      <WeakSubjectsPanel user={user} />
+
+      {/* ── Progress Wall shortcut ── */}
+      <ACard delay={900} style={{ marginBottom: 20 }}>
+        <div onClick={() => navigate('/progress-wall')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,rgba(13,148,136,0.12),rgba(30,58,138,0.12))', border: '1.5px solid rgba(13,148,136,0.25)', borderRadius: 14, padding: '16px 20px', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🗺️</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Progress Wall</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Heatmap · Subject mastery · Weak spots</div>
+            </div>
+          </div>
+          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
         </div>
       </ACard>
 
