@@ -247,11 +247,19 @@ function WeakSubjectsPanel({ user }) {
                   </div>
                 </div>
                 <button
-                  onClick={() => navigate('/entrance-exam/subject-drill', { state: { subject: s.subject } })}
+                  onClick={() => navigate('/entrance-exam/subject-session', {
+                    state: {
+                      subject:      { id: s.subject, name: s.subject, icon: '🎯', color: '#EF4444', questionCount: 999 },
+                      year:         'All Years',
+                      count:        10,
+                      timeLimitMin: 15,
+                      doShuffle:    true,
+                    },
+                  })}
                   style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, border: 'none', background: 'rgba(239,68,68,0.15)', color: '#F87171' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.28)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
-                >Drill →</button>
+                >⚡ Drill 10 Qs →</button>
               </div>
             );
           })}
@@ -296,7 +304,15 @@ function SurpriseMeButton({ user }) {
           }
         } catch { /* fall through */ }
       }
-      navigate('/entrance-exam/subject-drill', pickedSubject ? { state: { subject: pickedSubject } } : undefined);
+      navigate('/entrance-exam/subject-session', {
+        state: {
+          subject:      { id: pickedSubject, name: pickedSubject, icon: '🎲', color: '#7C3AED', questionCount: 999 },
+          year:         'All Years',
+          count:        10,
+          timeLimitMin: 15,
+          doShuffle:    true,
+        },
+      });
     } catch (e) { console.error('Surprise Me error:', e); }
     finally { setIsLoading(false); }
   };
