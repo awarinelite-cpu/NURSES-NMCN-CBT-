@@ -31,7 +31,6 @@ import StudyPlanPage          from './components/student/StudyPlanPage';
 import BadgesPage             from './components/student/BadgesPage';
 import ProgressWallPage       from './components/student/ProgressWallPage';
 import ProfilePage            from './components/student/ProfilePage';
-import StudyBuddyPage         from './components/student/StudyBuddyPage';
 import AdminAnalytics         from './components/admin/AdminAnalytics';
 import DailyChallengeManager from './components/admin/DailyChallengeManager';
 
@@ -242,7 +241,7 @@ export default function App() {
                 <Route path="/progress-wall"     element={<ProgressWallPage />} />
                 <Route path="/profile"           element={<ProfilePage />} />
                 <Route path="/notifications"    element={<NotificationSettings />} />
-                <Route path="/study-buddy"       element={<StudyBuddyPage />} />
+
                 <Route path="/student/:uid"       element={<StudentPublicProfile />} />
                 <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
                 <Route path="/entrance-exam/chat-inbox"   element={<ChatInbox />} />
