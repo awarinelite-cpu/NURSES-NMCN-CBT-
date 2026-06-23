@@ -310,8 +310,25 @@ export default function EntranceSubjectSession() {
     const correctC = result.breakdown.filter(b => b.isCorrect).length;
     const wrongC   = result.breakdown.filter(b => b.chosen && !b.isCorrect).length;
     const skippedC = result.breakdown.filter(b => !b.chosen).length;
+    const watermarkText = profile?.name ? profile.name.toUpperCase() : '';
     return (
       <div style={{ ...S.overlay, alignItems: 'flex-start', overflowY: 'auto' }}>
+        {watermarkText && (
+          <div aria-hidden="true" style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            pointerEvents: 'none', zIndex: 9998, overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{
+              fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
+              color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+              whiteSpace: 'nowrap', userSelect: 'none',
+              fontFamily: "'Arial Black', Arial, sans-serif",
+            }}>
+              {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
+            </span>
+          </div>
+        )}
         <div style={{ width: '100%', maxWidth: 680, margin: '0 auto', padding: '28px 16px 64px' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>{result.score >= 70 ? '🏆' : result.score >= 50 ? '🎯' : '💪'}</div>
@@ -424,8 +441,26 @@ export default function EntranceSubjectSession() {
   );
 
   // Main Exam UI
+  const watermarkText = profile?.name ? profile.name.toUpperCase() : '';
+
   return (
     <div style={S.overlay}>
+      {watermarkText && (
+        <div aria-hidden="true" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          pointerEvents: 'none', zIndex: 9998, overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
+            color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+            whiteSpace: 'nowrap', userSelect: 'none',
+            fontFamily: "'Arial Black', Arial, sans-serif",
+          }}>
+            {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
+          </span>
+        </div>
+      )}
       {showExitModal && <ExitModal />}
 
       {showUpgradeModal && (
