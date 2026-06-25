@@ -18,6 +18,7 @@ import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal
 import { fetchBadges, evaluateBadges, syncBadges, BADGE_MAP } from '../../utils/badgeUtils';
 import { fetchStreak } from '../../utils/streakUtils';
 import EntranceDailyChallenge from './EntranceDailyChallenge';
+import { ENTRANCE_SUBJECTS } from '../../utils/entranceExamParser';
 import EntranceTipOfDay from './EntranceTipOfDay';
 import StreakReminderBanner from '../shared/StreakReminderBanner';
 const F = "'Times New Roman', Times, serif";
@@ -185,13 +186,20 @@ function useWeakSubjects(user) {
       try {
         const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
         if (cancelled) return;
-        const sessions = snap.docs.map(d => d.data());
+        // Only sessions from single-subject drills carry a real, drillable
+        // subject name (e.g. 'Biology'). Daily Mock sessions store a Firestore
+        // doc id in `subject`, and School/General exam sessions default
+        // `subject` to the literal string 'entrance_general' — neither of
+        // those exist in entranceExamQuestions, so including them here causes
+        // "No questions found for <id>" when the user taps Drill/Surprise Me.
+        const sessions = snap.docs
+          .map(d => d.data())
+          .filter(s => s.examType === 'entrance_subject_drill' && s.subject);
         setSessionCount(sessions.length);
         if (sessions.length < 5) { setLoading(false); return; }
         const subjectMap = {};
         sessions.forEach(s => {
-          const key = s.subject || s.examType || '';
-          if (!key) return;
+          const key = s.subject;
           if (!subjectMap[key]) subjectMap[key] = { subject: key, total: 0, sumScore: 0 };
           subjectMap[key].total += 1;
           subjectMap[key].sumScore += (s.scorePercent || 0);
@@ -370,12 +378,17 @@ function SurpriseMeButton({ user }) {
       if (user?.uid) {
         try {
           const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
-          const sessions = snap.docs.map(d => d.data()).filter(s => s.scorePercent !== undefined);
+          // Same fix as WeakSubjectsPanel: only single-subject drill sessions
+          // have a real, drillable subject name in `subject`. Daily Mock and
+          // School/General sessions store a doc id / 'entrance_general'
+          // placeholder there, which entranceExamQuestions has no match for.
+          const sessions = snap.docs
+            .map(d => d.data())
+            .filter(s => s.scorePercent !== undefined && s.examType === 'entrance_subject_drill' && s.subject);
           if (sessions.length >= 3) {
             const subjectMap = {};
             sessions.forEach(s => {
-              const key = s.subject || s.examType || '';
-              if (!key) return;
+              const key = s.subject;
               if (!subjectMap[key]) subjectMap[key] = { total: 0, sum: 0 };
               subjectMap[key].total++; subjectMap[key].sum += s.scorePercent;
             });
@@ -388,7 +401,7 @@ function SurpriseMeButton({ user }) {
       }
       navigate('/entrance-exam/subject-session', {
         state: {
-          subject:      { id: pickedSubject, name: pickedSubject, icon: '🎲', color: '#7C3AED', questionCount: 999 },
+          subject:      { id: pickedSubject, name: pickedSubject || ENTRANCE_SUBJECTS[Math.floor(Math.random() * ENTRANCE_SUBJECTS.length)], icon: '🎲', color: '#7C3AED', questionCount: 999 },
           year:         'All Years',
           count:        10,
           timeLimitMin: 15,
