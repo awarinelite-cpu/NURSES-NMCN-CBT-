@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import {
   collection, query, where, orderBy, getDocs,
-  limit, deleteDoc, doc, getDoc, Timestamp,
+  limit, deleteDoc, doc, getDoc, documentId, Timestamp,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -174,6 +174,68 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
   );
 }
 
+/* ── Shared subject-performance aggregator (entrance-specific) ──────────────────
+   entranceExamSessions.subject is only a real, drillable subject name (e.g.
+   'Biology') when examType === 'entrance_subject_drill'. Daily Mock sessions
+   pull a MIXED pool of subjects, but the session doc itself only stores the
+   mock pool's Firestore doc id in `subject` — not useful on its own.
+   To still let Daily Mock performance feed the weak-subject detector, this
+   looks up each answered question's real subject + correctAnswer and scores
+   it as one unit, alongside subject-drill sessions (1 session = 1 unit).
+   Capped to the most recent 10 Daily Mock sessions to bound extra reads. */
+async function computeSubjectStats(sessions) {
+  const subjectMap = {}; // { subjectName: { subject, totalUnits, sumPercentUnits } }
+  const bump = (key, percent) => {
+    if (!key) return;
+    if (!subjectMap[key]) subjectMap[key] = { subject: key, totalUnits: 0, sumPercentUnits: 0 };
+    subjectMap[key].totalUnits += 1;
+    subjectMap[key].sumPercentUnits += percent;
+  };
+
+  // 1) Subject-drill sessions — subject is already real, 1 unit = 1 session
+  const drillSessions = sessions.filter(s => s.examType === 'entrance_subject_drill' && s.subject);
+  drillSessions.forEach(s => bump(s.subject, s.scorePercent || 0));
+
+  // 2) Daily Mock sessions — derive real subject per answered question
+  const mockSessions = sessions
+    .filter(s => s.examType === 'entrance_daily_mock' && Array.isArray(s.questionIds) && s.questionIds.length && s.answers)
+    .sort((a, b) => (b.completedAt?.toMillis?.() || 0) - (a.completedAt?.toMillis?.() || 0))
+    .slice(0, 10);
+
+  if (mockSessions.length) {
+    const idSet = new Set();
+    mockSessions.forEach(s => s.questionIds.forEach(id => idSet.add(id)));
+    const ids = Array.from(idSet);
+    const questionMeta = {}; // { id: { subject, correctAnswer } }
+    try {
+      for (let i = 0; i < ids.length; i += 30) {
+        const chunk = ids.slice(i, i + 30);
+        const qSnap = await getDocs(query(
+          collection(db, 'entranceExamQuestions'),
+          where(documentId(), 'in', chunk),
+        ));
+        qSnap.docs.forEach(d => {
+          const data = d.data();
+          questionMeta[d.id] = { subject: data.subject, correctAnswer: data.correctAnswer };
+        });
+      }
+      mockSessions.forEach(s => {
+        s.questionIds.forEach(qId => {
+          const meta = questionMeta[qId];
+          const chosen = s.answers[qId];
+          if (!meta || !meta.subject || chosen === undefined) return; // skip unanswered/unknown
+          bump(meta.subject, chosen === meta.correctAnswer ? 100 : 0);
+        });
+      });
+    } catch (e) {
+      console.warn('Daily Mock subject lookup (non-fatal):', e.message);
+    }
+  }
+
+  const contributingSessions = drillSessions.length + mockSessions.length;
+  return { subjectMap, contributingSessions };
+}
+
 /* ── Weak Subjects Detector (entrance-specific) ─────────────────────────────── */
 function useWeakSubjects(user) {
   const [weakSubjects, setWeakSubjects] = useState([]);
@@ -186,27 +248,14 @@ function useWeakSubjects(user) {
       try {
         const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
         if (cancelled) return;
-        // Only sessions from single-subject drills carry a real, drillable
-        // subject name (e.g. 'Biology'). Daily Mock sessions store a Firestore
-        // doc id in `subject`, and School/General exam sessions default
-        // `subject` to the literal string 'entrance_general' — neither of
-        // those exist in entranceExamQuestions, so including them here causes
-        // "No questions found for <id>" when the user taps Drill/Surprise Me.
-        const sessions = snap.docs
-          .map(d => d.data())
-          .filter(s => s.examType === 'entrance_subject_drill' && s.subject);
-        setSessionCount(sessions.length);
-        if (sessions.length < 5) { setLoading(false); return; }
-        const subjectMap = {};
-        sessions.forEach(s => {
-          const key = s.subject;
-          if (!subjectMap[key]) subjectMap[key] = { subject: key, total: 0, sumScore: 0 };
-          subjectMap[key].total += 1;
-          subjectMap[key].sumScore += (s.scorePercent || 0);
-        });
+        const sessions = snap.docs.map(d => d.data());
+        const { subjectMap, contributingSessions } = await computeSubjectStats(sessions);
+        if (cancelled) return;
+        setSessionCount(contributingSessions);
+        if (contributingSessions < 3) { setLoading(false); return; }
         const results = Object.values(subjectMap)
-          .filter(s => s.total >= 2)
-          .map(s => ({ ...s, avg: Math.round(s.sumScore / s.total) }))
+          .filter(s => s.totalUnits >= 3)
+          .map(s => ({ ...s, total: s.totalUnits, avg: Math.round(s.sumPercentUnits / s.totalUnits) }))
           .filter(s => s.avg < 60).sort((a, b) => a.avg - b.avg).slice(0, 3);
         setWeakSubjects(results);
       } catch (e) { console.warn('EntranceWeakSubjects (non-fatal):', e.message); }
@@ -378,22 +427,12 @@ function SurpriseMeButton({ user }) {
       if (user?.uid) {
         try {
           const snap = await getDocs(query(collection(db, 'entranceExamSessions'), where('userId', '==', user.uid)));
-          // Same fix as WeakSubjectsPanel: only single-subject drill sessions
-          // have a real, drillable subject name in `subject`. Daily Mock and
-          // School/General sessions store a doc id / 'entrance_general'
-          // placeholder there, which entranceExamQuestions has no match for.
-          const sessions = snap.docs
-            .map(d => d.data())
-            .filter(s => s.scorePercent !== undefined && s.examType === 'entrance_subject_drill' && s.subject);
-          if (sessions.length >= 3) {
-            const subjectMap = {};
-            sessions.forEach(s => {
-              const key = s.subject;
-              if (!subjectMap[key]) subjectMap[key] = { total: 0, sum: 0 };
-              subjectMap[key].total++; subjectMap[key].sum += s.scorePercent;
-            });
-            const weakOnes = Object.entries(subjectMap)
-              .map(([id, v]) => ({ id, avg: Math.round(v.sum / v.total) }))
+          const sessions = snap.docs.map(d => d.data());
+          const { subjectMap, contributingSessions } = await computeSubjectStats(sessions);
+          if (contributingSessions >= 2) {
+            const weakOnes = Object.values(subjectMap)
+              .filter(s => s.totalUnits >= 2)
+              .map(s => ({ id: s.subject, avg: Math.round(s.sumPercentUnits / s.totalUnits) }))
               .filter(c => c.avg < 65).sort((a, b) => a.avg - b.avg);
             if (weakOnes.length > 0) pickedSubject = weakOnes[0].id;
           }
