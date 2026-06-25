@@ -28,6 +28,7 @@ const BASE_NAV = [
   { icon: '📈', label: 'Analysis',   to: '/entrance-exam/analysis'      },
   { icon: '🏆', label: 'Top',        to: '/entrance-exam/leaderboard'   },
   { icon: '👥', label: 'Group Chat', to: '/entrance-exam/group-chat'               },
+  { icon: '🤝', label: 'Buddy',      to: '/entrance-exam/study-buddy'              },
   { icon: '💬', label: 'Messages',   to: '/entrance-exam/chat-inbox'                  },
 ];
 

@@ -608,6 +608,7 @@ export default function EntranceExamHub() {
     { icon: '📊', label: 'My Results',             sub: avgScore > 0 ? `Avg score: ${avgScore}%` : 'No exams yet', color: '#16A34A', to: '/entrance-exam/my-results', delay: 700 },
     { icon: '📈', label: 'Analysis',               sub: 'See your weak areas',                                color: '#0891B2', to: '/entrance-exam/analysis',      delay: 770 },
     { icon: '🏆', label: 'Leaderboard',            sub: 'See top students',                                    color: '#EF4444', to: '/entrance-exam/leaderboard',   delay: 840 },
+    { icon: '🤝', label: 'Study Buddy',            sub: 'Find aspirants to prep with',                         color: '#F59E0B', to: '/entrance-exam/study-buddy',   delay: 910 },
   ];
 
   return (
