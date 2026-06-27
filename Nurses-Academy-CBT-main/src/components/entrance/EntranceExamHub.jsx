@@ -174,6 +174,23 @@ function PausedModal({ exams, onContinue, onDiscard, onClose }) {
 }
 
 /* ── Weak Subjects Detector (entrance-specific) ─────────────────────────────── */
+// O-level subjects that actually have questions in entranceExamQuestions
+const VALID_SUBJECTS = new Set([
+  'Biology', 'Chemistry', 'Physics', 'Mathematics', 'English Language',
+  'General Studies', 'General Knowledge', 'Nursing Aptitude', 'Current Affairs',
+  'Literature', 'Government', 'Economics', 'Geography', 'Agricultural Science',
+  'Further Mathematics', 'Technical Drawing', 'Computer Studies',
+]);
+
+function isValidSubject(val) {
+  if (!val || typeof val !== 'string') return false;
+  // Reject internal values like 'entrance_daily_mock', 'entrance_general',
+  // Firestore IDs (long alphanumeric strings), and empty strings
+  if (val.startsWith('entrance_')) return false;
+  if (/^[A-Za-z0-9]{20,}$/.test(val)) return false; // looks like a Firestore doc ID
+  return VALID_SUBJECTS.has(val);
+}
+
 function useWeakSubjects(user) {
   const [weakSubjects, setWeakSubjects] = useState([]);
   const [sessionCount, setSessionCount] = useState(0);
@@ -190,7 +207,7 @@ function useWeakSubjects(user) {
         if (sessions.length < 5) { setLoading(false); return; }
         const subjectMap = {};
         sessions.forEach(s => {
-          const key = s.subject || s.examType || '';
+          const key = s.subject && isValidSubject(s.subject) ? s.subject : null;
           if (!key) return;
           if (!subjectMap[key]) subjectMap[key] = { subject: key, total: 0, sumScore: 0 };
           subjectMap[key].total += 1;
@@ -374,7 +391,7 @@ function SurpriseMeButton({ user }) {
           if (sessions.length >= 3) {
             const subjectMap = {};
             sessions.forEach(s => {
-              const key = s.subject || s.examType || '';
+              const key = s.subject && isValidSubject(s.subject) ? s.subject : null;
               if (!key) return;
               if (!subjectMap[key]) subjectMap[key] = { total: 0, sum: 0 };
               subjectMap[key].total++; subjectMap[key].sum += s.scorePercent;
@@ -386,6 +403,9 @@ function SurpriseMeButton({ user }) {
           }
         } catch { /* fall through */ }
       }
+      // Fallback: pick a random real subject from the known valid list
+      const FALLBACK_SUBJECTS = ['Biology', 'Chemistry', 'Physics', 'Mathematics', 'English Language', 'General Knowledge'];
+      if (!pickedSubject) pickedSubject = FALLBACK_SUBJECTS[Math.floor(Math.random() * FALLBACK_SUBJECTS.length)];
       navigate('/entrance-exam/subject-session', {
         state: {
           subject:      { id: pickedSubject, name: pickedSubject, icon: '🎲', color: '#7C3AED', questionCount: 999 },
@@ -796,6 +816,28 @@ export default function EntranceExamHub() {
             <div>
               <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Progress Wall</div>
               <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Heatmap · Subject mastery · Weak spots</div>
+            </div>
+          </div>
+          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
+        </div>
+      </ACard>
+
+      {/* ── Study Buddy ── */}
+      <ACard delay={910} style={{ marginBottom: 20 }}>
+        <div
+          onClick={() => navigate('/entrance-exam/study-buddy')}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(13,148,136,0.1))',
+            border: '1.5px solid rgba(124,58,237,0.25)', borderRadius: 14,
+            padding: '16px 20px', cursor: 'pointer',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🤝</span>
+            <div>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Study Buddy Finder</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Auto-matched with students who complement your weak subjects</div>
             </div>
           </div>
           <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>

@@ -75,6 +75,7 @@ import EntranceExamSession      from './components/entrance/EntranceExamSession'
 import EntranceExamPaymentPage  from './components/entrance/EntranceExamPaymentPage';
 import EntranceGroupChatHub    from './components/entrance/EntranceGroupChatHub';
 import EntranceGroupChatPage   from './components/entrance/EntranceGroupChatPage';
+import EntranceStudyBuddyPage  from './components/entrance/EntranceStudyBuddyPage';
 
 // Admin pages
 import AdminDashboard        from './components/admin/AdminDashboard';
@@ -288,6 +289,7 @@ export default function App() {
                 <Route path="/entrance-exam/session"         element={<EntranceExamRoute><EntranceExamSession /></EntranceExamRoute>} />
                 <Route path="/entrance-exam/group-chat"          element={<EntranceExamRoute><EntranceGroupChatHub /></EntranceExamRoute>} />
                 <Route path="/entrance-exam/group-chat/:subjectId" element={<EntranceExamRoute><EntranceGroupChatPage /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/study-buddy"          element={<EntranceExamRoute><EntranceStudyBuddyPage /></EntranceExamRoute>} />
 
                 {/* Admin */}
                 <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
