@@ -236,53 +236,103 @@ export default function CaosceHub() {
           {filtered.map(c => {
             const isSelected = selectedCase?.id === c.id;
             return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCase(c)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
-                  padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F,
-                  border: `1.5px solid ${isSelected ? specialty.color : 'var(--border)'}`,
-                  background: isSelected ? `${specialty.color}14` : 'var(--bg-card)',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <div style={{
-                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                  border: `2px solid ${isSelected ? specialty.color : 'var(--border)'}`,
-                  background: isSelected ? specialty.color : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 12, fontWeight: 900,
-                }}>
-                  {isSelected ? '✓' : ''}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                    {c.title || c.topic || 'Untitled Case'}
+              <div key={c.id}>
+                <button
+                  onClick={() => setSelectedCase(isSelected ? null : c)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+                    padding: '14px 16px', borderRadius: isSelected ? '12px 12px 0 0' : 12,
+                    cursor: 'pointer', fontFamily: F,
+                    border: `1.5px solid ${isSelected ? specialty.color : 'var(--border)'}`,
+                    borderBottom: isSelected ? `1.5px solid ${specialty.color}40` : undefined,
+                    background: isSelected ? `${specialty.color}18` : 'var(--bg-card)',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${isSelected ? specialty.color : 'var(--border)'}`,
+                    background: isSelected ? specialty.color : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: 12, fontWeight: 900,
+                  }}>
+                    {isSelected ? '✓' : ''}
                   </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {c.topic}{c.year ? ` · ${c.year}` : ''} · {c.procedures?.length || 0} procedures · {c.cbtQuestions?.length || 0} CBT Qs
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                      {c.title || c.topic || 'Untitled Case'}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {c.topic}{c.year ? ` · ${c.year}` : ''} · {c.procedures?.length || 0} procedures · {c.cbtQuestions?.length || 0} CBT Qs
+                    </div>
                   </div>
-                </div>
-              </button>
+                  <span style={{
+                    color: isSelected ? specialty.color : 'var(--text-muted)',
+                    fontSize: 16, fontWeight: 900, flexShrink: 0,
+                    transform: isSelected ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    display: 'inline-block',
+                  }}>›</span>
+                </button>
+
+                {/* ── Expanded action panel ── */}
+                {isSelected && (
+                  <div style={{
+                    border: `1.5px solid ${specialty.color}`,
+                    borderTop: 'none',
+                    borderRadius: '0 0 12px 12px',
+                    background: `${specialty.color}0A`,
+                    padding: '16px 16px 18px',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                    animation: 'caosceExpand 0.2s ease',
+                  }}>
+                    <style>{`@keyframes caosceExpand { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }`}</style>
+
+                    {/* Case summary chips */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {[
+                        { icon: '🗂️', label: c.topic || 'General' },
+                        { icon: '📅', label: c.year ? String(c.year) : 'All Years' },
+                        { icon: '✅', label: `${c.procedures?.length || 0} procedures` },
+                        { icon: '❓', label: `${c.cbtQuestions?.length || 0} CBT Qs` },
+                      ].map(chip => (
+                        <span key={chip.label} style={{
+                          fontSize: 11, fontWeight: 700, fontFamily: F,
+                          padding: '4px 10px', borderRadius: 20,
+                          background: `${specialty.color}18`,
+                          border: `1px solid ${specialty.color}33`,
+                          color: 'var(--text-primary)',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                          {chip.icon} {chip.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Start button */}
+                    <button
+                      onClick={handleStart}
+                      style={{
+                        width: '100%', padding: '14px', borderRadius: 10, border: 'none',
+                        fontFamily: H, fontWeight: 900, fontSize: 15, letterSpacing: 0.4,
+                        cursor: 'pointer',
+                        background: `linear-gradient(135deg, ${specialty.color}, ${specialty.color}cc)`,
+                        color: '#fff',
+                        boxShadow: `0 4px 16px ${specialty.color}44`,
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                    >
+                      ▶ Start Practical Exam
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
       )}
-
-      <button
-        onClick={handleStart}
-        disabled={!selectedCase}
-        style={{
-          width: '100%', padding: '15px', borderRadius: 12, border: 'none',
-          fontFamily: H, fontWeight: 900, fontSize: 15, letterSpacing: 0.4,
-          cursor: selectedCase ? 'pointer' : 'not-allowed',
-          background: selectedCase ? 'linear-gradient(135deg,#0D9488,#0F766E)' : 'var(--bg-tertiary)',
-          color: selectedCase ? '#fff' : 'var(--text-muted)',
-        }}
-      >
-        ▶ Start Practical Exam
-      </button>
     </div>
   );
 }
