@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDdY_wMwck84fmYuZZ1YPHudnlgaDaPLSo",
+  apiKey: "AIzaSyCVfETXFbWm2b8ywy8auurgf8r80unQ3A4",
   authDomain: "elitecarehub-a80da.firebaseapp.com",
   databaseURL: "https://elitecarehub-a80da-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "elitecarehub-a80da",

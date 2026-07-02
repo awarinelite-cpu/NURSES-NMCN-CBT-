@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDdY_wMwck84fmYuZZ1YPHudnlgaDaPLSo",
+  apiKey: "AIzaSyCVfETXFbWm2b8ywy8auurgf8r80unQ3A4",
   authDomain: "elitecarehub-a80da.firebaseapp.com",
   projectId: "elitecarehub-a80da",
   storageBucket: "elitecarehub-a80da.firebasestorage.app",
