@@ -6,7 +6,7 @@ const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, addDoc, serverTimestamp } = require('firebase/firestore');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAsSmqpkrXEMLL4wdoEn_jD3juAy8Z-w9A",
+  apiKey: "AIzaSyDdY_wMwck84fmYuZZ1YPHudnlgaDaPLSo",
   authDomain: "elitecarehub-a80da.firebaseapp.com",
   projectId: "elitecarehub-a80da",
   storageBucket: "elitecarehub-a80da.firebasestorage.app",
