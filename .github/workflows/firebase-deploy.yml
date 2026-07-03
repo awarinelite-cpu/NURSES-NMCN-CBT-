@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  build-and-deploy-hosting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -35,3 +35,29 @@ jobs:
           channelId: live
           projectId: elitecarehub-a80da
           entryPoint: Nurses-Academy-CBT-main
+
+  deploy-functions:
+    # Only on actual pushes to main — not PR previews, and only if
+    # functions/ actually changed, so this doesn't run on every hosting-only
+    # commit.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install function dependencies
+        working-directory: functions
+        run: npm ci || npm install
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELITECAREHUB_A80DA }}'
+
+      - name: Deploy Cloud Functions
+        run: npx firebase-tools deploy --only functions --project elitecarehub-a80da --non-interactive          entryPoint: Nurses-Academy-CBT-main
