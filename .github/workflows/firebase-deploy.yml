@@ -60,4 +60,4 @@ jobs:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELITECAREHUB_A80DA }}'
 
       - name: Deploy Cloud Functions
-        run: npx firebase-tools deploy --only functions --project elitecarehub-a80da --non-interactive          entryPoint: Nurses-Academy-CBT-main
+        run: npx firebase-tools deploy --only functions --project elitecarehub-a80da --non-interactive
