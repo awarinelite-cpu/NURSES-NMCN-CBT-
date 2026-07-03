@@ -30,10 +30,14 @@ const db = admin.firestore();
 // ── Signature verification ────────────────────────────────────────────────────
 
 function verifyPaystackSignature(rawBody, signature) {
-  const secret = functions.config().paystack.secret_key;
-  const hash   = crypto
+  const secret = functions.config().paystack?.secret_key;
+  if (!secret) {
+    console.error('paystack.secret_key is not configured — run: firebase functions:config:set paystack.secret_key="sk_live_..."');
+    return false;
+  }
+  const hash = crypto
     .createHmac('sha512', secret)
-    .update(rawBody)
+    .update(rawBody) // must be the exact raw bytes Paystack sent — see below
     .digest('hex');
   return hash === signature;
 }
@@ -163,9 +167,20 @@ exports.paystackWebhook = functions.https.onRequest(async (req, res) => {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Verify Paystack signature
+  // CRITICAL: signature verification must use the exact raw bytes Paystack
+  // sent, not JSON.stringify(req.body) — re-serializing the parsed object
+  // can (and usually does) produce a different byte sequence than the
+  // original request (key order, spacing, unicode escaping), which makes
+  // the HMAC never match and silently fails every real webhook with a 401.
+  // Firebase Functions populates req.rawBody automatically for exactly
+  // this reason — always use it for signature checks.
   const signature = req.headers['x-paystack-signature'];
-  const rawBody   = JSON.stringify(req.body);
+  const rawBody   = req.rawBody;
+
+  if (!rawBody) {
+    console.error('req.rawBody is unavailable — cannot verify signature. Check body-parser middleware ordering.');
+    return res.status(500).send('Server misconfiguration');
+  }
 
   if (!signature || !verifyPaystackSignature(rawBody, signature)) {
     console.error('Invalid Paystack signature — possible spoofed request');
