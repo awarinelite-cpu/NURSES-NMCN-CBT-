@@ -17,7 +17,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate }                 from 'react-router-dom';
 import {
   collection, addDoc, serverTimestamp,
-  doc, updateDoc,
+  doc, onSnapshot,
 } from 'firebase/firestore';
 import { db }       from '../../firebase/config';
 import { useAuth }  from '../../context/AuthContext';
@@ -163,6 +163,8 @@ export default function EntranceExamPaymentPage() {
   const [submitStatus,   setSubmitStatus]   = useState('');
   const [submitting,     setSubmitting]     = useState(false);
   const [doneMethod,     setDoneMethod]     = useState(null);
+  const [activating,     setActivating]     = useState(false); // waiting on server-side webhook to flip access
+  const [activationRef,  setActivationRef]  = useState('');
   const [error,          setError]          = useState('');
   const [paystackReady,  setPaystackReady]  = useState(false);
   const listenerRef = useRef(null);
@@ -193,19 +195,6 @@ export default function EntranceExamPaymentPage() {
     };
   }, []);
 
-  /* ── Grant access helper ─────────────────────────────────────────────── */
-  const grantAccess = (ref) => {
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + plan.days);
-    return updateDoc(doc(db, 'users', user.uid), {
-      entranceExamPaid:    true,
-      entranceExamPlan:    plan.id,
-      entranceExamExpiry:  expiry.toISOString(),
-      entranceExamPaidAt:  serverTimestamp(),
-      ...(ref && { entranceExamRef: ref }),
-    });
-  };
-
   /* ── Paystack ────────────────────────────────────────────────────────── */
   const handlePaystack = () => {
     if (!paystackReady || !window.PaystackPop) {
@@ -235,9 +224,43 @@ export default function EntranceExamPaymentPage() {
           status:    'confirmed',
           createdAt: serverTimestamp(),
         })
-        .then(() => grantAccess(response.reference))
-        .then(() => { setDoneMethod('paystack'); setStep(3); setTimeout(() => navigate('/entrance-exam'), 3000); })
-        .catch(() => setError('Payment received but activation failed. Contact support with ref: ' + response.reference));
+        .then(() => {
+          // Firestore rules forbid any user (even the owner) from setting
+          // entranceExamPaid/entranceExamPlan/etc. on their own account —
+          // that's what stops someone granting themselves free access via
+          // devtools. Activation happens server-side via the paystackWebhook
+          // Cloud Function (Admin SDK, not subject to these rules) once
+          // Paystack's own charge confirmation reaches it. So: wait for that
+          // write to actually land instead of pretending the client did it.
+          setActivationRef(response.reference);
+          setActivating(true);
+
+          const timeoutMs = 90_000;
+          const timeoutId = setTimeout(() => {
+            unsubscribe();
+            setActivating(false);
+            setError(
+              `Payment received, but activation is taking longer than expected. It should still complete automatically — ` +
+              `if your access isn't active in a few minutes, contact support with this reference: ${response.reference}`
+            );
+          }, timeoutMs);
+
+          const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+            const data = snap.data();
+            if (data?.entranceExamPaid && data?.entranceExamPlan === plan.id) {
+              clearTimeout(timeoutId);
+              unsubscribe();
+              setActivating(false);
+              setDoneMethod('paystack');
+              setStep(3);
+              setTimeout(() => navigate('/entrance-exam'), 2000);
+            }
+          }, () => {
+            // Snapshot listener itself errored (e.g. offline) — the
+            // timeout above still gives the user a clear next step.
+          });
+        })
+        .catch(() => setError('Payment received but we could not record it. Contact support with ref: ' + response.reference));
       },
       onClose: () => {},
     });
@@ -298,6 +321,25 @@ export default function EntranceExamPaymentPage() {
       setError('Submission failed. Please try again. (' + e.message + ')');
     } finally { setSubmitting(false); setSubmitStatus(''); }
   };
+
+  /* ── Activating — waiting on server-side webhook ─────────────────────── */
+  if (activating) {
+    return (
+      <div style={S.wrap}>
+        <div style={S.doneCard}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
+          <h2 style={S.doneTitle}>Payment Received!</h2>
+          <p style={S.doneSub}>
+            Confirming with Paystack and activating your access — this usually takes a few seconds.
+          </p>
+          {error && <p style={{ color: '#EF4444', fontSize: 13, marginTop: 12 }}>⚠️ {error}</p>}
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 16 }}>
+            Reference: {activationRef}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Already paid guard ──────────────────────────────────────────────── */
   if (profile?.entranceExamPaid) {

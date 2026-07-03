@@ -1,7 +1,7 @@
 // src/components/payment/PaymentPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +33,8 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
   const [uploading,     setUploading]     = useState(false);
   const [done,          setDone]          = useState(false);
   const [doneMethod,    setDoneMethod]    = useState(null); // FIX: track method at time of success
+  const [activating,    setActivating]    = useState(false); // waiting on server-side webhook to flip access
+  const [activationRef, setActivationRef] = useState('');
   const [error,         setError]         = useState('');
   const [paystackReady, setPaystackReady] = useState(false);
   const scriptListenerRef = useRef(null);
@@ -119,20 +121,48 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
           createdAt: serverTimestamp(),
           expiresAt,
         })
-        .then(() => updateDoc(userRef, {
-          subscribed:         true,
-          accessLevel:        plan.id,
-          subscriptionPlan:   plan.id,
-          subscriptionExpiry: expiresAt.toISOString(),
-          subscribedAt:       serverTimestamp(),
-        }))
         .then(() => {
-          setDoneMethod('paystack'); // FIX: capture method before clearing state
-          setDone(true);
-          setTimeout(() => navigate('/dashboard'), 2500);
+          // NOTE: we intentionally do NOT try to update the user doc's
+          // subscription fields from the client here. Firestore rules
+          // deliberately forbid any user (even the owner) from setting
+          // subscribed/subscriptionPlan/subscriptionExpiry on their own
+          // account — that's what stops someone from just granting
+          // themselves free access via devtools. Activation has to happen
+          // server-side (the paystackWebhook Cloud Function, using the
+          // Admin SDK, which isn't subject to these rules) after Paystack
+          // confirms the charge independently. So: show an honest
+          // "activating" state and watch for the webhook's write to land,
+          // rather than pretending the client granted access itself.
+          setActivationRef(response.reference);
+          setActivating(true);
+
+          const timeoutMs = 90_000;
+          const timeoutId = setTimeout(() => {
+            unsubscribe();
+            setActivating(false);
+            setError(
+              `Payment received, but activation is taking longer than expected. It should still complete automatically — ` +
+              `if your access isn't active in a few minutes, contact support with this reference: ${response.reference}`
+            );
+          }, timeoutMs);
+
+          const unsubscribe = onSnapshot(userRef, (snap) => {
+            const data = snap.data();
+            if (data?.subscribed && data?.accessLevel === plan.id) {
+              clearTimeout(timeoutId);
+              unsubscribe();
+              setActivating(false);
+              setDoneMethod('paystack');
+              setDone(true);
+              setTimeout(() => navigate('/dashboard'), 2000);
+            }
+          }, () => {
+            // Snapshot listener itself errored (e.g. offline) — let the
+            // timeout above handle giving the user a clear next step.
+          });
         })
         .catch(() => {
-          setError('Payment received! But activation failed. Send this ref to support: ' + response.reference);
+          setError('Payment received! But we could not record it. Send this reference to support: ' + response.reference);
         });
       },
       onClose: () => {},
@@ -184,6 +214,27 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       setUploadProgress(0);
     }
   };
+
+  /* ── Activating screen — waiting on server-side webhook ── */
+  if (activating) {
+    return (
+      <div style={s.page}>
+        <div style={s.card}>
+          <div style={{ fontSize: 64, textAlign: 'center', padding: '32px 20px 8px' }}>⏳</div>
+          <h2 style={{ ...s.heading, textAlign: 'center', marginTop: 12, padding: '0 20px' }}>
+            Payment Received!
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', fontSize: 14, padding: '0 24px 12px' }}>
+            Confirming with Paystack and activating your account — this usually takes a few seconds.
+          </p>
+          {error && <p style={{ ...s.error, margin: '0 20px 20px' }}>⚠️ {error}</p>}
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, textAlign: 'center', padding: '0 24px 32px' }}>
+            Reference: {activationRef}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Success screen ── */
   if (done) {
