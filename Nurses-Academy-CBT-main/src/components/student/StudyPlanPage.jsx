@@ -1,6 +1,6 @@
 // src/components/student/StudyPlanPage.jsx
 // AI-powered personalised study plan generator for NMCN CBT students.
-// Collects exam date, weak topics, hours/day → calls Claude API → renders
+// Collects exam date, weak topics, hours/day → calls Gemini API → renders
 // a structured week-by-week plan the student can follow and drill from.
 
 import { useState, useEffect, useCallback } from 'react';
@@ -114,7 +114,7 @@ function Spinner() {
       }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <p style={{ fontFamily: F, fontSize: 14, color: T.muted, margin: 0 }}>
-        Claude is building your personalised plan…
+        Building your personalised plan…
       </p>
     </div>
   );
@@ -323,7 +323,7 @@ export default function StudyPlanPage() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // ── Generate plan via Claude API ──────────────────────────────────────────
+  // ── Generate plan via Gemini API ──────────────────────────────────────────
   const generatePlan = useCallback(async () => {
     setStep(2);
     setError('');
@@ -392,19 +392,36 @@ Distribute topics across ${weeks} weeks, front-loading weak areas. Each week mus
 Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
-      });
+      const GEMINI_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+      if (!GEMINI_KEY) {
+        throw new Error('Missing REACT_APP_GEMINI_API_KEY — add it to your environment variables and rebuild.');
+      }
 
-      const data = await res.json();
-      const raw  = data.content?.find(b => b.type === 'text')?.text || '';
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              maxOutputTokens: 8192,
+              temperature: 0.7,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error?.message || `Gemini API error ${res.status}`);
+      }
+
+      const data  = await res.json();
+      const raw   = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
       const clean = raw.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
 
@@ -419,7 +436,11 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
       setStep(3);
     } catch (e) {
       console.error('Plan generation failed:', e);
-      setError('Could not generate your plan. Please check your connection and try again.');
+      setError(
+        e.message && !(e instanceof SyntaxError)
+          ? `Could not generate your plan: ${e.message}`
+          : 'Could not generate your plan. Please check your connection and try again.'
+      );
       setStep(1);
     }
   }, [examDate, hoursPerDay, weakCats, studyDays, goal, user, profile, stats]);
@@ -571,7 +592,7 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
               ⚠️ Which nursing areas feel weakest?
             </label>
             <p style={{ fontFamily: F, fontSize: 12, color: T.muted, margin: '0 0 12px' }}>
-              Select all that apply — Claude will front-load these in your plan
+              Select all that apply — the AI will front-load these in your plan
             </p>
             <PillToggle
               options={NURSING_CATEGORIES.map(c => ({ id: c.id, label: c.shortLabel, icon: c.icon }))}
