@@ -149,5 +149,9 @@ service cloud.firestore {
       allow update: if isAuth() && resource.data.userId == uid();
       allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
     }
+    // ── AI Study Plans (one doc per student, keyed by their uid) ──────────
+    match /studyPlans/{userId} {
+      allow read, write: if isAuth() && (uid() == userId || isAdmin());
+    }
   }
 }

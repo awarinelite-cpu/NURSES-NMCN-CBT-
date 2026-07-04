@@ -464,14 +464,20 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
       const clean = raw.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
 
-      // Save to Firestore
-      await setDoc(doc(db, 'studyPlans', user.uid), {
-        plan: parsed, examDate, createdAt: Date.now(),
-        userId: user.uid,
-      });
+      // Save to Firestore — non-fatal: if the save fails, still show the plan
+      let didSave = true;
+      try {
+        await setDoc(doc(db, 'studyPlans', user.uid), {
+          plan: parsed, examDate, createdAt: Date.now(),
+          userId: user.uid,
+        });
+      } catch (saveErr) {
+        console.warn('Plan save failed (showing plan anyway):', saveErr.message);
+        didSave = false;
+      }
 
       setPlan(parsed);
-      setSaved(true);
+      setSaved(didSave);
       setStep(3);
     } catch (e) {
       console.error('Plan generation failed:', e);

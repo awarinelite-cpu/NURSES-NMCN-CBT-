@@ -198,6 +198,11 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    // ── AI Study Plans (one doc per student, keyed by their uid) ──────────
+    match /studyPlans/{userId} {
+      allow read, write: if isAuth() && (isOwner(userId) || isAdmin());
+    }
+
     match /config/{id} {
       allow read:  if isAuth();
       allow write: if isAdmin();
