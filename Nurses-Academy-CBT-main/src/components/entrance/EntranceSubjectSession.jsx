@@ -16,6 +16,7 @@ import {
 import { db } from '../../firebase/config';
 import ItalicText      from '../shared/ItalicText';
 import ExplanationText from '../shared/ExplanationText';
+import AiExplainButton from '../shared/AiExplainButton';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
 const F        = "'Times New Roman', Times, serif";
@@ -445,6 +446,7 @@ export default function EntranceSubjectSession() {
                       </div>
                     </div>
                   )}
+                  <AiExplainButton q={q} />
                 </div>
               ))}
             </div>
@@ -617,6 +619,7 @@ export default function EntranceSubjectSession() {
                   </div>
                 </div>
               )}
+              {submitted && <AiExplainButton q={currentQ} style={{ marginTop: 12 }} />}
             </div>
           )}
         </div>

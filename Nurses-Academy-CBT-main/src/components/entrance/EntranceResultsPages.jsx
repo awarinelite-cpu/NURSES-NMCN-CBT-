@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth }          from '../../context/AuthContext';
 import ExplanationText      from '../shared/ExplanationText';
+import AiExplainButton      from '../shared/AiExplainButton';
 
 /* ── Font constants ─────────────────────────────────────────────────────────── */
 const F = "'Times New Roman', Times, serif";
@@ -468,6 +469,7 @@ export function EntranceBookmarks() {
                         <ExplanationText text={b.explanation} />
                       </div>
                     )}
+                    <AiExplainButton q={b} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                     {fromChat && (

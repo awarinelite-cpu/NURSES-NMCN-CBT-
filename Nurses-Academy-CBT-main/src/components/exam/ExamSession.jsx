@@ -795,17 +795,11 @@ export default function ExamSession() {
     if (aiExplain[q.id]) return;
     setAiLoading(true);
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514', max_tokens: 400,
-          messages: [{ role: 'user', content: `Explain this nursing exam question in 3-4 sentences. Be concise and clinical.\n\nQuestion: ${q.question}\nOptions: ${q.options?.map((o,i)=>`${String.fromCharCode(65+i)}. ${o}`).join(', ')}\nCorrect answer: ${q.options?.[q.correctIndex]}\n${q.explanation ? `Explanation hint: ${q.explanation}` : ''}` }],
-        }),
-      });
-      const data = await res.json();
-      setAiExplain(prev => ({ ...prev, [q.id]: data.content?.[0]?.text || 'Could not generate explanation.' }));
-    } catch {
-      setAiExplain(prev => ({ ...prev, [q.id]: 'AI explanation unavailable.' }));
+      const { getAiExplanation } = await import('../../utils/aiExplain');
+      const text = await getAiExplanation(q);
+      setAiExplain(prev => ({ ...prev, [q.id]: text }));
+    } catch (e) {
+      setAiExplain(prev => ({ ...prev, [q.id]: e.message || 'AI explanation unavailable.' }));
     } finally { setAiLoading(false); }
   };
 

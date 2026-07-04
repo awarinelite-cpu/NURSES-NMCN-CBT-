@@ -18,6 +18,7 @@ import { useAuth }                                   from '../../context/AuthCon
 import VoiceExamMode                                 from '../shared/VoiceExamMode';
 import ItalicText                                    from '../shared/ItalicText';
 import ExplanationText                               from '../shared/ExplanationText';
+import AiExplainButton                               from '../shared/AiExplainButton';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 const F           = "'Times New Roman', Times, serif";
@@ -427,6 +428,7 @@ export default function EntranceExamSession() {
                   <ExplanationText text={q.explanation} />
                 </div>
               )}
+              <AiExplainButton q={q} />
 
             </div>
           ))}
@@ -599,6 +601,7 @@ export default function EntranceExamSession() {
                 <ExplanationText text={currentQ.explanation} />
               </div>
             )}
+            {submitted && <AiExplainButton q={currentQ} style={{ marginTop: 12 }} />}
 
           </div>
         ) : <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontWeight: 700 }}>No questions loaded.</div>}

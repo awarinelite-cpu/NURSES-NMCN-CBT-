@@ -22,6 +22,7 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 import ExplanationText from '../shared/ExplanationText';
+import AiExplainButton from '../shared/AiExplainButton';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -341,6 +342,7 @@ function CaseReview({ c, index, total }) {
                       <ExplanationText text={q.explanation} />
                     </div>
                   )}
+                  <AiExplainButton q={q} />
                 </div>
               );
             })}
