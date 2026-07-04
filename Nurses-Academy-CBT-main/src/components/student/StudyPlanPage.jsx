@@ -392,36 +392,75 @@ Distribute topics across ${weeks} weeks, front-loading weak areas. Each week mus
 Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
 
     try {
-      const GEMINI_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-      if (!GEMINI_KEY) {
-        throw new Error('Missing REACT_APP_GEMINI_API_KEY — add it to your environment variables and rebuild.');
-      }
+      let raw = '';
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-        {
+      // ── 1) Preferred: secure backend proxy (key stays on the server) ──────
+      // Set GEMINI_API_KEY in your Vercel/Render environment variables.
+      // REACT_APP_API_BASE is optional — set it for the Android (Capacitor)
+      // build so the app knows your website's URL, e.g. https://your-app.vercel.app
+      const API_BASE = process.env.REACT_APP_API_BASE || '';
+      try {
+        const proxyRes = await fetch(`${API_BASE}/api/generate-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              maxOutputTokens: 8192,
-              temperature: 0.7,
-              thinkingConfig: { thinkingBudget: 0 },
-            },
-          }),
+          body: JSON.stringify({ systemPrompt, userPrompt }),
+        });
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          raw = proxyData.text || '';
+        } else if (proxyRes.status !== 404 && proxyRes.status !== 405) {
+          const errBody = await proxyRes.json().catch(() => ({}));
+          // Real server-side error (e.g. missing key) — surface it unless we
+          // can fall back to a direct key below.
+          if (!process.env.REACT_APP_GEMINI_API_KEY) {
+            throw new Error(errBody?.error || `Server error ${proxyRes.status}`);
+          }
         }
-      );
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody?.error?.message || `Gemini API error ${res.status}`);
+      } catch (proxyErr) {
+        // Network error or endpoint not deployed — try direct fallback below.
+        if (!process.env.REACT_APP_GEMINI_API_KEY && raw === '') {
+          if (proxyErr.message && !proxyErr.message.includes('Failed to fetch')) {
+            throw proxyErr;
+          }
+        }
       }
 
-      const data  = await res.json();
-      const raw   = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+      // ── 2) Fallback: direct Gemini call with a client-side key ────────────
+      // Only used if the backend proxy isn't available. Note: keys embedded in
+      // the app bundle can be extracted — prefer the proxy for production.
+      if (!raw) {
+        const GEMINI_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+        if (!GEMINI_KEY) {
+          throw new Error('AI is not connected yet. Add GEMINI_API_KEY to your server environment (recommended) or REACT_APP_GEMINI_API_KEY to your build environment, then redeploy.');
+        }
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                maxOutputTokens: 8192,
+                temperature: 0.7,
+                thinkingConfig: { thinkingBudget: 0 },
+              },
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody?.error?.message || `Gemini API error ${res.status}`);
+        }
+
+        const data = await res.json();
+        raw = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+      }
+
       const clean = raw.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
 
