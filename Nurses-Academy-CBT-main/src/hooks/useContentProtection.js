@@ -36,24 +36,62 @@ export function useContentProtection(enabled = true) {
     }
 
     /* ── Visibility API — blur sensitive content on tab switch ── */
+    const applyBlur    = () => { document.body.style.filter = 'blur(20px)'; };
+    const clearBlur     = () => { document.body.style.filter = ''; };
+
     const handleVisibility = () => {
-      if (document.hidden) {
-        document.body.style.filter = 'blur(20px)';
-      } else {
-        document.body.style.filter = '';
-      }
+      if (document.hidden) applyBlur();
+      else clearBlur();
+    };
+
+    // Android WebViews (esp. Capacitor) can fire 'visibilitychange' late or
+    // not at all on resume, leaving the blur stuck and the app looking blank.
+    // 'focus'/'pageshow' are redundant safety nets that fire more reliably
+    // when the app actually becomes interactive again.
+    const handleFocus     = () => clearBlur();
+    const handlePageShow  = () => clearBlur();
+    const handleBlurEvent = () => applyBlur();
+
+    // Belt-and-suspenders: force-clear shortly after any resume signal, in
+    // case the blur got stuck. One retry, not a polling loop.
+    const failsafeClear = () => {
+      setTimeout(() => { if (!document.hidden) clearBlur(); }, 300);
     };
 
     document.addEventListener('contextmenu',     blockContextMenu, true);
     document.addEventListener('keydown',          blockKeys,        true);
     document.addEventListener('dragstart',        blockDrag,        true);
     document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', failsafeClear);
+    window.addEventListener('focus',              handleFocus);
+    window.addEventListener('blur',               handleBlurEvent);
+    window.addEventListener('pageshow',           handlePageShow);
+
+    // Capacitor native lifecycle — fires reliably even when the WebView's
+    // own visibilitychange doesn't.
+    let capListenerHandle = null;
+    (async () => {
+      try {
+        if (window.Capacitor?.isNativePlatform?.()) {
+          const { App: CapApp } = await import('@capacitor/app');
+          capListenerHandle = await CapApp.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) clearBlur();
+            else applyBlur();
+          });
+        }
+      } catch (e) { console.warn('Capacitor appStateChange listener failed:', e); }
+    })();
 
     return () => {
       document.removeEventListener('contextmenu',     blockContextMenu, true);
       document.removeEventListener('keydown',          blockKeys,        true);
       document.removeEventListener('dragstart',        blockDrag,        true);
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', failsafeClear);
+      window.removeEventListener('focus',              handleFocus);
+      window.removeEventListener('blur',               handleBlurEvent);
+      window.removeEventListener('pageshow',           handlePageShow);
+      if (capListenerHandle?.remove) capListenerHandle.remove();
       document.body.style.filter = '';
     };
   }, [enabled]);
