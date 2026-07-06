@@ -1,0 +1,256 @@
+// src/components/exam/DailyMockExamHub.jsx
+// Route: /daily-mock-exam
+//
+// Daily Mock Exam: a fixed pool of 250 questions that rotates every 24
+// hours. Students choose how many of the 250 they want to answer; the
+// exam is timed at 1 minute per question. Any question with a pass rate
+// of 49% or below keeps repeating in the daily pool (handled server-side
+// by the rotateDailyMockExam Cloud Function) until enough students get it
+// right to push it back to 50%+.
+//
+// Completed attempts are saved to "Exams Taken" below, and can be
+// retaken any time for a fresh score (a new random draw from the SAME
+// day's 250-question pool) or reviewed question-by-question.
+
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+import { useAuth } from '../../context/AuthContext';
+import { enablePushNotifications, pushSupported, pushPermission } from '../../utils/pushNotifications';
+
+const PRESETS   = [25, 50, 100, 150, 250];
+const PASS_MARK = 50;
+
+function msToNextMidnight() {
+  const now = new Date(), midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  return midnight - now;
+}
+function formatCountdown(ms) {
+  if (ms <= 0) return '00:00:00';
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
+  return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+}
+function fmtDate(ts) {
+  const d = ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
+  if (!d) return '—';
+  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export default function DailyMockExamHub() {
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const currentUser = user;
+  const isSub = profile?.subscribed || profile?.role === 'admin';
+
+  const [pool,        setPool]        = useState(null);   // dailyMockExam/current doc
+  const [poolLoading,  setPoolLoading] = useState(true);
+  const [countdown,   setCountdown]   = useState(msToNextMidnight());
+  const [qCount,      setQCount]      = useState(50);
+  const [customCount, setCustomCount] = useState('');
+  const [useCustom,   setUseCustom]   = useState(false);
+  const [attempts,    setAttempts]    = useState([]);
+  const [loadingAtt,  setLoadingAtt]  = useState(false);
+  const [pushState,   setPushState]   = useState(pushPermission()); // 'default'|'granted'|'denied'|'unsupported'
+  const [pushBusy,     setPushBusy]    = useState(false);
+  const countdownRef = useRef(null);
+
+  useEffect(() => {
+    countdownRef.current = setInterval(() => setCountdown(msToNextMidnight()), 1000);
+    return () => clearInterval(countdownRef.current);
+  }, []);
+
+  useEffect(() => {
+    setPoolLoading(true);
+    getDoc(doc(db, 'dailyMockExam', 'current'))
+      .then(snap => setPool(snap.exists() ? snap.data() : null))
+      .catch(() => setPool(null))
+      .finally(() => setPoolLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    setLoadingAtt(true);
+    getDocs(query(
+      collection(db, 'examSessions'),
+      where('userId',   '==', currentUser.uid),
+      where('examType', '==', 'daily_mock_exam'),
+    ))
+      .then(snap => {
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.completedAt?.toMillis?.() ?? 0) - (a.completedAt?.toMillis?.() ?? 0));
+        setAttempts(results);
+      })
+      .catch(() => setAttempts([]))
+      .finally(() => setLoadingAtt(false));
+  }, [currentUser]);
+
+  const totalAvailable = pool?.questionIds?.length || 0;
+  const finalCount = useCustom
+    ? Math.min(Math.max(parseInt(customCount, 10) || 1, 1), totalAvailable || 250)
+    : Math.min(qCount, totalAvailable || qCount);
+
+  const handleEnablePush = async () => {
+    if (!currentUser?.uid) return;
+    setPushBusy(true);
+    const res = await enablePushNotifications(currentUser.uid);
+    setPushState(res.ok ? 'granted' : (pushPermission() === 'denied' ? 'denied' : pushState));
+    setPushBusy(false);
+  };
+
+  const startExam = () => {
+    navigate('/exam/session', {
+      state: {
+        examType:  'daily_mock_exam',
+        examName:  'Daily Mock Exam',
+        poolMode:  true,
+        doShuffle: true,
+        count:     finalCount,
+        timeLimit: finalCount, // 1 minute per question
+      },
+    });
+  };
+
+  const reviewAttempt = (attempt) => {
+    navigate('/exam/session', {
+      state: {
+        examType:   'daily_mock_exam',
+        examName:   'Daily Mock Exam',
+        reviewMode: true,
+        savedSession: {
+          questionIds:    attempt.questionIds || [],
+          answers:        attempt.answers     || {},
+          correct:        attempt.correct,
+          totalQuestions: attempt.totalQuestions,
+        },
+      },
+    });
+  };
+
+  return (
+    <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+        <span style={{ fontSize: 30 }}>🗓️</span>
+        <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
+          Daily Mock Exam
+        </h2>
+      </div>
+      <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+        A fresh 250-question pool every 24 hours. Choose how many you want to answer — the exam is timed at 1 minute per question.
+      </p>
+
+      {/* Push notification prompt */}
+      {pushSupported() && pushState !== 'granted' && pushState !== 'unsupported' && (
+        <div style={{ background: 'rgba(124,58,237,0.08)', border: '1.5px solid rgba(124,58,237,0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 20 }}>🔔</span>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>Get notified about new mock exams</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>We'll alert you the moment a new daily pool goes live — even when the app is closed.</div>
+          </div>
+          {pushState === 'denied' ? (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Notifications blocked — enable in browser settings</span>
+          ) : (
+            <button onClick={handleEnablePush} disabled={pushBusy} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#7C3AED', color: '#fff', fontWeight: 700, fontSize: 13, cursor: pushBusy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+            {pushBusy ? 'Enabling…' : 'Enable Notifications'}
+          </button>
+          )}
+        </div>
+      )}
+
+      {/* Today's pool card */}
+      <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 18, padding: 24, marginBottom: 28, boxShadow: '0 0 0 4px rgba(13,148,136,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>📚</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>
+                {poolLoading ? 'Loading today\u2019s pool…' : `${totalAvailable || 0} Questions Available`}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>New pool in {formatCountdown(countdown)}</div>
+            </div>
+          </div>
+        </div>
+
+        {!poolLoading && totalAvailable === 0 && (
+          <div style={{ background: 'rgba(220,38,38,0.10)', border: '1px solid rgba(220,38,38,0.30)', borderRadius: 10, padding: '12px 16px', color: '#F87171', fontSize: 13, fontWeight: 600, textAlign: 'center', marginBottom: 16 }}>
+            ⚠️ Today's mock exam hasn't been generated yet. Please check back shortly.
+          </div>
+        )}
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {PRESETS.map(n => (
+              <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${!useCustom && qCount === n ? 'var(--teal)' : 'var(--border)'}`, background: !useCustom && qCount === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? 'var(--teal)' : 'var(--text-secondary)' }}>{n}</button>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${useCustom ? 'var(--teal)' : 'var(--border)'}`, background: useCustom ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: useCustom ? 'var(--teal)' : 'var(--text-secondary)' }}>Custom</button>
+              {useCustom && <input type="number" min={1} max={totalAvailable || 250} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={`1–${totalAvailable || 250}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: '2px solid var(--teal)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+            ⏱ {finalCount} questions ≈ {finalCount} minute{finalCount === 1 ? '' : 's'}
+          </div>
+          {!isSub && (
+            <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full 250-question pool.</div>
+          )}
+        </div>
+
+        <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12 }}>
+          🚀 Start Daily Mock Exam — {finalCount} Questions
+        </button>
+      </div>
+
+      {/* Exams Taken */}
+      <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        📋 Exams Taken
+        {attempts.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{attempts.length}</span>}
+      </h3>
+
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        {loadingAtt && (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto 10px' }} />
+            Loading your exams…
+          </div>
+        )}
+
+        {!loadingAtt && attempts.length === 0 && (
+          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No exams taken yet</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>Start your first Daily Mock Exam above — it'll be saved here for you to retake or review any time.</div>
+          </div>
+        )}
+
+        {!loadingAtt && attempts.map((attempt, idx) => {
+          const pct    = attempt.scorePercent ?? 0;
+          const passed = pct >= PASS_MARK;
+          const clr    = passed ? '#16A34A' : '#DC2626';
+          const bg     = passed ? 'rgba(22,163,74,0.10)' : 'rgba(220,38,38,0.10)';
+          const bdr    = passed ? 'rgba(22,163,74,0.30)' : 'rgba(220,38,38,0.30)';
+          return (
+            <div key={attempt.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: idx < attempts.length - 1 ? '1px solid var(--border)' : 'none', flexWrap: 'wrap' }}>
+              <div style={{ width: 50, height: 50, borderRadius: 10, flexShrink: 0, background: bg, border: `1.5px solid ${bdr}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontWeight: 900, fontSize: 15, color: clr, lineHeight: 1 }}>{pct}%</div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>score</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', marginBottom: 3 }}>
+                  {attempt.correct ?? '?'} / {attempt.totalQuestions ?? '?'} correct
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>📅 {fmtDate(attempt.completedAt)}</div>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 10px', borderRadius: 20, background: bg, color: clr, border: `1px solid ${bdr}` }}>
+                {passed ? '✅ Pass' : '❌ Fail'}
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={() => reviewAttempt(attempt)} style={{ flexShrink: 0, fontSize: 12 }}>📖 Review</button>
+              <button className="btn btn-primary btn-sm" onClick={startExam} disabled={totalAvailable === 0} style={{ flexShrink: 0, fontSize: 12 }}>🔄 Retake</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

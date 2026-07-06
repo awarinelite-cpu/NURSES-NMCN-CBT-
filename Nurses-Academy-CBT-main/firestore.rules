@@ -82,6 +82,27 @@ service cloud.firestore {
       allow write: if isAdminOrSubAdmin();
     }
 
+    // Today's fixed 250-question Daily Mock Exam pool — rotated every 24h by
+    // the rotateDailyMockExam Cloud Function (which uses the Admin SDK and
+    // bypasses these rules). Clients only ever need to read it.
+    match /dailyMockExam/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
+    // Archive of past daily pools — admin/debug use only.
+    match /dailyMockExamHistory/{docId} {
+      allow read:  if isAdminOrSubAdmin();
+      allow write: if isAdminOrSubAdmin();
+    }
+
+    // Aggregate per-question pass-rate stats, used to decide which questions
+    // must keep repeating in the Daily Mock Exam pool. Not sensitive —
+    // any signed-in student's completed attempt increments these counters.
+    match /questionStats/{questionId} {
+      allow read, write: if isAuth();
+    }
+
     match /entranceExamSessions/{sessionId} {
       allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;

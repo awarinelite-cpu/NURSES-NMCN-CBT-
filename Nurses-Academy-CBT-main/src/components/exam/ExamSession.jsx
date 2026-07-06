@@ -17,7 +17,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   collection, query, where, getDocs, limit,
   addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove,
-  deleteDoc, increment,
+  deleteDoc, increment, getDoc, documentId, writeBatch,
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -159,6 +159,26 @@ function fisherYatesShuffle(arr) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+// ── Daily Mock Exam: sample `count` questions from today's fixed 250-pool ──
+// Used both on initial load and on Retake (each attempt draws a fresh random
+// subset of the same day's pool for a clean re-score).
+async function loadDailyMockQuestions(count) {
+  const dmSnap = await getDoc(doc(db, 'dailyMockExam', 'current'));
+  const allIds = dmSnap.exists() ? (dmSnap.data()?.questionIds || []) : [];
+  if (allIds.length === 0) return [];
+
+  const idPool = fisherYatesShuffle([...allIds]).slice(0, Math.min(count, allIds.length));
+  const chunks = [];
+  for (let i = 0; i < idPool.length; i += 10) chunks.push(idPool.slice(i, i + 10));
+
+  const snaps = await Promise.all(chunks.map(ch => getDocs(query(
+    collection(db, 'questions'), where(documentId(), 'in', ch),
+  ))));
+  const byId = {};
+  snaps.forEach(s => s.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
+  return idPool.map(id => byId[id]).filter(Boolean);
 }
 
 /* ── Explanation renderer — imported from shared ── */
@@ -534,6 +554,15 @@ export default function ExamSession() {
             qs = notMastered.length > 0 ? notMastered : allMock;
             qs.sort(() => Math.random() - 0.5);
 
+          } else if (examType === 'daily_mock_exam') {
+            // ── Daily Mock Exam ────────────────────────────────────────────────
+            // Draws `count` questions at random from today's fixed 250-question
+            // pool (dailyMockExam/current, rotated every 24h by a Cloud
+            // Function). Low-pass-rate questions are kept in the pool
+            // server-side until they recover, so no client-side filtering is
+            // needed here — just sample from whatever's in today's pool.
+            qs = await loadDailyMockQuestions(count);
+
           } else if (examType === 'past_questions' && category) {
             // ── Past Questions ────────────────────────────────────────────────
             // Query by category + examType; optionally filter by year client-side
@@ -650,6 +679,7 @@ export default function ExamSession() {
       ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
       : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
       : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
+      : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
       : `${topic} — Topic Drill`
       : examName;
 
@@ -663,6 +693,25 @@ export default function ExamSession() {
         totalQuestions: qs.length, scorePercent, timeTaken,
         answers: safeAnswers, questionIds, completedAt: serverTimestamp(),
       });
+
+      // ── Daily Mock Exam: update per-question stats for pass-rate tracking.
+      //    A question's rolling pass rate (timesCorrect/timesAnswered) is what
+      //    the rotateDailyMockExam Cloud Function uses to decide whether it
+      //    must keep repeating in tomorrow's 250-question pool. ──────────────
+      if (examType === 'daily_mock_exam' && qs.length > 0) {
+        try {
+          const batch = writeBatch(db);
+          qs.forEach(q => {
+            const wasCorrect = ans[q.id] === q.correctIndex;
+            batch.set(doc(db, 'questionStats', q.id), {
+              timesAnswered: increment(1),
+              timesCorrect:  increment(wasCorrect ? 1 : 0),
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
+          });
+          await batch.commit();
+        } catch (e) { console.warn('Question stats update (non-critical):', e.message); }
+      }
 
       // ── Save entrance exam attempt separately ─────────────────────────────
       if (isEntranceExam && entranceSchoolId) {
@@ -763,6 +812,7 @@ export default function ExamSession() {
         ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
         : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
         : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
+        : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
         : `${topic} — Topic Drill`
         : examName;
 
@@ -892,6 +942,9 @@ export default function ExamSession() {
             qs = notMastered.length > 0 ? notMastered : allMock;
             qs.sort(() => Math.random() - 0.5);
 
+          } else if (examType === 'daily_mock_exam') {
+            qs = await loadDailyMockQuestions(count);
+
           } else {
             const bc = [where('active', '==', true), limit(fetchLim)];
             if (examType === 'topic_drill' && topic)          bc.unshift(where('topic',    '==', topic));
@@ -972,7 +1025,7 @@ export default function ExamSession() {
                 <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${scoreColor}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
                 {/* Exam type label */}
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, fontFamily: F, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
-                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Hospital Final Exam — ${examName}` : `🎯 Topic Drill — ${topic}` : examName}
+                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Hospital Final Exam — ${examName}` : examType === 'daily_mock_exam' ? '🗓️ Daily Mock Exam' : `🎯 Topic Drill — ${topic}` : examName}
                 </div>
                 {/* Animated score ring */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, animation: 'scorePop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
@@ -1041,6 +1094,7 @@ export default function ExamSession() {
               ? examType === 'daily_practice' ? 'Daily Practice'
               : examType === 'course_drill'   ? (courseLabel || course || 'Course Drill')
               : examType === 'mock_exam'      ? (examName || 'Hospital Final Exam')
+              : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
               : (topic || 'Topic Drill')
               : (examName || 'Exam');
             const shareText = `🎓 I just scored ${scorePct}% in ${examLabel} on NurseAcademy CBT!
@@ -1203,7 +1257,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : examType === 'daily_mock_exam' ? '🗓️ Daily Mock Exam' : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

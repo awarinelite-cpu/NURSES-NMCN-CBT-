@@ -472,6 +472,12 @@ const QUICK_ACTIONS = [
     color: '#7C3AED',
   },
   {
+    to: '/daily-mock-exam', icon: '🗓️', label: 'Daily Mock Exam',
+    sub: '250 new questions every 24hrs',
+    desc: 'A fresh 250-question pool every day, timed at 1 minute per question. Pick how many you want to answer — low-scoring questions keep repeating until the class masters them. Retake anytime for a new score.',
+    color: '#0891B2',
+  },
+  {
     to: '/past-questions', icon: '📜', label: 'Past Questions',
     sub: 'Study NMCN past questions',
     desc: 'Practice with real NMCN past questions. Understand exam patterns, common topics, and boost your confidence.',

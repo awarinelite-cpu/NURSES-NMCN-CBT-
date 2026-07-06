@@ -294,6 +294,7 @@ export default function AdminDashboard() {
     { label: 'Confirm Payments', icon: '✅', to: '/admin/payments',              color: '#16A34A' },
     { label: 'Manage Courses',   icon: '📖', to: '/admin/courses',               color: '#0891B2' },
     { label: 'Scheduled Exams',  icon: '📅', to: '/admin/scheduled-exams',      color: '#A855F7' },
+    { label: 'Daily Mock Exam',  icon: '🗓️', to: '/admin/daily-mock-exam',      color: '#0891B2' },
   ];
 
   // ── Entrance Exam quick actions — all write to entranceExamQuestions ─────────

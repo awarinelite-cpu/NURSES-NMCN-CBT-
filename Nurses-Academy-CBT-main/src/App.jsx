@@ -48,6 +48,7 @@ import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
 import DailyPracticePage  from './components/exam/DailyPracticePage';
 import MockExamPage       from './components/exam/MockExamPage';
+import DailyMockExamHub   from './components/exam/DailyMockExamHub';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import CaosceHub          from './components/exam/CaosceHub';
@@ -89,6 +90,7 @@ import ScheduledExamsManager from './components/admin/ScheduledExamsManager';
 import CoursesManager        from './components/admin/CoursesManager';
 import CaosceManager         from './components/admin/CaosceManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
+import DailyMockExamAdmin    from './components/admin/DailyMockExamAdmin';
 
 import './styles/global.css';
 import { useContentProtection } from './hooks/useContentProtection';
@@ -269,6 +271,7 @@ export default function App() {
                 <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
                 <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
+                <Route path="/daily-mock-exam" element={<FreeTrialRoute><DailyMockExamHub /></FreeTrialRoute>} />
                 <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
                 <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 
@@ -305,6 +308,7 @@ export default function App() {
                 <Route path="/admin/courses"                         element={<AdminRoute><CoursesManager /></AdminRoute>} />
                 <Route path="/admin/caosce"                          element={<SubAdminRoute><CaosceManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
+                <Route path="/admin/daily-mock-exam"                 element={<SubAdminRoute><DailyMockExamAdmin /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
 
               </Route>
