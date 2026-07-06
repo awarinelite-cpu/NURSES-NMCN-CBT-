@@ -101,6 +101,9 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
       email:    currentUser.email,
       amount:   plan.price * 100,
       currency: 'NGN',
+      // Show every payment method Paystack supports for NGN, not just card —
+      // bank transfer and USSD matter a lot for students without a card.
+      channels: ['card', 'bank', 'ussd', 'bank_transfer', 'qr', 'mobile_money'],
       ref:      `NMCN-${Date.now()}`,
       metadata: { userId: currentUser.uid, plan: plan.id, type: 'nmcn_cbt' },
       callback: (response) => {
