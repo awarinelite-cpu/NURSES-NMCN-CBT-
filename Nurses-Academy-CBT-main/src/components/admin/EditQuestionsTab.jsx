@@ -116,12 +116,59 @@ function OptionsEditor({ options, correctIndex, onOptionsChange, onCorrectChange
   );
 }
 
+// ── data quality check ───────────────────────────────────────────────────────
+// Flags questions that are missing text/options, or that carry a known
+// parser artifact where a 5th ("E") option gets merged into another
+// option's text instead of being split into its own entry, e.g.
+// "...rest of option D text E. Option E text" living inside one string.
+function getQuestionIssues(q) {
+  const issues = [];
+  const options = Array.isArray(q.options) ? q.options : [];
+  const optText = (o) => ((typeof o === 'string' ? o : o?.text) || '').trim();
+
+  if (!q.question || !q.question.trim()) {
+    issues.push('Missing question text');
+  }
+
+  if (options.length < 4) {
+    issues.push(`Incomplete — only ${options.length} option${options.length === 1 ? '' : 's'}`);
+  }
+
+  const emptyIdx = options
+    .map((o, i) => (optText(o) ? null : i))
+    .filter(i => i !== null);
+  if (emptyIdx.length > 0) {
+    issues.push(`Empty option${emptyIdx.length > 1 ? 's' : ''}: ${emptyIdx.map(i => String.fromCharCode(65 + i)).join(', ')}`);
+  }
+
+  const mergedIdx = options.findIndex(o => {
+    const text = optText(o);
+    // A stray "E." / "E)" label followed by more text inside an option's
+    // own text, or the literal phrase "Option E" — both indicate a 5th
+    // option got swallowed into this one during parsing.
+    return /\bE[\.\)]\s*\S/.test(text) || /\boption\s*e\b/i.test(text);
+  });
+  if (mergedIdx !== -1) {
+    issues.push(`Option ${String.fromCharCode(65 + mergedIdx)} appears merged with "Option E"`);
+  }
+
+  if (
+    q.correctIndex === undefined || q.correctIndex === null ||
+    q.correctIndex < 0 || q.correctIndex >= options.length
+  ) {
+    issues.push('No valid correct answer marked');
+  }
+
+  return issues;
+}
+
 // ── main component ────────────────────────────────────────────────────────────
 export default function EditQuestionsTab({ firestoreCourses, toast }) {
   const [filterCat,  setFilterCat]  = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [filterTopic,  setFilterTopic]  = useState('');
   const [search,     setSearch]     = useState('');
+  const [issuesOnly, setIssuesOnly] = useState(false); // ⚠️ data-quality filter
   const [page,       setPage]       = useState(0);
   const [jumpPageInput, setJumpPageInput] = useState('');
   const [loading,    setLoading]    = useState(false);
@@ -132,7 +179,18 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
   const [expandedId, setExpandedId] = useState(null); // full-row expanded editor
 
   const dirtyCount = Object.keys(edits).length;
-  const paged = questions.slice(page * PAGE_SZ, (page + 1) * PAGE_SZ);
+
+  // ── row data (merged with unsaved edits) ─────────────────────────────────
+  const rowData = useCallback((q) => ({ ...q, ...(edits[q.id] || {}) }), [edits]);
+
+  // ── issues, computed per question against the live (edited) data ────────
+  const questionsWithIssues = questions.map(q => ({ q, issues: getQuestionIssues(rowData(q)) }));
+  const issueCount = questionsWithIssues.filter(x => x.issues.length > 0).length;
+  const visibleQuestions = issuesOnly
+    ? questionsWithIssues.filter(x => x.issues.length > 0).map(x => x.q)
+    : questions;
+
+  const paged = visibleQuestions.slice(page * PAGE_SZ, (page + 1) * PAGE_SZ);
 
   // ── load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -187,9 +245,6 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
     load();
   };
 
-  // ── row data (merged with unsaved edits) ─────────────────────────────────
-  const rowData = (q) => ({ ...q, ...(edits[q.id] || {}) });
-
   return (
     <div>
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
@@ -219,6 +274,27 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
           {loading ? '…' : '↻ Load'}
         </button>
 
+        {/* ── Data-quality filter ─────────────────────────────────────── */}
+        <label
+          title="Show only questions that are incomplete (missing text/options) or have an 'Option E' merged into another option"
+          style={{
+            display:'flex', alignItems:'center', gap:6, cursor:'pointer',
+            padding:'6px 12px', borderRadius:10, height:36, boxSizing:'border-box',
+            background: issuesOnly ? 'rgba(239,68,68,0.12)' : 'var(--bg-tertiary)',
+            border:`1.5px solid ${issuesOnly ? RED+'80' : 'var(--border)'}`,
+            fontSize:12, fontWeight:800, fontFamily:H,
+            color: issuesOnly ? RED : 'var(--text-secondary)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={issuesOnly}
+            onChange={e => { setIssuesOnly(e.target.checked); setPage(0); }}
+            style={{ accentColor: RED, cursor:'pointer' }}
+          />
+          ⚠️ Issues only {issueCount > 0 && `(${issueCount})`}
+        </label>
+
         {dirtyCount > 0 && (
           <>
             <button
@@ -239,7 +315,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         )}
 
         <span style={{ marginLeft:'auto', fontSize:12, color:'var(--text-muted)', fontFamily:F, fontWeight:700 }}>
-          {questions.length} questions loaded
+          {issuesOnly ? `${visibleQuestions.length} of ${questions.length} questions (issues only)` : `${questions.length} questions loaded`}
           {dirtyCount > 0 && <span style={{ color:GOLD, marginLeft:8 }}>• {dirtyCount} unsaved</span>}
         </span>
       </div>
@@ -254,16 +330,21 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         <span>🔘 <strong>Radio button</strong> = correct answer.</span>
         <span>🔽 <strong>Expand (▸)</strong> to see full question with explanation.</span>
         <span>💾 <strong>Save</strong> commits all changes in one batch.</span>
+        <span>⚠️ <strong>Issues only</strong> shows incomplete questions, empty options, or an "Option E" merged into another option.</span>
       </div>
 
       {loading
         ? <div style={{ textAlign:'center', padding:60 }}><div className="spinner" /></div>
-        : questions.length === 0
+        : visibleQuestions.length === 0
         ? (
           <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}>
-            <div style={{ fontSize:40, marginBottom:12 }}>🔍</div>
-            <div style={{ fontWeight:700, marginBottom:6 }}>No questions found</div>
-            <div style={{ fontSize:13 }}>Adjust filters and click Load</div>
+            <div style={{ fontSize:40, marginBottom:12 }}>{issuesOnly ? '✅' : '🔍'}</div>
+            <div style={{ fontWeight:700, marginBottom:6 }}>
+              {issuesOnly ? 'No data-quality issues found' : 'No questions found'}
+            </div>
+            <div style={{ fontSize:13 }}>
+              {issuesOnly ? 'Every loaded question looks complete.' : 'Adjust filters and click Load'}
+            </div>
           </div>
         )
         : (
@@ -303,16 +384,32 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                 const expanded = expandedId === q.id;
                 const cat  = NURSING_CATEGORIES.find(c => c.id === r.category);
                 const course = firestoreCourses.find(c => c.id === r.course);
+                const issues  = getQuestionIssues(r);
+                const hasIssues = issues.length > 0;
+                const borderColor = isDirty ? GOLD+'80' : hasIssues ? RED+'60' : 'var(--border)';
 
                 return (
                   <div key={q.id} style={{
                     background:'var(--bg-card)',
-                    border:`1.5px solid ${isDirty ? GOLD+'80' : 'var(--border)'}`,
+                    border:`1.5px solid ${borderColor}`,
                     borderRadius:12,
-                    boxShadow: isDirty ? `0 2px 12px ${GOLD}20` : 'none',
+                    boxShadow: isDirty ? `0 2px 12px ${GOLD}20` : hasIssues ? `0 2px 12px ${RED}15` : 'none',
                     transition:'border-color .2s, box-shadow .2s',
                     minWidth:'960px',
                   }}>
+                    {/* ── Data-quality warning banner ─────────────────── */}
+                    {hasIssues && (
+                      <div style={{
+                        margin:'10px 12px 0', padding:'6px 10px', borderRadius:8,
+                        background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)',
+                      }}>
+                        {issues.map((issue, k) => (
+                          <div key={k} style={{ fontSize:11.5, color:RED, fontWeight:700, display:'flex', gap:5, lineHeight:1.6 }}>
+                            <span>⚠</span><span>{issue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* ── Compact row ─────────────────────────────────── */}
                     <div style={{
@@ -493,15 +590,15 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
             <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center', flexWrap:'wrap' }}>
               <button className="btn btn-ghost btn-sm" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
               <span style={{ fontSize:13, color:'var(--text-muted)' }}>
-                Page {page+1} of {Math.max(1,Math.ceil(questions.length/PAGE_SZ))} ({questions.length} total)
+                Page {page+1} of {Math.max(1,Math.ceil(visibleQuestions.length/PAGE_SZ))} ({visibleQuestions.length} total)
               </span>
               <button className="btn btn-ghost btn-sm"
-                disabled={(page+1)*PAGE_SZ>=questions.length}
+                disabled={(page+1)*PAGE_SZ>=visibleQuestions.length}
                 onClick={()=>setPage(p=>p+1)}>Next →</button>
 
               {/* ── Jump to page ──────────────────────────────────────── */}
               {(() => {
-                const totalPages = Math.max(1, Math.ceil(questions.length / PAGE_SZ));
+                const totalPages = Math.max(1, Math.ceil(visibleQuestions.length / PAGE_SZ));
                 const goToPage = () => {
                   const n = parseInt(jumpPageInput, 10);
                   if (!Number.isNaN(n) && n >= 1 && n <= totalPages) {
