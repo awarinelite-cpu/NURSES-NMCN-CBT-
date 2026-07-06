@@ -265,10 +265,10 @@ const VoiceExamMode = forwardRef(function VoiceExamMode({
     stopTimer();
     stopMic();
     const letter = LETTERS[idx];
-    setStatusMsg(`✓ Option ${letter}`);
+    setStatusMsg(`✓ Option ${letter} chosen`);
     setPhase('idle');
     onAnswerRef.current?.(idx);
-    speakText(`Option ${letter}.`, () => {
+    speakText(`Option ${letter} chosen.`, () => {
       if (activeRef.current && hasNextRef.current) {
         setTimeout(() => {
           if (activeRef.current) onNextRef.current?.();

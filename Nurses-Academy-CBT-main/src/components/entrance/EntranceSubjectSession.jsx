@@ -30,7 +30,14 @@ function sanitizeKey(str) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtTime(s) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
-function speakText(text) { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.92; window.speechSynthesis.speak(u); }
+function speakText(text, onEnd) {
+  if (!window.speechSynthesis) { onEnd?.(); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.92;
+  if (onEnd) { u.onend = onEnd; u.onerror = onEnd; }
+  window.speechSynthesis.speak(u);
+}
 function stopSpeech() { window.speechSynthesis?.cancel(); }
 
 export default function EntranceSubjectSession() {
@@ -64,6 +71,7 @@ export default function EntranceSubjectSession() {
   const [result,        setResult]        = useState(null);
   const [submitting,    setSubmitting]    = useState(false);
   const [isSpeaking,    setIsSpeaking]    = useState(false);
+  const voiceModeRef    = useRef(false); // true once "Read Question" is used — stays on so tapping an option auto-announces + auto-advances
   const [showReview,    setShowReview]    = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [saveError,     setSaveError]     = useState('');
@@ -263,20 +271,59 @@ export default function EntranceSubjectSession() {
     }
   }, [user, subject, year, timeLimitMin, navigate]);
 
+  // Move to the next question, or submit if this was the last one —
+  // mirrors the bottom "Next →" button's logic so voice mode can trigger it.
+  const advanceAfterAnswer = () => {
+    if (current < total - 1) {
+      if (!isPaid && current >= FREE_CAP - 1) {
+        if (!upgradeModalShown.current) { upgradeModalShown.current = true; setShowUpgradeModal(true); }
+        return;
+      }
+      setCurrent(i => i + 1);
+    } else if (!submitted) {
+      handleSubmit();
+    }
+  };
+
   const handleSelect = (key) => {
     if (submitted) return;
     const qId = questions[current]?.id;
     if (qId) setAnswers(prev => ({ ...prev, [qId]: key }));
+
+    // If voice mode is on, instantly announce the choice and move on —
+    // same hands-free flow as speaking the answer.
+    if (voiceModeRef.current) {
+      setIsSpeaking(true);
+      speakText(`Option ${key} chosen.`, () => {
+        setIsSpeaking(false);
+        if (voiceModeRef.current) advanceAfterAnswer();
+      });
+    }
   };
 
   const handleReadQuestion = () => {
     const q = questions[current]; if (!q) return;
-    if (isSpeaking) { stopSpeech(); setIsSpeaking(false); return; }
+    if (isSpeaking) { stopSpeech(); setIsSpeaking(false); voiceModeRef.current = false; return; }
+    voiceModeRef.current = true;
     const opts = OPT_KEYS.map(k => q.options?.[k] ? `Option ${k}: ${q.options[k]}` : '').filter(Boolean).join('. ');
-    speakText(`${q.questionText}. ${opts}`);
+    speakText(`${q.questionText}. ${opts}`, () => setIsSpeaking(false));
     setIsSpeaking(true);
-    setTimeout(() => setIsSpeaking(false), (q.questionText.length + opts.length) * 60 + 2000);
   };
+
+  // When voice mode is on and the question changes (e.g. after auto-advance),
+  // automatically read the new question aloud, hands-free.
+  useEffect(() => {
+    if (!voiceModeRef.current) return;
+    const q = questions[current]; if (!q) return;
+    const t = setTimeout(() => {
+      if (!voiceModeRef.current) return;
+      const opts = OPT_KEYS.map(k => q.options?.[k] ? `Option ${k}: ${q.options[k]}` : '').filter(Boolean).join('. ');
+      setIsSpeaking(true);
+      speakText(`${q.questionText}. ${opts}`, () => setIsSpeaking(false));
+    }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   const total    = questions.length;
   const answered = Object.keys(answers).length;
