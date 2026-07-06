@@ -233,6 +233,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
   const [edits,      setEdits]      = useState({});   // { [id]: { ...changedFields } }
   const [selected,   setSelected]   = useState(new Set());
   const [expandedId, setExpandedId] = useState(null); // full-row expanded editor
+  const [deleting,   setDeleting]   = useState(false); // bulk-delete in progress
 
   const dirtyCount = Object.keys(edits).length;
 
@@ -255,6 +256,40 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
     const csv = buildIssuesCsv(flagged);
     downloadCsv(`incomplete-questions-${new Date().toISOString().slice(0, 10)}.csv`, csv);
     toast(`⬇️ Exported ${flagged.length} incomplete question${flagged.length > 1 ? 's' : ''}.`, 'success');
+  };
+
+  // ── delete all flagged (incomplete) questions ────────────────────────────
+  // Meant to be run AFTER re-uploading the corrected CSV, so the old broken
+  // originals don't stick around as duplicates. Firestore batches cap at
+  // 500 writes, so large sets are chunked automatically.
+  const deleteAllIncomplete = async () => {
+    const flagged = questionsWithIssues.filter(x => x.issues.length > 0).map(x => x.q);
+    if (flagged.length === 0) { toast('No incomplete questions to delete.', 'info'); return; }
+
+    const sure = window.confirm(
+      `Delete ${flagged.length} incomplete question${flagged.length > 1 ? 's' : ''} permanently?\n\n` +
+      `This cannot be undone. Only do this AFTER you've re-uploaded the corrected CSV — ` +
+      `otherwise you'll lose these questions with no replacement.`
+    );
+    if (!sure) return;
+
+    setDeleting(true);
+    try {
+      const CHUNK = 450; // stay under Firestore's 500-write batch limit
+      for (let i = 0; i < flagged.length; i += CHUNK) {
+        const batch = writeBatch(db);
+        flagged.slice(i, i + CHUNK).forEach(q => batch.delete(doc(db, 'questions', q.id)));
+        await batch.commit();
+      }
+      setQuestions(prev => prev.filter(q => !flagged.find(f => f.id === q.id)));
+      setSelected(new Set());
+      setPage(0);
+      toast(`🗑️ Deleted ${flagged.length} incomplete question${flagged.length > 1 ? 's' : ''}.`, 'success');
+    } catch (e) {
+      toast('Delete failed: ' + e.message, 'error');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ── load ──────────────────────────────────────────────────────────────────
@@ -369,6 +404,15 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
           ⬇️ Download CSV{issueCount > 0 ? ` (${issueCount})` : ''}
         </button>
 
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={deleteAllIncomplete}
+          disabled={issueCount === 0 || deleting}
+          title="Permanently delete every incomplete question currently loaded — do this AFTER re-uploading the corrected CSV"
+        >
+          {deleting ? '⏳ Deleting…' : `🗑️ Delete All Incomplete${issueCount > 0 ? ` (${issueCount})` : ''}`}
+        </button>
+
         {dirtyCount > 0 && (
           <>
             <button
@@ -406,6 +450,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         <span>💾 <strong>Save</strong> commits all changes in one batch.</span>
         <span>⚠️ <strong>Issues only</strong> shows incomplete questions, empty options, or an "Option E" merged into another option. True/False questions are never flagged for having only 2 options.</span>
         <span>⬇️ <strong>Download CSV</strong> exports all flagged questions (with their Firestore ID) for offline fixing.</span>
+        <span>🗑️ <strong>Delete All Incomplete</strong> permanently removes every flagged question — use only after re-uploading the corrected CSV.</span>
       </div>
 
       {loading
