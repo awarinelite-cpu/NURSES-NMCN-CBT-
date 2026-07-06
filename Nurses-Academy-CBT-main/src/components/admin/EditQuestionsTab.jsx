@@ -116,6 +116,15 @@ function OptionsEditor({ options, correctIndex, onOptionsChange, onCorrectChange
   );
 }
 
+// ── True/False detection ─────────────────────────────────────────────────────
+// A 2-option question whose choices are literally "True"/"False" (in any
+// case/punctuation) is a valid, complete question — not an incomplete one.
+function isTrueFalseQuestion(options) {
+  if (!Array.isArray(options) || options.length !== 2) return false;
+  const norm = options.map(o => ((typeof o === 'string' ? o : o?.text) || '').trim().toLowerCase().replace(/[.\s]+$/,''));
+  return new Set(norm).size === 2 && norm.every(v => v === 'true' || v === 'false');
+}
+
 // ── data quality check ───────────────────────────────────────────────────────
 // Flags questions that are missing text/options, or that carry a known
 // parser artifact where a 5th ("E") option gets merged into another
@@ -125,12 +134,15 @@ function getQuestionIssues(q) {
   const issues = [];
   const options = Array.isArray(q.options) ? q.options : [];
   const optText = (o) => ((typeof o === 'string' ? o : o?.text) || '').trim();
+  const isTF = isTrueFalseQuestion(options);
 
   if (!q.question || !q.question.trim()) {
     issues.push('Missing question text');
   }
 
-  if (options.length < 4) {
+  // True/False questions are supposed to have exactly 2 options — don't
+  // flag them for being "short" on options.
+  if (options.length < 4 && !isTF) {
     issues.push(`Incomplete — only ${options.length} option${options.length === 1 ? '' : 's'}`);
   }
 
@@ -162,6 +174,50 @@ function getQuestionIssues(q) {
   return issues;
 }
 
+// ── CSV export of flagged questions ──────────────────────────────────────────
+// Uses the same column names the Bulk Upload → CSV importer already
+// recognizes (question, option_a..e, answer, explanation, course, topic,
+// year, category) plus an `id` column (so a fixed row can be matched back
+// to its Firestore doc) and an `issues` column for reference only.
+function toCsvField(v) {
+  const s = (v ?? '').toString();
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function buildIssuesCsv(flagged) {
+  const header = [
+    'id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e',
+    'answer', 'explanation', 'course', 'topic', 'category', 'year', 'issues',
+  ];
+  const lines = [header.join(',')];
+  flagged.forEach(({ q, issues }) => {
+    const opts = Array.isArray(q.options) ? q.options : [];
+    const optText = i => ((typeof opts[i] === 'string' ? opts[i] : opts[i]?.text) || '');
+    const answerLetter = (q.correctIndex >= 0 && q.correctIndex < opts.length)
+      ? String.fromCharCode(65 + q.correctIndex) : '';
+    const row = [
+      q.id || '', q.question || '',
+      optText(0), optText(1), optText(2), optText(3), optText(4),
+      answerLetter, q.explanation || '',
+      q.course || '', q.topic || '', q.category || '', q.year || '',
+      issues.join(' | '),
+    ].map(toCsvField);
+    lines.push(row.join(','));
+  });
+  return lines.join('\n');
+}
+
+function downloadCsv(filename, csvText) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── main component ────────────────────────────────────────────────────────────
 export default function EditQuestionsTab({ firestoreCourses, toast }) {
   const [filterCat,  setFilterCat]  = useState('');
@@ -191,6 +247,15 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
     : questions;
 
   const paged = visibleQuestions.slice(page * PAGE_SZ, (page + 1) * PAGE_SZ);
+
+  // ── export flagged questions to CSV ──────────────────────────────────────
+  const exportIssuesCsv = () => {
+    const flagged = questionsWithIssues.filter(x => x.issues.length > 0);
+    if (flagged.length === 0) { toast('No incomplete questions to export.', 'info'); return; }
+    const csv = buildIssuesCsv(flagged);
+    downloadCsv(`incomplete-questions-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    toast(`⬇️ Exported ${flagged.length} incomplete question${flagged.length > 1 ? 's' : ''}.`, 'success');
+  };
 
   // ── load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -295,6 +360,15 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
           ⚠️ Issues only {issueCount > 0 && `(${issueCount})`}
         </label>
 
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={exportIssuesCsv}
+          disabled={issueCount === 0}
+          title="Download a CSV of every incomplete question currently loaded, so you can fix and re-import them"
+        >
+          ⬇️ Download CSV{issueCount > 0 ? ` (${issueCount})` : ''}
+        </button>
+
         {dirtyCount > 0 && (
           <>
             <button
@@ -330,7 +404,8 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
         <span>🔘 <strong>Radio button</strong> = correct answer.</span>
         <span>🔽 <strong>Expand (▸)</strong> to see full question with explanation.</span>
         <span>💾 <strong>Save</strong> commits all changes in one batch.</span>
-        <span>⚠️ <strong>Issues only</strong> shows incomplete questions, empty options, or an "Option E" merged into another option.</span>
+        <span>⚠️ <strong>Issues only</strong> shows incomplete questions, empty options, or an "Option E" merged into another option. True/False questions are never flagged for having only 2 options.</span>
+        <span>⬇️ <strong>Download CSV</strong> exports all flagged questions (with their Firestore ID) for offline fixing.</span>
       </div>
 
       {loading
