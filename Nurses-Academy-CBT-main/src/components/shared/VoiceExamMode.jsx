@@ -8,7 +8,7 @@
 // • maxAlternatives = 6, all alternatives scanned on each interim + final event
 // • Android-safe: TTS triggered from button tap, no useEffect chains
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
 const LETTERS     = ['A','B','C','D','E','F'];
 const TIMEOUT_SEC = 60;
@@ -159,14 +159,14 @@ function CountdownRing({ seconds }) {
 }
 
 /* ══════════════════════════════════════════════════════════════ */
-export default function VoiceExamMode({
+const VoiceExamMode = forwardRef(function VoiceExamMode({
   question   = '',
   options    = [],
   questionId = '',
   onAnswer,
   onNext,
   hasNext = true,
-}) {
+}, ref) {
   const [phase,     setPhase]     = useState('idle');   // idle|reading|listening|stopped
   const [countdown, setCountdown] = useState(TIMEOUT_SEC);
   const [statusMsg, setStatusMsg] = useState('');
@@ -409,6 +409,21 @@ export default function VoiceExamMode({
     speakText(text, () => { if (activeRef.current) openMic(); });
   };
 
+  /* ── expose manual-tap answer to parent ──
+     Called when the user physically taps an option button while voice
+     mode is active. Announces "Option X." then advances, exactly like
+     a spoken answer would. Returns true if it handled the tap (i.e.
+     voice mode was active), so the caller can fall back to a plain
+     silent select otherwise. */
+  useImperativeHandle(ref, () => ({
+    selectOption: (idx) => {
+      if (!activeRef.current || answeredRef.current) return false;
+      commitAnswer(idx);
+      return true;
+    },
+    isVoiceActive: () => activeRef.current && !answeredRef.current,
+  }));
+
   /* ── handle Read button tap ── */
   const handleStart = () => {
     activeRef.current = true;
@@ -497,4 +512,6 @@ export default function VoiceExamMode({
       ) : null}
     </div>
   );
-}
+});
+
+export default VoiceExamMode;

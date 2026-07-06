@@ -102,6 +102,7 @@ export default function EntranceExamSession() {
   const [saveError,     setSaveError]     = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const upgradeModalShown = useRef(false);
+  const voiceModeRef      = useRef(null); // ref to VoiceExamMode, used to relay manual taps
 
   const questionsRef    = useRef([]);
   const answersRef      = useRef({});
@@ -582,12 +583,18 @@ export default function EntranceExamSession() {
             </div>
             {currentQ.diagramUrl && <div style={{ marginBottom: 14, textAlign: 'center' }}><img src={currentQ.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} /></div>}
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16, fontFamily: F, textAlign: 'justify', width: '100%' }}><ItalicText text={currentQ.questionText} /></div>
-            {!submitted && <div style={{ marginBottom: 20 }}><VoiceExamMode question={currentQ.questionText || ''} options={voiceOptions} questionId={currentQ.id} onAnswer={handleVoiceAnswer} onNext={handleNext} hasNext={currentIndex < total - 1} continuousListen={true} /></div>}
+            {!submitted && <div style={{ marginBottom: 20 }}><VoiceExamMode ref={voiceModeRef} question={currentQ.questionText || ''} options={voiceOptions} questionId={currentQ.id} onAnswer={handleVoiceAnswer} onNext={handleNext} hasNext={currentIndex < total - 1} continuousListen={true} /></div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {OPTION_KEYS.map((key, idx) => {
                 const text = currentQ.options?.[key]; if (!text) return null;
                 return (
-                  <button key={key} id={`vem-opt-${idx}`} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', ...getOptionStyle(key) }}>
+                  <button key={key} id={`vem-opt-${idx}`} onClick={() => {
+                    // If voice mode is actively reading/listening, let it handle the
+                    // tap: it will announce "Option X." and auto-advance, same as a
+                    // spoken answer. Otherwise fall back to a plain silent select.
+                    const handled = voiceModeRef.current?.selectOption(idx);
+                    if (!handled) handleSelect(key);
+                  }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', ...getOptionStyle(key) }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, ...getLetterStyle(key) }}>{key}</div>
                     <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}><ItalicText text={text} /></span>
                     {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}

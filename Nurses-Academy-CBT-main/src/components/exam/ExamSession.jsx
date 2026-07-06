@@ -312,6 +312,7 @@ export default function ExamSession() {
   const [phase,         setPhase]         = useState('loading');
   const [current,       setCurrent]       = useState(0);
   const [answers,       setAnswers]       = useState({});
+  const voiceModeRef = useRef(null); // ref to VoiceExamMode, used to relay manual taps
   const [flagged,       setFlagged]       = useState(new Set());
   const [showNav,       setShowNav]       = useState(false);
   const [timeLeft,      setTimeLeft]      = useState(timeLimit * 60);
@@ -1278,6 +1279,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                 </div>
               )}
               <VoiceExamMode
+                ref={voiceModeRef}
                 question={q.question}
                 options={q.options || []}
                 questionId={q.id}
@@ -1291,7 +1293,13 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
               {q.options?.map((opt, i) => {
                 const selected = answers[q.id] === i;
                 return (
-                  <button key={i} id={`vem-opt-${i}`} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: i }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
+                  <button key={i} id={`vem-opt-${i}`} onClick={() => {
+                    // If voice mode is actively reading/listening, let it handle the
+                    // tap: it will announce "Option X." and auto-advance, same as a
+                    // spoken answer. Otherwise fall back to a plain silent select.
+                    const handled = voiceModeRef.current?.selectOption(i);
+                    if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
+                  }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
                     {typeof opt === 'string' ? opt : opt.text}
                   </button>
