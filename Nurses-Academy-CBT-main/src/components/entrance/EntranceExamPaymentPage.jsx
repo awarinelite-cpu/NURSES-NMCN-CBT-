@@ -209,7 +209,7 @@ export default function EntranceExamPaymentPage() {
       currency: 'NGN',
       // Show every payment method Paystack supports for NGN, not just card —
       // bank transfer and USSD matter a lot for students without a card.
-      channels: ['card', 'bank', 'ussd', 'bank_transfer', 'qr', 'mobile_money', 'payattitude'],
+      channels: ['card', 'bank', 'ussd', 'bank_transfer', 'qr', 'mobile_money'],
       ref:      `ENT-${plan.id.toUpperCase()}-${Date.now()}`,
       metadata: { userId: user.uid, type: 'entrance_exam', plan: plan.id },
       callback: (response) => {
