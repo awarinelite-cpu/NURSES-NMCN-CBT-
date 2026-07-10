@@ -103,6 +103,13 @@ service cloud.firestore {
       allow read, write: if isAuth();
     }
 
+    // Same as questionStats above, scoped to the Entrance Exam question bank.
+    // Used by rotateEntranceDailyMock to decide which questions must repeat
+    // (pass rate < 50%) in the Entrance Exam Daily Mock.
+    match /entranceQuestionStats/{questionId} {
+      allow read, write: if isAuth();
+    }
+
     match /entranceExamSessions/{sessionId} {
       allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;

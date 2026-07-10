@@ -77,7 +77,7 @@ export default function ExamConfigPage() {
       {/* Back + Step indicator */}
       <div style={{ marginBottom: 24 }}>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/exam/categories'))}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--teal)', fontWeight: 700, fontSize: 13,

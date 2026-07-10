@@ -190,7 +190,7 @@ export default function ExamListPage() {
     <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
 
       {/* Back */}
-      <button onClick={() => navigate(-1)} style={styles.backBtn}>
+      <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/exam/categories'))} style={styles.backBtn}>
         ← Back
       </button>
 

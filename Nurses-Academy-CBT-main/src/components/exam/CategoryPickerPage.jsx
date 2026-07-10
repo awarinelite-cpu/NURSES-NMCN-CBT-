@@ -53,7 +53,7 @@ export default function CategoryPickerPage() {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--teal)', fontWeight: 700, fontSize: 13,

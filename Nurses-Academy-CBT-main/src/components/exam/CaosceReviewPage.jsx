@@ -153,7 +153,7 @@ export default function CaosceReviewPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
 
-        <button onClick={() => navigate('/caosce/history')} style={S.backBtn}>
+        <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/caosce/history'))} style={S.backBtn}>
           ← My CAOSCE Results
         </button>
 

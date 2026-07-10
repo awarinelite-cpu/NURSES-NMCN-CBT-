@@ -397,7 +397,7 @@ export default function EntranceExamPaymentPage() {
   if (step === 1) {
     return (
       <div style={S.wrap}>
-        <button onClick={() => navigate('/entrance-exam')} style={S.back}>
+        <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/entrance-exam'))} style={S.back}>
           ← Back
         </button>
 

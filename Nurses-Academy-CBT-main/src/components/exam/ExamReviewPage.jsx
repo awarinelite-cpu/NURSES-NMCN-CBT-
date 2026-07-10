@@ -228,7 +228,7 @@ export default function ExamReviewPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
 
-        <button onClick={() => navigate('/daily-practice-archive')} style={S.backBtn}>
+        <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/daily-practice-archive'))} style={S.backBtn}>
           ← Back to Archive
         </button>
 
@@ -446,7 +446,7 @@ export default function ExamReviewPage() {
         )}
 
         <div style={{ marginTop: 24 }}>
-          <button className="btn btn-ghost" onClick={() => navigate('/daily-practice-archive')}>
+          <button className="btn btn-ghost" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/daily-practice-archive'))}>
             ← Back to Archive
           </button>
         </div>

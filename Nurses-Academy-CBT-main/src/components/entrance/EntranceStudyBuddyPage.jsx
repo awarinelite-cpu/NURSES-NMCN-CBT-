@@ -279,7 +279,7 @@ export default function EntranceStudyBuddyPage() {
 
       {/* Back */}
       <button
-        onClick={() => navigate('/entrance-exam')}
+        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/entrance-exam'))}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 13, padding: '0 0 18px', display: 'flex', alignItems: 'center', gap: 6, fontFamily: F }}
       >
         ← Entrance Exam

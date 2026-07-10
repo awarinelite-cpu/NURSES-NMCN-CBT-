@@ -59,7 +59,7 @@ export default function CaosceHistoryPage() {
 
   return (
     <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
-      <button onClick={() => navigate('/caosce')} style={S.backBtn}>
+      <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/caosce'))} style={S.backBtn}>
         ← Back to CAOSCE Prep
       </button>
 

@@ -12,6 +12,7 @@ import { useNavigate, useLocation }                  from 'react-router-dom';
 import {
   collection, query, where, getDocs,
   addDoc, serverTimestamp, deleteDoc, doc, setDoc,
+  writeBatch, increment,
 }                                                    from 'firebase/firestore';
 import { db }                                        from '../../firebase/config';
 import { useAuth }                                   from '../../context/AuthContext';
@@ -272,6 +273,24 @@ export default function EntranceExamSession() {
       await addDoc(collection(db, 'entranceExamSessions'), payload);
       setResult({ correct, total: qs.length, scorePercent });
       setSubmitted(true);
+
+      // Update each question's rolling pass rate (timesCorrect/timesAnswered).
+      // The Daily Mock rotation function reads entranceQuestionStats to decide
+      // which questions must repeat (pass rate < 50%) vs. can retire from the
+      // pool once students are consistently getting them right.
+      try {
+        const batch = writeBatch(db);
+        qs.forEach(q => {
+          const wasCorrect = ans[q.id] && ans[q.id] === q.correctAnswer;
+          batch.set(doc(db, 'entranceQuestionStats', q.id), {
+            timesAnswered: increment(1),
+            timesCorrect:  increment(wasCorrect ? 1 : 0),
+          }, { merge: true });
+        });
+        await batch.commit();
+      } catch (statErr) {
+        console.warn('Entrance question stats update failed (non-fatal):', statErr.message);
+      }
     } catch (err) {
       setSaveError(`Failed to save (${err.code || err.message}). Check your connection.`);
     } finally {
