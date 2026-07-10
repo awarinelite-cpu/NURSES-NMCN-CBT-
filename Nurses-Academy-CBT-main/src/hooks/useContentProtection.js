@@ -50,7 +50,16 @@ export function useContentProtection(enabled = true) {
     // when the app actually becomes interactive again.
     const handleFocus     = () => clearBlur();
     const handlePageShow  = () => clearBlur();
-    const handleBlurEvent = () => applyBlur();
+    // Paystack's inline checkout injects an iframe into the page rather than
+    // opening a real popup/tab. When that iframe takes focus, the parent
+    // window fires 'blur' too, even though the user never left the app.
+    // PaymentPage sets window.__paymentModalOpen while the checkout iframe
+    // is up so we don't mistake that for an app-switch and blur the
+    // checkout UI itself.
+    const handleBlurEvent = () => {
+      if (window.__paymentModalOpen) return;
+      applyBlur();
+    };
 
     // Belt-and-suspenders: force-clear shortly after any resume signal, in
     // case the blur got stuck. One retry, not a polling loop.

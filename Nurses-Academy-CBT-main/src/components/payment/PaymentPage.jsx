@@ -136,6 +136,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
           // confirms the charge independently. So: show an honest
           // "activating" state and watch for the webhook's write to land,
           // rather than pretending the client granted access itself.
+          window.__paymentModalOpen = false;
           setActivationRef(response.reference);
           setActivating(true);
 
@@ -168,9 +169,18 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
           setError('Payment received! But we could not record it. Send this reference to support: ' + response.reference);
         });
       },
-      onClose: () => {},
+      onClose: () => {
+        // User dismissed the checkout without paying — clear the flag so
+        // normal blur-on-app-switch protection resumes.
+        window.__paymentModalOpen = false;
+      },
     });
 
+    // Flag that the Paystack checkout iframe is about to open, so the
+    // content-protection hook's window-blur listener doesn't mistake the
+    // iframe stealing focus for the user switching apps and blur the
+    // checkout itself. See useContentProtection.js.
+    window.__paymentModalOpen = true;
     handler.openIframe(); // synchronous — no await, no delay
   };
 

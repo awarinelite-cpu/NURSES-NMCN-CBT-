@@ -91,6 +91,7 @@ export default function SubscriptionPage() {
 
       // FIX: NOT async — Paystack callback must be synchronous on mobile
       callback: (response) => {
+        window.__paymentModalOpen = false;
         // updateDoc and doc are now top-level imports — no dynamic import()
         addDoc(collection(db, 'payments'), {
           userId:    user.uid,
@@ -125,9 +126,12 @@ export default function SubscriptionPage() {
         });
       },
 
-      onClose: () => {},
+      onClose: () => { window.__paymentModalOpen = false; },
     });
 
+    // See useContentProtection.js — flags the iframe as an in-app checkout,
+    // not an app-switch, so the anti-screenshot blur doesn't cover it.
+    window.__paymentModalOpen = true;
     handler.openIframe(); // synchronous — must not be delayed
   };
 

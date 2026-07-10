@@ -235,6 +235,7 @@ export default function EntranceExamPaymentPage() {
           // Cloud Function (Admin SDK, not subject to these rules) once
           // Paystack's own charge confirmation reaches it. So: wait for that
           // write to actually land instead of pretending the client did it.
+          window.__paymentModalOpen = false;
           setActivationRef(response.reference);
           setActivating(true);
 
@@ -265,8 +266,11 @@ export default function EntranceExamPaymentPage() {
         })
         .catch(() => setError('Payment received but we could not record it. Contact support with ref: ' + response.reference));
       },
-      onClose: () => {},
+      onClose: () => { window.__paymentModalOpen = false; },
     });
+    // See useContentProtection.js — flags the iframe as an in-app checkout,
+    // not an app-switch, so the anti-screenshot blur doesn't cover it.
+    window.__paymentModalOpen = true;
     handler.openIframe();
   };
 
