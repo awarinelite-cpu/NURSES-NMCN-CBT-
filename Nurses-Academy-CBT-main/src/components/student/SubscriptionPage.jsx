@@ -87,7 +87,7 @@ export default function SubscriptionPage() {
       // bank transfer and USSD matter a lot for students without a card.
       channels: ['card', 'bank', 'ussd', 'bank_transfer', 'qr', 'mobile_money'],
       ref:      `NMCN-${Date.now()}`,
-      metadata: { userId: user.uid, plan: selectedPlan },
+      metadata: { userId: user.uid, plan: selectedPlan, type: 'nmcn_cbt' },
 
       // FIX: NOT async — Paystack callback must be synchronous on mobile
       callback: (response) => {
