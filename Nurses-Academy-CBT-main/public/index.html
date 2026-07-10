@@ -72,12 +72,41 @@
         };
       }
 
-      // Blur exam content when user switches tabs (deters screen recording)
+      // Blur exam content when user switches tabs (deters screen recording).
+      // Only blur after a short sustained hide, and always clear on any
+      // focus-return signal, so a Paystack iframe (or similar embedded
+      // iframe) briefly stealing focus can't leave the page stuck blurred.
+      var blurTimer = null;
+
+      function clearBlur() {
+        if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
+        if (document.body) document.body.style.filter = '';
+      }
+
+      function scheduleBlur() {
+        if (blurTimer) clearTimeout(blurTimer);
+        blurTimer = setTimeout(function () {
+          if (document.hidden && document.body) {
+            document.body.style.filter = 'blur(20px)';
+          }
+        }, 400);
+      }
+
       document.addEventListener('visibilitychange', function () {
-        if (document.body) {
-          document.body.style.filter = document.hidden ? 'blur(20px)' : '';
+        if (document.hidden) {
+          scheduleBlur();
+        } else {
+          clearBlur();
         }
       });
+
+      // Safety nets: clear the blur on any of these focus-return signals,
+      // even if visibilitychange never fires a matching "visible" event.
+      window.addEventListener('focus', clearBlur);
+      window.addEventListener('pageshow', clearBlur);
+      document.addEventListener('click', function () {
+        if (!document.hidden) clearBlur();
+      }, true);
     })();
   </script>
 
