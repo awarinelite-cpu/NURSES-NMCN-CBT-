@@ -423,7 +423,17 @@ export default function EntranceExamPaymentPage() {
         {/* Plans grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16, marginBottom: 28 }}>
           {ENTRANCE_PLANS.map(p => (
-            <PlanCard key={p.id} plan={p} selected={selectedPlan === p.id} onSelect={setSelectedPlan} />
+            <PlanCard
+              key={p.id}
+              plan={p}
+              selected={selectedPlan === p.id}
+              onSelect={(id) => {
+                setSelectedPlan(id);
+                setMethod(null);
+                setError('');
+                setStep(2);
+              }}
+            />
           ))}
         </div>
 
