@@ -215,18 +215,12 @@ export function AuthProvider({ children }) {
   };
 
   const refreshProfile = async () => {
-    if (!user) return null;
+    if (!user) return;
     try {
       const snap = await getDoc(doc(db, 'users', user.uid));
-      if (snap.exists()) {
-        const data = snap.data();
-        setProfile(data);
-        return data;
-      }
-      return null;
+      if (snap.exists()) setProfile(snap.data());
     } catch (err) {
       console.error('refreshProfile error:', err);
-      return null;
     }
   };
 
