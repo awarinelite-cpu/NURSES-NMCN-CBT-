@@ -310,7 +310,7 @@ export default function SubscriptionPage() {
           <div style={styles.plansGrid}>
             {ACCESS_PLANS.filter(p => p.id !== 'free').map(p => (
               <div key={p.id}
-                onClick={() => setSelectedPlan(p.id)}
+                onClick={() => { setSelectedPlan(p.id); setStep(2); }}
                 style={{
                   ...styles.planCard,
                   border: `2px solid ${selectedPlan === p.id ? p.color : 'var(--border)'}`,
