@@ -1,6 +1,6 @@
 // src/components/student/SubscriptionPage.jsx
 import { useState, useEffect } from 'react';
-import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
@@ -8,8 +8,6 @@ import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
-
-const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
 /* ── Get or create a stable device ID ── */
 function getDeviceId() {
@@ -33,102 +31,82 @@ export default function SubscriptionPage() {
   const [note,          setNote]          = useState('');
   const [code,          setCode]          = useState('');
   const [loading,       setLoading]       = useState(false);
-  const [paystackReady, setPaystackReady] = useState(false);
+  const [redirecting,   setRedirecting]   = useState(false);
+  const [confirming,    setConfirming]    = useState(false);
 
   const plan = ACCESS_PLANS.find(p => p.id === selectedPlan);
 
-  /* ── Load Paystack script ── */
+  /* ── Handle return from Paystack's hosted checkout ──
+     Paystack redirects back to callback_url with ?reference=...&trxref=...
+     Actual activation happens server-side via the paystackWebhook Cloud
+     Function, so here we just wait for it to land in Firestore. */
   useEffect(() => {
-    // Already loaded
-    if (window.PaystackPop) {
-      setPaystackReady(true);
-      return;
-    }
+    const params   = new URLSearchParams(window.location.search);
+    const reference = params.get('reference') || params.get('trxref');
+    if (!reference) return;
 
-    const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-    if (existing) {
-      // May have already loaded between renders — check immediately
-      const onLoad = () => setPaystackReady(true);
-      existing.addEventListener('load', onLoad);
-      if (existing.dataset.loaded === '1') setPaystackReady(true);
-      return () => existing.removeEventListener('load', onLoad);
-    }
+    // Clean the URL so a refresh doesn't re-trigger this.
+    window.history.replaceState({}, '', window.location.pathname);
 
-    const script = document.createElement('script');
-    script.src   = 'https://js.paystack.co/v1/inline.js';
-    script.async = true;
-    script.onload = () => {
-      script.dataset.loaded = '1';
-      setPaystackReady(true);
-    };
-    script.onerror = () => toast('Could not load Paystack. Check your internet.', 'error');
-    document.head.appendChild(script);
+    setStep(2);
+    setPayMode('paystack');
+    setConfirming(true);
+
+    let attempts = 0;
+    const maxAttempts = 15; // ~30s at 2s intervals
+    const poll = setInterval(async () => {
+      attempts += 1;
+      const updated = await refreshProfile();
+      if (updated?.subscribed) {
+        clearInterval(poll);
+        setConfirming(false);
+        toast('🎉 Payment successful! Access activated.', 'success');
+        setStep(3);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        setConfirming(false);
+        toast(
+          `Payment received — confirming access. If it isn't active in a few minutes, contact support with reference: ${reference}`,
+          'error'
+        );
+      }
+    }, 2000);
+
+    return () => clearInterval(poll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Paystack handler ── */
-  const handlePaystack = () => {
-    if (!paystackReady || typeof window.PaystackPop === 'undefined') {
-      toast('Paystack is still loading, please wait a moment.', 'error');
-      return;
+  /* ── Paystack handler — full-page redirect ──
+     Avoids the inline iframe entirely, which sidesteps the anti-screenshot
+     blur getting stuck when the iframe steals focus on Android WebViews.
+     Activation happens server-side via the paystackWebhook Cloud Function;
+     see the useEffect above that polls for it after redirect. */
+  const handlePaystack = async () => {
+    setRedirecting(true);
+    try {
+      const callbackUrl = `${window.location.origin}${window.location.pathname}`;
+      const res = await fetch('/api/paystack-initialize', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:    user.email,
+          amount:   plan.price * 100,
+          currency: 'NGN',
+          metadata: { userId: user.uid, plan: selectedPlan, type: 'nmcn_cbt' },
+          callback_url: callbackUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorization_url) {
+        toast(data.error || 'Could not start payment. Please try again.', 'error');
+        setRedirecting(false);
+        return;
+      }
+      window.location.href = data.authorization_url;
+    } catch {
+      toast('Network error starting payment. Please try again.', 'error');
+      setRedirecting(false);
     }
-
-    const planDays = { basic: 30, standard: 90, premium: 180 };
-    const days     = planDays[selectedPlan] || 30;
-    const expiry   = new Date(Date.now() + days * 86400000);
-
-    // FIX: callback must be synchronous — no async/await inside.
-    // All Firestore writes are fire-and-forget (.then chains), NOT awaited.
-    const handler = window.PaystackPop.setup({
-      key:      PAYSTACK_PUBLIC_KEY,
-      email:    user.email,
-      amount:   plan.price * 100,
-      currency: 'NGN',
-      // Show every payment method Paystack supports for NGN, not just card —
-      // bank transfer and USSD matter a lot for students without a card.
-      channels: ['card', 'bank', 'ussd', 'bank_transfer', 'qr', 'mobile_money'],
-      ref:      `NMCN-${Date.now()}`,
-      metadata: { userId: user.uid, plan: selectedPlan },
-
-      // FIX: NOT async — Paystack callback must be synchronous on mobile
-      callback: (response) => {
-        // updateDoc and doc are now top-level imports — no dynamic import()
-        addDoc(collection(db, 'payments'), {
-          userId:    user.uid,
-          userName:  profile?.name || user.displayName,
-          userEmail: user.email,
-          plan:      selectedPlan,
-          amount:    plan.price,
-          days,
-          method:    'paystack',
-          reference: response.reference,
-          status:    'confirmed',
-          createdAt: serverTimestamp(),
-          expiresAt: expiry,
-        })
-        .then(() => updateDoc(doc(db, 'users', user.uid), {
-          subscribed:         true,
-          accessLevel:        selectedPlan,
-          subscriptionPlan:   selectedPlan,
-          subscriptionExpiry: expiry.toISOString(),
-          updatedAt:          serverTimestamp(),
-        }))
-        .then(() => refreshProfile())
-        .then(() => {
-          toast('🎉 Payment successful! Access activated.', 'success');
-          setStep(3);
-        })
-        .catch(() => {
-          toast(
-            'Payment received but failed to save. Contact support with ref: ' + response.reference,
-            'error'
-          );
-        });
-      },
-
-      onClose: () => {},
-    });
-
-    handler.openIframe(); // synchronous — must not be delayed
   };
 
   /* ── Bank transfer receipt ── */
@@ -378,7 +356,15 @@ export default function SubscriptionPage() {
           )}
 
           {/* ── Paystack ── */}
-          {payMode === 'paystack' && (
+          {payMode === 'paystack' && confirming && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 0' }}>
+              <span className="spinner" />
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center' }}>
+                Confirming your payment with Paystack, this usually takes a few seconds…
+              </p>
+            </div>
+          )}
+          {payMode === 'paystack' && !confirming && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
               <div style={{ ...styles.bankBox, borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
@@ -389,12 +375,12 @@ export default function SubscriptionPage() {
               <button
                 className="btn btn-primary btn-full btn-lg"
                 onClick={handlePaystack}
-                disabled={!paystackReady}
-                style={{ opacity: paystackReady ? 1 : 0.6 }}
+                disabled={redirecting}
+                style={{ opacity: redirecting ? 0.6 : 1 }}
               >
-                {paystackReady
-                  ? `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely`
-                  : '⏳ Loading Paystack…'}
+                {redirecting
+                  ? '⏳ Redirecting to Paystack…'
+                  : `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely`}
               </button>
             </div>
           )}
