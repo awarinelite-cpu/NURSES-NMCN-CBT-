@@ -102,6 +102,7 @@ export default function EntranceExamSession() {
   const [exitSaving,    setExitSaving]    = useState(false);
   const [saveError,     setSaveError]     = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [secondsLeft,   setSecondsLeft]   = useState(timeLimitMin > 0 ? timeLimitMin * 60 : null);
   const upgradeModalShown = useRef(false);
   const voiceModeRef      = useRef(null); // ref to VoiceExamMode, used to relay manual taps
 
@@ -297,6 +298,21 @@ export default function EntranceExamSession() {
       setSubmitting(false);
     }
   }, [submitting, submitted, examType, examName, subject, schoolMode, schoolId, schoolName, user, profile]);
+
+  // ── Countdown timer (admin-set time limit) ─────────────────────────────────
+  useEffect(() => {
+    if (timeLimitMin <= 0 || loading || submitted || reviewMode) return;
+    if (secondsLeft === null) return;
+    if (secondsLeft <= 0) { handleSubmit(); return; }
+    const t = setTimeout(() => setSecondsLeft(s => (s === null ? null : s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [secondsLeft, loading, submitted, reviewMode, resumeMode, timeLimitMin, handleSubmit]);
+
+  const formatTime = (secs) => {
+    if (secs === null) return '';
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   const handleSaveExit = useCallback(() => {
     if (isSavingRef.current) return;
@@ -529,7 +545,12 @@ export default function EntranceExamSession() {
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1, fontWeight: 700 }}>Q{currentIndex + 1} of {total} · {answered} answered</div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {secondsLeft !== null && !submitted && !reviewMode && (
+              <div style={{ padding: '7px 14px', borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, background: secondsLeft <= 60 ? 'rgba(239,68,68,0.15)' : 'rgba(13,148,136,0.12)', border: `1px solid ${secondsLeft <= 60 ? 'rgba(239,68,68,0.5)' : 'rgba(13,148,136,0.3)'}`, color: secondsLeft <= 60 ? '#EF4444' : 'var(--teal)' }}>
+                ⏱ {formatTime(secondsLeft)}
+              </div>
+            )}
             <button onClick={() => reviewMode ? navigate(-1) : setShowExitModal(true)} style={{ padding: '7px 14px', borderRadius: 10, fontFamily: F, fontWeight: 700, fontSize: 13, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--text-primary)' }}>
               {reviewMode ? '← Back' : '🚪 Exit'}
             </button>
