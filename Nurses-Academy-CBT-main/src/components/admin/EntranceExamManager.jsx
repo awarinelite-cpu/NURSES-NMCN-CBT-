@@ -1045,6 +1045,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
     if (filterType && q.questionType !== filterType) return false;
     if (filterDaily === 'yes' && !q.inDailyBank) return false;
     if (filterDaily === 'no' && q.inDailyBank) return false;
+    if (filterDaily === 'route' && q.uploadSource !== 'daily_mock_upload') return false;
     if (search && !q.questionText?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -1162,6 +1163,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
           <option value="">All (Daily + Non)</option>
           <option value="yes">📅 Daily Bank Only</option>
           <option value="no">📁 Non-Daily Only</option>
+          <option value="route">🎯 Daily Mock Upload Route</option>
         </select>
         <input className="form-input" placeholder="🔍 Search questions…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button className="btn btn-ghost" onClick={load} title="Reload">🔄</button>
@@ -1405,7 +1407,7 @@ function DailyMockUpload({ toast }) {
     if (!form.questionText.trim()) { toast('Question text is required', 'error'); return; }
     setSaving(true);
     try {
-      await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: form.diagramUrl ? 'diagram' : 'text', diagramUrl: form.diagramUrl || '', questionText: form.questionText, options: form.options, correctAnswer: form.correctAnswer, explanation: form.explanation || '', active: true, inDailyBank: true, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: form.diagramUrl ? 'diagram' : 'text', diagramUrl: form.diagramUrl || '', questionText: form.questionText, options: form.options, correctAnswer: form.correctAnswer, explanation: form.explanation || '', active: true, inDailyBank: true, uploadSource: 'daily_mock_upload', createdAt: serverTimestamp() });
       toast('Question added to Daily Mock Bank ✅', 'success');
       setForm({ questionText: '', options: { A:'', B:'', C:'', D:'' }, correctAnswer: 'A', explanation: '', diagramUrl: '' });
     } catch (e) { toast('Error: ' + e.message, 'error'); }
@@ -1417,7 +1419,7 @@ function DailyMockUpload({ toast }) {
     setSaving(true);
     try {
       const batch = writeBatch(db);
-      parsed.forEach(q => { const ref = doc(collection(db, 'entranceExamQuestions')); batch.set(ref, { schoolId: null, schoolName: '', year: '', subject: '', questionType: q.questionType, diagramUrl: q.diagramUrl || '', questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer, explanation: q.explanation || '', active: true, inDailyBank: true, createdAt: serverTimestamp() }); });
+      parsed.forEach(q => { const ref = doc(collection(db, 'entranceExamQuestions')); batch.set(ref, { schoolId: null, schoolName: '', year: '', subject: '', questionType: q.questionType, diagramUrl: q.diagramUrl || '', questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer, explanation: q.explanation || '', active: true, inDailyBank: true, uploadSource: 'daily_mock_upload', createdAt: serverTimestamp() }); });
       await batch.commit();
       setImported({ count: parsed.length }); setParsed([]); setRawText('');
       toast(`${parsed.length} questions added to Daily Mock Bank ✅`, 'success');
@@ -1447,7 +1449,7 @@ function DailyMockUpload({ toast }) {
           </div>
         </div>
       )}
-      {mode === 'paste_single' && (<SinglePasteUpload onSave={async qData => { setSaving(true); try { await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, createdAt: serverTimestamp() }); toast('Added to Daily Mock Bank ✅', 'success'); } catch (e) { toast('Error: ' + e.message, 'error'); } finally { setSaving(false); } }} saving={saving} />)}
+      {mode === 'paste_single' && (<SinglePasteUpload onSave={async qData => { setSaving(true); try { await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, uploadSource: 'daily_mock_upload', createdAt: serverTimestamp() }); toast('Added to Daily Mock Bank ✅', 'success'); } catch (e) { toast('Error: ' + e.message, 'error'); } finally { setSaving(false); } }} saving={saving} />)}
       {mode === 'paste_bulk' && (
         <>
           {/* ── File/CSV Upload Zone ── */}
