@@ -157,6 +157,7 @@ export default function EntranceBottomNav() {
   // Unread message state
   const { totalUnread, unreadThreads } = useUnreadMessages(myUid);
   const groupUnread = useEntranceGroupUnread(myUid);
+  const combinedUnread = totalUnread + groupUnread;
 
   // Build nav items — admin gets Control Panel appended
   const NAV_ITEMS = isAdmin ? [...BASE_NAV, ADMIN_ITEM] : BASE_NAV;
@@ -273,7 +274,6 @@ export default function EntranceBottomNav() {
       ? location.pathname === to
       : location.pathname.startsWith(to);
 
-  const combinedUnread = totalUnread + groupUnread;
   const badgeCount = combinedUnread > 99 ? '99+' : combinedUnread > 0 ? String(combinedUnread) : null;
 
   return (
