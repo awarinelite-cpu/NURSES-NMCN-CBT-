@@ -6,6 +6,7 @@ import {
   updateDoc, serverTimestamp, writeBatch, increment, arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import AdminNotificationBell from '../shared/AdminNotificationBell';
 
 const STATUS_COLORS = {
   confirmed: { color: '#16A34A', bg: 'rgba(22,163,74,0.12)',  label: '✅ Confirmed' },
@@ -157,6 +158,7 @@ export default function AdminPayments() {
               ⚠️ {pendingCount} pending
             </div>
           )}
+          <AdminNotificationBell />
         </div>
       </div>
 

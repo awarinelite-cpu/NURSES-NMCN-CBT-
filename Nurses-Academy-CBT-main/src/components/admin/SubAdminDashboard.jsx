@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import AdminNotificationBell from '../shared/AdminNotificationBell';
 
 const H = "'Arial Black', Arial, sans-serif";
 const F = "'Times New Roman', Times, serif";
@@ -246,6 +247,7 @@ export default function SubAdminDashboard() {
           <PulseDot />
           <span style={{ fontSize: 12, color: '#10b981', fontWeight: 700, fontFamily: H }}>LIVE</span>
           <LiveClock />
+          <AdminNotificationBell />
         </div>
       </div>
 

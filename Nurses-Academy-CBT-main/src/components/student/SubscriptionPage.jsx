@@ -175,7 +175,7 @@ export default function SubscriptionPage() {
       await addDoc(collection(db, 'notifications'), {
         userId: 'admin', title: '💳 New Payment Receipt',
         body:   `${profile?.name || 'A student'} submitted a receipt for ${plan.label} (₦${plan.price.toLocaleString()})`,
-        type: 'payment', read: false, createdAt: serverTimestamp(),
+        type: 'payment', link: '/admin/payments', read: false, createdAt: serverTimestamp(),
       });
       toast('Receipt submitted! Admin will confirm within 24 hours.', 'success');
       setStep(3);

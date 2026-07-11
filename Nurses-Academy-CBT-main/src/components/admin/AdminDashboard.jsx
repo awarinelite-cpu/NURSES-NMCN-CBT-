@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import AdminNotificationBell from '../shared/AdminNotificationBell';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE ON QUESTION BANKS
@@ -336,6 +337,7 @@ export default function AdminDashboard() {
           <PulseDot />
           <span style={{ fontSize: 12, color: '#10b981', fontWeight: 700 }}>LIVE</span>
           <LiveClock />
+          <AdminNotificationBell />
         </div>
       </div>
 

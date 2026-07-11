@@ -320,6 +320,7 @@ export default function EntranceExamPaymentPage() {
         title:     '📋 New Entrance Exam Payment',
         body:      `${fullName.trim() || user.email} paid ₦${plan.price.toLocaleString()} for ${plan.label} (${plan.duration}) — awaiting confirmation`,
         type:      'entrance_exam_payment',
+        link:      '/admin/entrance-exam?tab=payments',
         read:      false,
         createdAt: serverTimestamp(),
       });

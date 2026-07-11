@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
+import AdminNotificationBell from '../shared/AdminNotificationBell';
 import { ensureEntranceDailyMockNotification } from '../../utils/dailyNotifications';
 import {
   parseEntranceQuestions,
@@ -101,13 +102,16 @@ export default function EntranceExamManager() {
         position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.25) 0%, transparent 60%)' }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ color: '#fff', fontFamily: H, fontWeight: 900, margin: '0 0 6px', fontSize: 'clamp(1.6rem,4vw,2.4rem)' }}>
-            🏫 Entrance Exam Manager
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.65)', margin: 0, fontSize: 14, fontFamily: F, fontWeight: 700 }}>
-            Manage schools · subjects · upload questions · configure smart daily mock rotation
-          </p>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ color: '#fff', fontFamily: H, fontWeight: 900, margin: '0 0 6px', fontSize: 'clamp(1.6rem,4vw,2.4rem)' }}>
+              🏫 Entrance Exam Manager
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,0.65)', margin: 0, fontSize: 14, fontFamily: F, fontWeight: 700 }}>
+              Manage schools · subjects · upload questions · configure smart daily mock rotation
+            </p>
+          </div>
+          <AdminNotificationBell />
         </div>
       </div>
 
