@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useEffect, useState, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider }          from './context/AuthContext';
 import { ThemeProvider }         from './context/ThemeContext';
 import { ToastProvider }         from './components/shared/Toast';
@@ -46,9 +46,8 @@ import CategoryPickerPage from './components/exam/CategoryPickerPage';
 import ExamConfigPage     from './components/exam/ExamConfigPage';
 import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
-import DailyPracticePage  from './components/exam/DailyPracticePage';
-import MockExamPage       from './components/exam/MockExamPage';
 import DailyMockExamHub   from './components/exam/DailyMockExamHub';
+import MockExamPage       from './components/exam/MockExamPage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import CaosceHub          from './components/exam/CaosceHub';
@@ -271,8 +270,14 @@ export default function App() {
                 <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />
                 <Route path="/past-questions"  element={<FreeTrialRoute><PastQuestionsPage /></FreeTrialRoute>} />
                 <Route path="/quick-actions"   element={<FreeTrialRoute><QuickActionsPage /></FreeTrialRoute>} />
-                <Route path="/daily-practice"  element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
-                <Route path="/daily-reviews"   element={<FreeTrialRoute><DailyPracticePage /></FreeTrialRoute>} />
+                {/* Daily Practice was discontinued in favor of Daily Mock Exam — same
+                    concept (a daily set of questions), but Daily Mock Exam gives every
+                    student the same pool, auto-repeats questions with a low pass rate
+                    until mastered, and sends a push notification when a new pool drops.
+                    Old bookmarks/notifications pointing here still redirect correctly
+                    rather than 404ing. */}
+                <Route path="/daily-practice"  element={<Navigate to="/daily-mock-exam" replace />} />
+                <Route path="/daily-reviews"   element={<Navigate to="/daily-mock-exam" replace />} />
                 <Route path="/course-drill"    element={<FreeTrialRoute><CourseDrillPage /></FreeTrialRoute>} />
                 <Route path="/topic-drill"     element={<FreeTrialRoute><TopicDrillPage /></FreeTrialRoute>} />
                 <Route path="/caosce"          element={<FreeTrialRoute><CaosceHub /></FreeTrialRoute>} />

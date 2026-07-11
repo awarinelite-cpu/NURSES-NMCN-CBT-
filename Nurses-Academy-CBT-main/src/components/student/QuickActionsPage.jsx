@@ -6,12 +6,12 @@ const H = "'Arial Black', Arial, sans-serif";
 
 const actions = [
   {
-    to: '/daily-practice',
-    icon: '⚡',
-    label: 'Daily Practice',
-    desc: 'Take daily exam',
-    color: '#F59E0B',
-    bg: 'rgba(245,158,11,0.12)',
+    to: '/daily-mock-exam',
+    icon: '🗓️',
+    label: 'Daily Mock Exam',
+    desc: 'Fresh 250-question pool every day',
+    color: '#0891B2',
+    bg: 'rgba(8,145,178,0.12)',
   },
   {
     to: '/course-drill',

@@ -8,7 +8,6 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
-import { ensureCbtDailyMockNotification, maybePushDailyMockNotification } from '../../utils/dailyNotifications';
 import StreakMilestoneModal, { MILESTONES } from '../shared/StreakMilestoneModal';
 import { fetchBadges, evaluateBadges, syncBadges, BADGES, BADGE_MAP } from '../../utils/badgeUtils';
 import { fetchStreak } from '../../utils/streakUtils';
@@ -448,12 +447,6 @@ const M = {
 // ── Quick actions data ────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
   {
-    to: '/daily-practice', icon: '⚡', label: 'Daily Practice',
-    sub: 'Take daily exam',
-    desc: 'Get a fresh set of random questions every day. Builds your exam stamina and keeps your knowledge sharp across all nursing topics.',
-    color: '#F59E0B',
-  },
-  {
     to: '/course-drill', icon: '📖', label: 'Course Drill',
     sub: 'Take exam by courses',
     desc: 'Pick any nursing course and drill questions specifically from that course. Perfect for targeted revision before a test.',
@@ -737,10 +730,10 @@ export default function StudentDashboard() {
     setTimeout(() => setBannerVis(true), 80);
     if (!user) { setLoading(false); return; }
 
-    // Make sure today's "Daily Practice" notification exists (idempotent)
-    ensureCbtDailyMockNotification();
-    // Fire browser push once per day (no-op if permission not granted or already sent today)
-    maybePushDailyMockNotification();
+    // Daily Mock Exam's rotateDailyMockExam Cloud Function already sends a
+    // server-side FCM push to every device when a new pool goes live — more
+    // reliable than a client-side Notification (works even if the app isn't
+    // open), so there's no separate "Daily Practice" reminder needed here.
 
     const loadData = async () => {
       // Recent exam sessions

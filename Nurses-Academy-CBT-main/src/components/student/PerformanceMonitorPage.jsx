@@ -553,8 +553,8 @@ export default function PerformanceMonitorPage() {
               icon="⚡"
               title="No Daily Practice data yet"
               sub="Complete some Daily Practice exams to see your course breakdown."
-              linkTo="/daily-practice"
-              linkLabel="Start Daily Practice"
+              linkTo="/daily-mock-exam"
+              linkLabel="Start Daily Mock Exam"
             />
           ) : (
             <>

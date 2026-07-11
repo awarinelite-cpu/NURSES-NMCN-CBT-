@@ -32,16 +32,12 @@ async function ensureDailyAnnouncement({ idPrefix, title, message, type, link, d
   }
 }
 
-// ── NMCN CBT — Daily Practice ───────────────────────────────────────────────
-export function ensureCbtDailyMockNotification() {
-  return ensureDailyAnnouncement({
-    idPrefix: 'cbt-daily',
-    title: '📅 New Daily Practice Set Ready!',
-    message: "Today's fresh set of practice questions is now available. Tap to start practising.",
-    type: 'cbt_daily_mock',
-    link: '/daily-practice',
-  });
-}
+// ── NMCN CBT — Daily Practice was retired in favor of Daily Mock Exam, which
+// sends its own server-side FCM push via the rotateDailyMockExam Cloud
+// Function (more reliable — works even when the app isn't open). The
+// client-side ensureCbtDailyMockNotification/maybePushDailyMockNotification
+// functions that used to live here were removed along with the Daily
+// Practice page itself.
 
 // ── Entrance Exam — Daily Mock ──────────────────────────────────────────────
 export function ensureEntranceDailyMockNotification(date) {
@@ -62,41 +58,6 @@ export function ensureEntranceDailyMockNotification(date) {
 //   2. They haven't already seen today's push (tracked in localStorage)
 //
 // Call `maybePushDailyMockNotification()` from the dashboard on mount.
-
-const PUSH_STORAGE_KEY = 'nmcn_last_push_date';
-
-export function maybePushDailyMockNotification() {
-  try {
-    if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-
-    const today = todayKey();
-    const lastPush = localStorage.getItem(PUSH_STORAGE_KEY);
-    if (lastPush === today) return; // already sent today
-
-    // Send the push
-    const notif = new Notification("📅 Today's Practice Set is Ready!", {
-      body: "Fresh questions for today are available. Tap to start your daily practice now.",
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-72x72.png',
-      tag: `nmcn-daily-${today}`,   // prevents duplicates across tabs
-      renotify: false,
-      data: { url: '/daily-practice' },
-    });
-
-    notif.onclick = () => {
-      window.focus();
-      window.location.href = notif.data?.url || '/daily-practice';
-      notif.close();
-    };
-
-    localStorage.setItem(PUSH_STORAGE_KEY, today);
-  } catch (e) {
-    // Never crash the app for a notification
-    console.warn('Push notification failed (non-critical):', e.message);
-  }
-}
 
 // ── Entrance Exam daily mock push ─────────────────────────────────────────────
 const ENTRANCE_PUSH_KEY = 'nmcn_entrance_last_push_date';

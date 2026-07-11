@@ -6,7 +6,7 @@ import { useChatNotifications } from '../../hooks/useChatNotifications';
 
 const STUDENT_NAV = [
   { to: '/dashboard',      icon: '🏠', label: 'Dashboard'      },
-  { to: '/daily-practice', icon: '⚡', label: 'Daily Practice' },
+  { to: '/daily-mock-exam', icon: '🗓️', label: 'Daily Mock Exam' },
   { to: '/course-drill',   icon: '📖', label: 'Course Drill'   },
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
   { to: '/caosce',         icon: '🩺', label: 'CAOSCE Prep'    },

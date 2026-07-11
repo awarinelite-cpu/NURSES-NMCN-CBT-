@@ -12,7 +12,7 @@ const ENT_LAST = 'nmcn_last_entrance';
 
 const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
 const cbtPrefixes      = [
-  '/dashboard', '/exams', '/daily-practice', '/course-drill',
+  '/dashboard', '/exams', '/daily-practice', '/daily-mock-exam', '/course-drill',
   '/topic-drill', '/mock-exams', '/mock-reviews', '/performance',
   '/leaderboard', '/subscription',
 ];

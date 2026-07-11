@@ -42,7 +42,7 @@ export default function StreakReminderBanner({ streakData }) {
   const handlePractice = () => {
     dismissStreakReminderForToday();
     setVisible(false);
-    navigate('/daily-practice');
+    navigate('/daily-mock-exam');
   };
 
   return (
