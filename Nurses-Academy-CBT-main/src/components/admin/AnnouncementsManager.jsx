@@ -32,7 +32,7 @@ export default function AnnouncementsManager() {
       // Notify all users via a system notification
       await addDoc(collection(db, 'notifications'), {
         userId: 'all', title: form.title, body: form.body.slice(0, 100),
-        type: 'announcement', read: false, createdAt: serverTimestamp(),
+        type: 'announcement', link: '/dashboard', read: false, createdAt: serverTimestamp(),
       });
       toast('Announcement published!', 'success');
       setForm({ title: '', body: '', type: 'info', pinned: false });

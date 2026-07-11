@@ -31,6 +31,22 @@ function tsToDate(ts) {
   return new Date(ts);
 }
 
+const ENTRANCE_BADGE = { label: 'ENTRANCE', color: 'linear-gradient(135deg,#0891b2,#0e7490)' };
+const NMCN_BADGE     = { label: 'NMCN',     color: 'linear-gradient(135deg,#0D9488,#0f766e)' };
+const ACCOUNT_BADGE  = { label: 'ACCOUNT',  color: 'linear-gradient(135deg,#7c3aed,#6d28d9)' };
+
+// Personal notifications (payments, access changes, admin broadcasts) span
+// both sections, so they get their own neutral "ACCOUNT" badge rather than
+// being mislabeled ENTRANCE/NMCN based on whichever bell they're viewed in.
+function badgeForType(type, mode) {
+  if (type === 'entrance_daily_mock') return ENTRANCE_BADGE;
+  if (type === 'daily_mock_exam' || type === 'cbt_daily_mock') return NMCN_BADGE;
+  if (['payment_confirmed', 'payment_revoked', 'device_reset', 'announcement'].includes(type)) {
+    return ACCOUNT_BADGE;
+  }
+  return mode === 'entrance' ? ENTRANCE_BADGE : NMCN_BADGE;
+}
+
 export default function NotificationBell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -286,9 +302,9 @@ export default function NotificationBell() {
             </>
           )}
 
-          {/* ── EXAM ANNOUNCEMENTS SECTION ── */}
+          {/* ── EXAM ANNOUNCEMENTS + PERSONAL NOTIFICATIONS SECTION ── */}
           {items.length > 0 && (
-            <div style={styles.sectionLabel}>📢 Exam Updates</div>
+            <div style={styles.sectionLabel}>📢 Updates</div>
           )}
 
           {loading ? (
@@ -297,27 +313,25 @@ export default function NotificationBell() {
             <div style={styles.empty}>No notifications yet</div>
           ) : (
             <div style={styles.list}>
-              {items.map(item => (
-                <button
-                  key={item.id}
-                  style={styles.item}
-                  onClick={() => handleItemClick(item)}
-                >
-                  <div style={styles.itemTop}>
-                    <span style={styles.itemTitle}>{item.title}</span>
-                    <span style={{
-                      ...styles.modeBadge,
-                      background: item.type === 'entrance_daily_mock'
-                        ? 'linear-gradient(135deg,#0891b2,#0e7490)'
-                        : 'linear-gradient(135deg,#0D9488,#0f766e)',
-                    }}>
-                      {item.type === 'entrance_daily_mock' ? 'ENTRANCE' : 'NMCN'}
-                    </span>
-                  </div>
-                  {item.message && <div style={styles.itemMsg}>{item.message}</div>}
-                  <div style={styles.itemTime}>{timeAgo(item.createdAt?.toDate?.())}</div>
-                </button>
-              ))}
+              {items.map(item => {
+                const badge = badgeForType(item.type, mode);
+                return (
+                  <button
+                    key={item.id}
+                    style={styles.item}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    <div style={styles.itemTop}>
+                      <span style={styles.itemTitle}>{item.title}</span>
+                      <span style={{ ...styles.modeBadge, background: badge.color }}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    {item.message && <div style={styles.itemMsg}>{item.message}</div>}
+                    <div style={styles.itemTime}>{timeAgo(item.createdAt?.toDate?.())}</div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

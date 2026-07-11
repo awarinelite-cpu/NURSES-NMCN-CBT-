@@ -79,6 +79,7 @@ export default function AdminPayments() {
           ? 'Your entrance exam registration has been confirmed. You now have full access to all entrance exam features!'
           : `Your ${payment.plan || 'basic'} plan has been activated. Enjoy full access for ${planDays} days!`,
         type:      'payment_confirmed',
+        link:      isEntranceExam ? '/entrance-exam' : '/subscription',
         read:      false,
         createdAt: serverTimestamp(),
       });
@@ -123,6 +124,7 @@ export default function AdminPayments() {
         title:     '📱 Devices Reset',
         body:      'Your device access has been reset by admin. You can now log in from new devices.',
         type:      'device_reset',
+        link:      '/profile',
         read:      false,
         createdAt: serverTimestamp(),
       });

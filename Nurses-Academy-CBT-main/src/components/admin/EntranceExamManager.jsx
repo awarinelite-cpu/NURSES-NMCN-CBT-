@@ -2000,6 +2000,7 @@ function EntrancePaymentsTab({ toast }) {
         title:     '🎉 Payment Confirmed!',
         body:      'Your entrance exam payment of ₦3,000 has been confirmed. You now have full access to all entrance exam features!',
         type:      'payment_confirmed',
+        link:      '/entrance-exam',
         read:      false,
         createdAt: serverTimestamp(),
       });
@@ -2039,6 +2040,7 @@ function EntrancePaymentsTab({ toast }) {
         title:     '⚠️ Entrance Exam Access Revoked',
         body:      'Your entrance exam access has been revoked by admin. Please contact support if you believe this is an error.',
         type:      'payment_revoked',
+        link:      '/entrance-exam/payment',
         read:      false,
         createdAt: serverTimestamp(),
       });
