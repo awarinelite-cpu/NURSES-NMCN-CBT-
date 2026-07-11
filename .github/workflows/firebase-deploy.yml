@@ -29,9 +29,17 @@ jobs:
         with:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELITECAREHUB_A80DA }}'
 
-      - name: Deploy Firestore rules & indexes
+      - name: Deploy Firestore rules
         working-directory: Nurses-Academy-CBT-main
-        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes --project elitecarehub-a80da --non-interactive
+        run: npx firebase-tools deploy --only firestore:rules --project elitecarehub-a80da --non-interactive
+
+      # NOTE: firestore:indexes is deliberately NOT deployed automatically here.
+      # The live project currently has 3 indexes not present in
+      # firestore.indexes.json — deploying indexes in non-interactive mode
+      # would require --force, which silently DELETES those live indexes.
+      # Review what they are first (see comment in firestore.indexes.json),
+      # then either add them to the file or deploy indexes manually with
+      # --force once you're sure it's safe.
 
   deploy-functions:
     # Only on actual pushes to main — not PR previews, and only if
