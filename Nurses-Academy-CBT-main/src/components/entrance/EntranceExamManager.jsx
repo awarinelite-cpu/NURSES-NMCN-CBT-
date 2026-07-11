@@ -919,8 +919,10 @@ function DailyMockTab({ toast }) {
 }
 
 // ── Daily Mock: Settings ──────────────────────────────────────────────────────
+const DAILY_MOCK_QUESTION_COUNT = 100;
+
 function DailyMockSettings({ toast }) {
-  const [config,  setConfig]  = useState({ questionCount: 30, timeLimit: 30, repeatThreshold: 50, passMark: 50 });
+  const [config,  setConfig]  = useState({ questionCount: DAILY_MOCK_QUESTION_COUNT, timeLimit: 30, repeatThreshold: 50, passMark: 50 });
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
   const [loading, setLoading] = useState(true);
@@ -930,7 +932,7 @@ function DailyMockSettings({ toast }) {
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'entranceExamConfig', 'dailyMock'));
-        if (snap.exists()) setConfig(c => ({ ...c, ...snap.data() }));
+        if (snap.exists()) setConfig(c => ({ ...c, ...snap.data(), questionCount: DAILY_MOCK_QUESTION_COUNT }));
         const countSnap = await getCountFromServer(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true)));
         setStats({ totalQuestions: countSnap.data().count });
       } catch (e) { console.error(e); }
@@ -941,7 +943,7 @@ function DailyMockSettings({ toast }) {
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
-      await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), { ...config, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, 'entranceExamConfig', 'dailyMock'), { ...config, questionCount: DAILY_MOCK_QUESTION_COUNT, updatedAt: new Date().toISOString() });
       setSaved(true); toast('Daily Mock settings saved ✅', 'success');
       setTimeout(() => setSaved(false), 3000);
     } catch (e) { toast('Save failed: ' + e.message, 'error'); }
@@ -950,7 +952,6 @@ function DailyMockSettings({ toast }) {
 
   if (loading) return <Spinner />;
   const bankSize   = stats?.totalQuestions || 0;
-  const maxAllowed = Math.max(bankSize, 5);
 
   return (
     <div style={{ maxWidth: 600 }}>
@@ -963,7 +964,7 @@ function DailyMockSettings({ toast }) {
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <div style={S.card}><label style={{ ...S.label, fontSize: 13 }}>❓ Questions Per Mock</label><div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, fontFamily: F }}>How many questions per daily session. Capped at your bank size ({bankSize}).</div><SliderWithPresets value={config.questionCount} min={5} max={Math.min(60, maxAllowed)} step={5} presets={[10,20,30,40,50].filter(n => n <= maxAllowed)} onChange={v => setConfig(c => ({ ...c, questionCount: v }))} displayFn={v => String(v)} color="var(--teal)" /></div>
+        <div style={S.card}><label style={{ ...S.label, fontSize: 13 }}>❓ Questions Per Mock</label><div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: F }}>Fixed at <strong style={{ color: 'var(--text-primary)' }}>{DAILY_MOCK_QUESTION_COUNT} questions</strong> every daily session.{bankSize < DAILY_MOCK_QUESTION_COUNT && (<span style={{ color: '#F59E0B', fontWeight: 700 }}> ⚠️ Bank only has {bankSize} — add more questions to reach {DAILY_MOCK_QUESTION_COUNT}.</span>)}</div></div>
         <div style={S.card}><label style={{ ...S.label, fontSize: 13 }}>⏱ Time Limit</label><div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, fontFamily: F }}>Set to 0 for untimed. Mock auto-submits when time runs out.</div><SliderWithPresets value={config.timeLimit} min={0} max={120} step={5} presets={[{ v: 0, l: 'Untimed' }, { v: 20, l: '20m' }, { v: 30, l: '30m' }, { v: 45, l: '45m' }, { v: 60, l: '60m' }]} onChange={v => setConfig(c => ({ ...c, timeLimit: v }))} displayFn={v => v === 0 ? '∞' : `${v}m`} color="#F59E0B" /></div>
         <div style={S.card}><label style={{ ...S.label, fontSize: 13 }}>🎯 Pass Mark (%)</label><div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, fontFamily: F }}>Score percentage a student must reach to be considered "passed".</div><SliderWithPresets value={config.passMark} min={30} max={80} step={5} presets={[40,50,60,70]} onChange={v => setConfig(c => ({ ...c, passMark: v }))} displayFn={v => `${v}%`} color="#10B981" /></div>
         <div style={S.card}>
@@ -1080,7 +1081,7 @@ function DailyMockSchedule({ toast }) {
           getDocs(query(collection(db, 'entranceExamQuestions'), where('inDailyBank', '==', true), orderBy('createdAt', 'asc'))),
           getDocs(query(collection(db, 'dailyMockSchedule'), orderBy('date', 'desc'))),
         ]);
-        const cfg = cfgSnap.exists() ? cfgSnap.data() : { questionCount: 30, timeLimit: 30, repeatThreshold: 50, passMark: 50 };
+        const cfg = cfgSnap.exists() ? cfgSnap.data() : { questionCount: DAILY_MOCK_QUESTION_COUNT, timeLimit: 30, repeatThreshold: 50, passMark: 50 };
         setConfig(cfg);
         setBankIds(bankSnap.docs.map(d => d.id));
         setHistory(histSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -1108,10 +1109,10 @@ function DailyMockSchedule({ toast }) {
     if (alreadyScheduled) { toast('Today already has a scheduled set!', 'warning'); setPreview({ date: today, questionIds: alreadyScheduled.questionIds, alreadyExists: true }); return; }
     const usedMap  = computeUsedIds(history, config.repeatThreshold ?? 50);
     const eligible = bankIds.filter(id => !usedMap[id]);
-    let pool = eligible.length >= (config.questionCount || 30) ? eligible : bankIds;
+    let pool = eligible.length >= (config.questionCount || DAILY_MOCK_QUESTION_COUNT) ? eligible : bankIds;
     const shuffled = seededShuffle(pool, dateSeed(today));
-    const selected = shuffled.slice(0, config.questionCount || 30);
-    setPreview({ date: today, questionIds: selected, alreadyExists: false, isReset: eligible.length < (config.questionCount || 30) });
+    const selected = shuffled.slice(0, config.questionCount || DAILY_MOCK_QUESTION_COUNT);
+    setPreview({ date: today, questionIds: selected, alreadyExists: false, isReset: eligible.length < (config.questionCount || DAILY_MOCK_QUESTION_COUNT) });
   };
 
   const publishToday = async () => {
@@ -1140,7 +1141,7 @@ function DailyMockSchedule({ toast }) {
       </div>
       <div style={{ ...S.card, marginBottom: 24 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 6, fontFamily: H }}>📅 Today's Mock — {todayKey()}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>Preview the question set the system will serve today. Publishing locks in today's set.{freshCount < (config?.questionCount || 30) && (<span style={{ color: '#F59E0B', fontWeight: 700 }}> ⚠️ Only {freshCount} fresh questions available — system will recycle from full bank.</span>)}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6, fontFamily: F, fontWeight: 700 }}>Preview the question set the system will serve today. Publishing locks in today's set.{freshCount < (config?.questionCount || DAILY_MOCK_QUESTION_COUNT) && (<span style={{ color: '#F59E0B', fontWeight: 700 }}> ⚠️ Only {freshCount} fresh questions available — system will recycle from full bank.</span>)}</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={generatePreview}>🔍 Preview Today's Set</button>
           {preview && !preview.alreadyExists && (<button className="btn btn-primary" onClick={publishToday} disabled={generating} style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}>{generating ? '📤 Publishing…' : "📤 Publish Today's Mock"}</button>)}
