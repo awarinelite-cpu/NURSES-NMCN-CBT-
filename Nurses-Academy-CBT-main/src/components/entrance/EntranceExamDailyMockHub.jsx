@@ -130,8 +130,8 @@ export default function EntranceExamDailyMockHub() {
           <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>Practice with fresh questions every day. Track your progress and build exam confidence.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
             {[
-              { icon: '❓', label: 'Questions',  value: isPaid ? 'Up to 250' : `Up to ${FREE_CAP} (free)` },
-              { icon: '⏱',  label: 'Time Limit', value: 'Untimed' },
+              { icon: '❓', label: 'Questions',  value: isPaid ? `${mockConfig.questionCount || 100}` : `Up to ${FREE_CAP} (free)` },
+              { icon: '⏱',  label: 'Time Limit', value: mockConfig.timeLimit > 0 ? `${mockConfig.timeLimit} min` : 'Untimed' },
               { icon: '📆', label: 'Date',        value: getTodayKey() },
               { icon: '🔄', label: 'Resets In',   value: formatCountdown(countdown), mono: true },
             ].map(({ icon, label, value, mono }) => (
@@ -143,7 +143,14 @@ export default function EntranceExamDailyMockHub() {
             ))}
           </div>
           <div style={{ textAlign: 'left', background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.15)', borderRadius: 12, padding: '16px 18px', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {['📌 Questions are randomly selected from the question bank', '🔢 Choose how many questions you want to attempt', '📊 Results are saved to your profile automatically', '🔍 Review your answers after each exam', '🔄 Fresh set of questions available every day', '⚡ No time limit — attempt at your own pace'].map(rule => (
+            {[
+              '📌 Questions are randomly selected from the question bank',
+              `🔢 Every daily mock is a fixed set of ${mockConfig.questionCount || 100} questions`,
+              '📊 Results are saved to your profile automatically',
+              '🔍 Review your answers after each exam',
+              '🔄 Fresh set of questions available every day',
+              mockConfig.timeLimit > 0 ? `⏱ Timed — auto-submits after ${mockConfig.timeLimit} minutes` : '⚡ No time limit — attempt at your own pace',
+            ].map(rule => (
               <div key={rule} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{rule}</div>
             ))}
           </div>
