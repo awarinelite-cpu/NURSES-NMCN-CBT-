@@ -352,7 +352,7 @@ export default function EntranceLeaderboard() {
                 return (
                   <div
                     key={r.uid}
-                    onClick={() => navigate(`/student/${r.uid}`)}
+                    onClick={() => navigate(`/entrance-exam/student/${r.uid}`)}
                     title={`View ${r.name}'s profile`}
                     style={{
                       display: 'grid',
