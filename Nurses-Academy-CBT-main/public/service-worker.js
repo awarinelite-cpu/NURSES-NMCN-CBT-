@@ -2,7 +2,7 @@
 // NMCN CBT Platform — PWA Service Worker
 // SECURITY: Exam/question content is NEVER cached for offline access.
 
-const CACHE_NAME = 'nmcn-cbt-v4';
+const CACHE_NAME = 'nmcn-cbt-v5';
 
 // Only cache shell assets — no question data
 const STATIC_ASSETS = [
@@ -47,6 +47,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
+  // Navigation requests — network-first, fall back to cached shell.
+  // IMPORTANT: this must run BEFORE the protected-content check below.
+  // Routes like /entrance-exam contain "entrance" and would otherwise
+  // get matched as protected API data instead of a page navigation,
+  // serving a raw JSON 503 instead of the cached app shell on any
+  // network hiccup.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   // Never cache protected content — always network-only
   const isProtected = NO_CACHE_PATTERNS.some(p => p.test(url.href));
   if (isProtected) {
@@ -64,15 +77,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests — network-first
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
-    );
+  // Shell assets — cache-first, update in background.
+  // Cache API only supports GET requests — attempting cache.put() on
+  // POST/HEAD/etc throws. Only cache GETs; let everything else pass
+  // straight through to the network untouched.
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
     return;
   }
 
-  // Shell assets — cache-first, update in background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
