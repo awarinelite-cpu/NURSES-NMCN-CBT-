@@ -59,6 +59,7 @@ export default function ChatInbox() {
 
   // Derive context from URL so inbox works for both CBT and Entrance sections
   const isEntrance        = location.pathname.startsWith('/entrance-exam');
+  const chatCol           = isEntrance ? 'entranceDirectChats' : 'directChats';
   const chatBasePath      = isEntrance ? '/entrance-exam/chat' : '/chat';
   const leaderboardRoute  = isEntrance ? '/entrance-exam/leaderboard' : '/leaderboard';
   const backRoute         = isEntrance ? '/entrance-exam' : '/dashboard';
@@ -72,7 +73,7 @@ export default function ChatInbox() {
   useEffect(() => {
     if (!myUid) return;
     const q = query(
-      collection(db, 'directChats'),
+      collection(db, chatCol),
       where('participants', 'array-contains', myUid),
       // NOTE: No orderBy here — array-contains + orderBy on different field
       // requires a Firestore composite index. Sort client-side instead.

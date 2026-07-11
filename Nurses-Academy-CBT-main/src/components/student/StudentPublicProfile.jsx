@@ -4,7 +4,7 @@
 // Shows public profile info + exam stats + a floating chat button.
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate }      from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db }                          from '../../firebase/config';
 import { useAuth }                     from '../../context/AuthContext';
@@ -60,6 +60,9 @@ export default function StudentPublicProfile() {
   const { uid }     = useParams();
   const { user }    = useAuth();
   const navigate    = useNavigate();
+  const location    = useLocation();
+  const isEntrance  = location.pathname.startsWith('/entrance-exam') || location.state?.fromEntrance;
+  const chatPath    = isEntrance ? `/entrance-exam/chat/${'{uid}'}` : `/chat/${'{uid}'}`;
 
   const [profileData, setProfileData]  = useState(null);
   const [examStats,   setExamStats]    = useState(null);
@@ -410,7 +413,7 @@ export default function StudentPublicProfile() {
       {!isOwnProfile && (
         <button
           className="chat-fab"
-          onClick={() => navigate(`/entrance-exam/chat/${uid}`, { state: { name: displayName, school } })}
+          onClick={() => navigate(isEntrance ? `/entrance-exam/chat/${uid}` : `/chat/${uid}`, { state: { name: displayName, school } })}
           style={{
             position: 'fixed',
             bottom: 28,

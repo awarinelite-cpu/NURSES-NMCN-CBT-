@@ -48,8 +48,9 @@ export function useChatNotifications(mode = 'nmcn') {
   useEffect(() => {
     if (!myUid) return;
 
+    const directCol = mode === 'entrance' ? 'entranceDirectChats' : 'directChats';
     const q = query(
-      collection(db, 'directChats'),
+      collection(db, directCol),
       where('participants', 'array-contains', myUid),
     );
 
@@ -96,7 +97,7 @@ export function useChatNotifications(mode = 'nmcn') {
     );
 
     return unsub;
-  }, [myUid, tick]);
+  }, [myUid, mode, tick]);
 
   // ── 2. Group chats ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -189,8 +190,9 @@ export function useChatNotifications(mode = 'nmcn') {
       // Clear unreadCounts[myUid] on all direct chat threads with unread
       if (threadsToMark.length > 0) {
         const batch = writeBatch(db);
+        const directColMark = mode === 'entrance' ? 'entranceDirectChats' : 'directChats';
         threadsToMark.forEach(t => {
-          batch.update(doc(db, 'directChats', t.chatId), {
+          batch.update(doc(db, directColMark, t.chatId), {
             [`unreadCounts.${myUid}`]: 0,
           });
         });

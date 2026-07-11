@@ -801,6 +801,7 @@ export default function ChatPage() {
 
   // Derive context from URL so notifications route back to the right section
   const chatContext = pathname.startsWith('/entrance-exam') ? 'entrance' : 'nmcn';
+  const chatCol     = chatContext === 'entrance' ? 'entranceDirectChats' : 'directChats';
   const inboxPath   = chatContext === 'entrance' ? '/entrance-exam/chat-inbox' : '/chat-inbox';
 
   const myUid  = user?.uid;
@@ -837,7 +838,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatId || !myUid) return;
     // Reset my unread count to 0 for this chat
-    setDoc(doc(db, 'directChats', chatId),
+    setDoc(doc(db, chatCol, chatId),
       { [`unreadCounts.${myUid}`]: 0 },
       { merge: true }
     ).catch(() => {});
@@ -861,7 +862,7 @@ export default function ChatPage() {
         // Always write participants so the doc exists before any message write.
         // participantNames lets the FAB badge show "New message from X" without extra reads.
         // merge:true is safe — won't overwrite existing messages.
-        await setDoc(doc(db, 'directChats', chatId),
+        await setDoc(doc(db, chatCol, chatId),
           {
             participants: [myUid, theirUid],
             participantNames: { [myUid]: myName, [theirUid]: theirName },
@@ -881,7 +882,7 @@ export default function ChatPage() {
       // Now safe to listen — parent doc exists, rules will pass
       setLoading(true);
       const q = query(
-        collection(db, 'directChats', chatId, 'messages'),
+        collection(db, chatCol, chatId, 'messages'),
         orderBy('createdAt','asc'), limit(300),
       );
       unsub = onSnapshot(q, snap => {
@@ -921,7 +922,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatId || !theirUid) return;
     const unsub = onSnapshot(
-      doc(db, 'directChats', chatId, 'typing', theirUid),
+      doc(db, chatCol, chatId, 'typing', theirUid),
       snap => {
         if (!snap.exists()) { setTyping(false); return; }
         const d = snap.data();
@@ -943,7 +944,7 @@ export default function ChatPage() {
   const updateTyping = useCallback(async (val) => {
     if (!chatId || !myUid) return;
     await setDoc(
-      doc(db, 'directChats', chatId, 'typing', myUid),
+      doc(db, chatCol, chatId, 'typing', myUid),
       { isTyping:val, updatedAt:serverTimestamp() },
       { merge:true }
     ).catch(()=>{});
@@ -992,7 +993,7 @@ export default function ChatPage() {
     setMessages(prev => [...prev, optimisticMsg]);
 
     try {
-      const docRef = await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+      const docRef = await addDoc(collection(db, chatCol, chatId, 'messages'), {
         text: trimmed,
         senderId: myUid,
         senderName: myName,
@@ -1003,7 +1004,7 @@ export default function ChatPage() {
       // Remove optimistic once Firestore confirms — onSnapshot will add the real one
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       // Update chat metadata + increment recipient's unread count
-      await setDoc(doc(db, 'directChats', chatId), {
+      await setDoc(doc(db, chatCol, chatId), {
         participants:[myUid, theirUid],
         lastMessage: trimmed,
         lastSenderId: myUid,
@@ -1048,7 +1049,7 @@ export default function ChatPage() {
         'Could not get the voice note URL after upload.'
       );
 
-      await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+      await addDoc(collection(db, chatCol, chatId, 'messages'), {
         type:       'audio',
         audioUrl:   url,
         duration:   durationSecs,
@@ -1058,7 +1059,7 @@ export default function ChatPage() {
         read: false, delivered: false,
       });
 
-      await setDoc(doc(db, 'directChats', chatId), {
+      await setDoc(doc(db, chatCol, chatId), {
         participants:[myUid, theirUid],
         lastMessage: '🎤 Voice message',
         lastSenderId: myUid,
@@ -1112,7 +1113,7 @@ export default function ChatPage() {
         'Could not get the image URL after upload.'
       );
 
-      await addDoc(collection(db, 'directChats', chatId, 'messages'), {
+      await addDoc(collection(db, chatCol, chatId, 'messages'), {
         type:       'image',
         imageUrl:   url,
         senderId:   myUid,
@@ -1123,7 +1124,7 @@ export default function ChatPage() {
 
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
 
-      await setDoc(doc(db, 'directChats', chatId), {
+      await setDoc(doc(db, chatCol, chatId), {
         participants:[myUid, theirUid],
         lastMessage: '📷 Photo',
         lastSenderId: myUid,
@@ -1151,7 +1152,7 @@ export default function ChatPage() {
   const deleteMessage = async (msg) => {
     if (msg.senderId !== myUid) return;
     try {
-      await updateDoc(doc(db, 'directChats', chatId, 'messages', msg.id), {
+      await updateDoc(doc(db, chatCol, chatId, 'messages', msg.id), {
         deleted: true, text: '', reactions: {},
       });
     } catch(e) { console.error(e); }
@@ -1160,7 +1161,7 @@ export default function ChatPage() {
   /* ── React to message ── */
   const reactToMessage = async (msg, emoji) => {
     if (!chatId || !myUid) return;
-    const msgRef = doc(db, 'directChats', chatId, 'messages', msg.id);
+    const msgRef = doc(db, chatCol, chatId, 'messages', msg.id);
     const existing = (msg.reactions || {})[emoji] || 0;
     // Toggle: if already reacted with same emoji, remove it
     await updateDoc(msgRef, {

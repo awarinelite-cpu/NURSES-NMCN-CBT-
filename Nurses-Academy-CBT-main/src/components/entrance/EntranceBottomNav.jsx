@@ -55,7 +55,7 @@ function useUnreadMessages(myUid) {
   useEffect(() => {
     if (!myUid) return;
     const q = query(
-      collection(db, 'directChats'),
+      collection(db, 'entranceDirectChats'),
       where('participants', 'array-contains', myUid),
     );
     const unsub = onSnapshot(q, (snap) => {
