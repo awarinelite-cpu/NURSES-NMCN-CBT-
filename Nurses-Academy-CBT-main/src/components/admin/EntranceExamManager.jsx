@@ -1048,6 +1048,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [bulkDeleting,  setBulkDeleting]  = useState(false);
   const [deleteAllBusy, setDeleteAllBusy] = useState(false);
   const [adminSubjects, setAdminSubjects] = useState([]);
+  const [loadError,     setLoadError]     = useState(null); // { code, message } | null — persists until retried, unlike the toast
 
   useEffect(() => {
     getDocs(query(collection(db, 'entranceExamSubjects'), orderBy('order', 'asc')))
@@ -1066,17 +1067,31 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const load = async () => {
     setLoading(true);
     setSelected(new Set());
+    setLoadError(null);
     try {
       const snap = await getDocs(collection(db, 'entranceExamQuestions'));
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const toMillis = (ts) => ts?.toMillis ? ts.toMillis() : (ts?.seconds ? ts.seconds * 1000 : 0);
       all.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
       setQuestions(all);
-    } catch (e) { console.error(e); toast('Failed to load questions: ' + e.message, 'error'); }
+      // A load that succeeds but genuinely returns zero documents is worth
+      // knowing too — it's very unlikely for a real question bank, and much
+      // more likely means the read was silently scoped to nothing. Surface
+      // it the same way as an outright error, so "0 questions" is never
+      // ambiguous between "really empty" and "something's wrong".
+      if (all.length === 0) {
+        setLoadError({ code: 'empty', message: 'The entranceExamQuestions collection returned zero documents for this read.' });
+      }
+    } catch (e) {
+      console.error(e);
+      setLoadError({ code: e.code || 'unknown', message: e.message || String(e) });
+      toast('Failed to load questions: ' + e.message, 'error');
+    }
     finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
+
 
   // Clear any selection whenever the active filters/search change, so stale
   // selections from a different filter view can't be bulk-deleted by mistake.
@@ -1290,6 +1305,34 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         <input className="form-input" placeholder="🔍 Search questions…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button className="btn btn-ghost" onClick={load} title="Reload">🔄</button>
       </div>
+
+      {!loading && loadError && (
+        <div style={{
+          padding: '12px 16px', marginBottom: 12, borderRadius: 10,
+          background: loadError.code === 'empty' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1.5px solid ${loadError.code === 'empty' ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)'}`,
+          fontFamily: F, fontSize: 13,
+        }}>
+          {loadError.code === 'empty' ? (
+            <>
+              <strong>⚠️ Zero questions came back from the database.</strong> This almost never means
+              the bank is actually empty — it usually means the read didn't reach the real data
+              (a permissions/rules mismatch, or a wrong Firebase project). If you've recently edited
+              firestore.rules, remember Vercel deploys don't push rule changes automatically — they
+              have to be pasted into the Firebase Console → Firestore → Rules tab manually.
+            </>
+          ) : (
+            <>
+              <strong>❌ Failed to load questions</strong> — <code>{loadError.code}</code>: {loadError.message}
+              {loadError.code === 'permission-denied' && (
+                <> This is a Firestore rules issue — check that entranceExamQuestions' rules are actually
+                  live in the Firebase Console (not just in this repo's firestore.rules file).</>
+              )}
+            </>
+          )}
+          {' '}<button onClick={load} style={{ marginLeft: 8, fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontFamily: F, fontSize: 13 }}>Retry</button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F }}>
