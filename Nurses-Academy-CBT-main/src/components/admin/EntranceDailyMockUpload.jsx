@@ -8,13 +8,14 @@
 //   - always have inDailyBank: true
 //   - have NO schoolId, NO year, NO subject (not past questions)
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, addDoc, doc, writeBatch, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
+import { readQuestionFile } from '../../utils/questionFileImport';
 
 // ── Parser (same robust parser used in EntranceExamManager) ──────────────────
 const NUM_TO_LETTER = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
@@ -158,7 +159,7 @@ const S = {
 export default function EntranceDailyMockUpload() {
   const { toast } = useToast();
   const navigate  = useNavigate();
-  const [mode, setMode] = useState('bulk'); // 'single' | 'bulk'
+  const [mode, setMode] = useState('bulk'); // 'single' | 'bulk' | 'csv'
 
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
@@ -198,10 +199,11 @@ export default function EntranceDailyMockUpload() {
       </div>
 
       {/* Mode toggle */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
           { id: 'single', label: '➕ Single Question' },
           { id: 'bulk',   label: '📦 Bulk Paste'      },
+          { id: 'csv',    label: '📊 CSV Upload'       },
         ].map(m => (
           <button key={m.id} onClick={() => setMode(m.id)} style={{
             padding: '10px 20px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer',
@@ -215,6 +217,7 @@ export default function EntranceDailyMockUpload() {
 
       {mode === 'single' && <SingleForm toast={toast} />}
       {mode === 'bulk'   && <BulkForm   toast={toast} />}
+      {mode === 'csv'    && <CsvUploadForm toast={toast} />}
     </div>
   );
 }
@@ -630,6 +633,377 @@ function QuestionPreview({ q, children }) {
         </div>
       )}
       {children}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CSV UPLOAD FORM
+// ═════════════════════════════════════════════════════════════════════════════
+function CsvUploadForm({ toast }) {
+  const fileInputRef              = useRef(null);
+  const [dragging,  setDragging]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [fileInfo,  setFileInfo]  = useState('');
+  const [fileWarns, setFileWarns] = useState([]);
+  const [parsed,    setParsed]    = useState([]);
+  const [warnings,  setWarnings]  = useState([]);
+  const [saving,    setSaving]    = useState(false);
+  const [imported,  setImported]  = useState(null);
+
+  // ── Template download ──────────────────────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    const header = 'question,option_a,option_b,option_c,option_d,answer,explanation,diagram_url';
+    const rows = [
+      'What is the functional unit of the kidney?,Nephron,Neuron,Nodule,Nucleus,A,The nephron is the basic structural and functional unit of the kidney.,',
+      'The normal adult resting heart rate is:,40-60 bpm,60-100 bpm,100-120 bpm,120-160 bpm,B,The normal adult resting heart rate ranges from 60 to 100 beats per minute.,',
+      'Which hormone is responsible for the \"fight or flight\" response?,Insulin,Cortisol,Adrenaline,Glucagon,C,Adrenaline (epinephrine) is released by the adrenal medulla during stress.,',
+      'Haemoglobin is primarily responsible for:,Clotting blood,Fighting infection,Transporting oxygen,Producing energy,C,Haemoglobin carries oxygen from the lungs to the body tissues.,',
+      'The largest organ in the human body is:,The liver,The brain,The lungs,The skin,D,The skin is the largest organ accounting for about 16% of body weight.,',
+    ];
+    const csv  = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'daily_mock_questions_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ Template downloaded!', 'success');
+  };
+
+  // ── File processing ────────────────────────────────────────────────────────
+  const processFile = async (file) => {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'csv') {
+      toast('Only .csv files are accepted here. Use Bulk Paste for text/Word uploads.', 'error');
+      return;
+    }
+    setLoading(true);
+    setFileInfo('');
+    setFileWarns([]);
+    setParsed([]);
+    setWarnings([]);
+    setImported(null);
+    try {
+      const { text, warnings: fWarns, rowCount } = await readQuestionFile(file);
+      if (!text.trim()) { toast('CSV appears empty.', 'error'); setLoading(false); return; }
+      if (fWarns?.length) setFileWarns(fWarns);
+      // Run through the same daily-mock parser
+      const { results, warnings: pWarns } = parseEntranceDailyQuestions(text);
+      setParsed(results);
+      setWarnings(pWarns);
+      setFileInfo(`📂 "${file.name}" — ${rowCount} rows → ${results.length} questions parsed`);
+      if (!results.length) { toast('No valid questions found in CSV.', 'error'); }
+      else { toast(`✅ ${results.length} questions ready to preview`, 'success'); }
+    } catch (err) {
+      toast('⚠️ ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    processFile(e.target.files?.[0]);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    processFile(e.dataTransfer.files?.[0]);
+  };
+
+  // ── Firestore import ───────────────────────────────────────────────────────
+  const handleImport = async () => {
+    if (!parsed.length) { toast('Nothing to import', 'error'); return; }
+    setSaving(true);
+    try {
+      const chunks = [];
+      for (let i = 0; i < parsed.length; i += 499) chunks.push(parsed.slice(i, i + 499));
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(q => {
+          const ref = doc(collection(db, 'entranceExamQuestions'));
+          batch.set(ref, {
+            schoolId:      null,
+            schoolName:    '',
+            year:          '',
+            subject:       '',
+            questionType:  q.questionType,
+            diagramUrl:    q.diagramUrl || '',
+            questionText:  q.questionText,
+            options:       q.options,
+            correctAnswer: q.correctAnswer,
+            explanation:   q.explanation || '',
+            needsReview:   q.needsReview || false,
+            active:        true,
+            inDailyBank:   true,
+            createdAt:     serverTimestamp(),
+          });
+        });
+        await batch.commit();
+      }
+      const reviewCount = parsed.filter(q => q.needsReview).length;
+      const diagrams    = parsed.filter(q => q.questionType === 'diagram').length;
+      setImported({ count: parsed.length, diagrams, reviewCount });
+      setParsed([]); setWarnings([]); setFileInfo(''); setFileWarns([]);
+      toast(
+        `📅 ${parsed.length} questions added to Daily Mock Bank!${reviewCount ? ` (${reviewCount} need review)` : ''}`,
+        reviewCount ? 'warning' : 'success',
+      );
+    } catch (e) {
+      toast('Import failed: ' + e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const withAnswer   = parsed.filter(q => !q.needsReview).length;
+  const reviewNeeded = parsed.filter(q =>  q.needsReview).length;
+  const diagrams     = parsed.filter(q => q.questionType === 'diagram').length;
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+
+      {/* ── Column guide ── */}
+      <div style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 12, padding: '14px 18px', marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#A78BFA' }}>📊 CSV Format — Required Columns</div>
+          <button
+            onClick={handleDownloadTemplate}
+            style={{ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: '1px solid rgba(139,92,246,0.4)', background: 'rgba(139,92,246,0.1)', color: '#A78BFA', display: 'flex', alignItems: 'center', gap: 5 }}
+          >
+            ⬇️ Download Template
+          </button>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr>
+                {['question *', 'option_a *', 'option_b *', 'option_c *', 'option_d *', 'answer *', 'explanation', 'diagram_url'].map(col => (
+                  <th key={col} style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid rgba(139,92,246,0.2)', color: col.endsWith('*') ? '#A78BFA' : 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Question text</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Option A text</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Option B text</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Option C text</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Option D text</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>A / B / C / D</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>Optional</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 11 }}>https://… (optional)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          ✅ Answer column accepts: <code>A</code> · <code>B</code> · <code>C</code> · <code>D</code> · <code>1</code>–<code>4</code> · full option text · <code>option_b</code> style.<br />
+          No school, year, or subject needed — all questions go straight into the daily rotation.
+        </div>
+      </div>
+
+      {/* ── Drop zone ── */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        style={{
+          marginBottom: 16, padding: '32px 24px', borderRadius: 16,
+          border: `2px dashed ${dragging ? '#8B5CF6' : 'var(--border)'}`,
+          background: dragging ? 'rgba(139,92,246,0.06)' : 'var(--bg-card)',
+          textAlign: 'center', transition: 'all .2s', cursor: 'pointer',
+        }}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileChange} />
+        {loading ? (
+          <div style={{ color: '#8B5CF6', fontWeight: 700, fontSize: 15 }}>
+            <span style={{ fontSize: 32, display: 'block', marginBottom: 8 }}>⏳</span>
+            Reading CSV…
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📊</div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', marginBottom: 6 }}>
+              Drop your CSV file here
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+              or click to browse — only <strong>.csv</strong> files accepted
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ padding: '6px 14px', borderRadius: 20, background: 'rgba(139,92,246,0.12)', color: '#A78BFA', fontSize: 12, fontWeight: 700, border: '1px solid rgba(139,92,246,0.3)' }}>
+                📂 Choose File
+              </span>
+              <span
+                onClick={e => { e.stopPropagation(); handleDownloadTemplate(); }}
+                style={{ padding: '6px 14px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', cursor: 'pointer' }}
+              >
+                ⬇️ CSV Template
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── File load info ── */}
+      {fileInfo && (
+        <div style={{ marginBottom: 12, padding: '10px 16px', borderRadius: 10, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+          {fileInfo}
+        </div>
+      )}
+
+      {/* ── File-level warnings ── */}
+      {fileWarns.length > 0 && (
+        <div style={{ marginBottom: 12, padding: '10px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.07)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 12, color: '#ca8a04' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ CSV warnings:</div>
+          {fileWarns.map((w, i) => <div key={i}>• {w}</div>)}
+        </div>
+      )}
+
+      {/* ── Parse warnings (missing answers) ── */}
+      {warnings.length > 0 && (
+        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>
+            ⚠️ {warnings.length} question{warnings.length !== 1 ? 's' : ''} missing answers — flagged for review
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+            These will still be saved. Fix their answers in the Question Bank tab.
+          </div>
+          <details>
+            <summary style={{ fontSize: 12, color: '#F59E0B', cursor: 'pointer' }}>Show details</summary>
+            <div style={{ marginTop: 8 }}>
+              {warnings.map((w, i) => <div key={i} style={{ fontSize: 11, color: '#F59E0B', lineHeight: 1.6 }}>{w}</div>)}
+            </div>
+          </details>
+        </div>
+      )}
+
+      {/* ── Preview table ── */}
+      {parsed.length > 0 && (
+        <div style={{ ...S.card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
+                ✅ {parsed.length} questions ready
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                📝 {parsed.length - diagrams} text · 🖼️ {diagrams} diagram
+                {reviewNeeded > 0 && (
+                  <span style={{ color: '#F59E0B', marginLeft: 8 }}>
+                    · ⚠️ {reviewNeeded} need answer · ✅ {withAnswer} complete
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleImport}
+              disabled={saving}
+              style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)', flexShrink: 0 }}
+            >
+              {saving ? '📅 Importing…' : `📅 Add All to Daily Bank (${parsed.length})`}
+            </button>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Question Preview</th>
+                  <th>A</th>
+                  <th>B</th>
+                  <th>C</th>
+                  <th>D</th>
+                  <th>Answer</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsed.slice(0, 50).map((q, i) => (
+                  <tr key={i} style={q.needsReview ? { background: 'rgba(245,158,11,0.04)' } : {}}>
+                    <td style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{i + 1}</td>
+                    <td style={{ fontSize: 12, maxWidth: 260, wordBreak: 'break-word' }}>
+                      {q.questionText.slice(0, 80)}{q.questionText.length > 80 ? '…' : ''}
+                    </td>
+                    {['A','B','C','D'].map(l => (
+                      <td key={l} style={{ fontSize: 11, color: q.correctAnswer === l ? 'var(--green)' : 'var(--text-muted)', fontWeight: q.correctAnswer === l ? 700 : 400, maxWidth: 120, wordBreak: 'break-word' }}>
+                        {(q.options?.[l] || '').slice(0, 30)}{(q.options?.[l] || '').length > 30 ? '…' : ''}
+                      </td>
+                    ))}
+                    <td>
+                      {q.correctAnswer
+                        ? <span className="badge badge-teal">{q.correctAnswer}</span>
+                        : <span style={{ fontSize: 11, color: '#F59E0B' }}>⚠️</span>}
+                    </td>
+                    <td>
+                      <span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span>
+                    </td>
+                  </tr>
+                ))}
+                {parsed.length > 50 && (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 12 }}>
+                      … and {parsed.length - 50} more questions
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Import button at bottom too for long lists */}
+          {parsed.length > 10 && (
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleImport}
+                disabled={saving}
+                style={{ background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)' }}
+              >
+                {saving ? '📅 Importing…' : `📅 Add All to Daily Bank (${parsed.length})`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Success banner ── */}
+      {imported && (
+        <div style={{
+          background: imported.reviewCount ? 'rgba(245,158,11,0.07)' : 'rgba(139,92,246,0.08)',
+          border: `1.5px solid ${imported.reviewCount ? 'rgba(245,158,11,0.3)' : 'rgba(139,92,246,0.3)'}`,
+          borderRadius: 14, padding: '28px 24px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 44, marginBottom: 8 }}>📅</div>
+          <div style={{ fontWeight: 800, fontSize: 17, color: imported.reviewCount ? '#F59E0B' : '#8B5CF6', marginBottom: 8 }}>
+            CSV imported to Daily Mock Bank!
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{imported.count} questions</strong> are now eligible for daily rotation
+            {imported.diagrams > 0 && <span> · <strong>{imported.diagrams}</strong> with diagrams</span>}
+            {imported.reviewCount > 0 && (
+              <span style={{ color: '#F59E0B' }}> · <strong>{imported.reviewCount}</strong> need answer review</span>
+            )}
+          </div>
+          {imported.reviewCount > 0 && (
+            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+              Go to <strong>Question Bank</strong> in the Entrance Exam Manager to fill in missing answers.
+            </div>
+          )}
+          <button
+            onClick={() => setImported(null)}
+            style={{ marginTop: 16, padding: '8px 20px', borderRadius: 10, border: '1px solid rgba(139,92,246,0.3)', background: 'transparent', color: '#A78BFA', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
+          >
+            Upload Another CSV
+          </button>
+        </div>
+      )}
     </div>
   );
 }
