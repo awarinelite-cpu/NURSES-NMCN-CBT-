@@ -52,9 +52,9 @@ export default function NotificationBell() {
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
   const { items, loading, unreadCount, markAllRead } = useInAppNotifications(mode);
-  const { allThreads, chatThreads, totalUnread, groupUnread, pulse, markAllChatsRead } = useChatNotifications(mode);
-  // directUnread = sum of unread DMs only (totalUnread already includes groupUnread,
-  // so use per-thread sum to avoid double-counting in totalBadge)
+  const { chatThreads, groupUnread, pulse, markAllChatsRead } = useChatNotifications(mode);
+  // directUnread = sum of unread DMs only (used for the summary badge when
+  // more than one sender has unread messages)
   const directUnread = chatThreads.reduce((s, t) => s + t.unread, 0);
 
   // Inject bell animation keyframes once
@@ -214,63 +214,29 @@ export default function NotificationBell() {
                   </div>
                 </button>
               ) : (
-                /* Multiple unread chats → show each, also offer "View all" */
-                <>
-                  {unreadChats.slice(0, 3).map(t => (
-                    <button
-                      key={t.chatId}
-                      style={{ ...styles.item, ...styles.chatItem }}
-                      onClick={() => {
-                        setOpen(false);
-                        navigate(`${chatBase}/${t.otherUid}`, {
-                          state: { name: t.otherName }
-                        });
-                      }}
-                    >
-                      <div style={styles.chatRow}>
-                        <div style={styles.chatAvatar}>
-                          {(t.otherName || 'S')[0].toUpperCase()}
-                        </div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={styles.chatName}>
-                            {t.otherName}
-                          </div>
-                          <div style={styles.chatPreview}>
-                            {t.lastMessage === '🎤 Voice message' ? '🎤 Voice message'
-                              : t.lastMessage === '📷 Photo' ? '📷 Photo'
-                              : t.lastMessage || 'Sent you a message'}
-                          </div>
-                        </div>
-                        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
-                          <div style={styles.unreadBadge}>
-                            {t.unread > 99 ? '99+' : t.unread}
-                          </div>
-                          <div style={styles.chatTime}>
-                            {timeAgo(tsToDate(t.updatedAt))}
-                          </div>
-                        </div>
+                /* More than one sender with unread messages → one summary
+                   row instead of naming each sender individually. */
+                <button
+                  style={{ ...styles.item, ...styles.chatItem }}
+                  onClick={() => { setOpen(false); navigate(inboxPath); }}
+                >
+                  <div style={styles.chatRow}>
+                    <div style={{ ...styles.chatAvatar, fontSize: 18 }}>💬</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={styles.chatName}>
+                        You have messages
                       </div>
-                    </button>
-                  ))}
-                  <button
-                    style={styles.viewAllBtn}
-                    onClick={() => { setOpen(false); navigate(inboxPath); }}
-                  >
-                    View all messages →
-                  </button>
-                </>
+                      <div style={styles.chatPreview}>
+                        From {unreadChats.length} people
+                      </div>
+                    </div>
+                    <div style={styles.unreadBadge}>
+                      {directUnread > 99 ? '99+' : directUnread}
+                    </div>
+                  </div>
+                </button>
               )}
             </>
-          )}
-
-          {/* No unread chats but has chat history → show inbox link */}
-          {allThreads.length > 0 && unreadChats.length === 0 && (
-            <button
-              style={styles.inboxLink}
-              onClick={() => { setOpen(false); navigate(inboxPath); }}
-            >
-              💬 Open Messages Inbox
-            </button>
           )}
 
           {/* ── GROUP CHAT UNREAD ── */}
