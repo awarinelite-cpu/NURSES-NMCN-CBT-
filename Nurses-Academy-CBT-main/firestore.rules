@@ -124,6 +124,23 @@ service cloud.firestore {
       allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
     }
 
+    // Admin creates the day's question at entranceDailyChallenge/{date}.
+    // Students read it, submit their own response doc under responses/{uid},
+    // and bump correctCount on the parent doc via a merge update when they
+    // answer correctly (see EntranceDailyChallenge.jsx).
+    match /entranceDailyChallenge/{date} {
+      allow read:   if isAuth();
+      allow create: if isAdmin();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+
+      match /responses/{uid} {
+        allow read:           if isAuth();
+        allow create, update: if isAuth() && uid == request.auth.uid;
+        allow delete:         if isAdmin();
+      }
+    }
+
     match /examSessions/{sessionId} {
       allow read:   if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
