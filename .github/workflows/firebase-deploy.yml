@@ -33,33 +33,6 @@ jobs:
         working-directory: Nurses-Academy-CBT-main
         run: npx firebase-tools deploy --only firestore:rules,firestore:indexes --project elitecarehub-a80da --non-interactive
 
-  build-and-deploy-hosting:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        working-directory: Nurses-Academy-CBT-main
-        run: npm ci
-      
-      - name: Build React app
-        working-directory: Nurses-Academy-CBT-main
-        run: npm run build
-      
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELITECAREHUB_A80DA }}'
-          channelId: live
-          projectId: elitecarehub-a80da
-          entryPoint: Nurses-Academy-CBT-main
-
   deploy-functions:
     # Only on actual pushes to main — not PR previews, and only if
     # functions/ actually changed, so this doesn't run on every hosting-only
