@@ -1,7 +1,7 @@
 // src/components/student/ProfilePage.jsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth } from '../../firebase/config';
 import NotificationSettings from './NotificationSettings';
@@ -34,7 +34,19 @@ export default function ProfilePage() {
   const [name, setName] = useState(profile?.name || user?.displayName || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [specialization, setSpecialization] = useState(profile?.specialization || '');
-  const [institution, setInstitution] = useState(profile?.institution || '');
+  // Institution / School — a dropdown of registered entrance-exam schools
+  // rather than free text. This MUST write to `school` (not `institution`):
+  // the Entrance Leaderboard, EntranceExamSession, and EntranceResultsPages
+  // all key off profile.school / userSchool. The old `institution` field was
+  // a separate free-text value nothing in the leaderboard pipeline ever
+  // read, which is why setting it never unlocked the leaderboard. We seed
+  // from whichever of the two already has a value so existing users who
+  // typed something into the old free-text field don't lose it, then keep
+  // both fields in sync going forward for any other reader (e.g.
+  // StudentPublicProfile) that still falls back to `institution`.
+  const [school, setSchool] = useState(profile?.school || profile?.institution || '');
+  const [schools, setSchools] = useState([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
   const [bio, setBio] = useState(profile?.bio || '');
   const [examDate,  setExamDate]  = useState(profile?.examDate  || '');
   const [examLabel, setExamLabel] = useState(profile?.examLabel || 'NMCN Exam');
@@ -71,6 +83,43 @@ export default function ProfilePage() {
     ? Math.max(0, Math.ceil((new Date(profile.subscriptionExpiry) - Date.now()) / 86400000))
     : null;
 
+  // Load the list of registered schools for the dropdown — same source
+  // AuthPage uses at registration, so a student who registered via NMCN
+  // (and so never picked a school) can still set one here later and
+  // immediately unlock the Entrance Exam leaderboard.
+  useEffect(() => {
+    (async () => {
+      setSchoolsLoading(true);
+      try {
+        let snap;
+        try {
+          snap = await getDocs(query(collection(db, 'entranceExamSchools'), orderBy('name')));
+        } catch {
+          snap = await getDocs(collection(db, 'entranceExamSchools'));
+        }
+        let list = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+        if (list.length === 0) {
+          const qSnap = await getDocs(collection(db, 'entranceExamQuestions'));
+          const names = new Set();
+          qSnap.forEach(d => { if (d.data().school) names.add(d.data().school); });
+          list = [...names].sort().map(n => ({ id: n, name: n }));
+        }
+        // If this profile already has a school value that isn't in the
+        // official list (e.g. old free-text institution entry), keep it
+        // selectable so saving doesn't silently wipe it.
+        if (school && !list.some(s => s.name === school)) {
+          list = [{ id: school, name: school }, ...list];
+        }
+        setSchools(list);
+      } catch (e) {
+        console.error('Schools load error:', e);
+      } finally {
+        setSchoolsLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleSaveProfile() {
     if (!name.trim()) { setMsg({ type: 'error', text: 'Name cannot be empty.' }); return; }
     setSaving(true); setMsg(null);
@@ -80,7 +129,8 @@ export default function ProfilePage() {
         name: name.trim(),
         phone: phone.trim(),
         specialization,
-        institution: institution.trim(),
+        school: school,
+        institution: school, // kept in sync for other readers (e.g. StudentPublicProfile)
         bio: bio.trim(),
         examDate:  examDate  || null,
         examLabel: examLabel.trim() || 'NMCN Exam',
@@ -237,10 +287,26 @@ export default function ProfilePage() {
                 : <Value>{phone || '—'}</Value>}
             </Field>
 
-            <Field label="Institution / School">
+            <Field label="Institution / School" fullWidth>
               {editing
-                ? <input style={styles.input} value={institution} onChange={e => setInstitution(e.target.value)} placeholder="e.g. NACON, LUTH, BUTH..." />
-                : <Value>{institution || '—'}</Value>}
+                ? (
+                  <>
+                    <select
+                      style={{ ...styles.input, color: school ? 'var(--text-primary)' : 'rgba(255,255,255,0.4)' }}
+                      value={school}
+                      onChange={e => setSchool(e.target.value)}
+                    >
+                      <option value="">{schoolsLoading ? 'Loading schools…' : '— Select your institution —'}</option>
+                      {schools.map(s => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                    <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--text-muted)', fontFamily: F }}>
+                      🏆 Setting this unlocks the Entrance Exam leaderboard for your school.
+                    </p>
+                  </>
+                )
+                : <Value>{school || '—'}</Value>}
             </Field>
 
             <Field label="Specialization" fullWidth>
