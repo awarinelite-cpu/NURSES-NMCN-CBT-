@@ -87,6 +87,30 @@
 </head>
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
-  <div id="root"></div>
+  <div id="root">
+    <div id="boot-fallback" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0B1220;color:#E5E7EB;font-family:Georgia,serif;text-align:center;padding:32px;">
+      <div style="font-size:40px;margin-bottom:16px;">🩺</div>
+      <div style="font-size:14px;color:#9CA3AF;">Loading The Elite Nurses…</div>
+    </div>
+  </div>
+  <script>
+    // Watchdog: if React hasn't mounted (replaced #boot-fallback) within 8s of
+    // load — most likely a stale service-worker cache serving a JS chunk that
+    // no longer exists after a redeploy — offer a hard reload instead of
+    // leaving the user staring at a stuck loading screen or blank page.
+    (function () {
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          var fallback = document.getElementById('boot-fallback');
+          if (!fallback) return; // React mounted fine, nothing to do
+          fallback.innerHTML =
+            '<div style="font-size:40px;margin-bottom:16px;">⚠️</div>' +
+            '<div style="font-size:14px;color:#9CA3AF;margin-bottom:20px;max-width:280px;">Taking longer than usual to load. This can happen after an update — try reloading.</div>' +
+            '<button onclick="if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})}).finally(function(){location.reload(true)})}else{location.reload(true)}" ' +
+            'style="padding:12px 28px;border-radius:12px;border:none;background:#0D9488;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;">🔄 Reload App</button>';
+        }, 8000);
+      });
+    })();
+  </script>
 </body>
 </html>

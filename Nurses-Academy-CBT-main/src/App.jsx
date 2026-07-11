@@ -101,6 +101,17 @@ export const ENTRANCE_FREE_LIMIT = 10;
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+
+    // When a new service worker takes control (i.e. a fresh deploy landed),
+    // reload once so the page picks up the new bundle instead of continuing
+    // to run against stale cached JS chunks that may reference assets the
+    // old cache-first strategy is still serving.
+    let hasReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hasReloaded) return;
+      hasReloaded = true;
+      window.location.reload();
+    });
   });
 }
 

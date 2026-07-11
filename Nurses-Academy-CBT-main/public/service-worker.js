@@ -2,7 +2,7 @@
 // NMCN CBT Platform — PWA Service Worker
 // SECURITY: Exam/question content is NEVER cached for offline access.
 
-const CACHE_NAME = 'nmcn-cbt-v3';
+const CACHE_NAME = 'nmcn-cbt-v4';
 
 // Only cache shell assets — no question data
 const STATIC_ASSETS = [
