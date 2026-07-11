@@ -990,6 +990,46 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB 4 — Question Bank
 // ═════════════════════════════════════════════════════════════════════════════
+
+// Data-quality check — mirrors the "Flag Incomplete" feature in the NMCN CBT
+// Questions Manager, adapted to this collection's shape: options is an
+// {A,B,C,D} object (not an array), correctAnswer is a letter (not an index),
+// and Daily Mock questions intentionally have no schoolId/subject/year — so
+// those three checks are skipped for questions already in the Daily Mock Bank.
+function getEntranceQuestionIssues(q) {
+  const issues = [];
+  if (!q.inDailyBank) {
+    if (!q.schoolId) issues.push('No School');
+    if (!q.subject || !String(q.subject).trim()) issues.push('No Subject');
+    if (!q.year || !String(q.year).trim()) issues.push('No Year');
+  }
+  if (!q.questionText || !String(q.questionText).trim()) issues.push('No Question Text');
+
+  const opts = q.options || {};
+  const letters = ['A', 'B', 'C', 'D'];
+  const hasBlankOption = letters.some(l => !opts[l] || !String(opts[l]).trim());
+  const validCorrect = letters.includes(q.correctAnswer) &&
+                        opts[q.correctAnswer] && String(opts[q.correctAnswer]).trim();
+  if (hasBlankOption || !validCorrect) issues.push('Incomplete Options');
+
+  if (q.questionType === 'diagram' && (!q.diagramUrl || !String(q.diagramUrl).trim())) {
+    issues.push('Missing Diagram');
+  }
+
+  return issues;
+}
+
+// Single source of truth for the flaggable issue types — icon + label, used
+// to build the "Flag Incomplete" dropdown and the row warning badge.
+const ENTRANCE_ISSUE_TYPES = [
+  { id: 'No School',          icon: '🏫' },
+  { id: 'No Subject',         icon: '📚' },
+  { id: 'No Year',            icon: '📅' },
+  { id: 'No Question Text',   icon: '📝' },
+  { id: 'Incomplete Options', icon: '🧩' },
+  { id: 'Missing Diagram',    icon: '🖼️' },
+];
+
 function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [questions,    setQuestions]    = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -998,6 +1038,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   const [filterSubject, setFilterSubject] = useState('');
   const [filterType,   setFilterType]   = useState('');
   const [filterDaily,  setFilterDaily]  = useState('');
+  const [flagFilter,   setFlagFilter]   = useState('');
   const [search,       setSearch]       = useState('');
   const [editing,      setEditing]      = useState(null);
   const [selected,      setSelected]      = useState(new Set());
@@ -1036,7 +1077,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
 
   // Clear any selection whenever the active filters/search change, so stale
   // selections from a different filter view can't be bulk-deleted by mistake.
-  useEffect(() => { setSelected(new Set()); }, [filterSchool, filterYear, filterSubject, filterType, filterDaily, search]);
+  useEffect(() => { setSelected(new Set()); }, [filterSchool, filterYear, filterSubject, filterType, filterDaily, flagFilter, search]);
 
   const filtered = questions.filter(q => {
     if (filterSchool && q.schoolId !== filterSchool) return false;
@@ -1046,6 +1087,7 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
     if (filterDaily === 'yes' && !q.inDailyBank) return false;
     if (filterDaily === 'no' && q.inDailyBank) return false;
     if (filterDaily === 'route' && q.uploadSource !== 'daily_mock_upload') return false;
+    if (flagFilter && !getEntranceQuestionIssues(q).includes(flagFilter)) return false;
     if (search && !q.questionText?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -1165,6 +1207,28 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
           <option value="no">📁 Non-Daily Only</option>
           <option value="route">🎯 Daily Mock Upload Route</option>
         </select>
+        <select
+          className="form-input form-select"
+          style={{
+            maxWidth: 220,
+            border: `1.5px solid ${flagFilter ? '#F59E0B' : 'var(--border)'}`,
+            background: flagFilter ? 'rgba(245,158,11,0.12)' : undefined,
+            color: flagFilter ? '#F59E0B' : undefined,
+            fontWeight: flagFilter ? 700 : 400,
+          }}
+          value={flagFilter}
+          onChange={e => setFlagFilter(e.target.value)}
+          title="Show only questions with a specific data-quality issue"
+        >
+          <option value="">⚠️ Flag Incomplete…</option>
+          {ENTRANCE_ISSUE_TYPES.map(t => {
+            const count = questions.filter(q => getEntranceQuestionIssues(q).includes(t.id)).length;
+            return <option key={t.id} value={t.id}>{t.icon} {t.id} ({count})</option>;
+          })}
+        </select>
+        {flagFilter && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setFlagFilter('')}>✕ Clear flag</button>
+        )}
         <input className="form-input" placeholder="🔍 Search questions…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button className="btn btn-ghost" onClick={load} title="Reload">🔄</button>
       </div>
@@ -1207,6 +1271,14 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: F, lineHeight: 1.5 }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 6 }}>#{i + 1}</span>
                     {q.questionText?.slice(0, 80)}{q.questionText?.length > 80 ? '…' : ''}
+                    {getEntranceQuestionIssues(q).length > 0 && (
+                      <span
+                        title={getEntranceQuestionIssues(q).join(', ')}
+                        style={{ marginLeft: 8, color: '#F59E0B', fontSize: 13, cursor: 'help' }}
+                      >
+                        ⚠️
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>✏️</button>
