@@ -19,7 +19,6 @@ import {
   todayKey,
 } from '../../utils/dailyNotifications';
 
-const QUESTION_PRESETS = [10, 20, 30, 50];
 const PASS_MARK        = 50;
 const FREE_CAP         = 10; // max questions for unpaid users
 
@@ -55,9 +54,7 @@ export default function EntranceExamDailyMockHub() {
   const [countdown,   setCountdown]   = useState(msToNextMidnight());
   const [sessions,    setSessions]    = useState([]);
   const [sessLoading, setSessLoading] = useState(false);
-  const [qCount,      setQCount]      = useState(20);
-  const [customCount, setCustomCount] = useState('');
-  const [useCustom,   setUseCustom]   = useState(false);
+  const [mockConfig,  setMockConfig]  = useState({ questionCount: 100, timeLimit: 30 });
   const countdownRef = useRef(null);
 
   useEffect(() => {
@@ -92,18 +89,20 @@ export default function EntranceExamDailyMockHub() {
       .catch(() => {});
   }, []);
 
-  const finalCount = useCustom
-    ? Math.min(Math.max(parseInt(customCount, 10) || 20, 1), 250)
-    : qCount;
+  useEffect(() => {
+    getDoc(doc(db, 'entranceExamConfig', 'dailyMock'))
+      .then(snap => { if (snap.exists()) setMockConfig(c => ({ ...c, ...snap.data() })); })
+      .catch(() => {});
+  }, []);
+
+  const finalCount = isPaid ? (mockConfig.questionCount || 100) : Math.min(mockConfig.questionCount || 100, FREE_CAP);
 
   const handleTakeNew = () => {
-    // ── Apply FREE_CAP for unpaid users ──
-    const cappedCount = isPaid ? finalCount : Math.min(finalCount, FREE_CAP);
     navigate('/entrance-exam/session', {
       state: {
         poolMode: true, examType: 'entrance_daily_mock',
         subject: subject.id, examName: `${subject.shortLabel} — Daily Mock`,
-        count: cappedCount, doShuffle: true, timeLimit: 0,
+        count: finalCount, doShuffle: true, timeLimitMin: mockConfig.timeLimit || 0,
       },
     });
   };
@@ -208,18 +207,9 @@ export default function EntranceExamDailyMockHub() {
         </div>
 
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {QUESTION_PRESETS.map(n => (
-              <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 18px', borderRadius: 10, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s', border: `2px solid ${!useCustom && qCount === n ? 'var(--teal)' : 'var(--border)'}`, background: !useCustom && qCount === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? 'var(--teal)' : 'var(--text-secondary)' }}>{n}</button>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s', border: `2px solid ${useCustom ? 'var(--teal)' : 'var(--border)'}`, background: useCustom ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: useCustom ? 'var(--teal)' : 'var(--text-secondary)' }}>Custom</button>
-              {useCustom && <input type="number" min={1} max={isPaid ? 250 : FREE_CAP} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={isPaid ? 'e.g. 75' : `1–${FREE_CAP}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: '2px solid var(--teal)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            {useCustom ? customCount ? `Will attempt ${Math.min(Math.max(parseInt(customCount, 10) || 0, 1), isPaid ? 250 : FREE_CAP)} questions` : `Enter a number between 1 and ${isPaid ? 250 : FREE_CAP}` : `${Math.min(qCount, isPaid ? qCount : FREE_CAP)} questions selected${!isPaid && qCount > FREE_CAP ? ` (capped at ${FREE_CAP} for free preview)` : ''}`}
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Exam Details</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {finalCount} questions{!isPaid && (mockConfig.questionCount || 100) > FREE_CAP ? ` (capped at ${FREE_CAP} for free preview)` : ''} · {mockConfig.timeLimit > 0 ? `${mockConfig.timeLimit} minutes` : 'Untimed'}
           </div>
         </div>
 
@@ -231,8 +221,8 @@ export default function EntranceExamDailyMockHub() {
           </div>
         )}
 
-        <button className="btn btn-primary" onClick={handleTakeNew} disabled={useCustom && !customCount} style={{ width: '100%', padding: '14px', fontSize: 15, fontWeight: 800, borderRadius: 12 }}>
-          🚀 Start Exam — {Math.min(finalCount, isPaid ? finalCount : FREE_CAP)} Questions
+        <button className="btn btn-primary" onClick={handleTakeNew} style={{ width: '100%', padding: '14px', fontSize: 15, fontWeight: 800, borderRadius: 12 }}>
+          🚀 Start Exam — {finalCount} Questions
         </button>
       </div>
 
