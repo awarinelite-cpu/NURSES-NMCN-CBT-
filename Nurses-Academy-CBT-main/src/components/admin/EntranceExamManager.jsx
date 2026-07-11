@@ -23,6 +23,7 @@ import {
   ENTRANCE_SUBJECTS as SUBJECTS,
 } from '../../utils/entranceExamParser';
 import { readQuestionFile } from '../../utils/questionFileImport';
+import { getAiExplanation } from '../../utils/aiExplain';
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -1015,6 +1016,7 @@ function getEntranceQuestionIssues(q) {
   if (q.questionType === 'diagram' && (!q.diagramUrl || !String(q.diagramUrl).trim())) {
     issues.push('Missing Diagram');
   }
+  if (!q.explanation || !String(q.explanation).trim()) issues.push('No Explanation');
 
   return issues;
 }
@@ -1028,6 +1030,7 @@ const ENTRANCE_ISSUE_TYPES = [
   { id: 'No Question Text',   icon: '📝' },
   { id: 'Incomplete Options', icon: '🧩' },
   { id: 'Missing Diagram',    icon: '🖼️' },
+  { id: 'No Explanation',     icon: '💡' },
 ];
 
 function QuestionBankTab({ toast, schools, schoolsReady }) {
@@ -1093,6 +1096,51 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
   });
 
   const displayed = filtered.slice(0, 100);
+
+  const [generatingIds,  setGeneratingIds]  = useState(new Set());
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+
+  const generateExplanation = async (q) => {
+    if (generatingIds.has(q.id)) return;
+    setGeneratingIds(prev => new Set(prev).add(q.id));
+    try {
+      const text = await getAiExplanation({
+        questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer,
+        explanation: q.explanation, subject: q.subject,
+      });
+      await updateDoc(doc(db, 'entranceExamQuestions', q.id), { explanation: text });
+      setQuestions(prev => prev.map(item => item.id === q.id ? { ...item, explanation: text } : item));
+      toast('Explanation generated ✅', 'success');
+    } catch (e) {
+      toast('AI generation failed: ' + e.message, 'error');
+    } finally {
+      setGeneratingIds(prev => { const next = new Set(prev); next.delete(q.id); return next; });
+    }
+  };
+
+  // Generates explanations for up to 20 questions at a time (rate-limit /
+  // cost guard) from whatever's currently filtered with "No Explanation".
+  const generateAllMissingExplanations = async () => {
+    const targets = filtered.filter(q => getEntranceQuestionIssues(q).includes('No Explanation')).slice(0, 20);
+    if (targets.length === 0) return;
+    if (!window.confirm(`Generate AI explanations for ${targets.length} question(s)? This calls Gemini once per question — it may take a minute.`)) return;
+    setBulkGenerating(true);
+    let done = 0, failed = 0;
+    for (const q of targets) {
+      try {
+        const text = await getAiExplanation({
+          questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer,
+          explanation: q.explanation, subject: q.subject,
+        });
+        await updateDoc(doc(db, 'entranceExamQuestions', q.id), { explanation: text });
+        setQuestions(prev => prev.map(item => item.id === q.id ? { ...item, explanation: text } : item));
+        done++;
+      } catch (e) { failed++; }
+      await new Promise(r => setTimeout(r, 700)); // gentle pacing to avoid Gemini rate limits
+    }
+    setBulkGenerating(false);
+    toast(`Generated ${done} explanation(s)${failed ? `, ${failed} failed` : ''}.`, failed ? 'warn' : 'success');
+  };
 
   const allDisplayedSelected = displayed.length > 0 && displayed.every(q => selected.has(q.id));
   const someSelected         = selected.size > 0;
@@ -1229,6 +1277,16 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
         {flagFilter && (
           <button className="btn btn-ghost btn-sm" onClick={() => setFlagFilter('')}>✕ Clear flag</button>
         )}
+        {flagFilter === 'No Explanation' && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={generateAllMissingExplanations}
+            disabled={bulkGenerating}
+            title="Generates AI explanations for up to 20 questions at a time from the current filtered list"
+          >
+            {bulkGenerating ? '⏳ Generating…' : '🤖 Generate All (up to 20)'}
+          </button>
+        )}
         <input className="form-input" placeholder="🔍 Search questions…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button className="btn btn-ghost" onClick={load} title="Reload">🔄</button>
       </div>
@@ -1278,6 +1336,20 @@ function QuestionBankTab({ toast, schools, schoolsReady }) {
                       >
                         ⚠️
                       </span>
+                    )}
+                    {getEntranceQuestionIssues(q).includes('No Explanation') && (
+                      <button
+                        onClick={() => generateExplanation(q)}
+                        disabled={generatingIds.has(q.id)}
+                        title="Generate an explanation with Gemini AI and save it to this question"
+                        style={{
+                          marginLeft: 8, padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                          border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.1)',
+                          color: '#A78BFA', cursor: generatingIds.has(q.id) ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {generatingIds.has(q.id) ? '⏳' : '🤖 Generate'}
+                      </button>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>

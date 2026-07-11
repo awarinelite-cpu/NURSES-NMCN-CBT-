@@ -18,6 +18,7 @@ import {
 import { useToast } from '../shared/Toast';
 import EditQuestionsTab from './EditQuestionsTab';
 import { readQuestionFile, readCsvFileAsQuestions, generateCsvTemplate } from '../../utils/questionFileImport';
+import { getAiExplanation } from '../../utils/aiExplain';
 
 const MOCK_EXAM_SPECIALTIES = [
   { id: 'general_nursing',     label: '🏥 General Nursing'     },
@@ -217,11 +218,12 @@ function getQuestionIssues(q) {
   const badCorrectIndex  = q.correctIndex === undefined || q.correctIndex === null ||
                             q.correctIndex < 0 || q.correctIndex >= opts.length;
   if (wrongOptionCount || hasBlankOption || badCorrectIndex) issues.push('Incomplete Options');
+  if (!q.explanation || !String(q.explanation).trim()) issues.push('No Explanation');
 
   return issues;
 }
 
-// Single source of truth for the 5 flaggable issue types — icon + label,
+// Single source of truth for the 6 flaggable issue types — icon + label,
 // used to build the "Flag Incomplete" dropdown options and to colour the
 // row warning badge consistently.
 const ISSUE_TYPES = [
@@ -230,6 +232,7 @@ const ISSUE_TYPES = [
   { id: 'No Topic',           icon: '🎯' },
   { id: 'No Year',            icon: '📅' },
   { id: 'Incomplete Options', icon: '🧩' },
+  { id: 'No Explanation',     icon: '💡' },
 ];
 
 
@@ -1174,6 +1177,52 @@ export default function QuestionsManager() {
     } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
   };
 
+  const [generatingIds,  setGeneratingIds]  = useState(new Set());
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+
+  const generateExplanation = async (q) => {
+    if (generatingIds.has(q.id)) return;
+    setGeneratingIds(prev => new Set(prev).add(q.id));
+    try {
+      const text = await getAiExplanation({
+        question: q.question, options: q.options, correctIndex: q.correctIndex,
+        explanation: q.explanation, subject: q.course || q.category,
+      });
+      await updateDoc(doc(db, 'questions', q.id), { explanation: text });
+      setQuestions(prev => prev.map(item => item.id === q.id ? { ...item, explanation: text } : item));
+      toast('Explanation generated ✅', 'success');
+    } catch (e) {
+      toast('AI generation failed: ' + e.message, 'error');
+    } finally {
+      setGeneratingIds(prev => { const next = new Set(prev); next.delete(q.id); return next; });
+    }
+  };
+
+  // Generates explanations for up to 20 questions at a time (rate-limit /
+  // cost guard) from whatever's currently filtered+visible with "No
+  // Explanation". Runs sequentially with a short pause between calls.
+  const generateAllMissingExplanations = async () => {
+    const targets = displayedQuestions.filter(q => getQuestionIssues(q).includes('No Explanation')).slice(0, 20);
+    if (targets.length === 0) return;
+    if (!window.confirm(`Generate AI explanations for ${targets.length} question(s)? This calls Gemini once per question — it may take a minute.`)) return;
+    setBulkGenerating(true);
+    let done = 0, failed = 0;
+    for (const q of targets) {
+      try {
+        const text = await getAiExplanation({
+          question: q.question, options: q.options, correctIndex: q.correctIndex,
+          explanation: q.explanation, subject: q.course || q.category,
+        });
+        await updateDoc(doc(db, 'questions', q.id), { explanation: text });
+        setQuestions(prev => prev.map(item => item.id === q.id ? { ...item, explanation: text } : item));
+        done++;
+      } catch (e) { failed++; }
+      await new Promise(r => setTimeout(r, 700)); // gentle pacing to avoid Gemini rate limits
+    }
+    setBulkGenerating(false);
+    toast(`Generated ${done} explanation(s)${failed ? `, ${failed} failed` : ''}.`, failed ? 'warn' : 'success');
+  };
+
   const displayedQuestions = flagFilter
     ? questions.filter(q => getQuestionIssues(q).includes(flagFilter))
     : questions;
@@ -1250,6 +1299,16 @@ export default function QuestionsManager() {
             {flagFilter && (
               <button className="btn btn-ghost btn-sm" onClick={() => { setFlagFilter(''); setPage(0); }}>✕ Clear flag</button>
             )}
+            {flagFilter === 'No Explanation' && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={generateAllMissingExplanations}
+                disabled={bulkGenerating}
+                title="Generates AI explanations for up to 20 questions at a time from the current filtered list"
+              >
+                {bulkGenerating ? '⏳ Generating…' : '🤖 Generate All (up to 20)'}
+              </button>
+            )}
             {selected.size > 0 && (
               <button className="btn btn-danger btn-sm" onClick={deleteSelected}>🗑️ Delete {selected.size}</button>
             )}
@@ -1295,6 +1354,20 @@ export default function QuestionsManager() {
                             >
                               ⚠️
                             </span>
+                          )}
+                          {getQuestionIssues(q).includes('No Explanation') && (
+                            <button
+                              onClick={() => generateExplanation(q)}
+                              disabled={generatingIds.has(q.id)}
+                              title="Generate an explanation with Gemini AI and save it to this question"
+                              style={{
+                                marginLeft: 6, padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                                border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.1)',
+                                color: '#A78BFA', cursor: generatingIds.has(q.id) ? 'wait' : 'pointer',
+                              }}
+                            >
+                              {generatingIds.has(q.id) ? '⏳' : '🤖 Generate'}
+                            </button>
                           )}
                         </td>
                         <td style={{ fontSize:12 }}>{firestoreCourses.find(c=>c.id===q.course)?.label || q.course || '—'}</td>

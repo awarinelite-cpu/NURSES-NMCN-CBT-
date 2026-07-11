@@ -10,6 +10,61 @@
 //   • Main exams:     { question, options: [..array..], correctIndex, explanation }
 //   • Entrance exams: { questionText, options: {A,B,C,D}, correctAnswer: 'A', explanation }
 
+// Detects whether a question needs a raw step-by-step calculation instead of
+// a prose explanation — e.g. maths/physics/chemistry, or a nursing dosage/
+// dilution question — so the AI output matches the style of a worked
+// calculation (formula, substitution, simplification, final answer) rather
+// than sentences.
+function isCalculationQuestion(subject, questionText) {
+  const subjHit = /math|physic|chemistry|dosage|calculation/i.test(subject || '');
+  const hasNumber   = /\d/.test(questionText || '');
+  const hasCalcCue  = /[=×x*/÷%]|calculate|find the (value|number|sum|area|volume|dose|dosage|rate|concentration|perimeter|angle)/i
+    .test(questionText || '');
+  return subjHit || (hasNumber && hasCalcCue);
+}
+
+function buildPrompt({ question, optionsText, correctAnswer, explanation, subject }) {
+  const isCalc = isCalculationQuestion(subject, question);
+
+  if (isCalc) {
+    return `You are helping a Nigerian nursing/entrance-exam student see the worked calculation behind an exam answer.
+
+QUESTION: ${question}
+${optionsText ? `OPTIONS:\n${optionsText}` : ''}
+CORRECT ANSWER: ${correctAnswer}
+${subject ? `SUBJECT: ${subject}` : ''}
+
+Show ONLY the raw step-by-step calculation that proves the correct answer. One short line per step:
+• State the formula/relationship used
+• Substitute the given numbers into the formula
+• Simplify one step at a time
+• End with the final answer isolated on its own line
+
+STRICT RULES:
+- No narrative sentences. No words like "first", "next", "therefore", "we can see that", "this means".
+- No explanation of WHY the formula works — just the formula and the numbers.
+- Each line is a short mathematical/chemical/physical expression only, e.g. "2340 = (n - 2) x 180" or "n - 2 = 2340/180".
+- Plain text only — no LaTeX, no markdown headers, no bold, no numbering like "Step 1:".
+- Prefix every line with "• ".
+- Keep it as short as the calculation allows — typically 3-6 lines.`;
+  }
+
+  return `You are a friendly, expert nursing tutor helping a Nigerian nursing student review an exam question.
+
+QUESTION: ${question}
+${optionsText ? `OPTIONS:\n${optionsText}` : ''}
+CORRECT ANSWER: ${correctAnswer}
+${explanation ? `EXISTING EXPLANATION HINT: ${explanation}` : ''}
+${subject ? `SUBJECT: ${subject}` : ''}
+
+Explain in 3-5 short sentences:
+1. WHY the correct answer is right (the key concept or clinical reasoning)
+2. Briefly why the most tempting wrong option is wrong
+3. One memorable tip or mnemonic to remember this for the exam
+
+Be concise, clinical, and encouraging. Plain text only — no markdown, no headings.`;
+}
+
 const API_BASE = process.env.REACT_APP_API_BASE || '';
 
 /** Normalise any question shape into { question, options, correctAnswer, explanation, subject } */
@@ -85,20 +140,13 @@ export async function getAiExplanation(q) {
       ? Object.entries(payload.options).map(([k, v]) => `${k}. ${v}`).join('\n')
       : '';
 
-  const prompt = `You are a friendly, expert nursing tutor helping a Nigerian nursing student review an exam question.
-
-QUESTION: ${payload.question}
-${optionsText ? `OPTIONS:\n${optionsText}` : ''}
-CORRECT ANSWER: ${payload.correctAnswer}
-${payload.explanation ? `EXISTING EXPLANATION HINT: ${payload.explanation}` : ''}
-${payload.subject ? `SUBJECT: ${payload.subject}` : ''}
-
-Explain in 3-5 short sentences:
-1. WHY the correct answer is right (the key concept or clinical reasoning)
-2. Briefly why the most tempting wrong option is wrong
-3. One memorable tip or mnemonic to remember this for the exam
-
-Be concise, clinical, and encouraging. Plain text only — no markdown, no headings.`;
+  const prompt = buildPrompt({
+    question: payload.question,
+    optionsText,
+    correctAnswer: payload.correctAnswer,
+    explanation: payload.explanation,
+    subject: payload.subject,
+  });
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
