@@ -839,14 +839,24 @@ export default function ChatPage() {
   const myName      = profile?.name || user?.displayName    || 'Me';
 
   /* ── Clear MY unread count when I open this chat ── */
+  // IMPORTANT: always include participants[] in this write.
+  // If the doc doesn't exist yet, a write without participants creates it
+  // with no participants field, which means the recipient's onSnapshot
+  // query (where participants array-contains theirUid) will never pick
+  // it up — even after a subsequent write adds participants — because
+  // Firestore evaluates array-contains membership at document-creation time
+  // for existing listeners. Including participants here guarantees the doc
+  // is always queryable from the moment it's created.
   useEffect(() => {
-    if (!chatId || !myUid) return;
-    // Reset my unread count to 0 for this chat
+    if (!chatId || !myUid || !theirUid) return;
     setDoc(doc(db, chatCol, chatId),
-      { [`unreadCounts.${myUid}`]: 0 },
+      {
+        participants:     [myUid, theirUid],
+        [`unreadCounts.${myUid}`]: 0,
+      },
       { merge: true }
     ).catch(() => {});
-  }, [chatId, myUid]);
+  }, [chatId, myUid, theirUid]);
 
   /* ── Load their profile ── */
   useEffect(() => {

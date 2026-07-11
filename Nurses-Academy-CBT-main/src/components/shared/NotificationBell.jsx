@@ -90,7 +90,8 @@ export default function NotificationBell() {
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        // No need to re-mark on outside-click — already marked on open
+        // Mark chats read when closing by clicking outside
+        if (directUnread > 0 || groupUnread > 0) markAllChatsRead();
         setOpen(false);
       }
     };
@@ -120,10 +121,15 @@ export default function NotificationBell() {
       });
     }
     setOpen(next);
-    // Mark read immediately on OPEN so badge clears the moment dropdown appears.
-    // Guards prevent unnecessary Firestore writes when there's nothing to clear.
     if (next) {
+      // Mark EXAM notifications read on open (they don't appear in the dropdown body
+      // separately — the badge is the only indicator, so clearing on open is fine).
       if (unreadCount > 0) markAllRead();
+    } else {
+      // Mark CHAT notifications read on CLOSE so the user sees the messages
+      // in the dropdown before the badge clears. Calling markAllChatsRead on
+      // open caused the optimistic setChatThreads([]) to wipe the message list
+      // before the dropdown had a chance to render it.
       if (directUnread > 0 || groupUnread > 0) markAllChatsRead();
     }
   };
