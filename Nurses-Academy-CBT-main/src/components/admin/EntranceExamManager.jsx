@@ -1349,9 +1349,56 @@ function DailyMockUpload({ toast }) {
   const [saving,   setSaving]   = useState(false);
   const [imported, setImported] = useState(null);
 
+  // ── File/CSV upload state ────────────────────────────────────────────
+  const [fileImporting,  setFileImporting]  = useState(false);
+  const [fileImportInfo, setFileImportInfo] = useState('');
+  const [fileWarnings,   setFileWarnings]   = useState([]);
+
   const handleParse = () => {
     const { results, errors: errs } = parseEntranceQuestions(rawText);
     setParsed(results); setErrors(errs); setImported(null);
+  };
+
+  // ── File import handler (.csv, .docx, .txt) ──────────────────────────
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setFileImporting(true);
+    setFileImportInfo('');
+    setFileWarnings([]);
+    setParsed([]);
+    setErrors([]);
+    setImported(null);
+    setRawText('');
+    try {
+      const { text, warnings, rowCount, fileType } = await readQuestionFile(file);
+      if (!text.trim()) { toast('File appears empty or could not be read.', 'error'); setFileImporting(false); return; }
+      setRawText(text);
+      if (warnings?.length > 0) setFileWarnings(warnings);
+      const typeLabel = fileType === 'csv' ? `CSV (${rowCount} rows)` : fileType === 'docx' ? 'Word document' : 'text file';
+      const lines = text.split('\n').filter(l => l.trim()).length;
+      setFileImportInfo(`📂 "${file.name}" loaded as ${typeLabel} — ${lines} lines extracted. Click "Parse & Preview" to continue.`);
+      toast('File loaded! Click Parse & Preview to continue.', 'success');
+      // Auto-parse immediately so the admin sees results right away.
+      const { results, errors: errs } = parseEntranceQuestions(text);
+      setParsed(results); setErrors(errs);
+    } catch (err) {
+      toast('⚠️ ' + err.message, 'error');
+    } finally {
+      setFileImporting(false);
+    }
+  };
+
+  // ── CSV template download ─────────────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    const csv = 'question,option_a,option_b,option_c,option_d,answer,explanation\nWhat is the functional unit of the kidney?,Nephron,Neuron,Nodule,Nucleus,A,The nephron filters blood and forms urine.\nThe normal adult resting heart rate is:,40-60 bpm,60-100 bpm,100-120 bpm,120-160 bpm,B,The normal adult resting heart rate ranges from 60 to 100 beats per minute.';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'daily_mock_questions_template.csv'; a.click();
+    URL.revokeObjectURL(url);
+    toast('Template downloaded!', 'success');
   };
 
   const saveSingle = async () => {
@@ -1403,6 +1450,58 @@ function DailyMockUpload({ toast }) {
       {mode === 'paste_single' && (<SinglePasteUpload onSave={async qData => { setSaving(true); try { await addDoc(collection(db, 'entranceExamQuestions'), { schoolId: null, schoolName: '', year: '', subject: '', questionType: qData.questionType, diagramUrl: qData.diagramUrl||'', questionText: qData.questionText, options: qData.options, correctAnswer: qData.correctAnswer, explanation: qData.explanation||'', active: true, inDailyBank: true, createdAt: serverTimestamp() }); toast('Added to Daily Mock Bank ✅', 'success'); } catch (e) { toast('Error: ' + e.message, 'error'); } finally { setSaving(false); } }} saving={saving} />)}
       {mode === 'paste_bulk' && (
         <>
+          {/* ── File/CSV Upload Zone ── */}
+          <div style={{
+            marginBottom: 16, padding: '18px 20px', borderRadius: 14,
+            border: '2px dashed var(--border)', background: 'var(--bg-card)',
+            transition: 'border-color .2s',
+          }}
+            onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#8B5CF6'; }}
+            onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+            onDrop={e => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = 'var(--border)';
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleFileImport({ target: { files: [file], value: '' } });
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, fontFamily: H }}>📊 Upload from CSV / File</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, fontFamily: F }}>
+                  Supports <strong>.csv</strong> (spreadsheet), <strong>.docx</strong> (Word), or <strong>.txt</strong> (plain text).
+                  Drag &amp; drop here or click the button — extracted questions go straight into the Daily Mock Bank.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+                <label style={{
+                  padding: '9px 18px', borderRadius: 10, cursor: fileImporting ? 'not-allowed' : 'pointer',
+                  fontWeight: 700, fontSize: 13, border: 'none',
+                  background: 'linear-gradient(135deg,#8B5CF6,#6D28D9)', color: '#fff',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: fileImporting ? 0.6 : 1, transition: 'opacity .2s',
+                }}>
+                  {fileImporting ? <><span className="spinner spinner-sm" /> Reading…</> : <><span>📂</span> Choose File</>}
+                  <input type="file" accept=".csv,.docx,.txt,.text,.md" style={{ display: 'none' }} onChange={handleFileImport} disabled={fileImporting} />
+                </label>
+                <button onClick={handleDownloadTemplate} style={{ padding: '9px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }} title="Download a sample CSV template">
+                  ⬇️ CSV Template
+                </button>
+              </div>
+            </div>
+            {fileImportInfo && (
+              <div style={{ marginTop: 12, padding: '8px 14px', borderRadius: 9, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', fontSize: 12, color: 'var(--text-primary)', fontWeight: 600 }}>
+                {fileImportInfo}
+              </div>
+            )}
+            {fileWarnings.length > 0 && (
+              <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 9, background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 12, color: '#ca8a04' }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ File warnings:</div>
+                {fileWarnings.map((w, i) => <div key={i}>• {w}</div>)}
+              </div>
+            )}
+          </div>
+
           <FormatGuide bulk />
           <div style={{ ...S.card, marginBottom: 16 }}><div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10, fontFamily: H }}>📦 Paste Multiple Questions</div><textarea className="form-input" rows={16} placeholder="Paste all questions here, separated by blank lines…" value={rawText} onChange={e => { setRawText(e.target.value); setParsed([]); setErrors([]); setImported(null); }} style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} /><button className="btn btn-ghost" onClick={handleParse} style={{ marginTop: 10 }}>🔍 Parse &amp; Preview</button></div>
           {errors.length > 0 && (<div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}><div style={{ fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>⚠️ {errors.length} parse error{errors.length !== 1 ? 's' : ''}</div>{errors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#EF4444' }}>{e}</div>)}</div>)}
