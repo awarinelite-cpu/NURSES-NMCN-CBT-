@@ -803,6 +803,10 @@ export default function ChatPage() {
   const chatContext = pathname.startsWith('/entrance-exam') ? 'entrance' : 'nmcn';
   const chatCol     = chatContext === 'entrance' ? 'entranceDirectChats' : 'directChats';
   const inboxPath   = chatContext === 'entrance' ? '/entrance-exam/chat-inbox' : '/chat-inbox';
+  // Keep the section prefix when opening a profile from a chat — otherwise
+  // landing on the unprefixed /student/:uid route makes the sidebar, bottom
+  // nav and notification bell all silently fall back to NMCN mode.
+  const profilePath  = (uid) => chatContext === 'entrance' ? `/entrance-exam/student/${uid}` : `/student/${uid}`;
 
   const myUid  = user?.uid;
   const chatId = myUid && theirUid ? getChatId(myUid, theirUid) : null;
@@ -1260,13 +1264,13 @@ export default function ChatPage() {
         }}>←</button>
 
         {/* Clickable avatar → their profile */}
-        <div onClick={() => navigate(`/student/${theirUid}`, { state:{ name:theirName, school:theirSchool } })}
+        <div onClick={() => navigate(profilePath(theirUid), { state:{ name:theirName, school:theirSchool } })}
           style={{ cursor:'pointer', flexShrink:0 }}>
           <Avatar name={theirName} size={42} />
         </div>
 
         <div style={{ flex:1, minWidth:0, cursor:'pointer' }}
-          onClick={() => navigate(`/student/${theirUid}`, { state:{ name:theirName, school:theirSchool } })}>
+          onClick={() => navigate(profilePath(theirUid), { state:{ name:theirName, school:theirSchool } })}>
           <div style={{
             fontFamily:H, fontWeight:900, fontSize:'clamp(0.95rem,2.5vw,1.15rem)',
             color:'#E9EDEF',
@@ -1283,7 +1287,7 @@ export default function ChatPage() {
 
         {/* Search / more icons placeholder */}
         <div style={{ display:'flex', gap:6 }}>
-          <button onClick={() => navigate(`/student/${theirUid}`, { state:{ name:theirName, school:theirSchool } })}
+          <button onClick={() => navigate(profilePath(theirUid), { state:{ name:theirName, school:theirSchool } })}
             style={{
               background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8,
               padding:'6px 10px', cursor:'pointer', color:'#8696A0',
