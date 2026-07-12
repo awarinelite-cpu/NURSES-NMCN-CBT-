@@ -10,6 +10,10 @@ firebase-debug.*.log*
 # Firebase cache
 .firebase/
 
+# Stray build output (the real app builds from Nurses-Academy-CBT-main/)
+/build
+/dist
+
 # Firebase config
 
 # Uncomment this if you'd like others to create their own Firebase project.
