@@ -152,6 +152,24 @@ function SwNavigationHandler() {
   return null;
 }
 
+function NativeStatusBarSetup() {
+  useEffect(() => {
+    if (!isCapacitor()) return;
+    (async () => {
+      try {
+        const { StatusBar, Style } = await import('@capacitor/status-bar');
+        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setBackgroundColor({ color: '#1e3a8a' });
+      } catch (e) { console.warn('Capacitor StatusBar setup failed:', e); }
+      try {
+        const { SplashScreen } = await import('@capacitor/splash-screen');
+        await SplashScreen.hide();
+      } catch (e) { console.warn('Capacitor SplashScreen hide failed:', e); }
+    })();
+  }, []);
+  return null;
+}
+
 function BackButtonHandler() {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -223,6 +241,7 @@ export default function App() {
         <ToastProvider>
           <BrowserRouter>
             <BackButtonHandler />
+            <NativeStatusBarSetup />
             <SwNavigationHandler />
             <ContentProtectionActivator />
 
