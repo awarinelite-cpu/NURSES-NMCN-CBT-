@@ -4,6 +4,14 @@
 // on the subject/course lists, the upgrade/payment screens, etc.
 // The person can drag it out of the way; its position is remembered
 // (per device, via localStorage) across pages and future visits.
+//
+// Drag implementation notes (for smoothness):
+// - Position is applied via `transform: translate3d(...)`, not left/top,
+//   so dragging is GPU-composited and never triggers layout reflow.
+// - While actively dragging, the DOM node's style is mutated directly
+//   through a ref inside a requestAnimationFrame loop — bypassing React
+//   state entirely — so movement tracks the pointer at full frame rate.
+//   React state (and localStorage) is only written once, on release.
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -45,11 +53,26 @@ function loadPosition() {
   return defaultPosition();
 }
 
+function applyTransform(el, x, y) {
+  if (el) el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
 export default function AdminWhatsAppButton({
   message = 'Hi, I need help with The Elite Nurses app.',
 }) {
   const [pos, setPos] = useState(loadPosition);
-  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const elRef = useRef(null);
+  const drag = useRef({
+    active: false, moved: false,
+    startX: 0, startY: 0, origX: 0, origY: 0,
+    curX: 0, curY: 0, rafId: null,
+  });
+
+  // Sync the DOM transform whenever committed React state changes
+  // (initial mount, and after a resize-driven clamp).
+  useEffect(() => {
+    applyTransform(elRef.current, pos.x, pos.y);
+  }, [pos]);
 
   // Keep the button on-screen if the viewport is resized/rotated
   useEffect(() => {
@@ -65,6 +88,8 @@ export default function AdminWhatsAppButton({
     drag.current.startY = clientY;
     drag.current.origX = pos.x;
     drag.current.origY = pos.y;
+    drag.current.curX = pos.x;
+    drag.current.curY = pos.y;
   }, [pos]);
 
   const handleMouseDown = (e) => startDrag(e.clientX, e.clientY);
@@ -73,6 +98,16 @@ export default function AdminWhatsAppButton({
     startDrag(t.clientX, t.clientY);
   };
 
+  // rAF-batched paint: only ever touches the DOM directly, at most once
+  // per frame, so the button tracks the finger/cursor with no jank.
+  const scheduleFrame = useCallback(() => {
+    if (drag.current.rafId) return;
+    drag.current.rafId = requestAnimationFrame(() => {
+      drag.current.rafId = null;
+      applyTransform(elRef.current, drag.current.curX, drag.current.curY);
+    });
+  }, []);
+
   useEffect(() => {
     function moveTo(clientX, clientY) {
       const dx = clientX - drag.current.startX;
@@ -80,7 +115,10 @@ export default function AdminWhatsAppButton({
       if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
         drag.current.moved = true;
       }
-      setPos(clampPosition({ x: drag.current.origX + dx, y: drag.current.origY + dy }));
+      const next = clampPosition({ x: drag.current.origX + dx, y: drag.current.origY + dy });
+      drag.current.curX = next.x;
+      drag.current.curY = next.y;
+      scheduleFrame();
     }
     function onMouseMove(e) {
       if (!drag.current.active) return;
@@ -95,10 +133,14 @@ export default function AdminWhatsAppButton({
     function onRelease() {
       if (!drag.current.active) return;
       drag.current.active = false;
-      setPos(p => {
-        try { localStorage.setItem(POSITION_KEY, JSON.stringify(p)); } catch {}
-        return p;
-      });
+      if (drag.current.rafId) {
+        cancelAnimationFrame(drag.current.rafId);
+        drag.current.rafId = null;
+      }
+      const final = { x: drag.current.curX, y: drag.current.curY };
+      // Commit to React state + storage exactly once, at drag end.
+      setPos(final);
+      try { localStorage.setItem(POSITION_KEY, JSON.stringify(final)); } catch {}
     }
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onRelease);
@@ -110,7 +152,7 @@ export default function AdminWhatsAppButton({
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onRelease);
     };
-  }, []);
+  }, [scheduleFrame]);
 
   // If the button was dragged, swallow the click so it doesn't also open WhatsApp
   const handleClick = (e) => {
@@ -122,6 +164,7 @@ export default function AdminWhatsAppButton({
 
   return (
     <a
+      ref={elRef}
       href={buildLink(message)}
       target="_blank"
       rel="noopener noreferrer"
@@ -130,8 +173,9 @@ export default function AdminWhatsAppButton({
       onClick={handleClick}
       style={{
         position: 'fixed',
-        left: pos.x,
-        top: pos.y,
+        left: 0,
+        top: 0,
+        transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
         zIndex: 999,
         width: SIZE,
         height: SIZE,
@@ -147,6 +191,7 @@ export default function AdminWhatsAppButton({
         touchAction: 'none',
         cursor: 'grab',
         userSelect: 'none',
+        willChange: 'transform',
       }}
       aria-label="Contact Admin on WhatsApp"
       title="Contact Admin on WhatsApp — drag to move"
