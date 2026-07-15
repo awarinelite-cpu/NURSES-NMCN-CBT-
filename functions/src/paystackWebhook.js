@@ -23,16 +23,23 @@
 const functions = require('firebase-functions');
 const admin     = require('firebase-admin');
 const crypto    = require('crypto');
+const { defineSecret } = require('firebase-functions/params');
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
+// functions.config() (legacy Runtime Config) is deprecated and will stop
+// working for deploys after March 2027 — using Secret Manager instead via
+// defineSecret. Set the value with:
+//   firebase functions:secrets:set PAYSTACK_SECRET_KEY
+const PAYSTACK_SECRET_KEY = defineSecret('PAYSTACK_SECRET_KEY');
+
 // ── Signature verification ────────────────────────────────────────────────────
 
 function verifyPaystackSignature(rawBody, signature) {
-  const secret = functions.config().paystack?.secret_key;
+  const secret = PAYSTACK_SECRET_KEY.value();
   if (!secret) {
-    console.error('paystack.secret_key is not configured — run: firebase functions:config:set paystack.secret_key="sk_live_..."');
+    console.error('PAYSTACK_SECRET_KEY secret is not set — run: firebase functions:secrets:set PAYSTACK_SECRET_KEY');
     return false;
   }
   const hash = crypto
@@ -161,7 +168,9 @@ async function handleEntranceExam({ batch, userId, ref, amount, existing }) {
 
 // ── Cloud Function ─────────────────────────────────────────────────────────────
 
-exports.paystackWebhook = functions.https.onRequest(async (req, res) => {
+exports.paystackWebhook = functions
+  .runWith({ secrets: [PAYSTACK_SECRET_KEY] })
+  .https.onRequest(async (req, res) => {
   // Only POST
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
