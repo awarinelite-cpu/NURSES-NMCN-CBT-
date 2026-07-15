@@ -14,6 +14,9 @@ const BANK_DETAILS = {
   name:    'Awarin Elite',
 };
 
+const WHATSAPP_NUMBER = '2348134106745';
+const WHATSAPP_LINK   = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi, I need help with a payment on The Elite Nurses (NMCN CBT).')}`;
+
 const PLANS = [
   { id: 'basic',    label: 'Basic',    price: 2500, days: 30,  color: '#0D9488' },
   { id: 'standard', label: 'Standard', price: 5000, days: 90,  color: '#2563EB' },
@@ -241,9 +244,12 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
             Confirming with Paystack and activating your account — this usually takes a few seconds.
           </p>
           {error && <p style={{ ...s.error, margin: '0 20px 20px' }}>⚠️ {error}</p>}
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, textAlign: 'center', padding: '0 24px 32px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, textAlign: 'center', padding: '0 24px 8px' }}>
             Reference: {activationRef}
           </p>
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={s.whatsappLink}>
+            💬 Contact Admin on WhatsApp
+          </a>
         </div>
       </div>
     );
@@ -375,7 +381,14 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 🔒 You'll be taken to Paystack's secure checkout. Pay with <strong style={{ color: 'var(--text-primary)' }}>debit card</strong>, <strong style={{ color: 'var(--text-primary)' }}>bank transfer</strong>, or <strong style={{ color: 'var(--text-primary)' }}>USSD</strong>. Access is granted instantly after payment.
               </p>
             </div>
-            {error && <p style={s.error}>⚠️ {error}</p>}
+            {error && (
+              <>
+                <p style={s.error}>⚠️ {error}</p>
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...s.whatsappLink, marginBottom: 14 }}>
+                  💬 Contact Admin on WhatsApp
+                </a>
+              </>
+            )}
             <button
               onClick={handlePaystack}
               disabled={!paystackReady}
@@ -479,7 +492,14 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 <p style={{ color: 'var(--text-hint)', fontSize: 11, margin: '4px 0 0', textAlign: 'center' }}>Uploading… {uploadProgress}%</p>
               </div>
             )}
-            {error && <p style={s.error}>⚠️ {error}</p>}
+            {error && (
+              <>
+                <p style={s.error}>⚠️ {error}</p>
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...s.whatsappLink, marginBottom: 14 }}>
+                  💬 Contact Admin on WhatsApp
+                </a>
+              </>
+            )}
             <button
               onClick={handleManual}
               disabled={uploading}
@@ -494,6 +514,9 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
             <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, textAlign: 'center', marginTop: 10 }}>
               Admin confirms within a few hours · You'll be notified once access is activated
             </p>
+            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...s.whatsappLink, marginTop: 10 }}>
+              💬 Payment issues? Contact Admin on WhatsApp
+            </a>
           </div>
         )}
 
@@ -581,5 +604,12 @@ const s = {
     color: '#EF4444', fontSize: 13, margin: '0 0 12px', padding: '9px 12px',
     background: 'rgba(239,68,68,0.1)', borderRadius: 8,
     border: '1px solid rgba(239,68,68,0.2)', lineHeight: 1.5,
+  },
+  whatsappLink: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    width: '100%', padding: '10px 12px', borderRadius: 10,
+    background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)',
+    color: '#25D366', fontSize: 12.5, fontWeight: 700, textDecoration: 'none',
+    boxSizing: 'border-box',
   },
 };

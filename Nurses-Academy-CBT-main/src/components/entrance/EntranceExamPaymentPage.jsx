@@ -31,6 +31,9 @@ const BANK = {
   name:    'Awarin Elite',
 };
 
+const WHATSAPP_NUMBER = '2348134106745';
+const WHATSAPP_LINK   = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi, I need help with a payment on The Elite Nurses (Entrance Exam).')}`;
+
 // Entrance exam — single one-time payment plan
 const ENTRANCE_PLANS = [
   {
@@ -344,6 +347,9 @@ export default function EntranceExamPaymentPage() {
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 16 }}>
             Reference: {activationRef}
           </p>
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...S.whatsappLink, marginTop: 16 }}>
+            💬 Contact Admin on WhatsApp
+          </a>
         </div>
       </div>
     );
@@ -545,7 +551,14 @@ export default function EntranceExamPaymentPage() {
               Access is granted <strong style={{ color: 'var(--teal)' }}>immediately</strong> after payment.
             </p>
           </div>
-          {error && <ErrorBox msg={error} />}
+          {error && (
+            <>
+              <ErrorBox msg={error} />
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...S.whatsappLink, marginBottom: 16 }}>
+                💬 Contact Admin on WhatsApp
+              </a>
+            </>
+          )}
           <button
             onClick={handlePaystack}
             disabled={!paystackReady}
@@ -641,7 +654,14 @@ export default function EntranceExamPaymentPage() {
             </div>
           )}
 
-          {error && <ErrorBox msg={error} />}
+          {error && (
+            <>
+              <ErrorBox msg={error} />
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...S.whatsappLink, marginBottom: 16 }}>
+                💬 Contact Admin on WhatsApp
+              </a>
+            </>
+          )}
 
           <button
             onClick={handleManual} disabled={submitting}
@@ -652,6 +672,9 @@ export default function EntranceExamPaymentPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', marginTop: 12, fontFamily: F, fontWeight: 700 }}>
             Admin confirms within a few hours · You'll be notified once activated
           </p>
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ ...S.whatsappLink, marginTop: 12 }}>
+            💬 Payment issues? Contact Admin on WhatsApp
+          </a>
         </div>
       )}
 
@@ -712,5 +735,12 @@ const S = {
     color: 'var(--text-muted)', fontSize: 15, fontWeight: 700,
     fontFamily: "'Times New Roman', Times, serif",
     margin: '0 0 28px', lineHeight: 1.7, maxWidth: 420,
+  },
+  whatsappLink: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    width: '100%', padding: '11px 12px', borderRadius: 10,
+    background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)',
+    color: '#25D366', fontSize: 13, fontWeight: 700, textDecoration: 'none',
+    fontFamily: "'Times New Roman', Times, serif", boxSizing: 'border-box',
   },
 };
