@@ -6,12 +6,20 @@
 // (per device, via localStorage) across pages and future visits.
 //
 // Drag implementation notes (for smoothness):
+// - Uses the Pointer Events API (one code path for mouse/touch/pen) with
+//   setPointerCapture, so the element keeps receiving move events even if
+//   the pointer moves faster than the element itself, or off the element.
 // - Position is applied via `transform: translate3d(...)`, not left/top,
 //   so dragging is GPU-composited and never triggers layout reflow.
-// - While actively dragging, the DOM node's style is mutated directly
-//   through a ref inside a requestAnimationFrame loop — bypassing React
-//   state entirely — so movement tracks the pointer at full frame rate.
-//   React state (and localStorage) is only written once, on release.
+// - The DOM node's style is mutated directly through a ref on every
+//   pointermove — no React re-render while dragging — so it tracks the
+//   pointer 1:1. React state (and localStorage) is only written once,
+//   on release.
+// - Native browser drag-and-drop on the <a> is fully disabled
+//   (draggable={false} + preventDefault on dragstart + -webkit-user-drag:
+//   none). Without this, the browser's own native drag machinery
+//   (ghost-image negotiation) competes with our pointer handling and is
+//   the main cause of perceived lag on anchor/image elements.
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -63,9 +71,9 @@ export default function AdminWhatsAppButton({
   const [pos, setPos] = useState(loadPosition);
   const elRef = useRef(null);
   const drag = useRef({
-    active: false, moved: false,
+    active: false, moved: false, pointerId: null,
     startX: 0, startY: 0, origX: 0, origY: 0,
-    curX: 0, curY: 0, rafId: null,
+    curX: 0, curY: 0,
   });
 
   // Sync the DOM transform whenever committed React state changes
@@ -81,78 +89,46 @@ export default function AdminWhatsAppButton({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const startDrag = useCallback((clientX, clientY) => {
+  const handlePointerDown = useCallback((e) => {
     drag.current.active = true;
     drag.current.moved = false;
-    drag.current.startX = clientX;
-    drag.current.startY = clientY;
+    drag.current.pointerId = e.pointerId;
+    drag.current.startX = e.clientX;
+    drag.current.startY = e.clientY;
     drag.current.origX = pos.x;
     drag.current.origY = pos.y;
     drag.current.curX = pos.x;
     drag.current.curY = pos.y;
+    // Keep receiving pointermove on this element even if the pointer
+    // moves fast, or drifts outside the element's bounds mid-drag.
+    e.currentTarget.setPointerCapture(e.pointerId);
   }, [pos]);
 
-  const handleMouseDown = (e) => startDrag(e.clientX, e.clientY);
-  const handleTouchStart = (e) => {
-    const t = e.touches[0];
-    startDrag(t.clientX, t.clientY);
-  };
-
-  // rAF-batched paint: only ever touches the DOM directly, at most once
-  // per frame, so the button tracks the finger/cursor with no jank.
-  const scheduleFrame = useCallback(() => {
-    if (drag.current.rafId) return;
-    drag.current.rafId = requestAnimationFrame(() => {
-      drag.current.rafId = null;
-      applyTransform(elRef.current, drag.current.curX, drag.current.curY);
-    });
+  const handlePointerMove = useCallback((e) => {
+    if (!drag.current.active || e.pointerId !== drag.current.pointerId) return;
+    const dx = e.clientX - drag.current.startX;
+    const dy = e.clientY - drag.current.startY;
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      drag.current.moved = true;
+    }
+    const next = clampPosition({ x: drag.current.origX + dx, y: drag.current.origY + dy });
+    drag.current.curX = next.x;
+    drag.current.curY = next.y;
+    // Direct DOM write, no React state, no rAF queueing delay —
+    // paints on this same event, tracking the pointer 1:1.
+    applyTransform(elRef.current, next.x, next.y);
   }, []);
 
-  useEffect(() => {
-    function moveTo(clientX, clientY) {
-      const dx = clientX - drag.current.startX;
-      const dy = clientY - drag.current.startY;
-      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-        drag.current.moved = true;
-      }
-      const next = clampPosition({ x: drag.current.origX + dx, y: drag.current.origY + dy });
-      drag.current.curX = next.x;
-      drag.current.curY = next.y;
-      scheduleFrame();
+  const endDrag = useCallback((e) => {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    if (elRef.current && drag.current.pointerId != null) {
+      try { elRef.current.releasePointerCapture(drag.current.pointerId); } catch {}
     }
-    function onMouseMove(e) {
-      if (!drag.current.active) return;
-      moveTo(e.clientX, e.clientY);
-    }
-    function onTouchMove(e) {
-      if (!drag.current.active) return;
-      e.preventDefault(); // stop page scroll while dragging the button
-      const t = e.touches[0];
-      moveTo(t.clientX, t.clientY);
-    }
-    function onRelease() {
-      if (!drag.current.active) return;
-      drag.current.active = false;
-      if (drag.current.rafId) {
-        cancelAnimationFrame(drag.current.rafId);
-        drag.current.rafId = null;
-      }
-      const final = { x: drag.current.curX, y: drag.current.curY };
-      // Commit to React state + storage exactly once, at drag end.
-      setPos(final);
-      try { localStorage.setItem(POSITION_KEY, JSON.stringify(final)); } catch {}
-    }
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onRelease);
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onRelease);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onRelease);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onRelease);
-    };
-  }, [scheduleFrame]);
+    const final = { x: drag.current.curX, y: drag.current.curY };
+    setPos(final);
+    try { localStorage.setItem(POSITION_KEY, JSON.stringify(final)); } catch {}
+  }, []);
 
   // If the button was dragged, swallow the click so it doesn't also open WhatsApp
   const handleClick = (e) => {
@@ -168,8 +144,12 @@ export default function AdminWhatsAppButton({
       href={buildLink(message)}
       target="_blank"
       rel="noopener noreferrer"
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       onClick={handleClick}
       style={{
         position: 'fixed',
@@ -191,12 +171,14 @@ export default function AdminWhatsAppButton({
         touchAction: 'none',
         cursor: 'grab',
         userSelect: 'none',
+        WebkitUserDrag: 'none',
+        WebkitTapHighlightColor: 'transparent',
         willChange: 'transform',
       }}
       aria-label="Contact Admin on WhatsApp"
       title="Contact Admin on WhatsApp — drag to move"
     >
-      <span style={{ fontSize: 20, lineHeight: 1 }}>💬</span>
+      <span style={{ fontSize: 20, lineHeight: 1, pointerEvents: 'none' }}>💬</span>
     </a>
   );
 }
