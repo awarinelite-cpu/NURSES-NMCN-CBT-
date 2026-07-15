@@ -5,6 +5,7 @@ import Navbar                   from './Navbar';
 import Sidebar                  from './Sidebar';
 import InstallBanner            from './InstallBanner';
 import MessageNotifier          from './MessageNotifier';
+import AdminWhatsAppButton      from './AdminWhatsAppButton';
 import { useToast }             from './Toast';
 import { useAuth }              from '../../context/AuthContext';
 import {
@@ -64,6 +65,14 @@ export default function AppLayout() {
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
       <MessageNotifier mode={isEntrance ? 'entrance' : 'nmcn'} />
+      {/* Persistent admin contact — always available, not just on error */}
+      <AdminWhatsAppButton
+        message={
+          isEntrance
+            ? 'Hi, I need help with The Elite Nurses app (Entrance Exam).'
+            : 'Hi, I need help with The Elite Nurses app (NMCN CBT).'
+        }
+      />
     </div>
   );
 }

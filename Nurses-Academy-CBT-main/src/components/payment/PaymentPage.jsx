@@ -5,6 +5,7 @@ import { collection, addDoc, serverTimestamp, doc, onSnapshot } from 'firebase/f
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import AdminWhatsAppButton from '../shared/AdminWhatsAppButton';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
@@ -251,6 +252,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
             💬 Contact Admin on WhatsApp
           </a>
         </div>
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (NMCN CBT)." />
       </div>
     );
   }
@@ -272,6 +274,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               : 'Your payment proof has been received. Admin will confirm within a few hours and activate your access.'}
           </p>
         </div>
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (NMCN CBT)." />
       </div>
     );
   }
@@ -372,6 +375,8 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
             </button>
           </div>
         </div>
+
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (NMCN CBT)." />
 
         {/* ── Paystack section ── */}
         {method === 'paystack' && (

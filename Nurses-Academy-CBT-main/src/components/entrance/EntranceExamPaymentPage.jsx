@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db }       from '../../firebase/config';
 import { useAuth }  from '../../context/AuthContext';
+import AdminWhatsAppButton from '../shared/AdminWhatsAppButton';
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const PAYSTACK_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
@@ -351,6 +352,7 @@ export default function EntranceExamPaymentPage() {
             💬 Contact Admin on WhatsApp
           </a>
         </div>
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
       </div>
     );
   }
@@ -370,6 +372,7 @@ export default function EntranceExamPaymentPage() {
             🏫 Go to Entrance Exam Hub →
           </button>
         </div>
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
       </div>
     );
   }
@@ -396,6 +399,7 @@ export default function EntranceExamPaymentPage() {
             </button>
           )}
         </div>
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
       </div>
     );
   }
@@ -473,6 +477,8 @@ export default function EntranceExamPaymentPage() {
         >
           {plan?.icon} Continue with {plan?.label} — ₦{plan?.price?.toLocaleString()} →
         </button>
+
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
       </div>
     );
   }
@@ -683,6 +689,8 @@ export default function EntranceExamPaymentPage() {
           ☝️ Select a payment method above to continue
         </div>
       )}
+
+      <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
     </div>
   );
 }
