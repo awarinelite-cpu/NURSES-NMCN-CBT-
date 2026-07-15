@@ -1,6 +1,6 @@
 // src/components/student/SubscriptionPage.jsx
-import { useState, useEffect } from 'react';
-import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { useState, useEffect, useRef } from 'react';
+import { addDoc, collection, serverTimestamp, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
@@ -34,6 +34,9 @@ export default function SubscriptionPage() {
   const [code,          setCode]          = useState('');
   const [loading,       setLoading]       = useState(false);
   const [paystackReady, setPaystackReady] = useState(false);
+  const [activating,    setActivating]    = useState(false); // waiting on server-side webhook to flip access
+  const [activationRef, setActivationRef] = useState('');
+  const listenerRef = useRef(null);
 
   const plan = ACCESS_PLANS.find(p => p.id === selectedPlan);
 
@@ -65,6 +68,16 @@ export default function SubscriptionPage() {
     document.head.appendChild(script);
   }, []);
 
+  /* ── Clean up the activation listener if the page unmounts mid-wait ── */
+  useEffect(() => {
+    return () => {
+      if (listenerRef.current) {
+        listenerRef.current.unsubscribe();
+        clearTimeout(listenerRef.current.timeoutId);
+      }
+    };
+  }, []);
+
   /* ── Paystack handler ── */
   const handlePaystack = () => {
     if (!paystackReady || typeof window.PaystackPop === 'undefined') {
@@ -92,7 +105,14 @@ export default function SubscriptionPage() {
       // FIX: NOT async — Paystack callback must be synchronous on mobile
       callback: (response) => {
         window.__paymentModalOpen = false;
-        // updateDoc and doc are now top-level imports — no dynamic import()
+
+        // Firestore rules forbid any user (even the owner) from setting
+        // subscribed/subscriptionPlan/subscriptionExpiry on their own account —
+        // that's what stops someone granting themselves free access via
+        // devtools. Activation happens server-side via the paystackWebhook
+        // Cloud Function (Admin SDK, not subject to these rules) once
+        // Paystack's own charge confirmation reaches it. So: wait for that
+        // write to actually land instead of pretending the client did it.
         addDoc(collection(db, 'payments'), {
           userId:    user.uid,
           userName:  profile?.name || user.displayName,
@@ -102,25 +122,46 @@ export default function SubscriptionPage() {
           days,
           method:    'paystack',
           reference: response.reference,
-          status:    'confirmed',
+          status:    'pending', // flipped to 'confirmed' by the webhook, or by an admin
+          type:      'nmcn_cbt',
           createdAt: serverTimestamp(),
-          expiresAt: expiry,
         })
-        .then(() => updateDoc(doc(db, 'users', user.uid), {
-          subscribed:         true,
-          accessLevel:        selectedPlan,
-          subscriptionPlan:   selectedPlan,
-          subscriptionExpiry: expiry.toISOString(),
-          updatedAt:          serverTimestamp(),
-        }))
-        .then(() => refreshProfile())
         .then(() => {
-          toast('🎉 Payment successful! Access activated.', 'success');
-          setStep(3);
+          setActivationRef(response.reference);
+          setActivating(true);
+
+          const timeoutMs = 90_000;
+          const timeoutId = setTimeout(() => {
+            unsubscribe();
+            setActivating(false);
+            toast(
+              `Payment received, but activation is taking longer than expected. It should still complete automatically — ` +
+              `if your access isn't active in a few minutes, contact support with this reference: ${response.reference}`,
+              'error'
+            );
+          }, timeoutMs);
+
+          const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+            const data = snap.data();
+            if (data?.subscribed && data?.subscriptionPlan === selectedPlan) {
+              clearTimeout(timeoutId);
+              unsubscribe();
+              setActivating(false);
+              refreshProfile().then(() => {
+                toast('🎉 Payment successful! Access activated.', 'success');
+                setStep(3);
+              });
+            }
+          }, () => {
+            // Snapshot listener itself errored (e.g. offline) — the
+            // timeout above still gives the user a clear next step.
+          });
+
+          listenerRef.current = { unsubscribe, timeoutId };
         })
         .catch(() => {
           toast(
-            'Payment received but failed to save. Contact support with ref: ' + response.reference,
+            'Payment received but we could not record it. Contact support with ref: ' + response.reference,
             'error'
           );
         });
@@ -384,22 +425,37 @@ export default function SubscriptionPage() {
           {/* ── Paystack ── */}
           {payMode === 'paystack' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
-              <div style={{ ...styles.bankBox, borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-                  🔒 You'll be taken to <strong style={{ color: 'var(--text-primary)' }}>Paystack's secure checkout</strong>. Pay with debit card, bank transfer, or USSD. Access is granted <strong style={{ color: 'var(--text-primary)' }}>instantly</strong> after payment.
-                </p>
-              </div>
-              <button
-                className="btn btn-primary btn-full btn-lg"
-                onClick={handlePaystack}
-                disabled={!paystackReady}
-                style={{ opacity: paystackReady ? 1 : 0.6 }}
-              >
-                {paystackReady
-                  ? `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely`
-                  : '⏳ Loading Paystack…'}
-              </button>
+              {activating ? (
+                <div style={{ ...styles.bankBox, textAlign: 'center', borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                  <div style={{
+                    width: 28, height: 28, margin: '0 auto 14px', border: '3px solid rgba(13,148,136,0.25)',
+                    borderTopColor: 'var(--teal)', borderRadius: '50%', animation: 'spin 0.75s linear infinite',
+                  }} />
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Payment received — activating your access…</div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+                    This usually takes a few seconds. Ref: {activationRef}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
+                  <div style={{ ...styles.bankBox, borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.7 }}>
+                      🔒 You'll be taken to <strong style={{ color: 'var(--text-primary)' }}>Paystack's secure checkout</strong>. Pay with debit card, bank transfer, or USSD. Access is granted <strong style={{ color: 'var(--text-primary)' }}>instantly</strong> after payment.
+                    </p>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-full btn-lg"
+                    onClick={handlePaystack}
+                    disabled={!paystackReady}
+                    style={{ opacity: paystackReady ? 1 : 0.6 }}
+                  >
+                    {paystackReady
+                      ? `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely`
+                      : '⏳ Loading Paystack…'}
+                  </button>
+                </>
+              )}
             </div>
           )}
 
