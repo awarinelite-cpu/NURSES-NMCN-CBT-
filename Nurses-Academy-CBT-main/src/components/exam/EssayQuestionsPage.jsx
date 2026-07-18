@@ -153,6 +153,7 @@ export default function EssayQuestionsPage() {
                 width: '100%', maxWidth: '100%', boxSizing: 'border-box',
                 fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 10,
                 whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word',
+                textAlign: 'justify', textJustify: 'inter-word',
               }}>
                 {q.stem}
               </div>
@@ -165,7 +166,7 @@ export default function EssayQuestionsPage() {
                 width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box',
               }}>
                 {p.label && <span style={{ fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>{p.label}.</span>}
-                <span style={{ overflowWrap: 'break-word', wordBreak: 'break-word', minWidth: 0, flex: '1 1 auto' }}>
+                <span style={{ overflowWrap: 'break-word', wordBreak: 'break-word', minWidth: 0, flex: '1 1 auto', textAlign: 'justify', textJustify: 'inter-word' }}>
                   {p.text}
                   {p.marks && <span style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: 'italic' }}> &nbsp;({p.marks})</span>}
                 </span>
