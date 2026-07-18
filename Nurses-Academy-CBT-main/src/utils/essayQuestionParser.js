@@ -12,7 +12,7 @@
 //       {
 //         number: 1,
 //         stem: 'Mrs. Grace Musa, a 24-year-old ...' (scenario text, table lines stripped out),
-//         table: { headers: ['Time', 'Cervical Dilatation (cm)', ...], rows: [[...], ...] } | null,
+//         table: { headers: ['Time', 'Cervical Dilatation (cm)', ...], rows: [{cells:[...]}, ...] } | null,
 //         parts: [
 //           { label: 'A', text: 'Plot all the above observations...', marks: '5 Marks' },
 //           { label: 'B', text: 'Interpret the completed partograph...', marks: '1 Marks each' },
@@ -100,7 +100,10 @@ export function extractTable(text) {
     let end = i + 2;
     const rows = [];
     while (end < lines.length && lines[end].trim() && lines[end].includes('|')) {
-      rows.push(splitTableRow(lines[end]));
+      // Firestore disallows arrays nested directly inside arrays, so each
+      // row's cells are wrapped in an object: { cells: [...] } instead of
+      // a bare array-of-arrays.
+      rows.push({ cells: splitTableRow(lines[end]) });
       end++;
     }
 

@@ -41,7 +41,7 @@ function QuestionTable({ table }) {
         <tbody>
           {table.rows.map((row, ri) => (
             <tr key={ri}>
-              {row.map((cell, ci) => (
+              {(row.cells || []).map((cell, ci) => (
                 <td key={ci} style={{
                   border: '1px solid var(--border)', padding: '6px 8px',
                   color: 'var(--text-secondary)', whiteSpace: 'nowrap',
