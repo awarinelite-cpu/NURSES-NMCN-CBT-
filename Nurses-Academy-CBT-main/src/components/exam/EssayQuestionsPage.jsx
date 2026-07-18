@@ -19,9 +19,9 @@ const H = "'Arial Black', Arial, sans-serif";
 function QuestionTable({ table }) {
   if (!table || !table.rows || table.rows.length === 0) return null;
   return (
-    <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+    <div style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0, marginBottom: 10, boxSizing: 'border-box' }}>
       <table style={{
-        borderCollapse: 'collapse', width: '100%', fontSize: 12.5,
+        borderCollapse: 'collapse', fontSize: 12.5,
         fontFamily: "'Segoe UI', Arial, sans-serif",
       }}>
         <thead>
@@ -90,7 +90,7 @@ export default function EssayQuestionsPage() {
   // ── Detail view ────────────────────────────────────────────────────────────
   if (openSet) {
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', fontFamily: F }}>
+      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', fontFamily: F, minWidth: 0, boxSizing: 'border-box' }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => setOpenSet(null)}
@@ -133,20 +133,21 @@ export default function EssayQuestionsPage() {
           <div key={q.number} style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)',
             borderRadius: 14, padding: '16px 18px', marginBottom: 14,
+            minWidth: 0, boxSizing: 'border-box', overflow: 'hidden',
           }}>
             <div style={{ fontFamily: H, fontWeight: 800, fontSize: 15, color: sp.color, marginBottom: 8 }}>
               Question {q.number}
             </div>
             {q.stem && (
-              <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 10, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                 {q.stem}
               </div>
             )}
             <QuestionTable table={q.table} />
             {(q.parts || []).map((p, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, minWidth: 0 }}>
                 {p.label && <span style={{ fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>{p.label}.</span>}
-                <span>
+                <span style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: 0 }}>
                   {p.text}
                   {p.marks && <span style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: 'italic' }}> &nbsp;({p.marks})</span>}
                 </span>

@@ -71,7 +71,7 @@ function SetPreview({ result }) {
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Q{q.number}.</div>
               {q.stem && <div style={{ marginBottom: 6, color: 'var(--text-secondary)' }}>{q.stem}</div>}
               {q.table && q.table.rows && q.table.rows.length > 0 && (
-                <div style={{ overflowX: 'auto', marginBottom: 8 }}>
+                <div style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0, marginBottom: 8, boxSizing: 'border-box' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
                     <thead>
                       <tr>
