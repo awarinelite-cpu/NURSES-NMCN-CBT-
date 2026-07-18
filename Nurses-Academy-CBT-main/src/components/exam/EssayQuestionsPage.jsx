@@ -16,6 +16,47 @@ import { SPECIALTIES } from './MockExamPage';
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
 
+function QuestionTable({ table }) {
+  if (!table || !table.rows || table.rows.length === 0) return null;
+  return (
+    <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+      <table style={{
+        borderCollapse: 'collapse', width: '100%', fontSize: 12.5,
+        fontFamily: "'Segoe UI', Arial, sans-serif",
+      }}>
+        <thead>
+          <tr>
+            {table.headers.map((h, i) => (
+              <th key={i} style={{
+                border: '1px solid var(--border)', padding: '6px 8px',
+                background: 'var(--bg-secondary, rgba(148,163,184,0.12))',
+                color: 'var(--text-primary)', fontWeight: 700,
+                textAlign: 'left', whiteSpace: 'nowrap',
+              }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci} style={{
+                  border: '1px solid var(--border)', padding: '6px 8px',
+                  color: 'var(--text-secondary)', whiteSpace: 'nowrap',
+                }}>
+                  {cell || '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function EssayQuestionsPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -101,6 +142,7 @@ export default function EssayQuestionsPage() {
                 {q.stem}
               </div>
             )}
+            <QuestionTable table={q.table} />
             {(q.parts || []).map((p, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                 {p.label && <span style={{ fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>{p.label}.</span>}

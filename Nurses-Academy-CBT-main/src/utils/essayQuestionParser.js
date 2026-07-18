@@ -11,7 +11,8 @@
 //     questions: [
 //       {
 //         number: 1,
-//         stem: 'Mrs. Grace Musa, a 24-year-old ... (scenario + any table lines)',
+//         stem: 'Mrs. Grace Musa, a 24-year-old ...' (scenario text, table lines stripped out),
+//         table: { headers: ['Time', 'Cervical Dilatation (cm)', ...], rows: [[...], ...] } | null,
 //         parts: [
 //           { label: 'A', text: 'Plot all the above observations...', marks: '5 Marks' },
 //           { label: 'B', text: 'Interpret the completed partograph...', marks: '1 Marks each' },
@@ -65,6 +66,57 @@ function parseMeta(headerText) {
   return { setLabel, title, institution, courseCode, courseTitle, examDate, timeAllowed, instruction };
 }
 
+/** Split one "| a | b | c |" style row into trimmed cells. */
+function splitTableRow(line) {
+  let t = line.trim();
+  if (t.startsWith('|')) t = t.slice(1);
+  if (t.endsWith('|')) t = t.slice(0, -1);
+  return t.split('|').map(c => c.trim());
+}
+
+/** True if a line is a markdown table separator row, e.g. "|---|:---:|---|". */
+function isTableSeparator(line) {
+  const t = line.trim();
+  return /^[\s|:-]+$/.test(t) && t.includes('-') && t.includes('|');
+}
+
+/**
+ * Detect a single markdown pipe-table block inside a stem (e.g. a partograph
+ * observation chart embedded in a scenario) and pull it out into structured
+ * { headers, rows }, returning the surrounding text with the table lines removed.
+ * If no table is found, `table` is null and `text` is returned unchanged.
+ */
+export function extractTable(text) {
+  const lines = String(text || '').split('\n');
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const headerLine = lines[i];
+    const sepLine = lines[i + 1];
+    if ((headerLine.match(/\|/g) || []).length < 2) continue;
+    if (!headerLine.trim() || !isTableSeparator(sepLine)) continue;
+
+    const headers = splitTableRow(headerLine);
+
+    let end = i + 2;
+    const rows = [];
+    while (end < lines.length && lines[end].trim() && lines[end].includes('|')) {
+      rows.push(splitTableRow(lines[end]));
+      end++;
+    }
+
+    if (rows.length === 0) continue; // separator with no data rows — not a real table
+
+    const remaining = [...lines.slice(0, i), ...lines.slice(end)]
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    return { text: remaining, table: { headers, rows } };
+  }
+
+  return { text: text.trim(), table: null };
+}
+
 /** Strip a trailing "5 Marks" / "1 mark each" / "4mark" style suffix off a part's text. */
 export function extractMarks(text) {
   const re = /(\d+(?:\.\d+)?)\s*marks?\s*(each)?\.?\s*$/i;
@@ -81,11 +133,13 @@ function parseQuestionBody(body) {
 
   if (matches.length === 0) {
     // No lettered sub-parts — whole body is the stem (rare, but keep it usable).
-    const { text, marks } = extractMarks(body.trim());
-    return { stem: '', parts: [{ label: '', text, marks }] };
+    const { text: bodyText, table } = extractTable(body.trim());
+    const { text, marks } = extractMarks(bodyText);
+    return { stem: '', table, parts: [{ label: '', text, marks }] };
   }
 
-  const stem = body.slice(0, matches[0].index).trim();
+  const stemRaw = body.slice(0, matches[0].index).trim();
+  const { text: stem, table } = extractTable(stemRaw);
   const parts = matches.map((m, i) => {
     const start = m.index + m[0].length;
     const end   = i + 1 < matches.length ? matches[i + 1].index : body.length;
@@ -94,7 +148,7 @@ function parseQuestionBody(body) {
     return { label: m[1], text, marks };
   });
 
-  return { stem, parts };
+  return { stem, table, parts };
 }
 
 export function parseEssayQuestions(rawText) {
@@ -121,11 +175,11 @@ export function parseEssayQuestions(rawText) {
     const bodyEnd   = i + 1 < starts.length ? starts[i + 1].index : text.length;
     const body = text.slice(bodyStart, bodyEnd).trim();
 
-    const { stem, parts } = parseQuestionBody(body);
-    if (!stem && parts.length && !parts[0].label) {
+    const { stem, table, parts } = parseQuestionBody(body);
+    if (!stem && !table && parts.length && !parts[0].label) {
       warnings.push(`Q${number}: no lettered sub-parts (A., B., ...) detected — check formatting.`);
     }
-    return { number, stem, parts };
+    return { number, stem, table, parts };
   });
 
   return { meta, questions, warnings };

@@ -70,6 +70,28 @@ function SetPreview({ result }) {
             <div key={q.number} style={{ marginBottom: 14, fontSize: 13, color: 'var(--text-primary)' }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Q{q.number}.</div>
               {q.stem && <div style={{ marginBottom: 6, color: 'var(--text-secondary)' }}>{q.stem}</div>}
+              {q.table && q.table.rows && q.table.rows.length > 0 && (
+                <div style={{ overflowX: 'auto', marginBottom: 8 }}>
+                  <table style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
+                    <thead>
+                      <tr>
+                        {q.table.headers.map((h, i) => (
+                          <th key={i} style={{ border: '1px solid var(--border)', padding: '4px 6px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {q.table.rows.map((row, ri) => (
+                        <tr key={ri}>
+                          {row.map((cell, ci) => (
+                            <td key={ci} style={{ border: '1px solid var(--border)', padding: '4px 6px', whiteSpace: 'nowrap' }}>{cell || '—'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {q.parts.map((p, i) => (
                 <div key={i} style={{ marginLeft: 14, marginBottom: 2 }}>
                   {p.label && <strong>{p.label}. </strong>}{p.text} {p.marks && <em style={{ color: 'var(--text-muted)' }}>({p.marks})</em>}

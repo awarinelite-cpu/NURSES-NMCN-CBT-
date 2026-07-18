@@ -34,7 +34,7 @@
 //     the same way as the .txt case (on "COMPLETE_ESSAY_SET" markers).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { parseEssayQuestions, extractMarks } from './essayQuestionParser';
+import { parseEssayQuestions, extractMarks, extractTable } from './essayQuestionParser';
 
 function nh(s) {
   return String(s || '').toLowerCase().replace(/[\s_\-.]/g, '');
@@ -106,13 +106,15 @@ function parseStructuredRows(rows, colMap) {
     if (!current) current = { meta: {}, questions: [] };
 
     if (rowType === 'question' && !Number.isNaN(number)) {
+      const { text: stem, table } = extractTable(text);
       let q = questionMap[number];
       if (!q) {
-        q = { number, stem: text, parts: [] };
+        q = { number, stem, table, parts: [] };
         questionMap[number] = q;
         current.questions.push(q);
       } else {
-        q.stem = text;
+        q.stem = stem;
+        q.table = table;
       }
       return;
     }
@@ -120,7 +122,7 @@ function parseStructuredRows(rows, colMap) {
     if (rowType === 'part' && !Number.isNaN(number)) {
       let q = questionMap[number];
       if (!q) {
-        q = { number, stem: '', parts: [] };
+        q = { number, stem: '', table: null, parts: [] };
         questionMap[number] = q;
         current.questions.push(q);
       }
