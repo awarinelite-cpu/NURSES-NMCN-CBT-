@@ -19,7 +19,11 @@ const H = "'Arial Black', Arial, sans-serif";
 function QuestionTable({ table }) {
   if (!table || !table.rows || table.rows.length === 0) return null;
   return (
-    <div style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0, marginBottom: 10, boxSizing: 'border-box' }}>
+    <div style={{
+      overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+      width: '100%', maxWidth: '100%', minWidth: 0,
+      marginBottom: 10, boxSizing: 'border-box',
+    }}>
       <table style={{
         borderCollapse: 'collapse', fontSize: 12.5,
         fontFamily: "'Segoe UI', Arial, sans-serif",
@@ -90,7 +94,11 @@ export default function EssayQuestionsPage() {
   // ── Detail view ────────────────────────────────────────────────────────────
   if (openSet) {
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', fontFamily: F, minWidth: 0, boxSizing: 'border-box' }}>
+      <div style={{
+        width: '100%', maxWidth: 760, margin: '0 auto',
+        padding: '24px 16px', boxSizing: 'border-box',
+        fontFamily: F, overflowX: 'hidden',
+      }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => setOpenSet(null)}
@@ -100,6 +108,7 @@ export default function EssayQuestionsPage() {
         </button>
 
         <div style={{
+          width: '100%', boxSizing: 'border-box',
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: 16, padding: '20px 18px', marginBottom: 18, textAlign: 'center',
         }}>
@@ -131,23 +140,32 @@ export default function EssayQuestionsPage() {
 
         {(openSet.questions || []).map(q => (
           <div key={q.number} style={{
+            width: '100%', maxWidth: '100%',
             background: 'var(--bg-card)', border: '1px solid var(--border)',
             borderRadius: 14, padding: '16px 18px', marginBottom: 14,
-            minWidth: 0, boxSizing: 'border-box', overflow: 'hidden',
+            minWidth: 0, boxSizing: 'border-box', overflowX: 'hidden',
           }}>
             <div style={{ fontFamily: H, fontWeight: 800, fontSize: 15, color: sp.color, marginBottom: 8 }}>
               Question {q.number}
             </div>
             {q.stem && (
-              <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 10, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+              <div style={{
+                width: '100%', maxWidth: '100%', boxSizing: 'border-box',
+                fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 10,
+                whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word',
+              }}>
                 {q.stem}
               </div>
             )}
             <QuestionTable table={q.table} />
             {(q.parts || []).map((p, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, minWidth: 0 }}>
+              <div key={i} style={{
+                display: 'flex', gap: 8, marginBottom: 8, fontSize: 14,
+                color: 'var(--text-secondary)', lineHeight: 1.5,
+                width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box',
+              }}>
                 {p.label && <span style={{ fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>{p.label}.</span>}
-                <span style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: 0 }}>
+                <span style={{ overflowWrap: 'break-word', wordBreak: 'break-word', minWidth: 0, flex: '1 1 auto' }}>
                   {p.text}
                   {p.marks && <span style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: 'italic' }}> &nbsp;({p.marks})</span>}
                 </span>
@@ -161,7 +179,7 @@ export default function EssayQuestionsPage() {
 
   // ── List view ──────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', padding: '24px 16px', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <button
         className="btn btn-ghost btn-sm"
         onClick={() => navigate('/mock-exams')}

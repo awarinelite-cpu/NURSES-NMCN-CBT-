@@ -291,6 +291,12 @@ html {
   /* Prevent elastic overscroll bounce that causes navbar to shake on mobile */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
+  /* Hard safety net: never let the document itself scroll sideways, no
+     matter what a child page does. Individual widgets (like data tables)
+     opt back into horizontal scrolling locally via overflow-x: auto. */
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 body {
@@ -305,6 +311,15 @@ body {
   /* Kill pull-to-refresh & overscroll bounce on Android/iOS */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 /* ── Typography ───────────────────────────────────────────────────── */
