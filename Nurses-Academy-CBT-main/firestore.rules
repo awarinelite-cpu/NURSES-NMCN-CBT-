@@ -52,6 +52,11 @@ service cloud.firestore {
       allow write: if isAdminOrSubAdmin();
     }
 
+    match /essayQuestionSets/{setId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     match /exams/{examId} {
       allow read:  if isAuth();
       allow write: if isAdminOrSubAdmin();

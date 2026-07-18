@@ -156,6 +156,7 @@ function FloatingNav() {
 
   const NAV_ITEMS = [
     { label: 'NMCN Questions',    icon: '❓', to: '/admin/questions'                    },
+    { label: 'Essay Questions',   icon: '📜', to: '/admin/essay-questions'              },
     { label: 'Entrance Add',      icon: '➕', to: '/admin/entrance-exam?tab=add_single' },
     { label: 'Entrance Bulk',     icon: '📤', to: '/admin/entrance-exam?tab=bulk'       },
     { label: 'Entrance Bank',     icon: '📋', to: '/admin/entrance-exam?tab=bank'       },
@@ -289,6 +290,7 @@ export default function AdminDashboard() {
   const NMCN_ACTIONS = [
     { label: 'Add Question',     icon: '➕', to: '/admin/questions?action=add',  color: '#0D9488' },
     { label: 'Bulk Upload',      icon: '📤', to: '/admin/questions?action=bulk', color: '#2563EB' },
+    { label: 'Essay Questions',  icon: '📜', to: '/admin/essay-questions',       color: '#DB2777' },
     { label: 'Manage Users',     icon: '👥', to: '/admin/users',                 color: '#7C3AED' },
     { label: 'Access Codes',     icon: '🔑', to: '/admin/access-codes',          color: '#F59E0B' },
     { label: 'Announcements',    icon: '📢', to: '/admin/announcements',         color: '#EF4444' },

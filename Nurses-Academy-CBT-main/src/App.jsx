@@ -48,6 +48,7 @@ import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
 import DailyMockExamHub   from './components/exam/DailyMockExamHub';
 import MockExamPage       from './components/exam/MockExamPage';
+import EssayQuestionsPage from './components/exam/EssayQuestionsPage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
 import TopicDrillPage     from './components/exam/TopicDrillPage';
 import CaosceHub          from './components/exam/CaosceHub';
@@ -81,6 +82,7 @@ import EntranceStudyBuddyPage  from './components/entrance/EntranceStudyBuddyPag
 import AdminDashboard        from './components/admin/AdminDashboard';
 import SubAdminDashboard     from './components/admin/SubAdminDashboard';
 import QuestionsManager      from './components/admin/QuestionsManager';
+import EssayQuestionsManager from './components/admin/EssayQuestionsManager';
 import UsersManager          from './components/admin/UsersManager';
 import PaymentsManager       from './components/admin/PaymentsManager';
 import AccessCodesManager    from './components/admin/AccessCodesManager';
@@ -307,6 +309,7 @@ export default function App() {
                 <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
                 <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
+                <Route path="/essay-questions" element={<FreeTrialRoute><EssayQuestionsPage /></FreeTrialRoute>} />
                 <Route path="/daily-mock-exam" element={<FreeTrialRoute><DailyMockExamHub /></FreeTrialRoute>} />
                 <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
                 <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
@@ -334,6 +337,7 @@ export default function App() {
                 <Route path="/admin"                                 element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/subadmin"                             element={<SubAdminRoute><SubAdminDashboard /></SubAdminRoute>} />
                 <Route path="/admin/questions"                       element={<SubAdminRoute><QuestionsManager /></SubAdminRoute>} />
+                <Route path="/admin/essay-questions"                 element={<SubAdminRoute><EssayQuestionsManager /></SubAdminRoute>} />
                 <Route path="/admin/users"                           element={<AdminRoute><UsersManager /></AdminRoute>} />
                 <Route path="/admin/payments"                        element={<SubAdminRoute><PaymentsManager /></SubAdminRoute>} />
                 <Route path="/admin/access-codes"                    element={<AdminRoute><AccessCodesManager /></AdminRoute>} />

@@ -32,6 +32,10 @@ const SPECIALTIES = [
   { id: 'community_nursing',     label: 'Community Nursing',     icon: '🏘️',  color: '#0D9488', border: 'rgba(13,148,136,0.40)',  glow: 'rgba(13,148,136,0.12)'  },
 ];
 
+// Exported so the Essay Questions admin/student pages can share the exact
+// same specialty id/label/colour set as this page.
+export { SPECIALTIES };
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(ts) {
   if (!ts) return '';
@@ -385,6 +389,18 @@ export default function MockExamPage() {
             {attempts.length > 0 ? '🔄 Retake Exam' : '🚀 Start Exam'}
           </button>
         )}
+
+        <button
+          onClick={() => navigate(`/essay-questions?specialty=${sp.id}`)}
+          style={{
+            width: '100%', padding: '12px',
+            marginTop: 10, fontSize: 14, fontWeight: 700, borderRadius: 12,
+            background: 'transparent', border: `1px solid ${sp.border}`,
+            color: sp.color, cursor: 'pointer',
+          }}
+        >
+          📜 Essay Questions
+        </button>
       </div>
 
       {/* Previous Attempts */}

@@ -11,6 +11,7 @@ const STUDENT_NAV = [
   { to: '/topic-drill',    icon: '🎯', label: 'Topic Drill'    },
   { to: '/caosce',         icon: '🩺', label: 'CAOSCE Prep'    },
   { to: '/mock-exams',     icon: '📋', label: 'Hospital Final Exam' },
+  { to: '/essay-questions', icon: '📜', label: 'Essay Questions'    },
   { to: '/bookmarks',      icon: '🔖', label: 'Bookmarked'     },
   { to: '/notes',          icon: '📝', label: 'My Notes'       },
   { to: '/group-chat',     icon: '👥', label: 'Group Chat'     },
@@ -45,6 +46,7 @@ const ENTRANCE_NAV = [
 const ADMIN_NAV = [
   { to: '/admin',                  icon: '🛡️', label: 'Admin Overview'  },
   { to: '/admin/questions',        icon: '❓',  label: 'Questions'       },
+  { to: '/admin/essay-questions',  icon: '📜',  label: 'Essay Questions' },
   { to: '/admin/users',            icon: '👥',  label: 'Users'           },
   { to: '/admin/payments',         icon: '💰',  label: 'Payments'        },
   { to: '/admin/access-codes',     icon: '🔑',  label: 'Access Codes'    },
