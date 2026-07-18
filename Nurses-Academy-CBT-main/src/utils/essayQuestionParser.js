@@ -66,7 +66,7 @@ function parseMeta(headerText) {
 }
 
 /** Strip a trailing "5 Marks" / "1 mark each" / "4mark" style suffix off a part's text. */
-function extractMarks(text) {
+export function extractMarks(text) {
   const re = /(\d+(?:\.\d+)?)\s*marks?\s*(each)?\.?\s*$/i;
   const m = text.match(re);
   if (!m) return { text: text.trim(), marks: '' };
