@@ -34,6 +34,7 @@ const H = "'Arial Black', Arial, sans-serif";
 function Card({ children, style }) {
   return (
     <div style={{
+      width: '100%', maxWidth: '100%', boxSizing: 'border-box',
       background: 'var(--bg-card)', border: '1px solid var(--border)',
       borderRadius: 16, padding: 18, ...style,
     }}>
@@ -71,7 +72,7 @@ function SetPreview({ result }) {
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Q{q.number}.</div>
               {q.stem && <div style={{ marginBottom: 6, color: 'var(--text-secondary)' }}>{q.stem}</div>}
               {q.table && q.table.rows && q.table.rows.length > 0 && (
-                <div style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0, marginBottom: 8, boxSizing: 'border-box' }}>
+                <div style={{ overflowX: 'auto', width: '100%', maxWidth: '100%', minWidth: 0, marginBottom: 8, boxSizing: 'border-box' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
                     <thead>
                       <tr>
@@ -435,7 +436,7 @@ export default function EssayQuestionsManager() {
   };
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 860, margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: 860, margin: '0 auto', padding: '24px 16px', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <h2 style={{ margin: 0, fontFamily: H, fontSize: 20, color: 'var(--text-primary)' }}>
           📜 Essay Questions
@@ -677,23 +678,23 @@ export default function EssayQuestionsManager() {
                     <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Institution</label>
                     <input value={editingSet.institution || ''} onChange={e => setMetaField('institution', e.target.value)} style={inputStyle} />
 
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Course Code</label>
                         <input value={editingSet.courseCode || ''} onChange={e => setMetaField('courseCode', e.target.value)} style={inputStyle} />
                       </div>
-                      <div style={{ flex: 2 }}>
+                      <div style={{ flex: 2, minWidth: 0 }}>
                         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Course Title</label>
                         <input value={editingSet.courseTitle || ''} onChange={e => setMetaField('courseTitle', e.target.value)} style={inputStyle} />
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Exam Date</label>
                         <input value={editingSet.examDate || ''} onChange={e => setMetaField('examDate', e.target.value)} style={inputStyle} />
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Time Allowed</label>
                         <input value={editingSet.timeAllowed || ''} onChange={e => setMetaField('timeAllowed', e.target.value)} style={inputStyle} />
                       </div>
@@ -707,6 +708,7 @@ export default function EssayQuestionsManager() {
                     {/* ── Questions ── */}
                     {(editingSet.questions || []).map((q, qi) => (
                       <div key={qi} style={{
+                        width: '100%', maxWidth: '100%', boxSizing: 'border-box',
                         border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14,
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -731,7 +733,10 @@ export default function EssayQuestionsManager() {
                         {q.table && q.table.headers && (
                           <div style={{ marginBottom: 10 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Table</div>
-                            <div style={{ overflowX: 'auto' }}>
+                            <div style={{
+                              overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+                              width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box',
+                            }}>
                               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                                 <thead>
                                   <tr>
