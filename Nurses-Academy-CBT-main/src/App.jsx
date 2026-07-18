@@ -309,7 +309,7 @@ export default function App() {
                 <Route path="/exam/list"       element={<FreeTrialRoute><ExamListPage /></FreeTrialRoute>} />
                 <Route path="/exam/setup"      element={<FreeTrialRoute><ExamSetupPage /></FreeTrialRoute>} />
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
-                <Route path="/essay-questions" element={<FreeTrialRoute><EssayQuestionsPage /></FreeTrialRoute>} />
+                <Route path="/essay-questions" element={<SubscribedRoute><EssayQuestionsPage /></SubscribedRoute>} />
                 <Route path="/daily-mock-exam" element={<FreeTrialRoute><DailyMockExamHub /></FreeTrialRoute>} />
                 <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
                 <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />

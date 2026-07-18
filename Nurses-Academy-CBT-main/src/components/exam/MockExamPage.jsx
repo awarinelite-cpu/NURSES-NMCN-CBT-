@@ -68,6 +68,11 @@ export default function MockExamPage() {
   const navigate    = useNavigate();
   const auth        = useAuth();
   const currentUser = auth.currentUser || auth.user || null;
+  const profile      = auth.profile;
+  const isSubscribed = !!profile && (
+    (profile.subscribed === true || ['full','basic','standard','premium'].includes(profile.accessLevel)) &&
+    profile.subscriptionExpiry && new Date(profile.subscriptionExpiry) > new Date()
+  );
 
   const [view,            setView]            = useState('specialty');
   const [selected,        setSelected]        = useState(null);
@@ -399,7 +404,7 @@ export default function MockExamPage() {
             color: sp.color, cursor: 'pointer',
           }}
         >
-          📜 Essay Questions
+          {isSubscribed ? '📜 Essay Questions' : '🔒 Essay Questions — Subscribers Only'}
         </button>
       </div>
 
