@@ -118,6 +118,9 @@ export default function EssayQuestionsManager() {
   const [bulkBusy,      setBulkBusy]      = useState(false);
   const [bulkSpecialty, setBulkSpecialty] = useState(SPECIALTIES[0].id);
 
+  const [editingSet, setEditingSet] = useState(null);   // deep copy of the set being edited
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const [showForm,    setShowForm]    = useState(false);
   const [specialtyId,  setSpecialtyId] = useState(SPECIALTIES[0].id);
   const [rawText,      setRawText]     = useState('');
@@ -308,6 +311,126 @@ export default function EssayQuestionsManager() {
       toast?.(e.message || 'Failed to move selected sets', 'error');
     } finally {
       setBulkBusy(false);
+    }
+  };
+
+  // ── Edit a single set's content ──────────────────────────────────────────
+  const startEdit = (set) => setEditingSet(JSON.parse(JSON.stringify(set)));
+  const cancelEdit = () => setEditingSet(null);
+
+  const setMetaField = (field, value) =>
+    setEditingSet(prev => ({ ...prev, [field]: value }));
+
+  const setQuestionField = (qi, field, value) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      questions[qi] = { ...questions[qi], [field]: value };
+      return { ...prev, questions };
+    });
+
+  const addQuestion = () =>
+    setEditingSet(prev => {
+      const questions = [...(prev.questions || []), { number: (prev.questions?.length || 0) + 1, stem: '', parts: [] }];
+      return { ...prev, questions };
+    });
+
+  const removeQuestion = (qi) =>
+    setEditingSet(prev => {
+      const questions = (prev.questions || [])
+        .filter((_, idx) => idx !== qi)
+        .map((q, idx) => ({ ...q, number: idx + 1 }));
+      return { ...prev, questions };
+    });
+
+  const setPartField = (qi, pi, field, value) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const parts = [...(questions[qi].parts || [])];
+      parts[pi] = { ...parts[pi], [field]: value };
+      questions[qi] = { ...questions[qi], parts };
+      return { ...prev, questions };
+    });
+
+  const addPart = (qi) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const parts = [...(questions[qi].parts || []), { label: '', text: '', marks: '' }];
+      questions[qi] = { ...questions[qi], parts };
+      return { ...prev, questions };
+    });
+
+  const removePart = (qi, pi) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const parts = (questions[qi].parts || []).filter((_, idx) => idx !== pi);
+      questions[qi] = { ...questions[qi], parts };
+      return { ...prev, questions };
+    });
+
+  // Optional embedded table (e.g. a partograph) on a question
+  const setTableHeader = (qi, hi, value) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const headers = [...(questions[qi].table?.headers || [])];
+      headers[hi] = value;
+      questions[qi] = { ...questions[qi], table: { ...questions[qi].table, headers } };
+      return { ...prev, questions };
+    });
+
+  const setTableCell = (qi, ri, ci, value) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const rows = [...(questions[qi].table?.rows || [])];
+      const cells = [...(rows[ri].cells || [])];
+      cells[ci] = value;
+      rows[ri] = { ...rows[ri], cells };
+      questions[qi] = { ...questions[qi], table: { ...questions[qi].table, rows } };
+      return { ...prev, questions };
+    });
+
+  const addTableRow = (qi) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const headerCount = questions[qi].table?.headers?.length || 0;
+      const rows = [...(questions[qi].table?.rows || []), { cells: Array(headerCount).fill('') }];
+      questions[qi] = { ...questions[qi], table: { ...questions[qi].table, rows } };
+      return { ...prev, questions };
+    });
+
+  const removeTableRow = (qi, ri) =>
+    setEditingSet(prev => {
+      const questions = [...prev.questions];
+      const rows = (questions[qi].table?.rows || []).filter((_, idx) => idx !== ri);
+      questions[qi] = { ...questions[qi], table: { ...questions[qi].table, rows } };
+      return { ...prev, questions };
+    });
+
+  const handleSaveEdit = async () => {
+    if (!editingSet) return;
+    setSavingEdit(true);
+    try {
+      const sp = SPECIALTIES.find(s => s.id === editingSet.specialtyId);
+      const payload = {
+        specialtyId:     editingSet.specialtyId,
+        specialtyLabel:  sp?.label || editingSet.specialtyLabel,
+        title:           editingSet.title || '',
+        institution:     editingSet.institution || '',
+        courseCode:      editingSet.courseCode || '',
+        courseTitle:     editingSet.courseTitle || '',
+        examDate:        editingSet.examDate || '',
+        timeAllowed:     editingSet.timeAllowed || '',
+        instruction:     editingSet.instruction || '',
+        questions:       editingSet.questions || [],
+        updatedAt:       serverTimestamp(),
+      };
+      await updateDoc(doc(db, 'essayQuestionSets', editingSet.id), payload);
+      setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...payload } : s));
+      toast?.('Changes saved', 'success');
+      setEditingSet(null);
+    } catch (e) {
+      toast?.(e.message || 'Failed to save changes', 'error');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -520,6 +643,211 @@ export default function EssayQuestionsManager() {
             {sets.map(set => {
               const sp = SPECIALTIES.find(s => s.id === set.specialtyId);
               const isSelected = selectedIds.has(set.id);
+
+              // ── Editing this set: show the full editor instead of the summary row ──
+              if (editingSet && editingSet.id === set.id) {
+                const inputStyle = {
+                  width: '100%', padding: '8px 10px', borderRadius: 8, marginBottom: 10,
+                  background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box',
+                };
+                const smallInputStyle = { ...inputStyle, marginBottom: 0 };
+
+                return (
+                  <Card key={set.id} style={{ border: '1px solid var(--accent, #0D9488)' }}>
+                    <div style={{ fontFamily: H, fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', marginBottom: 14 }}>
+                      ✏️ Editing: {editingSet.title || editingSet.setLabel || 'Untitled Set'}
+                    </div>
+
+                    {/* ── Meta fields ── */}
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Specialty</label>
+                    <select
+                      value={editingSet.specialtyId}
+                      onChange={e => setMetaField('specialtyId', e.target.value)}
+                      style={inputStyle}
+                    >
+                      {SPECIALTIES.map(s => (
+                        <option key={s.id} value={s.id}>{s.icon} {s.label}</option>
+                      ))}
+                    </select>
+
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Title</label>
+                    <input value={editingSet.title || ''} onChange={e => setMetaField('title', e.target.value)} style={inputStyle} />
+
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Institution</label>
+                    <input value={editingSet.institution || ''} onChange={e => setMetaField('institution', e.target.value)} style={inputStyle} />
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Course Code</label>
+                        <input value={editingSet.courseCode || ''} onChange={e => setMetaField('courseCode', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div style={{ flex: 2 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Course Title</label>
+                        <input value={editingSet.courseTitle || ''} onChange={e => setMetaField('courseTitle', e.target.value)} style={inputStyle} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Exam Date</label>
+                        <input value={editingSet.examDate || ''} onChange={e => setMetaField('examDate', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Time Allowed</label>
+                        <input value={editingSet.timeAllowed || ''} onChange={e => setMetaField('timeAllowed', e.target.value)} style={inputStyle} />
+                      </div>
+                    </div>
+
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Instruction</label>
+                    <input value={editingSet.instruction || ''} onChange={e => setMetaField('instruction', e.target.value)} style={inputStyle} />
+
+                    <div style={{ height: 1, background: 'var(--border)', margin: '6px 0 16px' }} />
+
+                    {/* ── Questions ── */}
+                    {(editingSet.questions || []).map((q, qi) => (
+                      <div key={qi} style={{
+                        border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Question {q.number}</span>
+                          <button
+                            onClick={() => removeQuestion(qi)}
+                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626', background: 'transparent', cursor: 'pointer' }}
+                          >
+                            Remove Question
+                          </button>
+                        </div>
+
+                        <textarea
+                          value={q.stem || ''}
+                          onChange={e => setQuestionField(qi, 'stem', e.target.value)}
+                          rows={3}
+                          placeholder="Question stem / scenario text"
+                          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+
+                        {/* Embedded table (e.g. a partograph) */}
+                        {q.table && q.table.headers && (
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Table</div>
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                                <thead>
+                                  <tr>
+                                    {q.table.headers.map((h, hi) => (
+                                      <th key={hi} style={{ padding: 4 }}>
+                                        <input
+                                          value={h}
+                                          onChange={e => setTableHeader(qi, hi, e.target.value)}
+                                          style={{ ...smallInputStyle, minWidth: 90, fontWeight: 700 }}
+                                        />
+                                      </th>
+                                    ))}
+                                    <th />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(q.table.rows || []).map((row, ri) => (
+                                    <tr key={ri}>
+                                      {(row.cells || []).map((cell, ci) => (
+                                        <td key={ci} style={{ padding: 4 }}>
+                                          <input
+                                            value={cell}
+                                            onChange={e => setTableCell(qi, ri, ci, e.target.value)}
+                                            style={{ ...smallInputStyle, minWidth: 90 }}
+                                          />
+                                        </td>
+                                      ))}
+                                      <td style={{ padding: 4 }}>
+                                        <button
+                                          onClick={() => removeTableRow(qi, ri)}
+                                          style={{ padding: '4px 8px', borderRadius: 6, fontSize: 11, border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626', background: 'transparent', cursor: 'pointer' }}
+                                        >
+                                          ✕
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <button
+                              onClick={() => addTableRow(qi)}
+                              style={{ marginTop: 6, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer' }}
+                            >
+                              + Add Row
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Parts (A, B, C sub-questions) */}
+                        {(q.parts || []).map((p, pi) => (
+                          <div key={pi} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
+                            <input
+                              value={p.label || ''}
+                              onChange={e => setPartField(qi, pi, 'label', e.target.value)}
+                              placeholder="A"
+                              style={{ ...smallInputStyle, width: 40, flexShrink: 0 }}
+                            />
+                            <input
+                              value={p.text || ''}
+                              onChange={e => setPartField(qi, pi, 'text', e.target.value)}
+                              placeholder="Part text"
+                              style={{ ...smallInputStyle, flex: 1, minWidth: 0 }}
+                            />
+                            <input
+                              value={p.marks || ''}
+                              onChange={e => setPartField(qi, pi, 'marks', e.target.value)}
+                              placeholder="Marks"
+                              style={{ ...smallInputStyle, width: 80, flexShrink: 0 }}
+                            />
+                            <button
+                              onClick={() => removePart(qi, pi)}
+                              style={{ padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626', background: 'transparent', cursor: 'pointer', flexShrink: 0 }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addPart(qi)}
+                          style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer' }}
+                        >
+                          + Add Part
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={addQuestion}
+                      style={{ padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer', marginBottom: 16 }}
+                    >
+                      + Add Question
+                    </button>
+
+                    <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleSaveEdit}
+                        disabled={savingEdit}
+                        style={{ padding: '10px 18px', borderRadius: 10, fontWeight: 700 }}
+                      >
+                        {savingEdit ? 'Saving…' : '💾 Save Changes'}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={savingEdit}
+                        style={{ padding: '10px 18px', borderRadius: 10, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </Card>
+                );
+              }
+
+              // ── Normal summary row ──
               return (
                 <Card
                   key={set.id}
@@ -544,7 +872,17 @@ export default function EssayQuestionsManager() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => startEdit(set)}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        border: '1px solid var(--border)', color: 'var(--text-secondary)',
+                        background: 'transparent', cursor: 'pointer',
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
                     <button
                       onClick={() => toggleActive(set)}
                       style={{
