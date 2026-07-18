@@ -21,7 +21,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   collection, getDocs, deleteDoc, updateDoc,
-  doc, addDoc, serverTimestamp, orderBy, query,
+  doc, addDoc, serverTimestamp, orderBy, query, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { SPECIALTIES } from '../exam/MockExamPage';
@@ -113,6 +113,10 @@ export default function EssayQuestionsManager() {
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  const [selectedIds,  setSelectedIds]  = useState(() => new Set());
+  const [bulkBusy,      setBulkBusy]      = useState(false);
+  const [bulkSpecialty, setBulkSpecialty] = useState(SPECIALTIES[0].id);
 
   const [showForm,    setShowForm]    = useState(false);
   const [specialtyId,  setSpecialtyId] = useState(SPECIALTIES[0].id);
@@ -218,11 +222,92 @@ export default function EssayQuestionsManager() {
     try {
       await deleteDoc(doc(db, 'essayQuestionSets', id));
       setSets(prev => prev.filter(s => s.id !== id));
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
       toast?.('Deleted', 'success');
     } catch (e) {
       toast?.(e.message || 'Failed to delete', 'error');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // ── Bulk selection ──────────────────────────────────────────────────────
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = sets.length > 0 && selectedIds.size === sets.length;
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(sets.map(s => s.id)));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // ── Bulk delete ──────────────────────────────────────────────────────────
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} essay question set${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkBusy(true);
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.delete(doc(db, 'essayQuestionSets', id)));
+      await batch.commit();
+      setSets(prev => prev.filter(s => !selectedIds.has(s.id)));
+      clearSelection();
+      toast?.(`Deleted ${ids.length} set${ids.length === 1 ? '' : 's'}`, 'success');
+    } catch (e) {
+      toast?.(e.message || 'Failed to delete selected sets', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // ── Bulk edit: active / hidden ──────────────────────────────────────────
+  const handleBulkSetActive = async (active) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.update(doc(db, 'essayQuestionSets', id), { active, updatedAt: serverTimestamp() }));
+      await batch.commit();
+      setSets(prev => prev.map(s => selectedIds.has(s.id) ? { ...s, active } : s));
+      toast?.(`${active ? 'Activated' : 'Hidden'} ${ids.length} set${ids.length === 1 ? '' : 's'}`, 'success');
+    } catch (e) {
+      toast?.(e.message || 'Failed to update selected sets', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // ── Bulk edit: move to a different specialty ─────────────────────────────
+  const handleBulkMoveSpecialty = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const sp = SPECIALTIES.find(s => s.id === bulkSpecialty);
+    if (!window.confirm(`Move ${ids.length} set${ids.length === 1 ? '' : 's'} to "${sp?.label || bulkSpecialty}"?`)) return;
+    setBulkBusy(true);
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.update(doc(db, 'essayQuestionSets', id), {
+        specialtyId: bulkSpecialty,
+        specialtyLabel: sp?.label || bulkSpecialty,
+        updatedAt: serverTimestamp(),
+      }));
+      await batch.commit();
+      setSets(prev => prev.map(s => selectedIds.has(s.id)
+        ? { ...s, specialtyId: bulkSpecialty, specialtyLabel: sp?.label || bulkSpecialty }
+        : s));
+      toast?.(`Moved ${ids.length} set${ids.length === 1 ? '' : 's'} to ${sp?.label || bulkSpecialty}`, 'success');
+    } catch (e) {
+      toast?.(e.message || 'Failed to move selected sets', 'error');
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -360,47 +445,134 @@ export default function EssayQuestionsManager() {
           No essay question sets yet. Add one above.
         </Card>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {sets.map(set => {
-            const sp = SPECIALTIES.find(s => s.id === set.specialtyId);
-            return (
-              <Card key={set.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                    {sp?.icon || '📜'} {set.title || set.setLabel || 'Untitled Set'}
+        <>
+          {/* ── Select-all + bulk action bar ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap',
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} style={{ width: 16, height: 16 }} />
+              Select all ({sets.length})
+            </label>
+
+            {selectedIds.size > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '8px 10px', flex: '1 1 auto',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {selectedIds.size} selected
+                </span>
+
+                <button
+                  onClick={() => handleBulkSetActive(true)}
+                  disabled={bulkBusy}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid rgba(22,163,74,0.30)', color: '#16A34A', background: 'rgba(22,163,74,0.10)', cursor: 'pointer' }}
+                >
+                  ✅ Activate
+                </button>
+                <button
+                  onClick={() => handleBulkSetActive(false)}
+                  disabled={bulkBusy}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer' }}
+                >
+                  🙈 Hide
+                </button>
+
+                <select
+                  value={bulkSpecialty}
+                  onChange={e => setBulkSpecialty(e.target.value)}
+                  style={{ padding: '6px 8px', borderRadius: 8, fontSize: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                >
+                  {SPECIALTIES.map(sp => (
+                    <option key={sp.id} value={sp.id}>{sp.icon} {sp.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleBulkMoveSpecialty}
+                  disabled={bulkBusy}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'transparent', cursor: 'pointer' }}
+                >
+                  ↪️ Move
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkBusy}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626', background: 'rgba(220,38,38,0.10)', cursor: 'pointer' }}
+                >
+                  {bulkBusy ? '…' : `🗑️ Delete ${selectedIds.size}`}
+                </button>
+
+                <button
+                  onClick={clearSelection}
+                  disabled={bulkBusy}
+                  style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer' }}
+                >
+                  ✕ Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {sets.map(set => {
+              const sp = SPECIALTIES.find(s => s.id === set.specialtyId);
+              const isSelected = selectedIds.has(set.id);
+              return (
+                <Card
+                  key={set.id}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                    border: isSelected ? '1px solid var(--accent, #0D9488)' : '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(set.id)}
+                      style={{ width: 16, height: 16, flexShrink: 0 }}
+                    />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                        {sp?.icon || '📜'} {set.title || set.setLabel || 'Untitled Set'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {set.specialtyLabel} · {set.courseCode} · {(set.questions || []).length} questions
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {set.specialtyLabel} · {set.courseCode} · {(set.questions || []).length} questions
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => toggleActive(set)}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        border: '1px solid var(--border)', cursor: 'pointer',
+                        background: set.active ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)',
+                        color: set.active ? '#16A34A' : '#DC2626',
+                      }}
+                    >
+                      {set.active ? 'Active' : 'Hidden'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(set.id)}
+                      disabled={deletingId === set.id}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626',
+                        background: 'transparent', cursor: 'pointer',
+                      }}
+                    >
+                      {deletingId === set.id ? '…' : '🗑️ Delete'}
+                    </button>
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => toggleActive(set)}
-                    style={{
-                      padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      border: '1px solid var(--border)', cursor: 'pointer',
-                      background: set.active ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)',
-                      color: set.active ? '#16A34A' : '#DC2626',
-                    }}
-                  >
-                    {set.active ? 'Active' : 'Hidden'}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(set.id)}
-                    disabled={deletingId === set.id}
-                    style={{
-                      padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      border: '1px solid rgba(220,38,38,0.30)', color: '#DC2626',
-                      background: 'transparent', cursor: 'pointer',
-                    }}
-                  >
-                    {deletingId === set.id ? '…' : '🗑️ Delete'}
-                  </button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
