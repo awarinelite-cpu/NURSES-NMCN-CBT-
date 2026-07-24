@@ -52,6 +52,13 @@ service cloud.firestore {
       allow write: if isAdminOrSubAdmin();
     }
 
+    // AI Answer Verification queue (Admin > Answer Audit). Holds low-confidence
+    // AI disagreements pending human accept/dismiss.
+    match /answerReviewQueue/{reviewId} {
+      allow read:  if isAdminOrSubAdmin();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     match /essayQuestionSets/{setId} {
       allow read:  if isAuth();
       allow write: if isAdminOrSubAdmin();

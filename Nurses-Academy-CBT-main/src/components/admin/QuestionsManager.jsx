@@ -17,6 +17,7 @@ import {
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
 import EditQuestionsTab from './EditQuestionsTab';
+import AnswerAuditTab from './AnswerAuditTab';
 import { readQuestionFile, readCsvFileAsQuestions, generateCsvTemplate } from '../../utils/questionFileImport';
 import { getAiExplanation } from '../../utils/aiExplain';
 
@@ -1245,6 +1246,7 @@ export default function QuestionsManager() {
           ['bulk_upload', '📤 Bulk\nUpload'],
           ['stats',       '📊 Usage\nStats'],
           ['edit',        '✏️ Quick\nEdit'],
+          ['audit',       '🩺 Answer\nAudit'],
           ['tools',       '🔧 Admin\nTools'],
         ].map(([id, label]) => (
           <button key={id} style={{
@@ -1964,6 +1966,8 @@ export default function QuestionsManager() {
       {/* ── STATS TAB ── */}
       {tab === 'stats' && <QuestionStatsTab />}
 
+      {tab === 'audit' && <AnswerAuditTab />}
+
       {/* ── TOOLS TAB ── */}
       {tab === 'tools' && <AdminToolsTab />}
     </div>
@@ -1971,7 +1975,7 @@ export default function QuestionsManager() {
 }
 
 const styles = {
-  tabBar:     { display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'100%', boxSizing:'border-box' },
+  tabBar:     { display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, background:'var(--bg-tertiary)', border:'1px solid var(--border)', borderRadius:12, padding:4, marginBottom:24, width:'100%', boxSizing:'border-box' },
   tabBtn:     { padding:'8px 4px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700, transition:'all 0.2s', textAlign:'center', lineHeight:1.3, whiteSpace:'normal', wordBreak:'break-word' },
   filterBar:  { display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' },
   metaGrid:   { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 },
