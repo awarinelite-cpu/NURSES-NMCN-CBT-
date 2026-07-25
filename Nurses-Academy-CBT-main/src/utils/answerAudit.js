@@ -68,6 +68,60 @@ export function downloadBlob(blob, filename) {
 }
 
 /**
+ * Parse one or more already-reviewed CSVs (same round-trip format, must have
+ * an `id` column) and return the Set of question IDs they cover — used to
+ * exclude questions that have already been corrected from a fresh export.
+ */
+export function extractIdsFromCsvFiles(files) {
+  return Promise.all(Array.from(files).map(file => new Promise((resolve, reject) => {
+    import('papaparse').then(({ default: Papa }) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim().toLowerCase(),
+        complete: results => {
+          const ids = (results.data || [])
+            .map(row => (row.id || '').trim())
+            .filter(Boolean);
+          resolve({ file: file.name, ids });
+        },
+        error: err => reject(new Error(`${file.name}: ${err.message}`)),
+      });
+    }).catch(reject);
+  }))).then(perFile => {
+    const idSet = new Set();
+    perFile.forEach(({ ids }) => ids.forEach(id => idSet.add(id)));
+    return { idSet, perFile };
+  });
+}
+
+/**
+ * Split `questions` into CSV batches of `batchSize`, skipping any question
+ * whose id is in `excludeIds`. Returns an array of
+ * { batchNumber, totalBatches, blob, filename, count }, ready to download.
+ */
+export function exportRemainingBatched(questions, excludeIds, { batchSize = 300, labelDate } = {}) {
+  const remaining = questions.filter(q => !excludeIds.has(q.id));
+  const totalBatches = Math.max(1, Math.ceil(remaining.length / batchSize));
+  const stamp = labelDate || new Date().toISOString().slice(0, 10);
+
+  const batches = [];
+  for (let i = 0; i < totalBatches; i++) {
+    const slice = remaining.slice(i * batchSize, (i + 1) * batchSize);
+    if (slice.length === 0) continue;
+    const num = String(i + 1).padStart(2, '0');
+    batches.push({
+      batchNumber: i + 1,
+      totalBatches,
+      count: slice.length,
+      blob: exportQuestionsToCsv(slice),
+      filename: `question-bank-remaining-batch-${num}-of-${totalBatches}-${stamp}.csv`,
+    });
+  }
+  return { batches, remainingCount: remaining.length, excludedCount: questions.length - remaining.length };
+}
+
+/**
  * Parse a corrected CSV (must contain an `id` column) into a list of
  * { id, question, options[], correctIndex, explanation, category, examType,
  *   year, subject, difficulty, course, topic, _raw } updates.

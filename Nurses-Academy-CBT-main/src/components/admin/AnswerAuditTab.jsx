@@ -18,7 +18,10 @@ import {
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
 import { OPT_LETTERS } from '../../utils/questionFileImport';
-import { exportQuestionsToCsv, downloadBlob, parseCorrectionsCsv, diffUpdate } from '../../utils/answerAudit';
+import {
+  exportQuestionsToCsv, downloadBlob, parseCorrectionsCsv, diffUpdate,
+  extractIdsFromCsvFiles, exportRemainingBatched,
+} from '../../utils/answerAudit';
 import { verifyAnswersBatch } from '../../utils/aiVerify';
 
 const BATCH_SIZE = 400;
@@ -39,6 +42,13 @@ export default function AnswerAuditTab() {
   // Export/reimport state
   const [correctionRows, setCorrectionRows] = useState(null); // { updates, warnings, diffs }
   const [applyingCorrections, setApplyingCorrections] = useState(false);
+
+  // "Download remaining" state
+  const reviewedFilesRef = useRef(null);
+  const [reviewedIdInfo, setReviewedIdInfo] = useState(null); // { idSet, perFile }
+  const [remainingPreview, setRemainingPreview] = useState(null); // { batches, remainingCount, excludedCount }
+  const [remainingLoading, setRemainingLoading] = useState(false);
+  const [downloadingBatches, setDownloadingBatches] = useState(false);
 
   // AI sweep state
   const [sweepRunning, setSweepRunning] = useState(false);
@@ -142,6 +152,60 @@ export default function AnswerAuditTab() {
       toast('Failed to apply corrections: ' + err.message, 'error');
     } finally {
       setApplyingCorrections(false);
+    }
+  };
+
+  // ── Download remaining (skip already-reviewed batches) ─────────────────
+  const handleReviewedFiles = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setRemainingPreview(null);
+    try {
+      const info = await extractIdsFromCsvFiles(files);
+      setReviewedIdInfo(info);
+      toast(`Found ${info.idSet.size} already-reviewed question ID(s) across ${files.length} file(s).`, 'info');
+    } catch (err) {
+      console.error(err);
+      toast('Could not read those CSVs: ' + err.message, 'error');
+    } finally {
+      if (reviewedFilesRef.current) reviewedFilesRef.current.value = '';
+    }
+  };
+
+  const previewRemaining = async () => {
+    if (!reviewedIdInfo || reviewedIdInfo.idSet.size === 0) {
+      toast('Upload your already-reviewed CSV(s) first.', 'warning');
+      return;
+    }
+    setRemainingLoading(true);
+    try {
+      const questions = await fetchAllQuestions();
+      setQuestionCount(questions.length);
+      const result = exportRemainingBatched(questions, reviewedIdInfo.idSet, { batchSize: 300 });
+      setRemainingPreview(result);
+      if (result.remainingCount === 0) {
+        toast('Every question in the bank is already covered by the files you uploaded. 🎉', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Failed to compute remaining questions: ' + err.message, 'error');
+    } finally {
+      setRemainingLoading(false);
+    }
+  };
+
+  const downloadAllRemainingBatches = async () => {
+    if (!remainingPreview || remainingPreview.batches.length === 0) return;
+    setDownloadingBatches(true);
+    try {
+      // Stagger downloads slightly — browsers can drop rapid-fire same-tick downloads.
+      for (const batch of remainingPreview.batches) {
+        downloadBlob(batch.blob, batch.filename);
+        await new Promise(r => setTimeout(r, 250));
+      }
+      toast(`Downloaded ${remainingPreview.batches.length} batch file(s).`, 'success');
+    } finally {
+      setDownloadingBatches(false);
     }
   };
 
@@ -356,6 +420,56 @@ export default function AnswerAuditTab() {
                 {applyingCorrections ? 'Applying…' : `✅ Apply ${correctionRows.diffs.length} correction(s) to Firestore`}
               </button>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* ── A2) DOWNLOAD REMAINING (skip already-reviewed batches) ── */}
+      <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>📦 Download only what's left to review</div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 0 }}>
+          Already reviewed some batches offline? Upload the CSV file(s) you've finished — same format as above —
+          and this pulls every question <em>not</em> in those files and downloads it split into fresh
+          300-row batches, so you're never re-reviewing the same questions twice.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+          <button className="btn btn-secondary" disabled={remainingLoading} onClick={() => reviewedFilesRef.current?.click()}>
+            📁 Select already-reviewed CSV(s)
+          </button>
+          <input
+            ref={reviewedFilesRef} type="file" accept=".csv" multiple style={{ display: 'none' }}
+            onChange={handleReviewedFiles}
+          />
+          {reviewedIdInfo && (
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {reviewedIdInfo.idSet.size} reviewed ID(s) loaded from {reviewedIdInfo.perFile.length} file(s)
+            </span>
+          )}
+        </div>
+
+        {reviewedIdInfo && (
+          <button
+            className="btn btn-primary" style={{ marginTop: 12 }}
+            disabled={remainingLoading} onClick={previewRemaining}
+          >
+            {remainingLoading ? 'Checking against live question bank…' : '🔍 Find what\'s left'}
+          </button>
+        )}
+
+        {remainingPreview && remainingPreview.remainingCount > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 13, marginBottom: 10 }}>
+              <b>{remainingPreview.remainingCount}</b> question(s) left to review
+              ({remainingPreview.excludedCount} already covered) —
+              will download as <b>{remainingPreview.batches.length}</b> file(s) of up to 300 rows each.
+            </div>
+            <button
+              className="btn btn-primary" disabled={downloadingBatches}
+              onClick={downloadAllRemainingBatches}
+            >
+              {downloadingBatches ? 'Downloading…' : `⬇️ Download all ${remainingPreview.batches.length} remaining batch(es)`}
+            </button>
           </div>
         )}
       </section>
