@@ -161,11 +161,13 @@ function fisherYatesShuffle(arr) {
   return arr;
 }
 
-// ── Daily Mock Exam: sample `count` questions from today's fixed 250-pool ──
+// ── Daily Mock Exam: sample `count` questions from today's fixed pool for
+// the student's chosen specialty ────────────────────────────────────────
 // Used both on initial load and on Retake (each attempt draws a fresh random
-// subset of the same day's pool for a clean re-score).
-async function loadDailyMockQuestions(count) {
-  const dmSnap = await getDoc(doc(db, 'dailyMockExam', 'current'));
+// subset of the same day's specialty pool for a clean re-score).
+async function loadDailyMockQuestions(count, category) {
+  if (!category) return [];
+  const dmSnap = await getDoc(doc(db, 'dailyMockExam', category));
   const allIds = dmSnap.exists() ? (dmSnap.data()?.questionIds || []) : [];
   if (allIds.length === 0) return [];
 
@@ -556,12 +558,13 @@ export default function ExamSession() {
 
           } else if (examType === 'daily_mock_exam') {
             // ── Daily Mock Exam ────────────────────────────────────────────────
-            // Draws `count` questions at random from today's fixed 250-question
-            // pool (dailyMockExam/current, rotated every 24h by a Cloud
-            // Function). Low-pass-rate questions are kept in the pool
-            // server-side until they recover, so no client-side filtering is
-            // needed here — just sample from whatever's in today's pool.
-            qs = await loadDailyMockQuestions(count);
+            // Draws `count` questions at random from today's fixed pool for the
+            // student's chosen specialty (dailyMockExam/{category}, rotated
+            // every 24h per-specialty by a Cloud Function). Low-pass-rate
+            // questions are kept in the pool server-side until they recover, so
+            // no client-side filtering is needed here — just sample from
+            // whatever's in today's pool for this specialty.
+            qs = await loadDailyMockQuestions(count, category);
 
           } else if (examType === 'past_questions' && category) {
             // ── Past Questions ────────────────────────────────────────────────
@@ -679,7 +682,7 @@ export default function ExamSession() {
       ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
       : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
       : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
-      : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
+      : examType === 'daily_mock_exam' ? (examName || 'Daily Mock Exam')
       : `${topic} — Topic Drill`
       : examName;
 
@@ -812,7 +815,7 @@ export default function ExamSession() {
         ? examType === 'daily_practice' ? `Daily Practice — ${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}`
         : examType === 'course_drill'   ? `${courseLabel || course} — Course Drill`
         : examType === 'mock_exam'      ? `${examName} — Hospital Final Exam`
-        : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
+        : examType === 'daily_mock_exam' ? (examName || 'Daily Mock Exam')
         : `${topic} — Topic Drill`
         : examName;
 
@@ -943,7 +946,7 @@ export default function ExamSession() {
             qs.sort(() => Math.random() - 0.5);
 
           } else if (examType === 'daily_mock_exam') {
-            qs = await loadDailyMockQuestions(count);
+            qs = await loadDailyMockQuestions(count, category);
 
           } else {
             const bc = [where('active', '==', true), limit(fetchLim)];
@@ -990,7 +993,7 @@ export default function ExamSession() {
   const scoreColor = scorePct >= 70 ? '#16A34A' : scorePct >= 50 ? '#F59E0B' : '#EF4444';
 
   if (phase === 'loading') return (<div style={S.center}><div className="spinner" style={{ width: 40, height: 40 }} /><p style={{ color: 'var(--text-muted)', marginTop: 16 }}>Loading questions…</p></div>);
-  if (phase === 'empty')   return (<div style={S.center}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>📭</div><h3 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>No questions found</h3><p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>{poolMode ? examType === 'topic_drill' ? `No questions for topic "${topic}" yet.` : examType === 'course_drill' ? 'No questions for this course yet.' : 'No questions available yet.' : 'No questions available for this exam yet.'}</p><button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button></div></div>);
+  if (phase === 'empty')   return (<div style={S.center}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>📭</div><h3 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>No questions found</h3><p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>{poolMode ? examType === 'topic_drill' ? `No questions for topic "${topic}" yet.` : examType === 'course_drill' ? 'No questions for this course yet.' : examType === 'daily_mock_exam' ? `Today's Daily Mock Exam pool for ${examName || 'this specialty'} hasn't been generated yet. Please check back shortly.` : 'No questions available yet.' : 'No questions available for this exam yet.'}</p><button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button></div></div>);
   if (phase === 'error')   return (<div style={S.center}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div><h3>Error loading questions</h3><button className="btn btn-primary" onClick={() => navigate(-1)}>← Go Back</button></div></div>);
 
   const q = questions[current];
@@ -1025,7 +1028,7 @@ export default function ExamSession() {
                 <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${scoreColor}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
                 {/* Exam type label */}
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, fontFamily: F, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
-                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Hospital Final Exam — ${examName}` : examType === 'daily_mock_exam' ? '🗓️ Daily Mock Exam' : `🎯 Topic Drill — ${topic}` : examName}
+                  {poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 Course Drill — ${courseLabel || course}` : examType === 'mock_exam' ? `🏥 Hospital Final Exam — ${examName}` : examType === 'daily_mock_exam' ? `🗓️ ${examName || 'Daily Mock Exam'}` : `🎯 Topic Drill — ${topic}` : examName}
                 </div>
                 {/* Animated score ring */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, animation: 'scorePop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
@@ -1094,7 +1097,7 @@ export default function ExamSession() {
               ? examType === 'daily_practice' ? 'Daily Practice'
               : examType === 'course_drill'   ? (courseLabel || course || 'Course Drill')
               : examType === 'mock_exam'      ? (examName || 'Hospital Final Exam')
-              : examType === 'daily_mock_exam' ? 'Daily Mock Exam'
+              : examType === 'daily_mock_exam' ? (examName || 'Daily Mock Exam')
               : (topic || 'Topic Drill')
               : (examName || 'Exam');
             const shareText = `🎓 I just scored ${scorePct}% in ${examLabel} on NurseAcademy CBT!
@@ -1257,7 +1260,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : examType === 'daily_mock_exam' ? '🗓️ Daily Mock Exam' : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : examType === 'daily_mock_exam' ? `🗓️ ${examName || 'Daily Mock Exam'}` : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

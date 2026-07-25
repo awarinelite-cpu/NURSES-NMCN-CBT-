@@ -1,16 +1,18 @@
 // src/components/exam/DailyMockExamHub.jsx
 // Route: /daily-mock-exam
 //
-// Daily Mock Exam: a fixed pool of 250 questions that rotates every 24
-// hours. Students choose how many of the 250 they want to answer; the
-// exam is timed at 1 minute per question. Any question with a pass rate
-// of 49% or below keeps repeating in the daily pool (handled server-side
-// by the rotateDailyMockExam Cloud Function) until enough students get it
-// right to push it back to 50%+.
+// Daily Mock Exam: specialty-separated. Students first pick a nursing
+// specialty, then see that specialty's fixed pool of up to 250 questions
+// which rotates every 24 hours. Students choose how many of that specialty's
+// pool they want to answer; the exam is timed at 1 minute per question. Any
+// question with a pass rate of 49% or below keeps repeating in that
+// specialty's daily pool (handled server-side by the rotateDailyMockExam
+// Cloud Function) until enough students get it right to push it back to 50%+.
 //
-// Completed attempts are saved to "Exams Taken" below, and can be
-// retaken any time for a fresh score (a new random draw from the SAME
-// day's 250-question pool) or reviewed question-by-question.
+// Completed attempts are saved to "Exams Taken" below (scoped to the
+// selected specialty), and can be retaken any time for a fresh score (a new
+// random draw from the SAME day's specialty pool) or reviewed
+// question-by-question.
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +20,7 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { enablePushNotifications, pushSupported, pushPermission } from '../../utils/pushNotifications';
+import { NURSING_CATEGORIES } from '../../data/categories';
 
 const PRESETS   = [25, 50, 100, 150, 250];
 const PASS_MARK = 50;
@@ -37,6 +40,16 @@ function fmtDate(ts) {
   if (!d) return '—';
   return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+// Give every specialty a border/glow derived from its category colour so the
+// picker cards read consistently with the rest of the app (e.g. MockExamPage).
+function withTint(cat) {
+  return {
+    ...cat,
+    border: `${cat.color}66`,
+    glow:   `${cat.color}1F`,
+  };
+}
+const SPECIALTIES = NURSING_CATEGORIES.map(withTint);
 
 export default function DailyMockExamHub() {
   const navigate = useNavigate();
@@ -44,15 +57,19 @@ export default function DailyMockExamHub() {
   const currentUser = user;
   const isSub = profile?.subscribed || profile?.role === 'admin';
 
-  const [pool,        setPool]        = useState(null);   // dailyMockExam/current doc
+  const [view,         setView]        = useState('specialty'); // 'specialty' | 'exam'
+  const [selected,     setSelected]    = useState(null);         // chosen SPECIALTIES entry
+
+  const [poolCounts,   setPoolCounts]  = useState({});  // { [categoryId]: questionCount }
+  const [pool,         setPool]        = useState(null);   // dailyMockExam/{category} doc
   const [poolLoading,  setPoolLoading] = useState(true);
-  const [countdown,   setCountdown]   = useState(msToNextMidnight());
-  const [qCount,      setQCount]      = useState(50);
-  const [customCount, setCustomCount] = useState('');
-  const [useCustom,   setUseCustom]   = useState(false);
-  const [attempts,    setAttempts]    = useState([]);
-  const [loadingAtt,  setLoadingAtt]  = useState(false);
-  const [pushState,   setPushState]   = useState(pushPermission()); // 'default'|'granted'|'denied'|'unsupported'
+  const [countdown,    setCountdown]   = useState(msToNextMidnight());
+  const [qCount,       setQCount]      = useState(50);
+  const [customCount,  setCustomCount] = useState('');
+  const [useCustom,    setUseCustom]   = useState(false);
+  const [attempts,     setAttempts]    = useState([]);
+  const [loadingAtt,   setLoadingAtt]  = useState(false);
+  const [pushState,    setPushState]   = useState(pushPermission()); // 'default'|'granted'|'denied'|'unsupported'
   const [pushBusy,     setPushBusy]    = useState(false);
   const countdownRef = useRef(null);
 
@@ -61,21 +78,42 @@ export default function DailyMockExamHub() {
     return () => clearInterval(countdownRef.current);
   }, []);
 
+  // ── Load today's pool size for every specialty, for the picker badges ─────
   useEffect(() => {
+    const fetchCounts = async () => {
+      const results = {};
+      await Promise.all(
+        SPECIALTIES.map(async sp => {
+          try {
+            const snap = await getDoc(doc(db, 'dailyMockExam', sp.id));
+            results[sp.id] = snap.exists() ? (snap.data()?.questionIds?.length || 0) : 0;
+          } catch {
+            results[sp.id] = 0;
+          }
+        })
+      );
+      setPoolCounts(results);
+    };
+    fetchCounts();
+  }, []);
+
+  // ── Load the selected specialty's pool + this student's attempts in it ───
+  useEffect(() => {
+    if (!selected) return;
+
     setPoolLoading(true);
-    getDoc(doc(db, 'dailyMockExam', 'current'))
+    getDoc(doc(db, 'dailyMockExam', selected.id))
       .then(snap => setPool(snap.exists() ? snap.data() : null))
       .catch(() => setPool(null))
       .finally(() => setPoolLoading(false));
-  }, []);
 
-  useEffect(() => {
     if (!currentUser?.uid) return;
     setLoadingAtt(true);
     getDocs(query(
       collection(db, 'examSessions'),
       where('userId',   '==', currentUser.uid),
       where('examType', '==', 'daily_mock_exam'),
+      where('category',  '==', selected.id),
     ))
       .then(snap => {
         const results = snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -84,7 +122,7 @@ export default function DailyMockExamHub() {
       })
       .catch(() => setAttempts([]))
       .finally(() => setLoadingAtt(false));
-  }, [currentUser]);
+  }, [selected, currentUser]);
 
   const totalAvailable = pool?.questionIds?.length || 0;
   const finalCount = useCustom
@@ -99,11 +137,29 @@ export default function DailyMockExamHub() {
     setPushBusy(false);
   };
 
+  const pickSpecialty = (sp) => {
+    setSelected(sp);
+    setPool(null);
+    setAttempts([]);
+    setQCount(50);
+    setUseCustom(false);
+    setCustomCount('');
+    setView('exam');
+  };
+
+  const backToSpecialties = () => {
+    setView('specialty');
+    setSelected(null);
+    setPool(null);
+    setAttempts([]);
+  };
+
   const startExam = () => {
     navigate('/exam/session', {
       state: {
         examType:  'daily_mock_exam',
-        examName:  'Daily Mock Exam',
+        examName:  `Daily Mock Exam — ${selected.label}`,
+        category:  selected.id,
         poolMode:  true,
         doShuffle: true,
         count:     finalCount,
@@ -116,7 +172,8 @@ export default function DailyMockExamHub() {
     navigate('/exam/session', {
       state: {
         examType:   'daily_mock_exam',
-        examName:   'Daily Mock Exam',
+        examName:   `Daily Mock Exam — ${selected.label}`,
+        category:   selected.id,
         reviewMode: true,
         savedSession: {
           questionIds:    attempt.questionIds || [],
@@ -128,16 +185,93 @@ export default function DailyMockExamHub() {
     });
   };
 
+  // ══════════════════════════════════════════════════════════════════════
+  // VIEW: SPECIALTY PICKER
+  // ══════════════════════════════════════════════════════════════════════
+  if (view === 'specialty') {
+    return (
+      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <span style={{ fontSize: 30 }}>🗓️</span>
+          <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
+            Daily Mock Exam
+          </h2>
+        </div>
+        <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+          Pick your specialty first — each specialty has its own fresh pool of questions that rotates every 24 hours.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {SPECIALTIES.map(sp => {
+            const qCountAvail = poolCounts[sp.id];
+            const hasQs = qCountAvail > 0;
+            return (
+              <button
+                key={sp.id}
+                onClick={() => pickSpecialty(sp)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  background: 'var(--bg-card)', border: `1px solid ${sp.border}`,
+                  borderRadius: 16, padding: '18px 20px', textAlign: 'left',
+                  cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                  position: 'relative', overflow: 'hidden', transition: 'background 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = sp.glow}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+              >
+                <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, background: sp.color, borderRadius: '16px 0 0 16px' }} />
+                <div style={{
+                  width: 54, height: 54, borderRadius: 14, flexShrink: 0,
+                  background: sp.glow, border: `1px solid ${sp.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 26, marginLeft: 8,
+                }}>
+                  {sp.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>
+                    {sp.label}
+                  </div>
+                  <div style={{ fontSize: 13, color: hasQs ? sp.color : 'var(--text-muted)', fontWeight: hasQs ? 600 : 400 }}>
+                    {qCountAvail === undefined
+                      ? 'Loading…'
+                      : hasQs
+                        ? `${qCountAvail} question${qCountAvail !== 1 ? 's' : ''} in today's pool`
+                        : "Today's pool not ready yet"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 18, color: sp.color, opacity: 0.7, flexShrink: 0 }}>›</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // VIEW: EXAM CARD + EXAMS TAKEN  (for the selected specialty)
+  // ══════════════════════════════════════════════════════════════════════
+  const sp = selected;
+
   return (
     <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={backToSpecialties}
+        style={{ marginBottom: 20 }}
+      >
+        ← All Specialties
+      </button>
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 30 }}>🗓️</span>
-        <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
-          Daily Mock Exam
+        <span style={{ fontSize: 28 }}>{sp.icon}</span>
+        <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+          Daily Mock Exam — {sp.label}
         </h2>
       </div>
       <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
-        A fresh 250-question pool every 24 hours. Choose how many you want to answer — the exam is timed at 1 minute per question.
+        A fresh pool of up to 250 {sp.label} questions every 24 hours. Choose how many you want to answer — the exam is timed at 1 minute per question.
       </p>
 
       {/* Push notification prompt */}
@@ -159,7 +293,7 @@ export default function DailyMockExamHub() {
       )}
 
       {/* Today's pool card */}
-      <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 18, padding: 24, marginBottom: 28, boxShadow: '0 0 0 4px rgba(13,148,136,0.06)' }}>
+      <div style={{ background: 'var(--bg-card)', border: `2px solid ${sp.color}`, borderRadius: 18, padding: 24, marginBottom: 28, boxShadow: `0 0 0 4px ${sp.glow}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 24 }}>📚</span>
@@ -174,7 +308,7 @@ export default function DailyMockExamHub() {
 
         {!poolLoading && totalAvailable === 0 && (
           <div style={{ background: 'rgba(220,38,38,0.10)', border: '1px solid rgba(220,38,38,0.30)', borderRadius: 10, padding: '12px 16px', color: '#F87171', fontSize: 13, fontWeight: 600, textAlign: 'center', marginBottom: 16 }}>
-            ⚠️ Today's mock exam hasn't been generated yet. Please check back shortly.
+            ⚠️ Today's {sp.label} mock exam hasn't been generated yet. Please check back shortly.
           </div>
         )}
 
@@ -182,29 +316,29 @@ export default function DailyMockExamHub() {
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {PRESETS.map(n => (
-              <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${!useCustom && qCount === n ? 'var(--teal)' : 'var(--border)'}`, background: !useCustom && qCount === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? 'var(--teal)' : 'var(--text-secondary)' }}>{n}</button>
+              <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${!useCustom && qCount === n ? sp.color : 'var(--border)'}`, background: !useCustom && qCount === n ? sp.glow : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? sp.color : 'var(--text-secondary)' }}>{n}</button>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${useCustom ? 'var(--teal)' : 'var(--border)'}`, background: useCustom ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: useCustom ? 'var(--teal)' : 'var(--text-secondary)' }}>Custom</button>
-              {useCustom && <input type="number" min={1} max={totalAvailable || 250} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={`1–${totalAvailable || 250}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: '2px solid var(--teal)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
+              <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${useCustom ? sp.color : 'var(--border)'}`, background: useCustom ? sp.glow : 'var(--bg-tertiary)', color: useCustom ? sp.color : 'var(--text-secondary)' }}>Custom</button>
+              {useCustom && <input type="number" min={1} max={totalAvailable || 250} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={`1–${totalAvailable || 250}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: `2px solid ${sp.color}`, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
             ⏱ {finalCount} questions ≈ {finalCount} minute{finalCount === 1 ? '' : 's'}
           </div>
           {!isSub && (
-            <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full 250-question pool.</div>
+            <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full pool.</div>
           )}
         </div>
 
-        <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12 }}>
+        <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none' }}>
           🚀 Start Daily Mock Exam — {finalCount} Questions
         </button>
       </div>
 
       {/* Exams Taken */}
       <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        📋 Exams Taken
+        📋 Exams Taken — {sp.label}
         {attempts.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{attempts.length}</span>}
       </h3>
 
@@ -219,7 +353,7 @@ export default function DailyMockExamHub() {
         {!loadingAtt && attempts.length === 0 && (
           <div style={{ padding: '40px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
-            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No exams taken yet</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No {sp.label} exams taken yet</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>Start your first Daily Mock Exam above — it'll be saved here for you to retake or review any time.</div>
           </div>
         )}
