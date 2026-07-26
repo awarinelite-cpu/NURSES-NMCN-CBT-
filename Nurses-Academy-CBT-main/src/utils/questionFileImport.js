@@ -59,7 +59,21 @@ function nh(s) {
 function extractRowFields(row, colMap) {
   const get = key => (key ? (row[key] || '').toString().trim() : '');
 
-  const question    = get(colMap.question);
+  // Some source CSVs carry a leading number label baked into the question
+  // cell itself (e.g. "Question 82 Which part…", "Q82: …", "82. …") instead
+  // of using a separate numbering column. Strip it so it never ends up
+  // stored as part of the actual question text.
+  //
+  // Two safe cases only, both requiring a trailing space before real text:
+  //   1. An explicit "Q"/"Question" token before the number (any punctuation
+  //      after the number is optional) — e.g. "Question 82 Which…", "Q82: …"
+  //   2. A bare leading number, but ONLY when followed by punctuation
+  //      (period/colon/dash/paren) — e.g. "82. Which…", "82) Which…" — so a
+  //      clinical question that legitimately starts with a number, like
+  //      "150 mg of X is the recommended dose…", is never touched (no
+  //      punctuation directly after the number there).
+  const QNUM_PREFIX_RE = /^\s*(?:q(?:uestion)?\.?\s*#?\s*\d{1,4}\s*[:.\-–—)]?\s+|\d{1,4}\s*[:.\-–—)]\s+)/i;
+  const question    = get(colMap.question).replace(QNUM_PREFIX_RE, '').trim();
   const explanation = get(colMap.explanation);
 
   // Build options array

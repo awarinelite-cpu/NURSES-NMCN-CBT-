@@ -259,6 +259,67 @@ function AdminToolsTab() {
   const [fixLog,           setFixLog]           = useState([]);
   const [fixDone,          setFixDone]          = useState(false);
 
+  // ── Strip Question Number Prefix tool state ──────────────────────────────
+  const [stripPreviewing, setStripPreviewing] = useState(false);
+  const [stripCandidates, setStripCandidates] = useState([]); // [{id,ref,question,stripped}]
+  const [stripApplying,   setStripApplying]   = useState(false);
+  const [stripUpdated,    setStripUpdated]    = useState(0);
+  const [stripLog,        setStripLog]        = useState([]);
+  const [stripDone,       setStripDone]       = useState(false);
+
+  // Same rule as the CSV importer (src/utils/questionFileImport.js) — keep
+  // these in sync so a manual scrub here matches what future uploads do.
+  const QNUM_PREFIX_RE = /^\s*(?:q(?:uestion)?\.?\s*#?\s*\d{1,4}\s*[:.\-–—)]?\s+|\d{1,4}\s*[:.\-–—)]\s+)/i;
+
+  const handlePreviewStrip = async () => {
+    setStripPreviewing(true);
+    setStripCandidates([]);
+    setStripDone(false);
+    setStripLog([]);
+    try {
+      const snap = await getDocs(query(collection(db, 'questions'), where('active', '==', true)));
+      const all = snap.docs.map(d => ({ id: d.id, ref: d.ref, ...d.data() }));
+      const candidates = all
+        .filter(q => QNUM_PREFIX_RE.test(q.question || ''))
+        .map(q => ({ id: q.id, ref: q.ref, question: q.question, stripped: q.question.replace(QNUM_PREFIX_RE, '').trim() }))
+        .filter(c => c.stripped && c.stripped !== c.question);
+      setStripCandidates(candidates);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setStripPreviewing(false);
+    }
+  };
+
+  const handleApplyStrip = async () => {
+    if (stripCandidates.length === 0) return;
+    setStripApplying(true);
+    setStripDone(false);
+    setStripUpdated(0);
+    setStripLog([]);
+    try {
+      const BATCH_SIZE = 500;
+      let updated = 0;
+      for (let i = 0; i < stripCandidates.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const slice = stripCandidates.slice(i, i + BATCH_SIZE);
+        slice.forEach(c => {
+          batch.update(c.ref, { question: c.stripped, updatedAt: serverTimestamp() });
+        });
+        await batch.commit();
+        updated += slice.length;
+        setStripUpdated(updated);
+        setStripLog(prev => [...prev, `Batch ${Math.ceil((i + 1) / BATCH_SIZE)}: updated ${slice.length} (${updated}/${stripCandidates.length})`]);
+      }
+      setStripLog(prev => [...prev, `✅ Done — ${updated} question(s) cleaned up.`]);
+      setStripDone(true);
+    } catch (e) {
+      setStripLog(prev => [...prev, 'ERROR: ' + e.message]);
+    } finally {
+      setStripApplying(false);
+    }
+  };
+
   // Preview: find question_bank docs that have a year value
   const handlePreview = async () => {
     setPreviewing(true);
@@ -686,6 +747,105 @@ function AdminToolsTab() {
             color: 'var(--text-primary)',
           }}>
             {fixLog.map((line, i) => <div key={i}>{line}</div>)}
+          </div>
+        )}
+      </div>
+
+      {/* ── Strip Question Number Prefix Tool ── */}
+      <div style={{
+        background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+        borderRadius: 16, padding: 24, marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 24 }}>✂️</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+              Strip Question Number Prefixes
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Finds questions where the text itself starts with a leading number label
+              like <code style={{ background:'var(--bg-tertiary)', padding:'1px 5px', borderRadius:4 }}>Question 82</code> or{' '}
+              <code style={{ background:'var(--bg-tertiary)', padding:'1px 5px', borderRadius:4 }}>82.</code> — usually
+              baked in from a source CSV — and removes just that prefix. New CSV uploads are
+              already cleaned automatically; this fixes what's already in the database.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#92400E',
+        }}>
+          ⚠️ This updates Firestore directly and cannot be undone. Review the preview list first —
+          only exact prefix patterns are matched, so a question that legitimately starts with a
+          number (e.g. a dosage) won't be touched.
+        </div>
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={handlePreviewStrip}
+          disabled={stripPreviewing || stripApplying}
+          style={{ fontWeight: 700, marginBottom: 16 }}
+        >
+          {stripPreviewing ? '⏳ Scanning…' : '🔍 Preview Affected Questions'}
+        </button>
+
+        {stripCandidates.length > 0 && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
+              Found {stripCandidates.length} question{stripCandidates.length !== 1 ? 's' : ''} with a number prefix:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto', marginBottom: 16 }}>
+              {stripCandidates.slice(0, 25).map(c => (
+                <div key={c.id} style={{
+                  background: 'var(--bg-tertiary)', borderRadius: 8, padding: '8px 12px', fontSize: 12,
+                }}>
+                  <div style={{ color: '#EF4444', textDecoration: 'line-through', opacity: 0.7 }}>
+                    {c.question.slice(0, 90)}{c.question.length > 90 ? '…' : ''}
+                  </div>
+                  <div style={{ color: '#16A34A' }}>
+                    {c.stripped.slice(0, 90)}{c.stripped.length > 90 ? '…' : ''}
+                  </div>
+                </div>
+              ))}
+              {stripCandidates.length > 25 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  … and {stripCandidates.length - 25} more
+                </div>
+              )}
+            </div>
+
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleApplyStrip}
+              disabled={stripApplying || stripDone}
+              style={{ fontWeight: 700, background: stripDone ? '#16A34A' : undefined }}
+            >
+              {stripApplying ? `⏳ Updating… (${stripUpdated}/${stripCandidates.length})`
+                : stripDone ? `✅ Done — ${stripUpdated} updated`
+                : `🚀 Strip Prefix from ${stripCandidates.length} Question${stripCandidates.length !== 1 ? 's' : ''}`}
+            </button>
+
+            {stripApplying && (
+              <div style={{ background: 'var(--bg-tertiary)', borderRadius: 99, height: 8, marginTop: 12, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 99, background: TEAL,
+                  width: `${Math.round((stripUpdated / stripCandidates.length) * 100)}%`,
+                  transition: 'width 0.3s',
+                }} />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Log */}
+        {stripLog.length > 0 && (
+          <div style={{
+            background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 14px',
+            fontSize: 12, fontFamily: 'monospace', maxHeight: 160, overflowY: 'auto',
+            color: 'var(--text-primary)',
+          }}>
+            {stripLog.map((line, i) => <div key={i}>{line}</div>)}
           </div>
         )}
       </div>
