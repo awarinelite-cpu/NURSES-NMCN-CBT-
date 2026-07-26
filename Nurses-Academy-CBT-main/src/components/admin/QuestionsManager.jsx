@@ -1111,11 +1111,21 @@ export default function QuestionsManager() {
               autoCreated: true,
             }, { merge: true });
             newCoursesCount++;
-          } else if (topics.length > 0) {
-            // Existing course — merge new topics without overwriting existing ones
-            newCoursesBatch.update(courseRef, {
-              topics: arrayUnion(...topics),
-            });
+          } else {
+            // Existing course — merge new topics without overwriting existing ones,
+            // and self-heal the category if a later CSV upload resolves it differently
+            // than whatever it was first created with (e.g. a bad/placeholder value
+            // like "Critical Thinking" from an early upload attempt). Without this,
+            // re-uploading a corrected CSV silently never fixes a wrong category and
+            // the course stays invisible under the correct specialty forever.
+            const existingCourse   = existingCoursesSnap.docs.find(d => d.id === courseId);
+            const existingCategory = existingCourse?.data()?.category || '';
+            const updates = {};
+            if (topics.length > 0) updates.topics = arrayUnion(...topics);
+            if (groupCategory && groupCategory !== existingCategory) updates.category = groupCategory;
+            if (Object.keys(updates).length > 0) {
+              newCoursesBatch.update(courseRef, updates);
+            }
           }
         }
 

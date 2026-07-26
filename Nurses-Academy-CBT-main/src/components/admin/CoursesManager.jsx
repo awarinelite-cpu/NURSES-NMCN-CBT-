@@ -67,9 +67,14 @@ export default function CoursesManager() {
       const counts = await Promise.all(
         all.map(async c => {
           try {
+            // NOTE: intentionally no examType filter here — Course Drill and
+            // Topic Drill both query the questions collection by course/topic +
+            // active only (see CourseDrillPage.jsx / TopicDrillPage.jsx), so this
+            // count must match that, not just examType:'course_drill' docs, or it
+            // will misleadingly show 0 for courses whose questions were tagged
+            // 'past_questions' / 'question_bank' etc.
             const qSnap = await getDocs(query(
               collection(db, 'questions'),
-              where('examType', '==', 'course_drill'),
               where('course',   '==', c.id),
               where('active',   '==', true),
             ));
