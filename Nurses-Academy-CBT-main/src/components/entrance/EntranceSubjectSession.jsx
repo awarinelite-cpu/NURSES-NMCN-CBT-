@@ -72,7 +72,6 @@ export default function EntranceSubjectSession() {
   const [submitting,    setSubmitting]    = useState(false);
   const [isSpeaking,    setIsSpeaking]    = useState(false);
   const voiceModeRef    = useRef(false); // true once "Read Question" is used — stays on so tapping an option auto-announces + auto-advances
-  const [showReview,    setShowReview]    = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [saveError,     setSaveError]     = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -194,13 +193,15 @@ export default function EntranceSubjectSession() {
       return { q, i, chosen, correct: q.correctAnswer, isCorrect };
     });
     const score = qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0;
+    let drillId = null;
     if (user?.uid) {
       try {
-        await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
+        const drillRef = await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
           subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#0D9488',
           year: year || 'All Years', score, correct, totalQuestions: qs.length,
           answers: ans, questionIds: qs.map(q => q.id), createdAt: serverTimestamp(),
         });
+        drillId = drillRef.id;
       } catch (e) { console.warn('Save drill error:', e); }
 
       // ── Mastery tracking ────────────────────────────────────────────────
@@ -241,7 +242,7 @@ export default function EntranceSubjectSession() {
         }
       } catch (e) { console.warn('Mastery tracking (non-fatal):', e.message); }
     }
-    setResult({ subject: subject.name, score, correct, total: qs.length, breakdown });
+    setResult({ subject: subject.name, score, correct, total: qs.length, breakdown, drillId, answers: ans });
     setSubmitted(true);
     setSubmitting(false);
   }, [submitting, submitted, subject, year, user]);
@@ -453,51 +454,17 @@ export default function EntranceSubjectSession() {
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 32 }}>
               <button onClick={() => navigate(-1)} style={S.btnGhost}>← Back</button>
-              <button onClick={() => setShowReview(v => !v)} style={{ ...S.btnPrimary, background: subject.color }}>{showReview ? 'Hide Review' : '📋 Review Answers'}</button>
+              <button onClick={() => navigate('/entrance-exam/review', {
+                state: {
+                  resultId: result.drillId, kind: 'drill',
+                  session: { subject: result.subject, answers: result.answers, correct: result.correct, totalQuestions: result.total, scorePercent: result.score, createdAt: new Date() },
+                  questions,
+                },
+              })} style={{ ...S.btnPrimary, background: subject.color }}>📋 Review Answers</button>
               <button onClick={() => { stopSpeech(); navigate('/entrance-exam/subject-drill'); }} style={S.btnGhost}>🔄 Drill Again</button>
             </div>
           </div>
 
-          {showReview && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text-primary)', marginBottom: 4, fontFamily: H }}>📋 Question-by-Question Breakdown</div>
-              {result.breakdown.map(({ q, i, chosen, correct, isCorrect }) => (
-                <div key={q.id} style={{ background: 'var(--bg-tertiary)', border: `1.5px solid ${isCorrect ? 'rgba(22,163,74,0.2)' : chosen ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderLeft: `4px solid ${isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B'}`, borderRadius: 12, padding: '14px 16px' }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: isCorrect ? 'rgba(22,163,74,0.15)' : chosen ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', fontSize: 11, fontWeight: 800, fontFamily: H, color: isCorrect ? '#16A34A' : chosen ? '#EF4444' : '#F59E0B', marginBottom: 8 }}>{i + 1}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6, width: '100%', textAlign: 'justify', fontFamily: F }}><ItalicText text={q.questionText} /></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 34, marginBottom: 8 }}>
-                    {OPT_KEYS.map(key => {
-                      const text = q.options?.[key]; if (!text) return null;
-                      const isCorr = key === correct, isChos = key === chosen;
-                      let bg = 'var(--bg-tertiary)', border = 'var(--border)', color = 'var(--text-muted)', weight = 400;
-                      if (isCorr) { bg = 'rgba(22,163,74,0.13)'; border = '#16A34A'; color = '#16A34A'; weight = 700; }
-                      if (isChos && !isCorr) { bg = 'rgba(239,68,68,0.1)'; border = '#EF4444'; color = '#EF4444'; weight = 700; }
-                      return <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, background: bg, border: `1px solid ${border}`, color, fontWeight: weight, fontFamily: F }}><span style={{ fontWeight: 800 }}>{key}.</span> <ItalicText text={text} />{isCorr && <span>✓</span>}{isChos && !isCorr && <span>✗</span>}</div>;
-                    })}
-                  </div>
-                  <div style={{ paddingLeft: 34, fontSize: 12, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>
-                    {!chosen ? <span style={{ color: '#F59E0B' }}>⏭ Skipped — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>
-                      : isCorrect ? <span style={{ color: '#16A34A' }}>✓ Your answer: <strong>{chosen}</strong> — Correct!</span>
-                      : <span style={{ color: '#EF4444' }}>✗ Your answer: <strong>{chosen}</strong> — Correct: <strong style={{ color: '#16A34A' }}>{correct}</strong></span>}
-                  </div>
-                  {q.explanation && (
-                    <div style={{ marginTop: 10, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', width: '100%' }}>
-                      <div style={{ background: 'var(--teal)', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 15 }}>💡</span>
-                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 13, color: '#fff' }}>Explanation</span>
-                      </div>
-                      <div style={{ padding: '12px 14px', background: 'rgba(13,148,136,0.06)' }}>
-                        <ExplanationText text={q.explanation} />
-                      </div>
-                    </div>
-                  )}
-                  <AiExplainButton q={q} collection="entranceExamQuestions" />
-                </div>
-              ))}
-            </div>
-          )}
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 24 }}>
             <button onClick={() => navigate('/entrance-exam')} style={S.btnGhost}>← Back to Dashboard</button>
           </div>

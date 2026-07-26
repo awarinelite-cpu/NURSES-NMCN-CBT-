@@ -108,12 +108,8 @@ export default function EntranceExamDailyMockHub() {
   };
 
   const handleReview = (session) => {
-    navigate('/entrance-exam/session', {
-      state: {
-        reviewMode: true, poolMode: false, examType: 'entrance_daily_mock',
-        examName: session.examName || 'Daily Mock', subject: session.subject,
-        savedSession: { questionIds: session.questionIds, answers: session.answers, correct: session.correct, totalQuestions: session.totalQuestions },
-      },
+    navigate('/entrance-exam/review', {
+      state: { resultId: session.id, kind: 'session' },
     });
   };
 

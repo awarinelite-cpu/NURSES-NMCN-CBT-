@@ -271,8 +271,8 @@ export default function EntranceExamSession() {
         questionIds: qs.map(q => q.id), answers: ans, correct,
         totalQuestions: qs.length, scorePercent, completedAt: serverTimestamp(),
       };
-      await addDoc(collection(db, 'entranceExamSessions'), payload);
-      setResult({ correct, total: qs.length, scorePercent });
+      const savedRef = await addDoc(collection(db, 'entranceExamSessions'), payload);
+      setResult({ correct, total: qs.length, scorePercent, resultId: savedRef.id });
       setSubmitted(true);
 
       // Update each question's rolling pass rate (timesCorrect/timesAnswered).
@@ -432,7 +432,13 @@ export default function EntranceExamSession() {
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 28 }}>
             <button className="btn btn-ghost" onClick={() => navigate(-1)} style={{ fontWeight: 700, fontFamily: F }}>← Back</button>
-            <button className="btn btn-primary" onClick={() => { setResult(null); setCurrentIndex(0); }} style={{ fontWeight: 700, fontFamily: F }}>🔍 Review All Answers</button>
+            <button className="btn btn-primary" onClick={() => navigate('/entrance-exam/review', {
+              state: {
+                resultId: result.resultId, kind: 'session',
+                session: { examName, subject, answers, correct: result.correct, totalQuestions: result.total, scorePercent: result.scorePercent, completedAt: new Date() },
+                questions,
+              },
+            })} style={{ fontWeight: 700, fontFamily: F }}>🔍 Review All Answers</button>
           </div>
         </div>
 

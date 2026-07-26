@@ -343,7 +343,7 @@ export default function EntranceExamSetup() {
                 const p = a.scorePercent ?? 0;
                 return (
                   <div key={a.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
                     background: 'var(--bg-tertiary)', borderRadius: 8, padding: '10px 14px',
                   }}>
                     <div>
@@ -354,10 +354,16 @@ export default function EntranceExamSetup() {
                         {a.completedAt?.toDate ? new Date(a.completedAt.toDate()).toLocaleDateString() : ''}
                       </span>
                     </div>
-                    <div style={{
-                      fontWeight: 800, fontSize: 14, fontFamily: H,
-                      color: p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444',
-                    }}>{p}%</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        fontWeight: 800, fontSize: 14, fontFamily: H,
+                        color: p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444',
+                      }}>{p}%</div>
+                      <button
+                        onClick={() => navigate('/entrance-exam/review', { state: { resultId: a.id, kind: 'session' } })}
+                        style={{ padding: '5px 12px', borderRadius: 20, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontSize: 11, fontWeight: 700, fontFamily: F, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >🔍 Review</button>
+                    </div>
                   </div>
                 );
               })}

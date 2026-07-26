@@ -272,7 +272,11 @@ export function EntranceMyResults() {
                             {fmt(s.completedAt)} · {s.correct ?? '?'}/{s.totalQuestions ?? '?'} correct · {grade(p)}
                           </div>
                         </div>
-                        <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: gradeColor(p) }}>{p}%</div>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => navigate('/entrance-exam/review', { state: { resultId: s.id, kind: 'session' } })}
+                          style={{ flexShrink: 0, fontWeight: 700 }}
+                        >🔍 Review</button>
                       </SCard>
                     );
                   })}
@@ -303,7 +307,11 @@ export function EntranceMyResults() {
                             {fmt(d.createdAt)} · {d.correct ?? '?'}/{d.totalQuestions ?? '?'} correct · {grade(p)}
                           </div>
                         </div>
-                        <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: gradeColor(p) }}>{p}%</div>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => navigate('/entrance-exam/review', { state: { resultId: d.id, kind: 'drill' } })}
+                          style={{ flexShrink: 0, fontWeight: 700 }}
+                        >🔍 Review</button>
                       </SCard>
                     );
                   })}
