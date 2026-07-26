@@ -17,6 +17,7 @@ import {
 } from '../../utils/questionParser';
 import { useToast } from '../shared/Toast';
 import EditQuestionsTab from './EditQuestionsTab';
+import AutoTagQuestionsTab from './AutoTagQuestionsTab';
 import AnswerAuditTab from './AnswerAuditTab';
 import { readQuestionFile, readCsvFileAsQuestions, generateCsvTemplate } from '../../utils/questionFileImport';
 import { getAiExplanation } from '../../utils/aiExplain';
@@ -1246,6 +1247,7 @@ export default function QuestionsManager() {
           ['bulk_upload', '📤 Bulk\nUpload'],
           ['stats',       '📊 Usage\nStats'],
           ['edit',        '✏️ Quick\nEdit'],
+          ['autotag',     '🏷️ Auto-Tag\n(AI)'],
           ['audit',       '🩺 Answer\nAudit'],
           ['tools',       '🔧 Admin\nTools'],
         ].map(([id, label]) => (
@@ -1958,6 +1960,14 @@ export default function QuestionsManager() {
       {/* ── EDIT TAB ── */}
       {tab === 'edit' && (
         <EditQuestionsTab
+          firestoreCourses={firestoreCourses}
+          toast={toast}
+        />
+      )}
+
+      {/* ── AUTO-TAG TAB ── */}
+      {tab === 'autotag' && (
+        <AutoTagQuestionsTab
           firestoreCourses={firestoreCourses}
           toast={toast}
         />
