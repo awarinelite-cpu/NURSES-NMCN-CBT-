@@ -53,6 +53,7 @@ export default function CoursesManager() {
   const [formIcon,       setFormIcon]       = useState('📖');
   const [formDesc,       setFormDesc]       = useState('');
   const [formActive,     setFormActive]     = useState(true);
+  const [formCategory,   setFormCategory]   = useState('');
   const [showIconPicker, setShowIconPicker] = useState(false);
 
   // ── Load all courses from Firestore ───────────────────────────────────────
@@ -221,7 +222,7 @@ export default function CoursesManager() {
 
   const resetForm = () => {
     setFormLabel(''); setFormIcon('📖'); setFormDesc(''); setFormActive(true);
-    setEditId(null); setShowAddForm(false); setShowIconPicker(false);
+    setFormCategory(''); setEditId(null); setShowAddForm(false); setShowIconPicker(false);
   };
 
   // ── Save (add or edit) ────────────────────────────────────────────────────
@@ -236,6 +237,7 @@ export default function CoursesManager() {
           icon:        formIcon || '📖',
           description: formDesc.trim(),
           active:      formActive,
+          category:    formCategory || selectedSpecialty.id,
           updatedAt:   serverTimestamp(),
         });
         toast('Course updated!', 'success');
@@ -267,6 +269,7 @@ export default function CoursesManager() {
     setFormIcon(course.icon || '📖');
     setFormDesc(course.description || '');
     setFormActive(course.active !== false); // default true if field missing
+    setFormCategory(course.category || selectedSpecialty?.id || '');
     setEditId(course.id);
     setShowAddForm(true);
     setShowIconPicker(false);
@@ -419,6 +422,32 @@ export default function CoursesManager() {
                 onKeyDown={e => e.key === 'Enter' && handleSave()}
               />
             </div>
+
+            {/* Category (specialty) — only shown when editing an existing course.
+                A bulk-upload bug previously let a course's category get silently
+                overwritten, making it vanish from its specialty's list with no
+                way to fix it except here. */}
+            {editId && (
+              <div className="form-group" style={{ marginBottom: 14 }}>
+                <label className="form-label">Specialty / Category</label>
+                <select
+                  className="form-input"
+                  style={{ maxWidth: 400 }}
+                  value={formCategory}
+                  onChange={e => setFormCategory(e.target.value)}
+                >
+                  {NURSING_CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.shortLabel}</option>
+                  ))}
+                </select>
+                {formCategory !== selectedSpecialty.id && (
+                  <div style={{ fontSize: 11, color: '#EF4444', marginTop: 6 }}>
+                    ⚠️ Saving will move this course out of {selectedSpecialty.shortLabel} into{' '}
+                    {NURSING_CATEGORIES.find(c => c.id === formCategory)?.shortLabel || formCategory}.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Description */}
             <div className="form-group" style={{ marginBottom: 14 }}>

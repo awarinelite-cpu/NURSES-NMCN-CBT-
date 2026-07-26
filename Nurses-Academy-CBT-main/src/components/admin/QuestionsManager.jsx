@@ -1131,17 +1131,26 @@ export default function QuestionsManager() {
             }, { merge: true });
             newCoursesCount++;
           } else {
-            // Existing course — merge new topics without overwriting existing ones,
-            // and self-heal the category if a later CSV upload resolves it differently
-            // than whatever it was first created with (e.g. a bad/placeholder value
-            // like "Critical Thinking" from an early upload attempt). Without this,
-            // re-uploading a corrected CSV silently never fixes a wrong category and
-            // the course stays invisible under the correct specialty forever.
+            // Existing course — merge new topics without overwriting existing ones.
+            //
+            // Category self-heal ONLY applies to courses that were themselves
+            // auto-created from inline CSV text (courseId resolved from
+            // rawName, not from an explicit admin pick). If the admin
+            // explicitly selected this course from the dropdown
+            // (courseId === courseOverride), NEVER touch its category here —
+            // that was the actual bug that made PHN 420 vanish from Public
+            // Health Nursing: an admin-selected, correctly-categorized course
+            // got its category silently overwritten by whatever the CSV/form
+            // resolved to, which didn't match, so it fell out of its
+            // specialty's course list on every re-upload.
             const existingCourse   = existingCoursesSnap.docs.find(d => d.id === courseId);
             const existingCategory = existingCourse?.data()?.category || '';
+            const isAdminSelected  = !!courseOverride && courseId === courseOverride;
             const updates = {};
             if (topics.length > 0) updates.topics = arrayUnion(...topics);
-            if (groupCategory && groupCategory !== existingCategory) updates.category = groupCategory;
+            if (!isAdminSelected && groupCategory && groupCategory !== existingCategory) {
+              updates.category = groupCategory;
+            }
             if (Object.keys(updates).length > 0) {
               newCoursesBatch.update(courseRef, updates);
             }
