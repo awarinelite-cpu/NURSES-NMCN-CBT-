@@ -174,3 +174,59 @@ export async function getAiExplanation(q) {
   if (!text) throw new Error('Could not generate an explanation. Please try again.');
   return text;
 }
+
+/**
+ * "Ask AI to Explain", upgraded: independently re-checks whether the stored
+ * correct answer is actually right, THEN explains whichever answer the AI
+ * lands on. Calls /api/ai-review (secure backend, Gemini + Firebase Admin).
+ *
+ * collectionName must be a collection the backend knows how to verify/save
+ * against — currently 'questions' (main CBT/mock exam bank) or
+ * 'entranceExamQuestions'. For anything else (e.g. CAOSCE cases), fall back
+ * to getAiExplanation() instead — this function needs a real stored answer
+ * to check against.
+ *
+ * Returns: { agrees, currentLetter, suggestedLetter, confidence, reasoning,
+ *            explanation, autoSaved, flaggedForReview }
+ */
+export async function getAiReview(q, collectionName) {
+  const question = q.question || q.questionText || '';
+  const options  = q.options || null;
+  const subject  = q.subject || q.course || q.category || '';
+
+  if (!question || !options) {
+    throw new Error('This question is missing data needed for review.');
+  }
+
+  const payload = { questionId: q.id || null, collectionName, question, options, subject };
+  if (Array.isArray(options)) {
+    payload.correctIndex = q.correctIndex;
+  } else {
+    payload.correctAnswer = q.correctAnswer;
+  }
+
+  const res = await fetch(`${API_BASE}/api/ai-review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `AI review failed (${res.status})`);
+  return data;
+}
+
+/** Turn a getAiReview() result into the message shown to the student. */
+export function formatAiReviewMessage(review) {
+  if (!review.agrees) {
+    let msg = `⚠️ The answer is wrong. The best answer to this question is option ${review.suggestedLetter}.`;
+    if (review.reasoning) msg += ` ${review.reasoning}`;
+    msg += `\n\n${review.explanation}`;
+    if (review.flaggedForReview) {
+      msg += `\n\n(This has been flagged for admin review since the AI wasn't fully confident.)`;
+    } else if (review.autoSaved) {
+      msg += `\n\n(This has been corrected and saved automatically.)`;
+    }
+    return msg;
+  }
+  return review.explanation;
+}

@@ -43,6 +43,7 @@ export default function ExamReviewPage() {
   const [error,     setError]     = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiExplain, setAiExplain] = useState({});
+  const [aiWrong, setAiWrong] = useState({});
 
   const catInfo = NURSING_CATEGORIES.find(c => c.id === category);
 
@@ -163,9 +164,10 @@ export default function ExamReviewPage() {
     if (aiExplain[q.id]) return;
     setAiLoading(true);
     try {
-      const { getAiExplanation } = await import('../../utils/aiExplain');
-      const text = await getAiExplanation(q);
-      setAiExplain(prev => ({ ...prev, [q.id]: text }));
+      const { getAiReview, formatAiReviewMessage } = await import('../../utils/aiExplain');
+      const review = await getAiReview(q, 'questions');
+      setAiExplain(prev => ({ ...prev, [q.id]: formatAiReviewMessage(review) }));
+      setAiWrong(prev => ({ ...prev, [q.id]: !review.agrees }));
     } catch (e) {
       setAiExplain(prev => ({ ...prev, [q.id]: e.message || 'AI explanation unavailable.' }));
     } finally { setAiLoading(false); }
@@ -433,10 +435,10 @@ export default function ExamReviewPage() {
                   </button>
                   {aiExplain[q.id] && (
                     <div style={{
-                      marginTop: 8, background: 'rgba(124,58,237,0.08)',
-                      border: '1px solid rgba(124,58,237,0.2)',
+                      marginTop: 8, background: aiWrong[q.id] ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.08)',
+                      border: `1px solid ${aiWrong[q.id] ? 'rgba(245,158,11,0.4)' : 'rgba(124,58,237,0.2)'}`,
                       borderRadius: 8, padding: '10px 14px',
-                      fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
+                      fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap',
                     }}>🤖 {aiExplain[q.id]}</div>
                   )}
                 </div>

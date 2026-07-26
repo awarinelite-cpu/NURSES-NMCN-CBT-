@@ -464,7 +464,7 @@ export default function EntranceExamSession() {
                   <ExplanationText text={q.explanation} />
                 </div>
               )}
-              <AiExplainButton q={q} />
+              <AiExplainButton q={q} collection="entranceExamQuestions" />
 
             </div>
           ))}
@@ -648,7 +648,7 @@ export default function EntranceExamSession() {
                 <ExplanationText text={currentQ.explanation} />
               </div>
             )}
-            {submitted && <AiExplainButton q={currentQ} style={{ marginTop: 12 }} />}
+            {submitted && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
 
           </div>
         ) : <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontWeight: 700 }}>No questions loaded.</div>}

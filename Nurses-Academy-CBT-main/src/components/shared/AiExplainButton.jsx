@@ -3,14 +3,23 @@
 // Manages its own loading/result state, powered by Gemini via utils/aiExplain.
 //
 // Usage:  <AiExplainButton q={question} />
+//
+// Pass `collection="questions"` or `collection="entranceExamQuestions"` to
+// upgrade to the review flow: the AI independently re-checks the stored
+// answer, tells the student directly if it's wrong (and what the right one
+// is), auto-saves high-confidence corrections, and flags low-confidence
+// disagreements for admin review. Omit `collection` for question shapes
+// that flow doesn't support yet (e.g. CAOSCE cases) — falls back to a plain
+// explanation of the stored answer.
 
 import { useState } from 'react';
-import { getAiExplanation } from '../../utils/aiExplain';
+import { getAiExplanation, getAiReview, formatAiReviewMessage } from '../../utils/aiExplain';
 
-export default function AiExplainButton({ q, style = {} }) {
+export default function AiExplainButton({ q, collection = null, style = {} }) {
   const [text, setText]       = useState('');
   const [loading, setLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [isWrong, setIsWrong] = useState(false);
 
   const handleClick = async (e) => {
     e.stopPropagation();
@@ -18,8 +27,14 @@ export default function AiExplainButton({ q, style = {} }) {
     setLoading(true);
     setIsError(false);
     try {
-      const result = await getAiExplanation(q);
-      setText(result);
+      if (collection) {
+        const review = await getAiReview(q, collection);
+        setText(formatAiReviewMessage(review));
+        setIsWrong(!review.agrees);
+      } else {
+        const result = await getAiExplanation(q);
+        setText(result);
+      }
     } catch (err) {
       setText(err.message || 'AI explanation unavailable.');
       setIsError(true);
@@ -48,8 +63,8 @@ export default function AiExplainButton({ q, style = {} }) {
       {text && (
         <div style={{
           marginTop: 6, padding: '10px 14px', borderRadius: 10,
-          background: isError ? 'rgba(239,68,68,0.08)' : 'rgba(124,58,237,0.08)',
-          border: `1px solid ${isError ? 'rgba(239,68,68,0.3)' : 'rgba(124,58,237,0.25)'}`,
+          background: isError ? 'rgba(239,68,68,0.08)' : isWrong ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.08)',
+          border: `1px solid ${isError ? 'rgba(239,68,68,0.3)' : isWrong ? 'rgba(245,158,11,0.4)' : 'rgba(124,58,237,0.25)'}`,
           fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap',
           color: isError ? '#EF4444' : 'var(--text-primary)',
           fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
@@ -57,7 +72,7 @@ export default function AiExplainButton({ q, style = {} }) {
           🤖 {text}
           {isError && (
             <button
-              onClick={() => { setText(''); setIsError(false); }}
+              onClick={() => { setText(''); setIsError(false); setIsWrong(false); }}
               style={{
                 display: 'block', marginTop: 6, padding: '4px 10px', borderRadius: 6,
                 border: '1px solid rgba(239,68,68,0.3)', background: 'transparent',

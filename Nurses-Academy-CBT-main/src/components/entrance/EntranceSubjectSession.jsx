@@ -493,7 +493,7 @@ export default function EntranceSubjectSession() {
                       </div>
                     </div>
                   )}
-                  <AiExplainButton q={q} />
+                  <AiExplainButton q={q} collection="entranceExamQuestions" />
                 </div>
               ))}
             </div>
@@ -666,7 +666,7 @@ export default function EntranceSubjectSession() {
                   </div>
                 </div>
               )}
-              {submitted && <AiExplainButton q={currentQ} style={{ marginTop: 12 }} />}
+              {submitted && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
             </div>
           )}
         </div>

@@ -469,7 +469,7 @@ export function EntranceBookmarks() {
                         <ExplanationText text={b.explanation} />
                       </div>
                     )}
-                    <AiExplainButton q={b} />
+                    <AiExplainButton q={b} collection="entranceExamQuestions" />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                     {fromChat && (

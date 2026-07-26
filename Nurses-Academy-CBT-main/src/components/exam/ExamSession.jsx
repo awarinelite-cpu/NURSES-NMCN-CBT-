@@ -340,6 +340,7 @@ export default function ExamSession() {
   const [timeLeft,      setTimeLeft]      = useState(timeLimit * 60);
   const [aiLoading,     setAiLoading]     = useState(false);
   const [aiExplain,     setAiExplain]     = useState({});
+  const [aiWrong,       setAiWrong]       = useState({});
   const [submitted,     setSubmitted]     = useState(false);
   const [bookmarked,    setBookmarked]    = useState(new Set());
   const [notes,         setNotes]         = useState(new Map());
@@ -445,6 +446,7 @@ export default function ExamSession() {
               subject:      data.subject      || '',
               year:         data.year         || '',
               schoolName:   data.schoolName   || '',
+              _sourceCollection: 'entranceExamQuestions',
             };
           }).filter(q => q.question && q.options.some(o => o));
 
@@ -849,9 +851,10 @@ export default function ExamSession() {
     if (aiExplain[q.id]) return;
     setAiLoading(true);
     try {
-      const { getAiExplanation } = await import('../../utils/aiExplain');
-      const text = await getAiExplanation(q);
-      setAiExplain(prev => ({ ...prev, [q.id]: text }));
+      const { getAiReview, formatAiReviewMessage } = await import('../../utils/aiExplain');
+      const review = await getAiReview(q, q._sourceCollection || 'questions');
+      setAiExplain(prev => ({ ...prev, [q.id]: formatAiReviewMessage(review) }));
+      setAiWrong(prev => ({ ...prev, [q.id]: !review.agrees }));
     } catch (e) {
       setAiExplain(prev => ({ ...prev, [q.id]: e.message || 'AI explanation unavailable.' }));
     } finally { setAiLoading(false); }
@@ -1193,7 +1196,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
 
                   {/* ── AI explanation — also multi-line aware ───────────── */}
                   {aiExplain[q.id] && (
-                    <div style={{ marginTop: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    <div style={{ marginTop: 8, background: aiWrong[q.id] ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.08)', border: `1px solid ${aiWrong[q.id] ? 'rgba(245,158,11,0.4)' : 'rgba(124,58,237,0.2)'}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                       🤖 <ExplanationText text={aiExplain[q.id]} />
                     </div>
                   )}
