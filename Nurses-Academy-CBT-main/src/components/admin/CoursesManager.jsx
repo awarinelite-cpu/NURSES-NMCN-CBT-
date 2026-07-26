@@ -21,7 +21,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   collection, getDocs, addDoc, deleteDoc, updateDoc,
-  doc, setDoc, serverTimestamp, orderBy, query, where,
+  doc, setDoc, serverTimestamp, orderBy, query, where, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
@@ -94,6 +94,126 @@ export default function CoursesManager() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Data cleanup: orphaned questions + duplicate questions ─────────────────
+  const [showCleanup,     setShowCleanup]     = useState(false);
+  const [cleanupScanning, setCleanupScanning] = useState(false);
+  const [cleanupResult,   setCleanupResult]   = useState(null); // { orphans:[], dupGroups:[{courseId,courseLabel,topic,keepId,removeIds}] }
+  const [cleanupWorking,  setCleanupWorking]  = useState(false);
+
+  // A question is a "duplicate" of another if question text + options +
+  // correctIndex + topic all match within the same course. We keep the
+  // oldest doc (by createdAt, falling back to doc id) and mark the rest
+  // for removal. This matches how the bulk-upload retry loop created
+  // near-identical copies (same CSV re-imported repeatedly).
+  const dupKey = (q) => JSON.stringify({
+    question: (q.question || '').trim().toLowerCase(),
+    options:  (q.options || []).map(o => (o || '').trim().toLowerCase()),
+    correctIndex: q.correctIndex,
+    topic: (q.topic || '').trim().toLowerCase(),
+  });
+
+  const handleScanCleanup = async () => {
+    setCleanupScanning(true);
+    setCleanupResult(null);
+    try {
+      const [courseSnap, questionSnap] = await Promise.all([
+        getDocs(collection(db, 'courses')),
+        getDocs(collection(db, 'questions')),
+      ]);
+      const validCourseIds = new Set(courseSnap.docs.map(d => d.id));
+      const allQuestions = questionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Orphans: question.course doesn't match any existing course doc.
+      const orphans = allQuestions.filter(q => q.course && !validCourseIds.has(q.course));
+
+      // Duplicates: group by course, then by dupKey within that course.
+      const byCourse = {};
+      for (const q of allQuestions) {
+        if (!q.course || !validCourseIds.has(q.course)) continue; // orphans handled separately
+        (byCourse[q.course] ||= []).push(q);
+      }
+      const dupGroups = [];
+      for (const [courseId, qs] of Object.entries(byCourse)) {
+        const groups = {};
+        for (const q of qs) (groups[dupKey(q)] ||= []).push(q);
+        for (const group of Object.values(groups)) {
+          if (group.length <= 1) continue;
+          const sorted = [...group].sort((a, b) => {
+            const at = a.createdAt?.seconds ?? Infinity;
+            const bt = b.createdAt?.seconds ?? Infinity;
+            if (at !== bt) return at - bt;
+            return a.id.localeCompare(b.id);
+          });
+          const [keep, ...rest] = sorted;
+          dupGroups.push({
+            courseId,
+            courseLabel: courses.find(c => c.id === courseId)?.label || courseId,
+            topic: keep.topic || '',
+            keepId: keep.id,
+            removeIds: rest.map(r => r.id),
+          });
+        }
+      }
+
+      setCleanupResult({ orphans, dupGroups });
+    } catch (e) {
+      toast('Scan failed: ' + e.message, 'error');
+    } finally {
+      setCleanupScanning(false);
+    }
+  };
+
+  const commitBatchDeletes = async (ids) => {
+    // Firestore batches cap at 500 writes; chunk to be safe.
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 450) chunks.push(ids.slice(i, i + 450));
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach(id => batch.delete(doc(db, 'questions', id)));
+      await batch.commit();
+    }
+  };
+
+  const handleDeleteOrphans = async () => {
+    if (!cleanupResult?.orphans?.length) return;
+    if (!window.confirm(
+      `Permanently delete ${cleanupResult.orphans.length} orphaned question${cleanupResult.orphans.length !== 1 ? 's' : ''} ` +
+      `(these belong to courses that no longer exist)? This cannot be undone.`
+    )) return;
+    setCleanupWorking(true);
+    try {
+      await commitBatchDeletes(cleanupResult.orphans.map(o => o.id));
+      toast(`Deleted ${cleanupResult.orphans.length} orphaned question(s).`, 'success');
+      setCleanupResult(r => ({ ...r, orphans: [] }));
+      await loadData();
+    } catch (e) {
+      toast('Delete failed: ' + e.message, 'error');
+    } finally {
+      setCleanupWorking(false);
+    }
+  };
+
+  const handleDedupe = async () => {
+    const total = cleanupResult?.dupGroups?.reduce((s, g) => s + g.removeIds.length, 0) || 0;
+    if (!total) return;
+    if (!window.confirm(
+      `Permanently delete ${total} duplicate question${total !== 1 ? 's' : ''} across ${cleanupResult.dupGroups.length} group(s), ` +
+      `keeping one copy of each? This cannot be undone.`
+    )) return;
+    setCleanupWorking(true);
+    try {
+      const allRemoveIds = cleanupResult.dupGroups.flatMap(g => g.removeIds);
+      await commitBatchDeletes(allRemoveIds);
+      toast(`Removed ${allRemoveIds.length} duplicate question(s).`, 'success');
+      setCleanupResult(r => ({ ...r, dupGroups: [] }));
+      await loadData();
+    } catch (e) {
+      toast('Dedupe failed: ' + e.message, 'error');
+    } finally {
+      setCleanupWorking(false);
+    }
+  };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const coursesForSpecialty = (specialtyId) =>
@@ -497,13 +617,120 @@ export default function CoursesManager() {
       {/* Info box */}
       <div style={{
         background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
-        borderRadius: 12, padding: '14px 18px', marginBottom: 28,
+        borderRadius: 12, padding: '14px 18px', marginBottom: 20,
         fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
       }}>
         💡 <strong>How it works:</strong> Click a specialty to manage its courses.
         Add courses, set them active or inactive, and see how many questions each course has.
         Only <strong>active</strong> courses are visible to students.
       </div>
+
+      {/* Data Cleanup toggle */}
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={() => { setShowCleanup(v => !v); if (!showCleanup) handleScanCleanup(); }}
+        style={{ marginBottom: showCleanup ? 16 : 28 }}
+      >
+        🧹 {showCleanup ? 'Hide' : 'Data Cleanup'} (orphaned & duplicate questions)
+      </button>
+
+      {showCleanup && (
+        <div className="card" style={{
+          marginBottom: 28, padding: '18px 20px',
+          border: '1.5px solid rgba(239,68,68,0.3)',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+            🧹 Data Cleanup
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+            Finds questions whose course was deleted (<strong>orphans</strong>) and questions that were
+            imported more than once with identical text (<strong>duplicates</strong>), most often from
+            re-uploading the same CSV before a bug was fixed. Nothing is deleted until you confirm.
+          </div>
+
+          {cleanupScanning ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-muted)' }}>
+              <span className="spinner spinner-sm" /> Scanning all questions…
+            </div>
+          ) : cleanupResult && (
+            <>
+              {/* Orphans */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px', marginBottom: 10,
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                    Orphaned questions
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {cleanupResult.orphans.length === 0
+                      ? 'None found — every question belongs to an existing course.'
+                      : `${cleanupResult.orphans.length} question${cleanupResult.orphans.length !== 1 ? 's' : ''} reference a course that no longer exists.`}
+                  </div>
+                </div>
+                {cleanupResult.orphans.length > 0 && (
+                  <button className="btn btn-danger btn-sm" disabled={cleanupWorking} onClick={handleDeleteOrphans}>
+                    {cleanupWorking ? <span className="spinner spinner-sm" /> : `🗑️ Delete ${cleanupResult.orphans.length}`}
+                  </button>
+                )}
+              </div>
+
+              {/* Duplicates */}
+              <div style={{
+                background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: cleanupResult.dupGroups.length ? 10 : 0 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                      Duplicate questions
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {cleanupResult.dupGroups.length === 0
+                        ? 'None found — no exact repeats detected.'
+                        : `${cleanupResult.dupGroups.reduce((s, g) => s + g.removeIds.length, 0)} duplicate copies across ${cleanupResult.dupGroups.length} question${cleanupResult.dupGroups.length !== 1 ? 's' : ''}, one copy will be kept for each.`}
+                    </div>
+                  </div>
+                  {cleanupResult.dupGroups.length > 0 && (
+                    <button className="btn btn-danger btn-sm" disabled={cleanupWorking} onClick={handleDedupe}>
+                      {cleanupWorking ? <span className="spinner spinner-sm" /> : `🗑️ Remove ${cleanupResult.dupGroups.reduce((s, g) => s + g.removeIds.length, 0)}`}
+                    </button>
+                  )}
+                </div>
+
+                {cleanupResult.dupGroups.length > 0 && (
+                  <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {Object.entries(
+                      cleanupResult.dupGroups.reduce((acc, g) => {
+                        (acc[g.courseLabel] ||= { count: 0, removed: 0 });
+                        acc[g.courseLabel].count += 1;
+                        acc[g.courseLabel].removed += g.removeIds.length;
+                        return acc;
+                      }, {})
+                    ).map(([label, info]) => (
+                      <div key={label} style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{label}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {info.count} question{info.count !== 1 ? 's' : ''} · {info.removed} extra cop{info.removed !== 1 ? 'ies' : 'y'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={handleScanCleanup}
+                disabled={cleanupScanning}
+              >
+                🔄 Re-scan
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}><span className="spinner" /></div>
