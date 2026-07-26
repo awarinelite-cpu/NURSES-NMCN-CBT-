@@ -311,7 +311,7 @@ export default function CaosceExamSession() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {current.cbtQuestions.map((q, qi) => (
               <div key={q.id} className="card" style={{ padding: '14px 16px' }}>
-                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', marginBottom: 10, fontFamily: F }}>
+                <div className="exam-q-text" style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', marginBottom: 10, fontFamily: F }}>
                   {qi + 1}. {q.question}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -333,7 +333,7 @@ export default function CaosceExamSession() {
                           border: `2px solid ${isSel ? '#2563EB' : 'var(--border)'}`,
                           background: isSel ? '#2563EB' : 'transparent',
                         }} />
-                        <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                        <span className="exam-opt-text" style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                           {String.fromCharCode(65 + oi)}. {opt}
                         </span>
                       </button>

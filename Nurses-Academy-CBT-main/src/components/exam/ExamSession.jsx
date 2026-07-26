@@ -1148,7 +1148,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                 <div key={q.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, borderLeft: `4px solid ${isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}` }}>
                   <div style={{ marginBottom: 14 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B', color: '#fff', fontWeight: 800, fontSize: 12, marginBottom: 10 }}>{i + 1}</span>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.6, textAlign: 'justify', width: '100%', fontFamily: F }}>{q.question}</p>
+                    <p className="exam-q-text" style={{ margin: 0, fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.6, textAlign: 'justify', width: '100%', fontFamily: F }}>{q.question}</p>
                   </div>
                   {q.imageUrl && <div style={{ marginBottom: 12, textAlign: 'center' }}><img src={q.imageUrl} alt="Question" style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -1158,7 +1158,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                       if (isCorrectOpt)            { bg = 'rgba(22,163,74,0.12)';  color = '#16A34A'; border = 'rgba(22,163,74,0.4)'; }
                       if (isUser && !isCorrectOpt) { bg = 'rgba(239,68,68,0.12)'; color = '#EF4444'; border = 'rgba(239,68,68,0.4)'; }
                       return (
-                        <div key={j} style={{ padding: '10px 14px', borderRadius: 8, fontSize: 14, background: bg, color, border: `1px solid ${border}`, fontWeight: isCorrectOpt || isUser ? 700 : 400, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="exam-opt-text" key={j} style={{ padding: '10px 14px', borderRadius: 8, fontSize: 14, background: bg, color, border: `1px solid ${border}`, fontWeight: isCorrectOpt || isUser ? 700 : 400, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: isCorrectOpt ? '#16A34A' : isUser ? '#EF4444' : 'var(--bg-card)', color: isCorrectOpt || isUser ? '#fff' : 'var(--text-muted)', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${border}` }}>{String.fromCharCode(65 + j)}</span>
                           {typeof opt === 'string' ? opt : opt.text}
                           {isCorrectOpt && <span style={{ marginLeft: 'auto' }}>✓</span>}
@@ -1303,7 +1303,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                 <QuestionNoteButton uid={currentUser?.uid} question={q} initialText={notes.get(q.id)?.text || ''} onSaved={handleNoteSaved} />
               </div>
             </div>
-            <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>
+            <p className="exam-q-text" style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 12px' }}>{q.question}</p>
             <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
               {/* ── Voice Mode first-time discovery nudge ── */}
               {showVoiceNudge && (
@@ -1359,7 +1359,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                     // spoken answer. Otherwise fall back to a plain silent select.
                     const handled = voiceModeRef.current?.selectOption(i);
                     if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
-                  }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
+                  }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
                     <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
                     {typeof opt === 'string' ? opt : opt.text}
                   </button>

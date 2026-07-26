@@ -295,7 +295,7 @@ function CaseReview({ c, index, total }) {
                   borderRadius: 14, padding: 18,
                   borderLeft: `4px solid ${isCorrect ? '#16A34A' : isAnswered ? '#EF4444' : '#64748B'}`,
                 }}>
-                  <p style={{
+                  <p className="exam-q-text" style={{
                     margin: '0 0 12px', fontWeight: 700, fontSize: 14,
                     color: 'var(--text-primary)', lineHeight: 1.6, fontFamily: F,
                   }}>
@@ -309,7 +309,7 @@ function CaseReview({ c, index, total }) {
                       if (isCorrectOpt)            { bg = 'rgba(22,163,74,0.12)'; color = '#16A34A'; border = 'rgba(22,163,74,0.4)'; }
                       if (isUser && !isCorrectOpt) { bg = 'rgba(239,68,68,0.12)'; color = '#EF4444'; border = 'rgba(239,68,68,0.4)'; }
                       return (
-                        <div key={oi} style={{
+                        <div key={oi} className="exam-opt-text" style={{
                           padding: '9px 13px', borderRadius: 8, fontSize: 13.5,
                           background: bg, color, border: `1px solid ${border}`,
                           fontWeight: isCorrectOpt || isUser ? 700 : 400,

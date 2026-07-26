@@ -722,7 +722,7 @@ tr:hover td { background: var(--bg-secondary); }
   max-width: 900px;
 }
 @media (min-width: 901px) {
-  .exam-flow-container { max-width: 100%; }
+  .exam-flow-container { max-width: 100%; font-size: 16px; }
 }
 
 /* ── Exam session / results pages (question player, review, CAOSCE results) ──
@@ -734,7 +734,7 @@ tr:hover td { background: var(--bg-secondary); }
   margin: 0 auto;
 }
 @media (min-width: 901px) {
-  .exam-session-container { max-width: 100%; }
+  .exam-session-container { max-width: 100%; font-size: 16px; }
 }
 
 @media (max-width: 640px) {
@@ -768,4 +768,10 @@ html[style*="font-size: 14"] h3 { font-size: clamp(1.6rem, 2.88vw, 2.08rem); }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Desktop font-size bump for exam question/option text ──
+   Applies only on desktop (≥901px); mobile/tablet keep their original size. */
+@media (min-width: 901px) {
+  .exam-q-text, .exam-opt-text { font-size: 16px !important; }
 }
