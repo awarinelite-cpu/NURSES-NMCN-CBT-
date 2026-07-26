@@ -187,7 +187,7 @@ export default function CourseDrillPage() {
     );
 
     return (
-      <div style={{ padding: '24px', maxWidth: 900 }}>
+      <div className="exam-flow-container">
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>📖</span>
@@ -249,7 +249,7 @@ export default function CourseDrillPage() {
   // ── STEP 2 — Course Picker ──────────────────────────────────────────────────
   if (step === 2) {
     return (
-      <div style={{ padding: '24px', maxWidth: 900 }}>
+      <div className="exam-flow-container">
         <button onClick={() => { setStep(1); setSpecialty(null); }} style={styles.backBtn}>
           ← Back to Specialties
         </button>
@@ -320,7 +320,7 @@ export default function CourseDrillPage() {
 
   // ── STEP 3 — Exam Hub for selected course ───────────────────────────────────
   return (
-    <div style={{ padding: '24px', maxWidth: 860 }}>
+    <div className="exam-flow-container">
       <button onClick={() => { setStep(2); setSelCourse(null); setSessions([]); }} style={styles.backBtn}>
         ← Back to Courses
       </button>

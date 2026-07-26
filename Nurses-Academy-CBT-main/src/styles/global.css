@@ -712,6 +712,19 @@ tr:hover td { background: var(--bg-secondary); }
   .sidebar.open { display: flex; position: fixed; z-index: 200; width: 270px; }
 }
 
+/* ── Exam flow pages (Course Drill / Topic Drill / Past Questions / CAOSCE) ──
+   These were capped at max-width:860-900px with no centering, so on desktop
+   they sat pinned to the left with a large empty gap on the right instead of
+   filling the screen. Mobile keeps the original comfortable reading width;
+   desktop now stretches to fill the available content area edge to edge. */
+.exam-flow-container {
+  padding: 24px;
+  max-width: 900px;
+}
+@media (min-width: 901px) {
+  .exam-flow-container { max-width: 100%; }
+}
+
 @media (max-width: 640px) {
   .container { padding: 0 16px; }
   .card { padding: 16px; }

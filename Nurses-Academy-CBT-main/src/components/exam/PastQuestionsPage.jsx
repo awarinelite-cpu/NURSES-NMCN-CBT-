@@ -123,7 +123,7 @@ export default function PastQuestionsPage() {
   // ── STEP 1 — Specialty Picker ─────────────────────────────────────────────
   if (step === 1) {
     return (
-      <div style={{ padding: '24px', maxWidth: 900 }}>
+      <div className="exam-flow-container">
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>📜</span>
