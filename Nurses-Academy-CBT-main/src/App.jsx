@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider }          from './context/AuthContext';
 import { ThemeProvider }         from './context/ThemeContext';
+import { FontSizeProvider }      from './context/FontSizeContext';
 import { ToastProvider }         from './components/shared/Toast';
 import { useAuth }               from './context/AuthContext';
 
@@ -240,6 +241,7 @@ function BackButtonHandler() {
 export default function App() {
   return (
     <ThemeProvider>
+      <FontSizeProvider>
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
@@ -360,6 +362,7 @@ export default function App() {
           </BrowserRouter>
         </ToastProvider>
       </AuthProvider>
+      </FontSizeProvider>
     </ThemeProvider>
   );
 }

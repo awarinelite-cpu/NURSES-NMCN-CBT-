@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import NotificationBell from './NotificationBell';
+import FontSizeControl from './FontSizeControl';
 
 // ─── Per-site last-visited location tracker ───────────────────────────────────
 const SITE_KEY = 'nmcn_site';
@@ -104,6 +105,8 @@ export default function Navbar({ onMenuToggle }) {
               </span>
             </button>
           </div>
+
+          <FontSizeControl />
 
           {user && <NotificationBell />}
 
