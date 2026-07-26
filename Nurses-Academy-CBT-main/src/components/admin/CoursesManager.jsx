@@ -217,7 +217,137 @@ export default function CoursesManager() {
     }
   };
 
-  // ── Course locator: find a course by name across every specialty ───────────
+  // ── Merge similar courses ───────────────────────────────────────────────────
+  // Catches the common case of the same course existing more than once
+  // (typically from being recreated after the category self-heal bug, or from
+  // manual re-entry) — e.g. "PHN 420" and "PHN-420" and "phn420" are all the
+  // same course to a student but three separate docs to Firestore. Merging
+  // reassigns every question from the "losing" course(s) onto the one kept,
+  // then removes any exact duplicates that results in, and deletes the
+  // now-empty course doc(s).
+  const [showMerge,     setShowMerge]     = useState(false);
+  const [mergeGroups,   setMergeGroups]   = useState([]);   // [{ key, courses:[...], keepId }]
+  const [mergeScanning, setMergeScanning] = useState(false);
+  const [mergeWorking,  setMergeWorking]  = useState(null); // group key currently merging, or 'manual'
+  const [manualSourceId, setManualSourceId] = useState('');
+  const [manualTargetId, setManualTargetId] = useState('');
+
+  const normalizeCourseName = (label) =>
+    (label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const handleScanMerge = () => {
+    setMergeScanning(true);
+    const groups = {};
+    for (const c of courses) {
+      const key = normalizeCourseName(c.label);
+      if (!key) continue;
+      (groups[key] ||= []).push(c);
+    }
+    const candidates = Object.entries(groups)
+      .filter(([, list]) => list.length > 1)
+      .map(([key, list]) => {
+        // Default "keep" = the one with the most questions (ties → oldest doc id)
+        const sorted = [...list].sort((a, b) => {
+          const diff = (questionCounts[b.id] || 0) - (questionCounts[a.id] || 0);
+          if (diff !== 0) return diff;
+          return a.id.localeCompare(b.id);
+        });
+        return { key, courses: sorted, keepId: sorted[0].id };
+      });
+    setMergeGroups(candidates);
+    setMergeScanning(false);
+  };
+
+  // Reassigns every question from each id in removeIds onto keepId, dedupes
+  // the merged course, then deletes the now-empty course doc(s).
+  const mergeCoursesInto = async (keepId, removeIds) => {
+    removeIds = removeIds.filter(id => id !== keepId);
+    if (!removeIds.length) return;
+
+    // 1) Move every question from the losing course(s) onto the keeper.
+    for (const removeId of removeIds) {
+      const qSnap = await getDocs(query(collection(db, 'questions'), where('course', '==', removeId)));
+      const ids = qSnap.docs.map(d => d.id);
+      for (let i = 0; i < ids.length; i += 450) {
+        const batch = writeBatch(db);
+        ids.slice(i, i + 450).forEach(id => batch.update(doc(db, 'questions', id), { course: keepId }));
+        await batch.commit();
+      }
+    }
+
+    // 2) Dedupe the merged course — the two courses may have had overlapping
+    //    questions (e.g. the same CSV uploaded into both by mistake).
+    const mergedSnap = await getDocs(query(collection(db, 'questions'), where('course', '==', keepId)));
+    const mergedQs = mergedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const byKey = {};
+    for (const q of mergedQs) (byKey[dupKey(q)] ||= []).push(q);
+    const dupRemoveIds = [];
+    for (const group of Object.values(byKey)) {
+      if (group.length <= 1) continue;
+      const sorted = [...group].sort((a, b) => {
+        const at = a.createdAt?.seconds ?? Infinity;
+        const bt = b.createdAt?.seconds ?? Infinity;
+        if (at !== bt) return at - bt;
+        return a.id.localeCompare(b.id);
+      });
+      dupRemoveIds.push(...sorted.slice(1).map(r => r.id));
+    }
+    if (dupRemoveIds.length) await commitBatchDeletes(dupRemoveIds);
+
+    // 3) Delete the now-empty losing course doc(s).
+    for (const removeId of removeIds) {
+      await deleteDoc(doc(db, 'courses', removeId));
+    }
+  };
+
+  const handleMergeGroup = async (group) => {
+    const removeIds = group.courses.filter(c => c.id !== group.keepId).map(c => c.id);
+    const keepCourse = group.courses.find(c => c.id === group.keepId);
+    const movingQs = removeIds.reduce((s, id) => s + (questionCounts[id] || 0), 0);
+    if (!window.confirm(
+      `Merge ${group.courses.length} courses into "${keepCourse.label}"?\n\n` +
+      `${movingQs} question(s) will move over, exact duplicates will be removed, ` +
+      `and the other ${removeIds.length} course doc(s) will be deleted. This cannot be undone.`
+    )) return;
+    setMergeWorking(group.key);
+    try {
+      await mergeCoursesInto(group.keepId, removeIds);
+      toast(`Merged into "${keepCourse.label}".`, 'success');
+      setMergeGroups(gs => gs.filter(g => g.key !== group.key));
+      await loadData();
+    } catch (e) {
+      toast('Merge failed: ' + e.message, 'error');
+    } finally {
+      setMergeWorking(null);
+    }
+  };
+
+  const handleManualMerge = async () => {
+    if (!manualSourceId || !manualTargetId || manualSourceId === manualTargetId) return;
+    const source = courses.find(c => c.id === manualSourceId);
+    const target = courses.find(c => c.id === manualTargetId);
+    if (!source || !target) return;
+    if (!window.confirm(
+      `Merge "${source.label}" into "${target.label}"?\n\n` +
+      `${questionCounts[source.id] || 0} question(s) will move over, exact duplicates will be removed, ` +
+      `and "${source.label}" will be deleted. This cannot be undone.`
+    )) return;
+    setMergeWorking('manual');
+    try {
+      await mergeCoursesInto(manualTargetId, [manualSourceId]);
+      toast(`Merged "${source.label}" into "${target.label}".`, 'success');
+      setManualSourceId('');
+      setManualTargetId('');
+      setMergeGroups(gs => gs.filter(g => !g.courses.some(c => c.id === manualSourceId)));
+      await loadData();
+    } catch (e) {
+      toast('Merge failed: ' + e.message, 'error');
+    } finally {
+      setMergeWorking(null);
+    }
+  };
+
+
   // A course whose category was silently changed (e.g. by the self-heal bug)
   // doesn't get deleted — it just moves, or ends up with a category that
   // doesn't match any NURSING_CATEGORIES id, in which case it's invisible in
@@ -838,6 +968,138 @@ export default function CoursesManager() {
                 style={{ marginTop: 12 }}
                 onClick={handleScanCleanup}
                 disabled={cleanupScanning}
+              >
+                🔄 Re-scan
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Merge Courses toggle */}
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={() => { setShowMerge(v => !v); if (!showMerge) handleScanMerge(); }}
+        style={{ marginBottom: showMerge ? 16 : 28 }}
+      >
+        🔀 {showMerge ? 'Hide' : 'Merge Courses'} (join similar courses' questions together)
+      </button>
+
+      {showMerge && (
+        <div className="card" style={{
+          marginBottom: 28, padding: '18px 20px',
+          border: '1.5px solid rgba(13,148,136,0.35)',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+            🔀 Merge Courses
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+            Finds courses that look like the same course under slightly different names
+            (e.g. "PHN 420" vs "phn420"). Merging moves every question onto the one you keep,
+            removes any exact duplicates that overlap, and deletes the other course doc(s).
+            Nothing happens until you confirm.
+          </div>
+
+          {mergeScanning ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-muted)' }}>
+              <span className="spinner spinner-sm" /> Scanning courses…
+            </div>
+          ) : (
+            <>
+              {mergeGroups.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  No look-alike courses found by name.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+                  {mergeGroups.map(group => (
+                    <div key={group.key} style={{
+                      background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px',
+                    }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>
+                        {group.courses.length} courses look like duplicates
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                        {group.courses.map(c => (
+                          <label key={c.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5,
+                            color: c.id === group.keepId ? 'var(--text-primary)' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                          }}>
+                            <input
+                              type="radio"
+                              name={`merge-keep-${group.key}`}
+                              checked={c.id === group.keepId}
+                              onChange={() => setMergeGroups(gs => gs.map(g =>
+                                g.key === group.key ? { ...g, keepId: c.id } : g
+                              ))}
+                            />
+                            <span>{c.icon || '📖'} {c.label}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              — {questionCounts[c.id] || 0} question{(questionCounts[c.id] || 0) !== 1 ? 's' : ''}
+                              {NURSING_CATEGORIES.find(n => n.id === c.category)?.shortLabel
+                                ? ` · ${NURSING_CATEGORIES.find(n => n.id === c.category).shortLabel}`
+                                : ' · ⚠️ unrecognized specialty'}
+                            </span>
+                            {c.id === group.keepId && <span style={{ color: 'var(--teal)', fontWeight: 700 }}>(keep)</span>}
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        disabled={mergeWorking === group.key}
+                        onClick={() => handleMergeGroup(group)}
+                      >
+                        {mergeWorking === group.key ? <span className="spinner spinner-sm" /> : '🔀 Merge into selected'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Manual merge — pick any two courses, regardless of how similar their names look */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>
+                  Manual merge
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <select
+                    className="form-input"
+                    style={{ width: 220, height: 34, fontSize: 12.5 }}
+                    value={manualSourceId}
+                    onChange={e => setManualSourceId(e.target.value)}
+                  >
+                    <option value="">Merge this course…</option>
+                    {courses.map(c => (
+                      <option key={c.id} value={c.id}>{c.label} ({questionCounts[c.id] || 0}q)</option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>into</span>
+                  <select
+                    className="form-input"
+                    style={{ width: 220, height: 34, fontSize: 12.5 }}
+                    value={manualTargetId}
+                    onChange={e => setManualTargetId(e.target.value)}
+                  >
+                    <option value="">…this course</option>
+                    {courses.filter(c => c.id !== manualSourceId).map(c => (
+                      <option key={c.id} value={c.id}>{c.label} ({questionCounts[c.id] || 0}q)</option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={!manualSourceId || !manualTargetId || mergeWorking === 'manual'}
+                    onClick={handleManualMerge}
+                  >
+                    {mergeWorking === 'manual' ? <span className="spinner spinner-sm" /> : 'Merge'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ marginTop: 14 }}
+                onClick={handleScanMerge}
               >
                 🔄 Re-scan
               </button>
