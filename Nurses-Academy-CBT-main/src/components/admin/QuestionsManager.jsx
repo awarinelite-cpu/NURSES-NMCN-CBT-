@@ -996,10 +996,21 @@ export default function QuestionsManager() {
       // so a question's `course` field must always be an actual courses/{id},
       // never the raw CSV label. Look up existing courses by label first;
       // only fall back to a fresh slug for genuinely new courses.
+      // If the admin explicitly picked a course from the dropdown, that ID
+      // overrides any inline CSV course text for every row in this upload —
+      // see the Course selector note in the UI: "when the CSV's course name
+      // doesn't match a real course, pick one here and questions go straight
+      // to it." bulkMeta.course is only set when a real course was selected.
+      const courseOverride     = bulkMeta.course || '';
       const hasInlineCourseRows = parsedQs.some(q => q._inlineCourse);
+      const hasInlineTopicRows  = parsedQs.some(q => (q._inlineTopic || '').trim());
+      // Need the courses snapshot whenever we'll touch course docs below —
+      // either to resolve/create from inline CSV course names, or to merge
+      // inline topics into an admin-selected course.
+      const needsCourseLookup  = hasInlineCourseRows || (courseOverride && hasInlineTopicRows);
       let existingCoursesSnap = null;
       const labelToId = new Map();
-      if (hasInlineCourseRows) {
+      if (needsCourseLookup) {
         existingCoursesSnap = await getDocs(collection(db, 'courses'));
         existingCoursesSnap.docs.forEach(d => {
           const label = (d.data().label || '').toLowerCase().trim();
@@ -1040,10 +1051,15 @@ export default function QuestionsManager() {
             return raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/, '');
           })();
 
+          // An explicit admin course selection always wins over the CSV's inline
+          // course column. Previously the inline CSV text took priority even
+          // when the admin had picked a real course from the dropdown, which
+          // meant a mismatched CSV label (e.g. "PHN 410") silently created a
+          // brand-new course instead of using the one the admin selected.
           const qMeta = {
             ...bulkMeta,
             examType: hasRealYear ? 'past_questions' : bulkMeta.examType,
-            course:   q._inlineCourse ? resolveCourseId(q._inlineCourse) : (bulkMeta.course || ''),
+            course:   courseOverride || (q._inlineCourse ? resolveCourseId(q._inlineCourse) : ''),
             topic:    q._inlineTopic    || bulkMeta.topic  || '',
             year:     q._inlineYear     || bulkMeta.year   || '2024',
             category: resolvedCategory,
@@ -1065,7 +1081,7 @@ export default function QuestionsManager() {
       // ── Auto-create any missing courses in Firestore ─────────────────────
       // Group inline CSV rows by the *same resolved course ID* used on the
       // questions above, so topics and course docs stay in sync with them.
-      if (hasInlineCourseRows) {
+      if (needsCourseLookup) {
         const existingIds = new Set(existingCoursesSnap.docs.map(d => d.id));
         const courseGroups = {}; // courseId -> { label, topics: Set, category }
 
@@ -1081,11 +1097,14 @@ export default function QuestionsManager() {
 
         parsedQs.forEach(q => {
           const rawName = (q._inlineCourse || '').trim();
-          if (!rawName) return;
-          const courseId = resolveCourseId(rawName);
+          // If the admin explicitly selected a course, every row's topics merge
+          // into THAT course (courseOverride) regardless of what the CSV's
+          // course column says — no separate course gets auto-created from
+          // mismatched CSV text.
+          const courseId = courseOverride || (rawName ? resolveCourseId(rawName) : '');
           if (!courseId) return;
           if (!courseGroups[courseId]) {
-            courseGroups[courseId] = { label: rawName, topics: new Set(), category: resolveQCategory(q) };
+            courseGroups[courseId] = { label: courseOverride ? '' : rawName, topics: new Set(), category: resolveQCategory(q) };
           }
           const tp = (q._inlineTopic || '').trim();
           if (tp) courseGroups[courseId].topics.add(tp);
