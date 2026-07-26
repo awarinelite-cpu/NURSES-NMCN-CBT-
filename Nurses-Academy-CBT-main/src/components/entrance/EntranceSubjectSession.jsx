@@ -421,7 +421,7 @@ export default function EntranceSubjectSession() {
             </span>
           </div>
         )}
-        <div style={{ width: '100%', maxWidth: 680, margin: '0 auto', padding: '28px 16px 64px' }}>
+        <div className="exam-session-container" style={{ width: '100%', padding: '28px 16px 64px' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>{result.score >= 70 ? '🏆' : result.score >= 50 ? '🎯' : '💪'}</div>
             <h2 style={{ fontFamily: H, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px', fontSize: 26 }}>{passed ? 'Well Done!' : 'Keep Practising'}</h2>

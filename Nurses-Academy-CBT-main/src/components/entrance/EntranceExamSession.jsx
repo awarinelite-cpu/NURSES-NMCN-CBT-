@@ -393,7 +393,7 @@ export default function EntranceExamSession() {
     const wrongCount   = breakdown.filter(b => b.chosen && !b.isRight).length;
     const skippedCount = breakdown.filter(b => !b.chosen).length;
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 680, margin: '0 auto', fontFamily: F }}>
+      <div className="exam-session-container" style={{ padding: '24px 16px', fontFamily: F }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{ fontSize: 52, marginBottom: 8 }}>{passed ? '🎉' : '📖'}</div>
           <h2 style={{ fontFamily: H, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 6px' }}>{passed ? 'Well Done!' : 'Keep Practising'}</h2>

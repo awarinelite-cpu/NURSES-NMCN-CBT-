@@ -725,6 +725,18 @@ tr:hover td { background: var(--bg-secondary); }
   .exam-flow-container { max-width: 100%; }
 }
 
+/* ── Exam session / results pages (question player, review, CAOSCE results) ──
+   Same issue as .exam-flow-container above but these were already centered
+   via margin:0 auto — still visibly narrow and boxed-in on a wide desktop
+   screen instead of filling it. Mobile keeps the original comfortable width. */
+.exam-session-container {
+  max-width: 760px;
+  margin: 0 auto;
+}
+@media (min-width: 901px) {
+  .exam-session-container { max-width: 100%; }
+}
+
 @media (max-width: 640px) {
   .container { padding: 0 16px; }
   .card { padding: 16px; }

@@ -1005,7 +1005,7 @@ export default function ExamSession() {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
         <Confetti active={showConfetti} />
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div className="exam-session-container">
           {!reviewMode && (() => {
             // ── Celebration score card ───────────────────────────────────────
             const celebEmoji   = scorePct >= 70 ? '🎉' : scorePct >= 50 ? '👍' : '💪';
@@ -1260,7 +1260,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
             </button>
           </div>
         )}
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div className="exam-session-container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2 }}>{poolMode ? examType === 'daily_practice' ? '⚡ Daily Practice' : examType === 'course_drill' ? `📖 ${courseLabel || 'Course Drill'}` : examType === 'mock_exam' ? `🏥 ${examName}` : examType === 'daily_mock_exam' ? `🗓️ ${examName || 'Daily Mock Exam'}` : `🎯 ${topic || 'Topic Drill'}` : examName}</div>
@@ -1278,7 +1278,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
         </div>
       </div>
 
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '16px' }}>
+      <div className="exam-session-container" style={{ padding: '16px' }}>
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setShowNav(v => !v)}>{showNav ? '▲ Hide' : '▼ Show'} Question Navigator</button>
         {showNav && (
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
