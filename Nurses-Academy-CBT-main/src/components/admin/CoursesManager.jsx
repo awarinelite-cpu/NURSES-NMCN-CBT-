@@ -47,6 +47,7 @@ export default function CoursesManager() {
   const [showAddForm,       setShowAddForm]       = useState(false);
   const [editId,            setEditId]            = useState(null);
   const [search,            setSearch]            = useState('');
+  const [locatorQuery,      setLocatorQuery]      = useState('');
 
   // Add/edit form state
   const [formLabel,      setFormLabel]      = useState('');
@@ -213,6 +214,35 @@ export default function CoursesManager() {
       toast('Dedupe failed: ' + e.message, 'error');
     } finally {
       setCleanupWorking(false);
+    }
+  };
+
+  // ── Course locator: find a course by name across every specialty ───────────
+  // A course whose category was silently changed (e.g. by the self-heal bug)
+  // doesn't get deleted — it just moves, or ends up with a category that
+  // doesn't match any NURSING_CATEGORIES id, in which case it's invisible in
+  // every specialty grid. This searches ALL courses regardless of category,
+  // so a "missing" course can be found and its specialty corrected directly.
+  const [recategorizingId, setRecategorizingId] = useState(null);
+  const locatorResults = locatorQuery.trim().length >= 2
+    ? courses.filter(c => c.label.toLowerCase().includes(locatorQuery.trim().toLowerCase()))
+    : [];
+
+  const handleRecategorize = async (course, newCategory) => {
+    if (newCategory === course.category) return;
+    setRecategorizingId(course.id);
+    try {
+      await updateDoc(doc(db, 'courses', course.id), {
+        category:  newCategory,
+        updatedAt: serverTimestamp(),
+      });
+      const catLabel = NURSING_CATEGORIES.find(c => c.id === newCategory)?.shortLabel || newCategory;
+      toast(`"${course.label}" moved to ${catLabel}.`, 'success');
+      await loadData();
+    } catch (e) {
+      toast('Move failed: ' + e.message, 'error');
+    } finally {
+      setRecategorizingId(null);
     }
   };
 
@@ -652,6 +682,61 @@ export default function CoursesManager() {
         💡 <strong>How it works:</strong> Click a specialty to manage its courses.
         Add courses, set them active or inactive, and see how many questions each course has.
         Only <strong>active</strong> courses are visible to students.
+      </div>
+
+      {/* Course locator */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          className="form-input"
+          style={{ maxWidth: 400 }}
+          placeholder="🔍 Find a course by name (searches every specialty)…"
+          value={locatorQuery}
+          onChange={e => setLocatorQuery(e.target.value)}
+        />
+        {locatorQuery.trim().length >= 2 && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
+            {locatorResults.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                No course matches "{locatorQuery.trim()}".
+              </div>
+            ) : locatorResults.map(course => {
+              const cat = NURSING_CATEGORIES.find(c => c.id === course.category);
+              const qCount = questionCounts[course.id] || 0;
+              return (
+                <div key={course.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '10px 14px',
+                }}>
+                  <span style={{ fontSize: 18 }}>{course.icon || '📖'}</span>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
+                      {course.label}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {qCount} question{qCount !== 1 ? 's' : ''} · {course.active !== false ? '🟢 Active' : '🔴 Inactive'}
+                      {!cat && (
+                        <span style={{ color: '#EF4444', fontWeight: 700 }}> · ⚠️ not visible in any specialty</span>
+                      )}
+                    </div>
+                  </div>
+                  <select
+                    className="form-input"
+                    style={{ width: 190, height: 34, fontSize: 12 }}
+                    value={course.category || ''}
+                    disabled={recategorizingId === course.id}
+                    onChange={e => handleRecategorize(course, e.target.value)}
+                  >
+                    {!cat && <option value="">— pick a specialty —</option>}
+                    {NURSING_CATEGORIES.map(c => (
+                      <option key={c.id} value={c.id}>{c.shortLabel}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Data Cleanup toggle */}
