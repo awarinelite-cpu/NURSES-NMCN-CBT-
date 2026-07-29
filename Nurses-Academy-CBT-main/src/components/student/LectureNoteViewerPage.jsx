@@ -52,12 +52,12 @@ export default function LectureNoteViewerPage() {
 
       {note && (
         <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '22px 20px' }}>
-          <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.15rem,4.5vw,1.6rem)', color: 'var(--text-primary)', margin: '0 0 16px' }}>
+          <h1 style={{ fontFamily: F, fontWeight: 700, fontSize: 'clamp(1.15rem,4.5vw,1.6rem)', color: 'var(--text-primary)', margin: '0 0 16px' }}>
             {note.topic}
           </h1>
           <div
             className="lecture-note-body"
-            style={{ fontFamily: F, fontSize: 16, lineHeight: 1.75, color: 'var(--text-primary)' }}
+            style={{ fontFamily: F, fontWeight: 400, fontSize: 16, lineHeight: 1.75, color: 'var(--text-primary)' }}
             dangerouslySetInnerHTML={{ __html: clean }}
           />
         </div>
@@ -77,9 +77,16 @@ export default function LectureNoteViewerPage() {
           white-space: normal !important;
           overflow-wrap: break-word !important;
           word-break: break-word !important;
+          font-family: ${F} !important;
+          font-weight: 400 !important;
+        }
+        /* Only headings/subheadings are bold — everything else stays normal weight */
+        .lecture-note-body h1, .lecture-note-body h2, .lecture-note-body h3,
+        .lecture-note-body h4, .lecture-note-body h5, .lecture-note-body h6 {
+          font-weight: 700 !important;
+          color: var(--text-primary);
         }
         .lecture-note-body img { height: auto; border-radius: 10px; margin: 10px 0; }
-        .lecture-note-body h1, .lecture-note-body h2, .lecture-note-body h3 { font-family: ${H}; color: var(--text-primary); }
         .lecture-note-body a { color: #0D9488; }
         .lecture-note-body blockquote { border-left: 3px solid #0D9488; margin: 10px 0; padding: 4px 14px; color: var(--text-muted); }
         .lecture-note-body pre { background: rgba(255,255,255,0.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto !important; white-space: pre-wrap !important; }
