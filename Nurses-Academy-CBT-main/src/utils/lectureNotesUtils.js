@@ -140,39 +140,117 @@ export async function deleteNote(noteId) {
 }
 
 // ── CSV bulk import ──────────────────────────────────────────────────────
-// Takes rows already parsed by Papa.parse({header:true}) and writes them in
-// batches of 400 (Firestore batch limit is 500 writes).
-export async function bulkImportNotes(rows, uid) {
+// Supports two input layouts, auto-detected from the header row:
+//
+// 1) Simple layout — one row per note:
+//      specialty, topic, content
+//
+// 2) "Course export" layout — one row per subtopic, several subtopics make
+//    up one note. Common when notes are exported from a syllabus/course
+//    outline (e.g. "Unit, Section Title, Subtopic / Concept, Detailed
+//    Content / Description"). Rows sharing the same Section Title are
+//    merged into a single note, with each subtopic rendered as its own
+//    heading + paragraph inside that note. This layout has no specialty
+//    column, so the admin picks one specialty for the whole file via
+//    `defaultSpecialty`.
+//
+// Column names are matched case-insensitively and tolerate the "/" variants
+// shown above (e.g. "Subtopic / Concept", "Detailed Content / Description").
+
+function pick(row, ...names) {
+  for (const n of names) {
+    const key = Object.keys(row).find(k => k.trim().toLowerCase() === n);
+    if (key && row[key] != null && String(row[key]).trim() !== '') return row[key];
+  }
+  return '';
+}
+
+function isCourseExportLayout(headerKeys) {
+  const keys = headerKeys.map(k => k.trim().toLowerCase());
+  return keys.some(k => k.startsWith('section title')) &&
+    keys.some(k => k.startsWith('detailed content') || k.startsWith('content'));
+}
+
+function prepareSimpleRows(rows, { defaultSpecialty } = {}) {
   const prepared = [];
   const skipped = [];
-
   rows.forEach((row, i) => {
-    const specialtyRaw = row.specialty ?? row.Specialty ?? '';
-    const topic = (row.topic ?? row.Topic ?? '').trim();
-    const contentRaw = row.content ?? row.Content ?? row.note ?? row.Note ?? '';
-    const specialty = resolveSpecialtyId(specialtyRaw);
+    const specialtyRaw = pick(row, 'specialty');
+    const topic = String(pick(row, 'topic', 'title')).trim();
+    const contentRaw = pick(row, 'content', 'note', 'notes');
+    const specialty = resolveSpecialtyId(specialtyRaw) || defaultSpecialty || null;
 
     if (!specialty || !topic) {
       skipped.push({ row: i + 2, reason: !specialty ? `Unrecognized specialty "${specialtyRaw}"` : 'Missing topic' });
       return;
     }
-    prepared.push({
-      specialty,
-      topic,
-      contentHtml: textToHtml(contentRaw),
-      order: 0,
-      published: true,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      updatedBy: uid || null,
-    });
+    prepared.push({ specialty, topic, contentHtml: textToHtml(contentRaw), order: i });
   });
+  return { prepared, skipped };
+}
+
+function prepareCourseExportRows(rows, { defaultSpecialty } = {}) {
+  const prepared = [];
+  const skipped = [];
+  if (!defaultSpecialty) {
+    return { prepared, skipped: [{ row: 1, reason: 'This CSV has no specialty column — choose a specialty for the whole file before importing.' }] };
+  }
+
+  const groups = new Map(); // key -> { unit, topic, parts: [] }
+  const order = [];
+
+  rows.forEach((row, i) => {
+    const unit = String(pick(row, 'unit')).trim();
+    const topic = String(pick(row, 'section title')).trim();
+    const subtopic = String(pick(row, 'subtopic / concept', 'subtopic/concept', 'subtopic')).trim();
+    const content = String(pick(row, 'detailed content / description', 'detailed content/description', 'detailed content', 'content')).trim();
+
+    if (!topic) { skipped.push({ row: i + 2, reason: 'Missing Section Title' }); return; }
+
+    const key = `${unit}::${topic}`;
+    if (!groups.has(key)) { groups.set(key, { unit, topic, parts: [] }); order.push(key); }
+    groups.get(key).parts.push({ subtopic, content });
+  });
+
+  order.forEach((key, idx) => {
+    const g = groups.get(key);
+    const body = g.parts.map(p => {
+      const heading = p.subtopic ? `<h3>${escapeHtml(p.subtopic)}</h3>` : '';
+      return heading + textToHtml(p.content);
+    }).join('');
+    const unitTag = g.unit ? `<p><em>${escapeHtml(g.unit)}</em></p>` : '';
+    prepared.push({ specialty: defaultSpecialty, topic: g.topic, contentHtml: unitTag + body, order: idx });
+  });
+
+  return { prepared, skipped };
+}
+
+// Takes rows already parsed by Papa.parse({header:true}) and writes them in
+// batches of 400 (Firestore batch limit is 500 writes).
+// `defaultSpecialty` (a NURSING_CATEGORIES id) is used for rows/files that
+// don't specify their own specialty column.
+export async function bulkImportNotes(rows, uid, { defaultSpecialty } = {}) {
+  if (!rows.length) return { written: 0, skipped: [], total: 0 };
+
+  const layout = isCourseExportLayout(Object.keys(rows[0]))
+    ? prepareCourseExportRows(rows, { defaultSpecialty })
+    : prepareSimpleRows(rows, { defaultSpecialty });
+
+  const { prepared, skipped } = layout;
 
   let written = 0;
   for (let i = 0; i < prepared.length; i += 400) {
     const chunk = prepared.slice(i, i + 400);
     const batch = writeBatch(db);
-    chunk.forEach(data => batch.set(doc(collection(db, COLLECTION)), data));
+    chunk.forEach(({ specialty, topic, contentHtml, order }) => {
+      batch.set(doc(collection(db, COLLECTION)), {
+        specialty, topic, contentHtml, order,
+        published: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: uid || null,
+      });
+    });
     await batch.commit();
     written += chunk.length;
   }

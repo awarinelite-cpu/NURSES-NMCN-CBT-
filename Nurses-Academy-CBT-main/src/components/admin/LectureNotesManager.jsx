@@ -44,6 +44,7 @@ export default function LectureNotesManager() {
   const [importing, setImporting] = useState(false);
   const [filterSpecialty, setFilterSpecialty] = useState('all');
   const [search, setSearch] = useState('');
+  const [bulkSpecialty, setBulkSpecialty] = useState(NURSING_CATEGORIES[0].id);
 
   // Editor state: null = list view, 'new' = creating, or a note id = editing
   const [editing, setEditing] = useState(null);
@@ -109,7 +110,7 @@ export default function LectureNotesManager() {
         transformHeader: h => h.trim().toLowerCase(),
         complete: async (results) => {
           try {
-            const { written, skipped, total } = await bulkImportNotes(results.data || [], user?.uid);
+            const { written, skipped, total } = await bulkImportNotes(results.data || [], user?.uid, { defaultSpecialty: bulkSpecialty });
             const skipMsg = skipped.length
               ? ` ${skipped.length} row(s) skipped: ${skipped.slice(0, 4).map(s => `row ${s.row} (${s.reason})`).join(', ')}${skipped.length > 4 ? '…' : ''}`
               : '';
@@ -194,6 +195,14 @@ export default function LectureNotesManager() {
           📚 Lecture Notes
         </h1>
         <button onClick={startNew} style={btn('#0D9488')}>➕ New Note</button>
+        <select
+          value={bulkSpecialty}
+          onChange={e => setBulkSpecialty(e.target.value)}
+          title="Used for CSVs that don't have their own specialty column, and as a fallback for unrecognized ones"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 12.5 }}
+        >
+          {NURSING_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
         <button onClick={() => fileInputRef.current?.click()} disabled={importing} style={btn('#2563EB')}>
           {importing ? 'Importing…' : '📤 Bulk Upload CSV'}
         </button>
@@ -202,7 +211,7 @@ export default function LectureNotesManager() {
       </div>
 
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 16px', marginBottom: 18, fontFamily: F, fontSize: 12.5, color: 'var(--text-muted)' }}>
-        CSV columns: <b>specialty, topic, content</b>. Specialty can be the label shown in the app (e.g. "General Nursing (RN)") or its id. Content can be plain text (blank lines = new paragraph) or pasted HTML. Add images afterward by opening a note and long-pressing inside the editor.
+        Two CSV layouts are supported. <b>Simple:</b> columns <b>specialty, topic, content</b> — one row per note. <b>Course export:</b> columns <b>Unit, Section Title, Subtopic / Concept, Detailed Content / Description</b> — rows sharing a Section Title are merged into one note, with each subtopic as its own heading. Course-export files have no specialty column, so pick one from the dropdown above before uploading — it applies to the whole file. Content can be plain text (blank lines = new paragraph) or pasted HTML. Add images afterward by opening a note and long-pressing inside the editor.
       </div>
 
       {msg && (
