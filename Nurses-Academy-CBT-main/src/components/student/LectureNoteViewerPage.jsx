@@ -64,11 +64,26 @@ export default function LectureNoteViewerPage() {
       )}
 
       <style>{`
-        .lecture-note-body img { max-width: 100%; height: auto; border-radius: 10px; margin: 10px 0; }
+        /* Belt-and-suspenders: never let this page scroll sideways */
+        html, body { overflow-x: hidden; max-width: 100vw; }
+
+        /* Neutralize fixed widths / no-wrap that rich text (pasted from
+           Word/Google Docs) can carry as inline styles, which would
+           otherwise push the note wider than the phone screen. */
+        .lecture-note-body, .lecture-note-body * {
+          max-width: 100% !important;
+          width: auto !important;
+          box-sizing: border-box !important;
+          white-space: normal !important;
+          overflow-wrap: break-word !important;
+          word-break: break-word !important;
+        }
+        .lecture-note-body img { height: auto; border-radius: 10px; margin: 10px 0; }
         .lecture-note-body h1, .lecture-note-body h2, .lecture-note-body h3 { font-family: ${H}; color: var(--text-primary); }
         .lecture-note-body a { color: #0D9488; }
         .lecture-note-body blockquote { border-left: 3px solid #0D9488; margin: 10px 0; padding: 4px 14px; color: var(--text-muted); }
-        .lecture-note-body pre { background: rgba(255,255,255,0.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+        .lecture-note-body pre { background: rgba(255,255,255,0.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto !important; white-space: pre-wrap !important; }
+        .lecture-note-body table { display: block; overflow-x: auto !important; }
       `}</style>
     </div>
   );
