@@ -1,6 +1,8 @@
 // src/hooks/useContentProtection.js
-// Blocks text selection, long-press copy, context menu, keyboard copy shortcuts,
-// and screen capture (best-effort via Screen Capture API).
+// NOTE: Copy/paste blocking (context menu, keyboard shortcuts, drag-block,
+// Screen Capture API denial) has been removed — it was interfering with
+// normal use (e.g. pasting into inputs). Only the unrelated tab-switch
+// blur (screen-recording deterrent) remains.
 
 import { useEffect } from 'react';
 
@@ -8,34 +10,7 @@ export function useContentProtection(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
 
-    /* ── Block context menu ─────────────────────────────── */
-    const blockContextMenu = (e) => e.preventDefault();
-
-    /* ── Block keyboard shortcuts (Ctrl+C, Ctrl+A, Ctrl+S, PrintScreen) ── */
-    const blockKeys = (e) => {
-      const ctrl = e.ctrlKey || e.metaKey;
-      if (
-        (ctrl && ['c', 'a', 's', 'u', 'p'].includes(e.key.toLowerCase())) ||
-        e.key === 'PrintScreen' ||
-        e.key === 'F12'
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    /* ── Block drag-start (another copy vector) ─────────── */
-    const blockDrag = (e) => e.preventDefault();
-
-    /* ── Screen Capture API — deny getDisplayMedia ──────── */
-    if (navigator.mediaDevices) {
-      const _orig = navigator.mediaDevices.getDisplayMedia?.bind(navigator.mediaDevices);
-      navigator.mediaDevices.getDisplayMedia = () =>
-        Promise.reject(new DOMException('Screen capture is disabled on this platform.', 'NotAllowedError'));
-    }
-
-    /* ── Visibility API — blur sensitive content on tab switch ── */
+    /* -- Visibility API — blur sensitive content on tab switch -- */
     const applyBlur    = () => { document.body.style.filter = 'blur(20px)'; };
     const clearBlur     = () => { document.body.style.filter = ''; };
 
@@ -44,40 +19,23 @@ export function useContentProtection(enabled = true) {
       else clearBlur();
     };
 
-    // Android WebViews (esp. Capacitor) can fire 'visibilitychange' late or
-    // not at all on resume, leaving the blur stuck and the app looking blank.
-    // 'focus'/'pageshow' are redundant safety nets that fire more reliably
-    // when the app actually becomes interactive again.
     const handleFocus     = () => clearBlur();
     const handlePageShow  = () => clearBlur();
-    // Paystack's inline checkout injects an iframe into the page rather than
-    // opening a real popup/tab. When that iframe takes focus, the parent
-    // window fires 'blur' too, even though the user never left the app.
-    // PaymentPage sets window.__paymentModalOpen while the checkout iframe
-    // is up so we don't mistake that for an app-switch and blur the
-    // checkout UI itself.
     const handleBlurEvent = () => {
       if (window.__paymentModalOpen) return;
       applyBlur();
     };
 
-    // Belt-and-suspenders: force-clear shortly after any resume signal, in
-    // case the blur got stuck. One retry, not a polling loop.
     const failsafeClear = () => {
       setTimeout(() => { if (!document.hidden) clearBlur(); }, 300);
     };
 
-    document.addEventListener('contextmenu',     blockContextMenu, true);
-    document.addEventListener('keydown',          blockKeys,        true);
-    document.addEventListener('dragstart',        blockDrag,        true);
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('visibilitychange', failsafeClear);
     window.addEventListener('focus',              handleFocus);
     window.addEventListener('blur',               handleBlurEvent);
     window.addEventListener('pageshow',           handlePageShow);
 
-    // Capacitor native lifecycle — fires reliably even when the WebView's
-    // own visibilitychange doesn't.
     let capListenerHandle = null;
     (async () => {
       try {
@@ -92,9 +50,6 @@ export function useContentProtection(enabled = true) {
     })();
 
     return () => {
-      document.removeEventListener('contextmenu',     blockContextMenu, true);
-      document.removeEventListener('keydown',          blockKeys,        true);
-      document.removeEventListener('dragstart',        blockDrag,        true);
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('visibilitychange', failsafeClear);
       window.removeEventListener('focus',              handleFocus);

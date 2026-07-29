@@ -134,16 +134,6 @@ function ContentProtectionActivator() {
   // Enable protection only for logged-in non-admin users
   useContentProtection(!!user && !isAdminOrSubAdmin);
 
-  // Toggle a body class so CSS user-select rules also lift for admins
-  useEffect(() => {
-    if (isAdminOrSubAdmin) {
-      document.body.classList.add('admin-mode');
-    } else {
-      document.body.classList.remove('admin-mode');
-    }
-    return () => document.body.classList.remove('admin-mode');
-  }, [isAdminOrSubAdmin]);
-
   return null;
 }
 

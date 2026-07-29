@@ -28,60 +28,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- ── Content Protection — runs before React mounts ── -->
-  <script>
-    (function () {
-      // Block right-click context menu
-      document.addEventListener('contextmenu', function (e) {
-        e.preventDefault();
-      }, true);
-
-      // Block keyboard copy/save/screenshot shortcuts
-      document.addEventListener('keydown', function (e) {
-        var ctrl = e.ctrlKey || e.metaKey;
-        var key  = e.key ? e.key.toLowerCase() : '';
-        if (
-          (ctrl && ['c','a','s','u','p'].indexOf(key) > -1) ||
-          e.key === 'PrintScreen' ||
-          e.key === 'F12'
-        ) {
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
-        }
-      }, true);
-
-      // Overwrite clipboard after PrintScreen (Windows Chrome)
-      document.addEventListener('keyup', function (e) {
-        if (e.key === 'PrintScreen') {
-          try { navigator.clipboard.writeText(''); } catch (_) {}
-        }
-      }, true);
-
-      // Block drag (another copy vector)
-      document.addEventListener('dragstart', function (e) {
-        e.preventDefault();
-      }, true);
-
-      // Block Screen Capture API (Chrome/Edge)
-      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        navigator.mediaDevices.getDisplayMedia = function () {
-          return Promise.reject(
-            new DOMException('Screen capture is disabled on this platform.', 'NotAllowedError')
-          );
-        };
-      }
-
-      // NOTE: the previous "blur exam content on tab-hide" anti-screenshot
-      // behavior has been removed. It was meant to deter screen recording,
-      // but on Android WebViews it could misfire when the Paystack inline
-      // iframe briefly took focus, leaving the page stuck permanently
-      // blurred and blocking payment. The other protections above
-      // (blocked context menu, copy shortcuts, drag, Screen Capture API)
-      // remain in place.
-    })();
-  </script>
-
   <!-- Paystack Inline JS -->
   <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
