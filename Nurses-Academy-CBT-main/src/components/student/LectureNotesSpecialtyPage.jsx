@@ -37,9 +37,32 @@ export default function LectureNotesSpecialtyPage() {
           📚 Lecture Notes
         </h1>
       </div>
-      <p style={{ fontFamily: F, fontSize: 14, color: 'var(--text-muted)', marginBottom: 22 }}>
+      <p style={{ fontFamily: F, fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
         Choose a specialty to browse its lecture notes.
       </p>
+
+      <a
+        href="https://drive.google.com/drive/folders/1Q5jVkR_7ocfZ0Qr9sICFwc_g-uUVcd_z"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14,
+          padding: '16px 18px', marginBottom: 22, textDecoration: 'none',
+          borderLeft: '4px solid #4285F4',
+        }}
+      >
+        <span style={{ fontSize: 26 }}>📁</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>
+            Open Lecture Notes Folder (Google Drive)
+          </div>
+          <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+            Browse all uploaded lecture note files directly on Drive
+          </div>
+        </div>
+        <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>↗</span>
+      </a>
 
       {specialties === null && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F }}>Loading…</div>
