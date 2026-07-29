@@ -5,15 +5,16 @@
 // "Add image" box where you paste a direct ImgChest / Imgur image link —
 // it gets inserted at that point in the note.
 
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
 const H = "'Arial Black', Arial, sans-serif";
 const F = "'Times New Roman', Times, serif";
 
-const LONG_PRESS_MS = 480;
+const LONG_PRESS_MS = 550; // slightly above the OS's own long-press-to-select threshold
 const MOVE_TOLERANCE = 10;
+const PILL_TIMEOUT_MS = 4000;
 
 // Best-effort conversion of a page link into a direct image link so images
 // actually render. If we don't recognize the host, pass the URL through
@@ -84,9 +85,15 @@ export default function LectureNoteEditor({ value, onChange }) {
   const quillRef = useRef(null);
   const pressTimer = useRef(null);
   const pressStart = useRef(null);
-  const savedIndex = useRef(null);
+  const pillTimeout = useRef(null);
   const [imagePrompt, setImagePrompt] = useState(null); // { index } | null
   const [imageUrl, setImageUrl] = useState('');
+  // A small non-blocking "Add image" pill that appears after a long-press,
+  // instead of opening the picker immediately. This way a long-press that
+  // was actually meant to trigger the phone's native paste/selection menu
+  // is never interrupted — the pill just sits there until tapped, and
+  // dismisses itself if ignored.
+  const [pill, setPill] = useState(null); // { x, y, index } | null
 
   const insertImageAt = useCallback((index, url) => {
     const editor = quillRef.current?.getEditor?.();
@@ -101,9 +108,18 @@ export default function LectureNoteEditor({ value, onChange }) {
     if (!editor) return;
     const sel = editor.getSelection(true);
     const index = sel ? sel.index : editor.getLength();
-    savedIndex.current = index;
     setImageUrl('');
     setImagePrompt({ index });
+  }, []);
+
+  const openImagePromptAtIndex = useCallback((index) => {
+    setImageUrl('');
+    setImagePrompt({ index });
+  }, []);
+
+  const dismissPill = useCallback(() => {
+    setPill(null);
+    if (pillTimeout.current) { clearTimeout(pillTimeout.current); pillTimeout.current = null; }
   }, []);
 
   // Toolbar's built-in image button also opens the URL prompt instead of a
@@ -113,17 +129,26 @@ export default function LectureNoteEditor({ value, onChange }) {
   }), [openImagePromptAtCursor]);
 
   // ── Long-press detection on the editor surface ──────────────────────────
+  // Deliberately does NOT call preventDefault anywhere in this flow, and
+  // does not steal focus, so it never blocks the browser/OS's own
+  // copy-paste gesture on the same contenteditable area.
   const clearPressTimer = () => {
     if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
   };
 
   const handlePointerDown = (e) => {
-    // Only left click / primary touch, and ignore presses on the toolbar.
-    if (e.button !== undefined && e.button !== 0) return;
+    if (e.button !== undefined && e.button !== 0) return; // primary touch/left click only
+    dismissPill();
     pressStart.current = { x: e.clientX, y: e.clientY };
     clearPressTimer();
     pressTimer.current = setTimeout(() => {
-      openImagePromptAtCursor();
+      const editor = quillRef.current?.getEditor?.();
+      if (!editor) return;
+      const sel = editor.getSelection(true);
+      const index = sel ? sel.index : editor.getLength();
+      setPill({ x: pressStart.current.x, y: pressStart.current.y, index });
+      clearTimeout(pillTimeout.current);
+      pillTimeout.current = setTimeout(dismissPill, PILL_TIMEOUT_MS);
     }, LONG_PRESS_MS);
   };
 
@@ -136,11 +161,7 @@ export default function LectureNoteEditor({ value, onChange }) {
 
   const handlePointerUp = () => { clearPressTimer(); pressStart.current = null; };
 
-  // Desktop convenience: right-click also opens the image prompt.
-  const handleContextMenu = (e) => {
-    e.preventDefault();
-    openImagePromptAtCursor();
-  };
+  useEffect(() => () => { clearPressTimer(); clearTimeout(pillTimeout.current); }, []);
 
   const confirmImage = () => {
     if (imagePrompt && looksLikeUrl(imageUrl)) {
@@ -158,7 +179,6 @@ export default function LectureNoteEditor({ value, onChange }) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onContextMenu={handleContextMenu}
       >
         <ReactQuill
           ref={quillRef}
@@ -171,8 +191,20 @@ export default function LectureNoteEditor({ value, onChange }) {
       </div>
 
       <div style={{ fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
-        Tip: long-press (or right-click) inside the note to insert an image from an ImgChest or Imgur link.
+        Tip: long-press inside the note for an "Add image" button, or use the 🖼️ toolbar icon. Paste and copy work normally everywhere else.
       </div>
+
+      {pill && (
+        <button
+          onClick={() => { openImagePromptAtIndex(pill.index); dismissPill(); }}
+          style={{
+            position: 'fixed', left: Math.max(8, pill.x - 60), top: Math.max(8, pill.y - 46),
+            zIndex: 1500, background: '#0D9488', color: '#fff', border: 'none', borderRadius: 20,
+            padding: '9px 16px', fontFamily: H, fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >🖼️ Add image</button>
+      )}
 
       <style>{`
         #${TOOLBAR_ID} { background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.15) !important; border-bottom: none !important; border-radius: 10px 10px 0 0; }
