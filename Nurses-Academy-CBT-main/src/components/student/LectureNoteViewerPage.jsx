@@ -70,6 +70,9 @@ export default function LectureNoteViewerPage() {
         /* Neutralize fixed widths / no-wrap that rich text (pasted from
            Word/Google Docs) can carry as inline styles, which would
            otherwise push the note wider than the phone screen. */
+        .lecture-note-body {
+          font-weight: 400 !important;
+        }
         .lecture-note-body, .lecture-note-body * {
           max-width: 100% !important;
           width: auto !important;
@@ -78,11 +81,13 @@ export default function LectureNoteViewerPage() {
           overflow-wrap: break-word !important;
           word-break: break-word !important;
           font-family: ${F} !important;
-          font-weight: 400 !important;
         }
-        /* Only headings/subheadings are bold — everything else stays normal weight */
+        /* Headings, subheadings, and any bold/strong run (e.g. "Definition
+           and Etymology:" lead-ins) stay bold — everything else is normal
+           weight, inherited from .lecture-note-body above. */
         .lecture-note-body h1, .lecture-note-body h2, .lecture-note-body h3,
-        .lecture-note-body h4, .lecture-note-body h5, .lecture-note-body h6 {
+        .lecture-note-body h4, .lecture-note-body h5, .lecture-note-body h6,
+        .lecture-note-body strong, .lecture-note-body b {
           font-weight: 700 !important;
           color: var(--text-primary);
         }
