@@ -489,6 +489,12 @@ const QUICK_ACTIONS = [
     color: '#7C3AED',
   },
   {
+    to: '/lecture-notes', icon: '📚', label: 'Lecture Notes',
+    sub: 'Read notes by specialty',
+    desc: 'Browse lecture notes organised by specialty and topic, written and illustrated by your tutors.',
+    color: '#16A34A',
+  },
+  {
     to: '/caosce', icon: '🩺', label: 'CAOSCE PREP',
     sub: 'Computer-Based OSCE Practical Exam',
     desc: 'Practice real OSCE-style clinical stations: read the scenario, tick the procedures you would perform, then answer CBT questions on the case.',

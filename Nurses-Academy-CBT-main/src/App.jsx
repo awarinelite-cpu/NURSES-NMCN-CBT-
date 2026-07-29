@@ -15,6 +15,9 @@ import AuthPage       from './components/auth/AuthPage';
 
 // Student pages
 import StudentDashboard       from './components/student/StudentDashboard';
+import LectureNotesSpecialtyPage from './components/student/LectureNotesSpecialtyPage';
+import LectureNotesTopicsPage    from './components/student/LectureNotesTopicsPage';
+import LectureNoteViewerPage     from './components/student/LectureNoteViewerPage';
 import AnalyticsPage          from './components/student/AnalyticsPage';
 import BookmarksPage          from './components/student/BookmarksPage';
 import NotesPage              from './components/student/NotesPage';
@@ -94,6 +97,7 @@ import CoursesManager        from './components/admin/CoursesManager';
 import CaosceManager         from './components/admin/CaosceManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
 import DailyMockExamAdmin    from './components/admin/DailyMockExamAdmin';
+import LectureNotesManager   from './components/admin/LectureNotesManager';
 
 import './styles/global.css';
 import { useContentProtection } from './hooks/useContentProtection';
@@ -268,6 +272,9 @@ export default function App() {
 
                 {/* Student pages */}
                 <Route path="/dashboard"    element={<StudentDashboard />} />
+                <Route path="/lecture-notes"                       element={<LectureNotesSpecialtyPage />} />
+                <Route path="/lecture-notes/:specialtyId"          element={<LectureNotesTopicsPage />} />
+                <Route path="/lecture-notes/:specialtyId/:noteId"  element={<LectureNoteViewerPage />} />
                 <Route path="/results"      element={<AnalyticsPage />} />
                 <Route path="/performance"  element={<PerformanceMonitorPage />} />
                 <Route path="/bookmarks"    element={<BookmarksPage />} />
@@ -353,6 +360,7 @@ export default function App() {
                 <Route path="/admin/caosce"                          element={<SubAdminRoute><CaosceManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
                 <Route path="/admin/daily-mock-exam"                 element={<SubAdminRoute><DailyMockExamAdmin /></SubAdminRoute>} />
+                <Route path="/admin/lecture-notes"                   element={<SubAdminRoute><LectureNotesManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
 
               </Route>

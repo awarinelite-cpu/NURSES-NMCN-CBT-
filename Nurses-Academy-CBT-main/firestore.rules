@@ -94,6 +94,11 @@ service cloud.firestore {
       allow write: if isAdminOrSubAdmin();
     }
 
+    match /lectureNotes/{noteId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     // Today's per-specialty Daily Mock Exam pools (dailyMockExam/{categoryId},
     // plus dailyMockExam/_index) — rotated every 24h by
     // the rotateDailyMockExam Cloud Function (which uses the Admin SDK and

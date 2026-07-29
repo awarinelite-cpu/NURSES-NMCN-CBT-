@@ -298,6 +298,7 @@ export default function AdminDashboard() {
     { label: 'Manage Courses',   icon: '📖', to: '/admin/courses',               color: '#0891B2' },
     { label: 'Scheduled Exams',  icon: '📅', to: '/admin/scheduled-exams',      color: '#A855F7' },
     { label: 'Daily Mock Exam',  icon: '🗓️', to: '/admin/daily-mock-exam',      color: '#0891B2' },
+    { label: 'Lecture Notes',    icon: '📚', to: '/admin/lecture-notes',        color: '#16A34A' },
   ];
 
   // ── Entrance Exam quick actions — all write to entranceExamQuestions ─────────
