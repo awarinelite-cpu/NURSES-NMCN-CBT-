@@ -21,6 +21,16 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { enablePushNotifications, pushSupported, pushPermission } from '../../utils/pushNotifications';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import GroupSessionLobby from './GroupSessionLobby';
+
+function shuffleIds(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 const PRESETS   = [25, 50, 100, 150, 250];
 const PASS_MARK = 50;
@@ -57,8 +67,10 @@ export default function DailyMockExamHub() {
   const currentUser = user;
   const isSub = profile?.subscribed || profile?.role === 'admin';
 
-  const [view,         setView]        = useState('specialty'); // 'specialty' | 'exam'
+  const [view,         setView]        = useState('specialty'); // 'specialty' | 'exam' | 'group-lobby'
   const [selected,     setSelected]    = useState(null);         // chosen SPECIALTIES entry
+  const [studyMode,    setStudyMode]   = useState('single');      // 'single' | 'group'
+  const [groupQuestionIds, setGroupQuestionIds] = useState([]);
 
   const [poolCounts,   setPoolCounts]  = useState({});  // { [categoryId]: questionCount }
   const [pool,         setPool]        = useState(null);   // dailyMockExam/{category} doc
@@ -155,6 +167,14 @@ export default function DailyMockExamHub() {
   };
 
   const startExam = () => {
+    if (studyMode === 'group') {
+      // Draw the shared question set once, up front — every participant
+      // gets the exact same questions in the exact same order.
+      const ids = shuffleIds(pool?.questionIds || []).slice(0, finalCount);
+      setGroupQuestionIds(ids);
+      setView('group-lobby');
+      return;
+    }
     navigate('/exam/session', {
       state: {
         examType:  'daily_mock_exam',
@@ -250,19 +270,50 @@ export default function DailyMockExamHub() {
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // VIEW: GROUP STUDY LOBBY
+  // ══════════════════════════════════════════════════════════════════════
+  if (view === 'group-lobby') {
+    return (
+      <GroupSessionLobby
+        uid={currentUser?.uid}
+        name={profile?.name || currentUser?.displayName || 'Participant'}
+        examSetup={{
+          examType: 'daily_mock_exam',
+          examName: `Daily Mock Exam — ${selected.label}`,
+          category: selected.id,
+          questionIds: groupQuestionIds,
+        }}
+        onCancel={() => setView('exam')}
+      />
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // VIEW: EXAM CARD + EXAMS TAKEN  (for the selected specialty)
   // ══════════════════════════════════════════════════════════════════════
   const sp = selected;
 
   return (
     <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
-      <button
-        className="btn btn-ghost btn-sm"
-        onClick={backToSpecialties}
-        style={{ marginBottom: 20 }}
-      >
-        ← All Specialties
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <button className="btn btn-ghost btn-sm" onClick={backToSpecialties}>
+          ← All Specialties
+        </button>
+        <div style={{ display: 'flex', border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <button
+            onClick={() => setStudyMode('single')}
+            style={{ padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: studyMode === 'single' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'single' ? '#fff' : 'var(--text-secondary)' }}
+          >
+            🧍 Single
+          </button>
+          <button
+            onClick={() => setStudyMode('group')}
+            style={{ padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: studyMode === 'group' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'group' ? '#fff' : 'var(--text-secondary)' }}
+          >
+            👥 Group
+          </button>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         <span style={{ fontSize: 28 }}>{sp.icon}</span>

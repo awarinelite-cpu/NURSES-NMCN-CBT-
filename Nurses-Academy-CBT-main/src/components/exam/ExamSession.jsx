@@ -185,6 +185,8 @@ async function loadDailyMockQuestions(count, category) {
 
 /* ── Explanation renderer — imported from shared ── */
 import ExplanationText from '../shared/ExplanationText';
+import GroupCallBar from '../shared/GroupCallBar';
+import { useStudySession } from '../../hooks/useStudySession';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -321,6 +323,12 @@ export default function ExamSession() {
   const pausedExamId = state?.pausedExamId || null;
   const resumeData   = state?.resumeData   || null;
 
+  // ── Group Study ────────────────────────────────────────────────────────
+  const presetQuestionIds = state?.presetQuestionIds || null; // fixed order, shared by every participant
+  const groupSessionId    = state?.groupSessionId    || null;
+  const groupUid          = state?.groupUid          || currentUser?.uid || null;
+  const groupName         = state?.groupName         || profile?.name   || 'Participant';
+
   // Past questions year filter
   const examYear = state?.examYear || '';
 
@@ -360,6 +368,48 @@ export default function ExamSession() {
 
   // Guard so the upgrade modal only fires once per session
   const upgradeModalShown = useRef(false);
+
+  // ── Group Study: attach to the session created back in the lobby, and
+  // keep `current` mirroring session.currentIndex for non-host participants.
+  const study = useStudySession({ uid: groupUid, name: groupName });
+  const groupAttached = useRef(false);
+  useEffect(() => {
+    if (groupSessionId && !groupAttached.current) {
+      groupAttached.current = true;
+      study.attachExisting(groupSessionId);
+    }
+  }, [groupSessionId, study]);
+  const isGroupHost = !!groupSessionId && study.session?.hostId === groupUid;
+  useEffect(() => {
+    if (!groupSessionId || !study.session) return;
+    const remoteIdx = study.session.currentIndex ?? 0;
+    if (remoteIdx !== currentRef.current) {
+      setCurrent(remoteIdx);
+      currentRef.current = remoteIdx;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSessionId, study.session?.currentIndex]);
+  // Single choke point every nav control routes through: in a group session
+  // only the host can move the question, and moving it writes to Firestore
+  // so everyone else's screen follows via the effect above.
+  const groupNav = useCallback((indexOrFn) => {
+    const prev = currentRef.current;
+    const next = typeof indexOrFn === 'function' ? indexOrFn(prev) : indexOrFn;
+    const clamped = Math.max(0, Math.min(next, (questionsRef.current.length || 1) - 1));
+    if (groupSessionId) {
+      // Host writes to Firestore; the sync effect above then updates
+      // `current` locally once the write round-trips — same path everyone
+      // else's screen follows, so the host doesn't visually jump ahead.
+      if (isGroupHost) study.goToIndex(clamped);
+    } else {
+      setCurrent(clamped);
+      currentRef.current = clamped;
+    }
+  }, [groupSessionId, isGroupHost, study]);
+  useEffect(() => {
+    return () => { if (groupSessionId) study.leaveSession(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSessionId]);
 
   const startedAt = useRef(null);
 
@@ -423,6 +473,23 @@ export default function ExamSession() {
             setAnswers(restored);
           }
           setQuestions(qs); setPhase('review'); return;
+        }
+
+        // ── Group Study preset (fixed shared question list, same order for
+        // every participant — drawn once by the host in the lobby) ─────────
+        if (presetQuestionIds?.length) {
+          const ids = presetQuestionIds;
+          const chunks = [];
+          for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+          const fetched = await Promise.all(chunks.map(chunk =>
+            getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))
+          ));
+          const byId = {};
+          fetched.forEach(snap => snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
+          qs = ids.map(id => byId[id]).filter(Boolean);
+          setQuestions(qs); questionsRef.current = qs;
+          setPhase('exam'); startedAt.current = Date.now();
+          return;
         }
 
         // ── Entrance Exam mode — MUST come before poolMode check ──────────────
@@ -1279,13 +1346,16 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
       </div>
 
       <div className="exam-session-container" style={{ padding: '16px' }}>
+        {groupSessionId && (
+          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} />
+        )}
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setShowNav(v => !v)}>{showNav ? '▲ Hide' : '▼ Show'} Question Navigator</button>
         {showNav && (
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {questions.map((q, i) => {
                 const isAnswered = answers[q.id] !== undefined, isFlagged = flagged.has(q.id), isCurrent = i === current;
-                return <button key={q.id} onClick={() => setCurrent(i)} style={{ width: 36, height: 36, borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, borderColor: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--border)', background: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B18' : isAnswered ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)', color: isCurrent ? '#fff' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--text-muted)' }}>{i + 1}</button>;
+                return <button key={q.id} onClick={() => (groupSessionId ? (isGroupHost && groupNav(i)) : setCurrent(i))} disabled={groupSessionId && !isGroupHost} style={{ width: 36, height: 36, borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: F, borderColor: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--border)', background: isCurrent ? 'var(--teal)' : isFlagged ? '#F59E0B18' : isAnswered ? 'rgba(22,163,74,0.12)' : 'var(--bg-tertiary)', color: isCurrent ? '#fff' : isFlagged ? '#F59E0B' : isAnswered ? '#16A34A' : 'var(--text-muted)' }}>{i + 1}</button>;
               })}
             </div>
           </div>
@@ -1344,7 +1414,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                 options={q.options || []}
                 questionId={q.id}
                 onAnswer={(idx) => setAnswers(prev => ({ ...prev, [q.id]: idx }))}
-                onNext={() => setCurrent(c => Math.min(c + 1, questions.length - 1))}
+                onNext={() => (groupSessionId ? groupNav(c => Math.min(c + 1, questions.length - 1)) : setCurrent(c => Math.min(c + 1, questions.length - 1)))}
                 hasNext={current < questions.length - 1}
               />
             </div>
@@ -1369,11 +1439,16 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
           </div>
         )}
 
+        {groupSessionId && !isGroupHost && (
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+            🔒 The host controls navigation — you'll move to the next question together.
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-ghost" disabled={current === 0} onClick={() => setCurrent(c => c - 1)}>← Previous</button>
+          <button className="btn btn-ghost" disabled={current === 0 || (groupSessionId && !isGroupHost)} onClick={() => groupSessionId ? groupNav(c => c - 1) : setCurrent(c => c - 1)}>← Previous</button>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{current + 1} / {questions.length}</span>
           {current < questions.length - 1
-            ? <button className="btn btn-primary" onClick={() => setCurrent(c => c + 1)}>Next →</button>
+            ? <button className="btn btn-primary" disabled={groupSessionId && !isGroupHost} onClick={() => groupSessionId ? groupNav(c => c + 1) : setCurrent(c => c + 1)}>Next →</button>
             : <button className="btn btn-primary" onClick={() => { if (window.confirm(`Submit exam? ${unanswered > 0 ? `You have ${unanswered} unanswered question(s).` : 'All questions answered.'}`)) handleSubmit(); }}>✅ Finish</button>
           }
         </div>

@@ -276,5 +276,16 @@ service cloud.firestore {
         allow write: if isAuth() && typingUid == uid();
       }
     }
+    // ── Group Study Sessions ───────────────────────────────────────────────
+    match /studySessions/{sessionId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.hostId == uid();
+      allow update: if isAuth() && resource.data.hostId == uid();
+      allow delete: if isAdmin();
+      match /participants/{participantId} {
+        allow read:  if isAuth();
+        allow write: if isAuth() && participantId == uid();
+      }
+    }
   }
 }
