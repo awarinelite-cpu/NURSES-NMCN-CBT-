@@ -1,8 +1,8 @@
 // src/components/shared/GroupCallBar.jsx
 //
-// Handles the audio/video CALL only — question sync is a completely
-// separate concern living in useStudySession.js (Firestore). This
-// component just gets people's voices/faces into the same Agora channel.
+// Audio-only group call. Question sync is a completely separate concern
+// living in useStudySession.js (Firestore) — this component just gets
+// people's voices into the same Agora channel, nothing else.
 //
 // Tokens come from the mintAgoraToken Cloud Function (functions/src/
 // agoraToken.js), which checks the caller is a real participant of this
@@ -27,14 +27,12 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
   const [joined, setJoined]     = useState(false);
   const [joining, setJoining]   = useState(false);
   const [muted, setMuted]       = useState(false);
-  const [videoOn, setVideoOn]   = useState(false);
-  const [remoteUsers, setRemoteUsers] = useState([]);
+  const [speaking, setSpeaking] = useState(new Set()); // agoraUids currently talking
+  const [remoteUids, setRemoteUids] = useState([]);
   const [callErr, setCallErr]   = useState(null);
 
   const clientRef = useRef(null);
   const micRef    = useRef(null);
-  const camRef    = useRef(null);
-  const localVideoDivRef = useRef(null);
 
   const myAgoraUid = toAgoraUid(uid);
   const nameFor = (agoraUid) => {
@@ -44,12 +42,10 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
 
   const leaveCall = useCallback(async () => {
     micRef.current?.close();
-    camRef.current?.close();
     micRef.current = null;
-    camRef.current = null;
     try { await clientRef.current?.leave(); } catch {}
     setJoined(false);
-    setRemoteUsers([]);
+    setRemoteUids([]);
   }, []);
 
   useEffect(() => () => { leaveCall(); }, [leaveCall]);
@@ -63,18 +59,19 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
       clientRef.current = client;
 
       client.on('user-published', async (user, mediaType) => {
+        if (mediaType !== 'audio') return; // audio-only room — ignore anything else
         await client.subscribe(user, mediaType);
-        if (mediaType === 'video') {
-          setRemoteUsers(prev => prev.some(u => u.uid === user.uid) ? prev : [...prev, user]);
-          setTimeout(() => user.videoTrack?.play(`remote-video-${user.uid}`), 0);
-        }
-        if (mediaType === 'audio') user.audioTrack?.play();
-      });
-      client.on('user-unpublished', (user, mediaType) => {
-        if (mediaType === 'video') setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
+        user.audioTrack?.play();
+        setRemoteUids(prev => prev.includes(user.uid) ? prev : [...prev, user.uid]);
       });
       client.on('user-left', (user) => {
-        setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
+        setRemoteUids(prev => prev.filter(id => id !== user.uid));
+      });
+      // Lightweight "who's talking" indicator — Agora reports volume per uid.
+      client.enableAudioVolumeIndicator();
+      client.on('volume-indicator', (vols) => {
+        const talking = new Set(vols.filter(v => v.level > 5).map(v => v.uid));
+        setSpeaking(talking);
       });
 
       const mintToken = httpsCallable(getFunctions(), 'mintAgoraToken');
@@ -101,25 +98,6 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
     setMuted(next);
   };
 
-  const toggleVideo = async () => {
-    if (!clientRef.current) return;
-    if (!videoOn) {
-      try {
-        const cam = await AgoraRTC.createCameraVideoTrack();
-        camRef.current = cam;
-        await clientRef.current.publish([cam]);
-        cam.play(localVideoDivRef.current);
-        setVideoOn(true);
-      } catch {
-        setCallErr('Could not access camera.');
-      }
-    } else {
-      camRef.current?.close();
-      camRef.current = null;
-      setVideoOn(false);
-    }
-  };
-
   return (
     <div style={{
       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14,
@@ -137,7 +115,6 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
           ) : (
             <>
               <button onClick={toggleMute} className="btn btn-ghost btn-sm">{muted ? '🔇 Unmute' : '🎤 Mute'}</button>
-              <button onClick={toggleVideo} className="btn btn-ghost btn-sm">{videoOn ? '📷 Stop Video' : '📷 Start Video'}</button>
               <button onClick={leaveCall} className="btn btn-sm" style={{ background: '#DC2626', color: '#fff', border: 'none' }}>Leave Call</button>
             </>
           )}
@@ -147,19 +124,20 @@ export default function GroupCallBar({ channel, uid, participants = [] }) {
       {callErr && <div style={{ fontSize: 12, color: '#DC2626' }}>{callErr}</div>}
 
       {joined && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {videoOn && (
-            <div ref={localVideoDivRef} style={{ width: 100, height: 76, borderRadius: 10, overflow: 'hidden', background: '#000', position: 'relative' }}>
-              <span style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 10, color: '#fff', textShadow: '0 0 3px #000' }}>You</span>
-            </div>
-          )}
-          {remoteUsers.map(u => (
-            <div key={u.uid} id={`remote-video-${u.uid}`} style={{ width: 100, height: 76, borderRadius: 10, overflow: 'hidden', background: '#000', position: 'relative' }}>
-              <span style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 10, color: '#fff', textShadow: '0 0 3px #000' }}>{nameFor(u.uid)}</span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* You */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: speaking.has(myAgoraUid) && !muted ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)', border: `1.5px solid ${speaking.has(myAgoraUid) && !muted ? '#16A34A' : 'var(--border)'}` }}>
+            <span style={{ fontSize: 11 }}>{muted ? '🔇' : '🎤'}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>You</span>
+          </div>
+          {remoteUids.map(id => (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: speaking.has(id) ? 'rgba(22,163,74,0.15)' : 'var(--bg-tertiary)', border: `1.5px solid ${speaking.has(id) ? '#16A34A' : 'var(--border)'}` }}>
+              <span style={{ fontSize: 11 }}>🎤</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{nameFor(id)}</span>
             </div>
           ))}
           {participants.length > 0 && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {participants.length} in session
             </div>
           )}

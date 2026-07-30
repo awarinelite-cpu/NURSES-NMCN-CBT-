@@ -69,7 +69,7 @@ export default function GroupSessionLobby({ uid, name, examSetup, onCancel }) {
 
       <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>👥 Group Study</h2>
       <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
-        Study {examSetup.examName} together with audio or video call, everyone on the same question at the same time.
+        Study {examSetup.examName} together on a live voice call, everyone on the same question at the same time.
       </p>
 
       {!session && !choice && (

@@ -49,7 +49,5 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Elite Nurses needs microphone access so you can talk with your group during Group Study sessions.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Elite Nurses needs camera access so you can video call your group during Group Study sessions.</string>
 </dict>
 </plist>
