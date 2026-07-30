@@ -31,6 +31,36 @@ export default function LectureNotesTopicsPage() {
         </h1>
       </div>
 
+      {specialtyId === 'public_health' && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 22 }}>📁</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>
+                Lecture Notes Drive Folder
+              </div>
+              <div style={{ fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                Tap a file below to open it right here
+              </div>
+            </div>
+            <a
+              href="https://drive.google.com/drive/folders/1Q5jVkR_7ocfZ0Qr9sICFwc_g-uUVcd_z"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontFamily: H, fontWeight: 800, fontSize: 11, color: '#4285F4', textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              Open in Drive ↗
+            </a>
+          </div>
+          <iframe
+            src="https://drive.google.com/embeddedfolderview?id=1Q5jVkR_7ocfZ0Qr9sICFwc_g-uUVcd_z#list"
+            title="Lecture Notes Drive Folder"
+            style={{ width: '100%', height: 420, border: '1px solid var(--border)', borderRadius: 10, background: '#fff' }}
+            loading="lazy"
+          />
+        </div>
+      )}
+
       {topics === null && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F }}>Loading…</div>
       )}
