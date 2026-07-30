@@ -41,12 +41,7 @@ export default function LectureNotesSpecialtyPage() {
         Choose a specialty to browse its lecture notes.
       </p>
 
-      <div
-        style={{
-          background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14,
-          padding: '14px 16px 16px', marginBottom: 22, borderLeft: '4px solid #4285F4',
-        }}
-      >
+      <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <span style={{ fontSize: 22 }}>📁</span>
           <div style={{ flex: 1 }}>
