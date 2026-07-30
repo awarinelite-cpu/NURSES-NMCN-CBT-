@@ -13,7 +13,7 @@ export default function LectureNotesTopicsPage() {
   const { specialtyId } = useParams();
   const navigate = useNavigate();
   const [topics, setTopics] = useState(null);
-  const [driveLink, setDriveLink] = useState(null);
+  const [driveLinks, setDriveLinks] = useState([]);
   const meta = specialtyMeta(specialtyId);
 
   useEffect(() => {
@@ -21,8 +21,8 @@ export default function LectureNotesTopicsPage() {
   }, [specialtyId]);
 
   useEffect(() => {
-    setDriveLink(null);
-    (async () => setDriveLink(await fetchDriveLink(specialtyId)))();
+    setDriveLinks([]);
+    (async () => setDriveLinks(await fetchDriveLink(specialtyId)))();
   }, [specialtyId]);
 
   return (
@@ -37,20 +37,20 @@ export default function LectureNotesTopicsPage() {
         </h1>
       </div>
 
-      {driveLink && (
-        <div style={{ marginBottom: 22 }}>
+      {driveLinks.map((link, i) => (
+        <div key={link.id} style={{ marginBottom: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 22 }}>📁</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>
-                Lecture Notes Drive Folder
+                {link.label || (driveLinks.length > 1 ? `Drive Folder ${i + 1}` : 'Lecture Notes Drive Folder')}
               </div>
               <div style={{ fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
                 Tap a file below to open it right here
               </div>
             </div>
             <a
-              href={driveLink.url}
+              href={link.url}
               target="_blank"
               rel="noopener noreferrer"
               style={{ fontFamily: H, fontWeight: 800, fontSize: 11, color: '#4285F4', textDecoration: 'none', whiteSpace: 'nowrap' }}
@@ -59,13 +59,13 @@ export default function LectureNotesTopicsPage() {
             </a>
           </div>
           <iframe
-            src={`https://drive.google.com/embeddedfolderview?id=${driveLink.folderId}#list`}
-            title="Lecture Notes Drive Folder"
+            src={`https://drive.google.com/embeddedfolderview?id=${link.folderId}#list`}
+            title={link.label || `Lecture Notes Drive Folder ${i + 1}`}
             style={{ width: '100%', height: 420, border: '1px solid var(--border)', borderRadius: 10, background: '#fff' }}
             loading="lazy"
           />
         </div>
-      )}
+      ))}
 
       {topics === null && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F }}>Loading…</div>

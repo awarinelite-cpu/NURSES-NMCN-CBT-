@@ -33,12 +33,31 @@ import { NURSING_CATEGORIES } from '../data/categories';
 const COLLECTION = 'lectureNotes';
 const DRIVE_LINKS_COLLECTION = 'lectureNoteDriveLinks';
 
-// ── Drive folder links (per specialty) ─────────────────────────────────────
+// ── Drive folder links (per specialty, multiple allowed) ───────────────────
 // Doc shape (lectureNoteDriveLinks/{specialtyId}): {
-//   url: string          // full Drive folder URL as pasted by admin
-//   folderId: string     // extracted folder ID, used to build the embed src
+//   links: [
+//     { id: string, label: string, url: string, folderId: string, order: number }
+//   ],
 //   updatedAt, updatedBy
 // }
+//
+// Legacy docs written before multi-link support look like { url, folderId,
+// updatedAt, updatedBy } with no `links` array. normalizeLinksDoc() upgrades
+// those on read so old data keeps showing up as a single link.
+
+function normalizeLinksDoc(data) {
+  if (!data) return [];
+  if (Array.isArray(data.links)) return data.links;
+  if (data.url && data.folderId) {
+    // Legacy single-link doc, treat it as one entry.
+    return [{ id: 'legacy', label: '', url: data.url, folderId: data.folderId, order: 0 }];
+  }
+  return [];
+}
+
+function genLinkId() {
+  return (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+}
 
 /** Pulls the folder ID out of any Drive folder URL, or returns a raw ID as-is. */
 export function extractDriveFolderId(input) {
@@ -50,32 +69,62 @@ export function extractDriveFolderId(input) {
   return null;
 }
 
-/** { url, folderId } for one specialty, or null if none is set. */
+/** Array of { id, label, url, folderId } links for one specialty (may be empty). */
 export async function fetchDriveLink(specialtyId) {
-  if (!specialtyId) return null;
+  if (!specialtyId) return [];
   const snap = await getDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId));
-  return snap.exists() ? snap.data() : null;
+  return snap.exists() ? normalizeLinksDoc(snap.data()) : [];
 }
 
-/** All specialties that currently have a Drive link set, keyed by specialtyId. */
+/** All specialties that currently have at least one Drive link, keyed by specialtyId -> links array. */
 export async function fetchAllDriveLinks() {
   const snap = await getDocs(collection(db, DRIVE_LINKS_COLLECTION));
   const map = {};
-  snap.docs.forEach(d => { map[d.id] = d.data(); });
+  snap.docs.forEach(d => {
+    const links = normalizeLinksDoc(d.data());
+    if (links.length) map[d.id] = links;
+  });
   return map;
 }
 
-export async function saveDriveLink(specialtyId, url, uid) {
+/** Appends a new labeled Drive link to a specialty (does not overwrite existing ones). */
+export async function addDriveLink(specialtyId, url, uid, label = '') {
   const folderId = extractDriveFolderId(url);
   if (!folderId) throw new Error('That doesn\'t look like a valid Google Drive folder link.');
-  await setDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId), {
+
+  const ref = doc(db, DRIVE_LINKS_COLLECTION, specialtyId);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? normalizeLinksDoc(snap.data()) : [];
+
+  const newLink = {
+    id: genLinkId(),
+    label: String(label || '').trim(),
     url: String(url).trim(),
     folderId,
+    order: existing.length,
+  };
+
+  await setDoc(ref, {
+    links: [...existing, newLink],
     updatedAt: serverTimestamp(),
     updatedBy: uid || null,
   });
 }
 
+/** Removes one link (by id) from a specialty, leaving the others in place. */
+export async function removeDriveLink(specialtyId, linkId) {
+  const ref = doc(db, DRIVE_LINKS_COLLECTION, specialtyId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const remaining = normalizeLinksDoc(snap.data()).filter(l => l.id !== linkId);
+  if (remaining.length) {
+    await setDoc(ref, { links: remaining, updatedAt: serverTimestamp() }, { merge: true });
+  } else {
+    await deleteDoc(ref);
+  }
+}
+
+/** Deletes every Drive link for a specialty. */
 export async function deleteDriveLink(specialtyId) {
   await deleteDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId));
 }
