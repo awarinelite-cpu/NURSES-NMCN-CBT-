@@ -10,7 +10,6 @@ import { NURSING_CATEGORIES } from '../../data/categories';
 import {
   fetchAllNotesForAdmin, createNote, updateNote, deleteNote,
   bulkImportNotes, CSV_TEMPLATE_HEADER, CSV_TEMPLATE_EXAMPLE,
-  fetchAllDriveLinks, saveDriveLink, deleteDriveLink,
 } from '../../utils/lectureNotesUtils';
 import LectureNoteEditor from './LectureNoteEditor';
 
@@ -54,43 +53,6 @@ export default function LectureNotesManager() {
 
   const reload = async () => setNotes(await fetchAllNotesForAdmin());
   useEffect(() => { reload(); }, []);
-
-  // ── Drive folder links (one per specialty) ────────────────────────────
-  const [driveLinks, setDriveLinks] = useState({});   // specialtyId -> { url, folderId }
-  const [driveDrafts, setDriveDrafts] = useState({});  // specialtyId -> input value while editing
-  const [driveSaving, setDriveSaving] = useState(null); // specialtyId currently saving/removing
-  const [driveMsg, setDriveMsg] = useState(null);       // { specialtyId, type, text }
-
-  const reloadDriveLinks = async () => setDriveLinks(await fetchAllDriveLinks());
-  useEffect(() => { reloadDriveLinks(); }, []);
-
-  const saveDriveLinkFor = async (specialtyId) => {
-    const url = (driveDrafts[specialtyId] ?? driveLinks[specialtyId]?.url ?? '').trim();
-    if (!url) { setDriveMsg({ specialtyId, type: 'error', text: 'Paste a Drive folder link first.' }); return; }
-    setDriveSaving(specialtyId); setDriveMsg(null);
-    try {
-      await saveDriveLink(specialtyId, url, user?.uid);
-      await reloadDriveLinks();
-      setDriveDrafts(d => { const n = { ...d }; delete n[specialtyId]; return n; });
-      setDriveMsg({ specialtyId, type: 'success', text: '✅ Saved.' });
-    } catch (e) {
-      setDriveMsg({ specialtyId, type: 'error', text: e.message });
-    } finally {
-      setDriveSaving(null);
-    }
-  };
-
-  const removeDriveLinkFor = async (specialtyId) => {
-    if (!window.confirm('Remove this Drive folder link? Students will no longer see it on this specialty.')) return;
-    setDriveSaving(specialtyId);
-    try {
-      await deleteDriveLink(specialtyId);
-      await reloadDriveLinks();
-      setDriveDrafts(d => { const n = { ...d }; delete n[specialtyId]; return n; });
-    } finally {
-      setDriveSaving(null);
-    }
-  };
 
   const filtered = useMemo(() => {
     if (!notes) return [];
@@ -246,57 +208,6 @@ export default function LectureNotesManager() {
         </button>
         <button onClick={downloadCsvTemplate} style={ghostBtn}>⬇ CSV Template</button>
         <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCsvSelected} />
-      </div>
-
-      <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '16px 16px 14px', marginBottom: 18 }}>
-        <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
-          📁 Drive Folder Links
-        </div>
-        <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-          Paste a Google Drive folder link for a specialty so students can open its files directly in the app, without you uploading each note. Make sure the folder is shared as "Anyone with the link → Viewer".
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {NURSING_CATEGORIES.map(c => {
-            const current = driveLinks[c.id];
-            const draft = driveDrafts[c.id] ?? current?.url ?? '';
-            const dirty = draft !== (current?.url ?? '');
-            const rowMsg = driveMsg && driveMsg.specialtyId === c.id ? driveMsg : null;
-            return (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ width: 150, flexShrink: 0, fontFamily: H, fontWeight: 800, fontSize: 12.5, color: 'var(--text-primary)' }}>
-                  {c.icon} {c.shortLabel}
-                </div>
-                <input
-                  value={draft}
-                  onChange={e => setDriveDrafts(d => ({ ...d, [c.id]: e.target.value }))}
-                  placeholder="Paste Google Drive folder link…"
-                  style={{ flex: '1 1 220px', minWidth: 160, boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
-                />
-                <button
-                  onClick={() => saveDriveLinkFor(c.id)}
-                  disabled={driveSaving === c.id || !dirty}
-                  style={{ ...btn('#0D9488'), opacity: (driveSaving === c.id || !dirty) ? 0.5 : 1 }}
-                >
-                  {driveSaving === c.id ? '…' : 'Save'}
-                </button>
-                {current && (
-                  <button
-                    onClick={() => removeDriveLinkFor(c.id)}
-                    disabled={driveSaving === c.id}
-                    style={{ ...ghostBtn, border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444' }}
-                  >
-                    Remove
-                  </button>
-                )}
-                {rowMsg && (
-                  <span style={{ fontFamily: F, fontSize: 12, color: rowMsg.type === 'error' ? '#EF4444' : '#0D9488', width: '100%' }}>
-                    {rowMsg.text}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 16px', marginBottom: 18, fontFamily: F, fontSize: 12.5, color: 'var(--text-muted)' }}>

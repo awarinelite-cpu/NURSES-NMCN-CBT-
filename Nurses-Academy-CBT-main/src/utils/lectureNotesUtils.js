@@ -31,55 +31,6 @@ import { db } from '../firebase/config';
 import { NURSING_CATEGORIES } from '../data/categories';
 
 const COLLECTION = 'lectureNotes';
-const DRIVE_LINKS_COLLECTION = 'lectureNoteDriveLinks';
-
-// ── Drive folder links (per specialty) ─────────────────────────────────────
-// Doc shape (lectureNoteDriveLinks/{specialtyId}): {
-//   url: string          // full Drive folder URL as pasted by admin
-//   folderId: string     // extracted folder ID, used to build the embed src
-//   updatedAt, updatedBy
-// }
-
-/** Pulls the folder ID out of any Drive folder URL, or returns a raw ID as-is. */
-export function extractDriveFolderId(input) {
-  const s = String(input || '').trim();
-  if (!s) return null;
-  const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  if (m) return m[1];
-  // Already looks like a bare folder ID
-  if (/^[a-zA-Z0-9_-]{10,}$/.test(s)) return s;
-  return null;
-}
-
-/** { url, folderId } for one specialty, or null if none is set. */
-export async function fetchDriveLink(specialtyId) {
-  if (!specialtyId) return null;
-  const snap = await getDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId));
-  return snap.exists() ? snap.data() : null;
-}
-
-/** All specialties that currently have a Drive link set, keyed by specialtyId. */
-export async function fetchAllDriveLinks() {
-  const snap = await getDocs(collection(db, DRIVE_LINKS_COLLECTION));
-  const map = {};
-  snap.docs.forEach(d => { map[d.id] = d.data(); });
-  return map;
-}
-
-export async function saveDriveLink(specialtyId, url, uid) {
-  const folderId = extractDriveFolderId(url);
-  if (!folderId) throw new Error('That doesn\'t look like a valid Google Drive folder link.');
-  await setDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId), {
-    url: String(url).trim(),
-    folderId,
-    updatedAt: serverTimestamp(),
-    updatedBy: uid || null,
-  });
-}
-
-export async function deleteDriveLink(specialtyId) {
-  await deleteDoc(doc(db, DRIVE_LINKS_COLLECTION, specialtyId));
-}
 
 // ── Specialty resolution ──────────────────────────────────────────────────
 function normalize(s) {

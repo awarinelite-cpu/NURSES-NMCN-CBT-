@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchTopics, specialtyMeta, fetchDriveLink } from '../../utils/lectureNotesUtils';
+import { fetchTopics, specialtyMeta } from '../../utils/lectureNotesUtils';
 
 const H = "'Arial Black', Arial, sans-serif";
 const F = "'Times New Roman', Times, serif";
@@ -13,16 +13,10 @@ export default function LectureNotesTopicsPage() {
   const { specialtyId } = useParams();
   const navigate = useNavigate();
   const [topics, setTopics] = useState(null);
-  const [driveLink, setDriveLink] = useState(null);
   const meta = specialtyMeta(specialtyId);
 
   useEffect(() => {
     (async () => setTopics(await fetchTopics(specialtyId)))();
-  }, [specialtyId]);
-
-  useEffect(() => {
-    setDriveLink(null);
-    (async () => setDriveLink(await fetchDriveLink(specialtyId)))();
   }, [specialtyId]);
 
   return (
@@ -37,7 +31,7 @@ export default function LectureNotesTopicsPage() {
         </h1>
       </div>
 
-      {driveLink && (
+      {specialtyId === 'public_health' && (
         <div style={{ marginBottom: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 22 }}>📁</span>
@@ -50,7 +44,7 @@ export default function LectureNotesTopicsPage() {
               </div>
             </div>
             <a
-              href={driveLink.url}
+              href="https://drive.google.com/drive/folders/1Q5jVkR_7ocfZ0Qr9sICFwc_g-uUVcd_z"
               target="_blank"
               rel="noopener noreferrer"
               style={{ fontFamily: H, fontWeight: 800, fontSize: 11, color: '#4285F4', textDecoration: 'none', whiteSpace: 'nowrap' }}
@@ -59,7 +53,7 @@ export default function LectureNotesTopicsPage() {
             </a>
           </div>
           <iframe
-            src={`https://drive.google.com/embeddedfolderview?id=${driveLink.folderId}#list`}
+            src="https://drive.google.com/embeddedfolderview?id=1Q5jVkR_7ocfZ0Qr9sICFwc_g-uUVcd_z#list"
             title="Lecture Notes Drive Folder"
             style={{ width: '100%', height: 420, border: '1px solid var(--border)', borderRadius: 10, background: '#fff' }}
             loading="lazy"
