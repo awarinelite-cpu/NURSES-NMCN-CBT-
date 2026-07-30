@@ -221,10 +221,10 @@ export default function LectureNotesManager() {
 
   // ── List view ──────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px 80px' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px 80px', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <button onClick={() => navigate('/admin')} style={ghostBtn}>← Admin</button>
-        <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,4vw,1.6rem)', color: 'var(--text-primary)', margin: 0, flex: 1 }}>
+        <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,4vw,1.6rem)', color: 'var(--text-primary)', margin: 0, flex: '1 1 100%' }}>
           📚 Lecture Notes
         </h1>
         <button onClick={startNew} style={btn('#0D9488')}>➕ New Note</button>
@@ -232,7 +232,7 @@ export default function LectureNotesManager() {
           value={bulkSpecialty}
           onChange={e => setBulkSpecialty(e.target.value)}
           title="Used for CSVs that don't have their own specialty column, and as a fallback for unrecognized ones"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 12.5 }}
+          style={{ flex: '1 1 160px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 12.5 }}
         >
           {NURSING_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
@@ -255,7 +255,7 @@ export default function LectureNotesManager() {
           <select
             value={driveSpecialty}
             onChange={e => setDriveSpecialty(e.target.value)}
-            style={{ flex: '1 1 180px', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
+            style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
           >
             {NURSING_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
           </select>
@@ -263,7 +263,7 @@ export default function LectureNotesManager() {
             value={driveUrl}
             onChange={e => setDriveUrl(e.target.value)}
             placeholder="Paste Google Drive folder link…"
-            style={{ flex: '2 1 260px', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
+            style={{ flex: '2 1 220px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
           />
           <button onClick={submitDriveLink} disabled={driveSaving} style={btn('#0D9488')}>
             {driveSaving ? 'Saving…' : '💾 Save Link'}
@@ -279,19 +279,19 @@ export default function LectureNotesManager() {
         {Object.keys(driveLinks).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {NURSING_CATEGORIES.filter(c => driveLinks[c.id]).map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                <span style={{ fontFamily: H, fontWeight: 800, fontSize: 12.5, color: 'var(--text-primary)', width: 150, flexShrink: 0 }}>
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                <span style={{ fontFamily: H, fontWeight: 800, fontSize: 12.5, color: 'var(--text-primary)', width: 140, flexShrink: 0 }}>
                   {c.icon} {c.shortLabel}
                 </span>
                 <a
                   href={driveLinks[c.id].url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: F, fontSize: 12.5, color: '#4285F4' }}
+                  style={{ display: 'block', flex: '1 1 120px', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: F, fontSize: 12.5, color: '#4285F4' }}
                 >
                   {driveLinks[c.id].url}
                 </a>
-                <button onClick={() => removeDriveLink(c.id)} style={{ ...ghostBtn, border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', padding: '6px 12px', fontSize: 11.5 }}>
+                <button onClick={() => removeDriveLink(c.id)} style={{ ...ghostBtn, border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', padding: '6px 12px', fontSize: 11.5, flexShrink: 0 }}>
                   Remove
                 </button>
               </div>
@@ -314,7 +314,7 @@ export default function LectureNotesManager() {
         <select
           value={filterSpecialty}
           onChange={e => setFilterSpecialty(e.target.value)}
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
+          style={{ flex: '1 1 160px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
         >
           <option value="all">All specialties</option>
           {NURSING_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -323,7 +323,7 @@ export default function LectureNotesManager() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search topic…"
-          style={{ flex: 1, minWidth: 160, background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
+          style={{ flex: '2 1 160px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
         />
       </div>
 
