@@ -2,7 +2,7 @@
 // NMCN CBT Platform — PWA Service Worker
 // SECURITY: Exam/question content is NEVER cached for offline access.
 
-const CACHE_NAME = 'nmcn-cbt-v6';
+const CACHE_NAME = 'nmcn-cbt-v7';
 
 // Only cache shell assets — no question data
 const STATIC_ASSETS = [
@@ -10,6 +10,10 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
 ];
+
+// Never served from the SW cache-first path, even for non-navigate requests
+// (some webview/standalone contexts fetch these without mode:'navigate').
+const SHELL_HTML_PATHS = ['/', '/index.html'];
 
 // Paths that must NEVER be served from cache
 const NO_CACHE_PATTERNS = [
@@ -73,6 +77,15 @@ self.addEventListener('fetch', (event) => {
           },
         })
       )
+    );
+    return;
+  }
+
+  // Shell HTML — always network-first, even outside mode:'navigate', so a
+  // refreshed tab never gets a stale index.html pointing at old JS chunks.
+  if (SHELL_HTML_PATHS.includes(url.pathname)) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
     );
     return;
   }

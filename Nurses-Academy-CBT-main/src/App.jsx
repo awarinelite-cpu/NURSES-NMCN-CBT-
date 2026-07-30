@@ -107,7 +107,17 @@ export const ENTRANCE_FREE_LIMIT = 10;
 
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+    navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+      .then(registration => {
+        // The browser only auto-checks for a new SW on navigation. This is a
+        // long-lived SPA tab, so also poll periodically and on refocus.
+        const check = () => registration.update().catch(() => {});
+        setInterval(check, 5 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') check();
+        });
+      })
+      .catch(console.error);
 
     // When a new service worker takes control (i.e. a fresh deploy landed),
     // reload once so the page picks up the new bundle instead of continuing
