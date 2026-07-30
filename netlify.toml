@@ -1,4 +1,0 @@
-[build]
-  base    = "Nurses-Academy-CBT-main"
-  command = "SKIP_PREFLIGHT_CHECK=true DISABLE_ESLINT_PLUGIN=true react-scripts build"
-  publish = "build"
