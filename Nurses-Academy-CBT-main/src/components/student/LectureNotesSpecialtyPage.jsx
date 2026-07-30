@@ -1,30 +1,17 @@
 // src/components/student/LectureNotesSpecialtyPage.jsx
 // Route: /lecture-notes
-// Step 1 of the Lecture Notes flow: pick a specialty. Only shows specialties
-// that actually have at least one published note.
+// Step 1 of the Lecture Notes flow: pick a specialty. Shows every specialty
+// in the system so a Drive-link-only specialty (no uploaded notes yet) is
+// still reachable.
 
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchSpecialtySummary } from '../../utils/lectureNotesUtils';
+import { NURSING_CATEGORIES } from '../../data/categories';
 
 const H = "'Arial Black', Arial, sans-serif";
 const F = "'Times New Roman', Times, serif";
 
 export default function LectureNotesSpecialtyPage() {
   const navigate = useNavigate();
-  const [specialties, setSpecialties] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setSpecialties(await fetchSpecialtySummary());
-      } catch (e) {
-        setError(e.message);
-        setSpecialties([]);
-      }
-    })();
-  }, []);
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px 80px' }}>
@@ -41,26 +28,8 @@ export default function LectureNotesSpecialtyPage() {
         Choose a specialty to browse its lecture notes.
       </p>
 
-
-
-      {specialties === null && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F }}>Loading…</div>
-      )}
-
-      {error && (
-        <div style={{ background: '#EF444418', border: '1.5px solid #EF444455', borderRadius: 12, padding: 14, color: '#EF4444', fontFamily: F, fontSize: 13, marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
-
-      {specialties && specialties.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F, fontSize: 14 }}>
-          No lecture notes have been uploaded yet. Check back soon.
-        </div>
-      )}
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 14 }}>
-        {specialties && specialties.map(s => (
+        {NURSING_CATEGORIES.map(s => (
           <button
             key={s.id}
             onClick={() => navigate(`/lecture-notes/${s.id}`)}
@@ -75,9 +44,6 @@ export default function LectureNotesSpecialtyPage() {
             <div style={{ fontFamily: H, fontWeight: 800, fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.3 }}>
               {s.shortLabel}
             </div>
-            <span style={{ fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)' }}>
-              {s.count} note{s.count === 1 ? '' : 's'}
-            </span>
           </button>
         ))}
       </div>
