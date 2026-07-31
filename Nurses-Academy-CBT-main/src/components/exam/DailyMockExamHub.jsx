@@ -383,8 +383,13 @@ export default function DailyMockExamHub() {
         </div>
 
         <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none' }}>
-          🚀 Start Daily Mock Exam — {finalCount} Questions
+          {studyMode === 'group' ? `👥 Start Group Session — ${finalCount} Questions` : `🚀 Start Daily Mock Exam — ${finalCount} Questions`}
         </button>
+        {studyMode === 'group' && (
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+            You'll set up the group (get a join code, pick Reading or Quiz mode) on the next screen — nobody starts until you do.
+          </div>
+        )}
       </div>
 
       {/* Exams Taken */}
