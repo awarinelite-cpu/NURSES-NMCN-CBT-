@@ -1140,6 +1140,14 @@ export default function ExamSession() {
 
   const q = questions[current];
 
+  // ── Group Study: the host started another exam from the review screen —
+  // everyone (host included) heads back to the Group Study page. The call
+  // itself is untouched; it lives in GroupCallContext, not this route.
+  if (groupSessionId && study.session?.status === 'lobby') {
+    navigate(`/group-study/${groupSessionId}`, { replace: true });
+    return null;
+  }
+
   // ── Group Study: the host left/exited without finishing for the group —
   // don't leave everyone else stuck staring at a frozen question.
   if (groupSessionId && study.session?.status === 'ended' && !isGroupHost) {
@@ -1187,7 +1195,12 @@ export default function ExamSession() {
               );
             })}
           </div>
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => { study.leaveSession(); navigate('/dashboard'); }}>
+          {isGroupHost && (
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={async () => { await study.backToLobby(); navigate(`/group-study/${groupSessionId}`); }}>
+              🔁 Start Another Exam
+            </button>
+          )}
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => { study.leaveSession(); navigate('/dashboard'); }}>
             🏠 Back Home
           </button>
         </div>

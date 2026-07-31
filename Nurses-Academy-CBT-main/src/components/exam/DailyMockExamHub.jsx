@@ -70,7 +70,6 @@ export default function DailyMockExamHub() {
   const [view,         setView]        = useState('specialty'); // 'specialty' | 'exam' | 'group-lobby'
   const [selected,     setSelected]    = useState(null);         // chosen SPECIALTIES entry
   const [studyMode,    setStudyMode]   = useState('single');      // 'single' | 'group'
-  const [groupQuestionIds, setGroupQuestionIds] = useState([]);
 
   const [poolCounts,   setPoolCounts]  = useState({});  // { [categoryId]: questionCount }
   const [pool,         setPool]        = useState(null);   // dailyMockExam/{category} doc
@@ -168,10 +167,9 @@ export default function DailyMockExamHub() {
 
   const startExam = () => {
     if (studyMode === 'group') {
-      // Draw the shared question set once, up front — every participant
-      // gets the exact same questions in the exact same order.
-      const ids = shuffleIds(pool?.questionIds || []).slice(0, finalCount);
-      setGroupQuestionIds(ids);
+      // Question count is now chosen on the Group Study page's Start Exam
+      // step, after the group is set up and the call is initiated — not
+      // here.
       setView('group-lobby');
       return;
     }
@@ -281,7 +279,6 @@ export default function DailyMockExamHub() {
           examType: 'daily_mock_exam',
           examName: `Daily Mock Exam — ${selected.label}`,
           category: selected.id,
-          questionIds: groupQuestionIds,
         }}
         onCancel={() => setView('exam')}
       />
@@ -363,31 +360,33 @@ export default function DailyMockExamHub() {
           </div>
         )}
 
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {PRESETS.map(n => (
-              <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${!useCustom && qCount === n ? sp.color : 'var(--border)'}`, background: !useCustom && qCount === n ? sp.glow : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? sp.color : 'var(--text-secondary)' }}>{n}</button>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${useCustom ? sp.color : 'var(--border)'}`, background: useCustom ? sp.glow : 'var(--bg-tertiary)', color: useCustom ? sp.color : 'var(--text-secondary)' }}>Custom</button>
-              {useCustom && <input type="number" min={1} max={totalAvailable || 250} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={`1–${totalAvailable || 250}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: `2px solid ${sp.color}`, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
+        {studyMode === 'single' && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {PRESETS.map(n => (
+                <button key={n} onClick={() => { setQCount(n); setUseCustom(false); }} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${!useCustom && qCount === n ? sp.color : 'var(--border)'}`, background: !useCustom && qCount === n ? sp.glow : 'var(--bg-tertiary)', color: !useCustom && qCount === n ? sp.color : 'var(--text-secondary)' }}>{n}</button>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => setUseCustom(true)} style={{ padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: `2px solid ${useCustom ? sp.color : 'var(--border)'}`, background: useCustom ? sp.glow : 'var(--bg-tertiary)', color: useCustom ? sp.color : 'var(--text-secondary)' }}>Custom</button>
+                {useCustom && <input type="number" min={1} max={totalAvailable || 250} value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder={`1–${totalAvailable || 250}`} autoFocus style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: `2px solid ${sp.color}`, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, outline: 'none' }} />}
+              </div>
             </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+              ⏱ {finalCount} questions ≈ {finalCount} minute{finalCount === 1 ? '' : 's'}
+            </div>
+            {!isSub && (
+              <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full pool.</div>
+            )}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            ⏱ {finalCount} questions ≈ {finalCount} minute{finalCount === 1 ? '' : 's'}
-          </div>
-          {!isSub && (
-            <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full pool.</div>
-          )}
-        </div>
+        )}
 
         <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none' }}>
-          {studyMode === 'group' ? `👥 Start Group Session — ${finalCount} Questions` : `🚀 Start Daily Mock Exam — ${finalCount} Questions`}
+          {studyMode === 'group' ? '👥 Continue to Group Study' : `🚀 Start Daily Mock Exam — ${finalCount} Questions`}
         </button>
         {studyMode === 'group' && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            You'll set up the group (get a join code, pick Reading or Quiz mode) on the next screen — nobody starts until you do.
+            You'll pick your group, exam type, and start the call on the next screen — the question count comes right before you start.
           </div>
         )}
       </div>

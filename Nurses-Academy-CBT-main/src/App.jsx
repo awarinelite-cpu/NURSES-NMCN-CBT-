@@ -52,6 +52,7 @@ import ExamConfigPage     from './components/exam/ExamConfigPage';
 import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
 import DailyMockExamHub   from './components/exam/DailyMockExamHub';
+import GroupStudyContinue from './components/exam/GroupStudyContinue';
 import MockExamPage       from './components/exam/MockExamPage';
 import EssayQuestionsPage from './components/exam/EssayQuestionsPage';
 import CourseDrillPage    from './components/exam/CourseDrillPage';
@@ -323,6 +324,7 @@ export default function App() {
                 <Route path="/mock-exams"      element={<FreeTrialRoute><MockExamPage /></FreeTrialRoute>} />
                 <Route path="/essay-questions" element={<SubscribedRoute><EssayQuestionsPage /></SubscribedRoute>} />
                 <Route path="/daily-mock-exam" element={<FreeTrialRoute><DailyMockExamHub /></FreeTrialRoute>} />
+                <Route path="/group-study/:sessionId" element={<FreeTrialRoute><GroupStudyContinue /></FreeTrialRoute>} />
                 <Route path="/exam/categories" element={<FreeTrialRoute><CategoryPickerPage /></FreeTrialRoute>} />
                 <Route path="/exam/config"     element={<FreeTrialRoute><ExamConfigPage /></FreeTrialRoute>} />
 

@@ -114,9 +114,33 @@ export function useStudySession({ uid, name }) {
   }, [uid, name, attach]);
 
   // ── Host starts the exam for everyone ────────────────────────────────
-  const startSession = useCallback(async () => {
+  // questionIds is optional: pass it when the question count/pool draw
+  // happens on the Start Exam step (after the lobby), rather than being
+  // fixed at session creation.
+  const startSession = useCallback(async (questionIds) => {
     if (!session) return;
-    await updateDoc(doc(db, 'studySessions', session.id), { status: 'active', currentIndex: 0 });
+    await updateDoc(doc(db, 'studySessions', session.id), {
+      status: 'active', currentIndex: 0, revealed: false,
+      ...(questionIds?.length ? { questionIds } : {}),
+    });
+  }, [session]);
+
+  // ── Host sets/changes the reading vs quiz mode (lobby only) ───────────
+  const setSessionMode = useCallback(async (mode) => {
+    if (!session) return;
+    await updateDoc(doc(db, 'studySessions', session.id), { mode: mode === 'quiz' ? 'quiz' : 'reading' });
+  }, [session]);
+
+  // ── Host returns everyone to the lobby to set up another exam, without
+  // ending the session (or the group call, which lives outside this doc
+  // entirely — see GroupCallContext) ─────────────────────────────────────
+  const backToLobby = useCallback(async () => {
+    if (!session) return;
+    const respSnap = await getDocs(collection(db, 'studySessions', session.id, 'responses'));
+    await Promise.all(respSnap.docs.map(d => deleteDoc(d.ref)));
+    await updateDoc(doc(db, 'studySessions', session.id), {
+      status: 'lobby', currentIndex: 0, revealed: false,
+    });
   }, [session]);
 
   // ── Host advances/rewinds the shared question index ──────────────────
@@ -166,7 +190,7 @@ export function useStudySession({ uid, name }) {
   return {
     session, participants, responses, isHost, error,
     createSession, joinByCode, startSession, goToIndex, leaveSession,
-    revealAnswer, submitAnswer, finishSession,
+    revealAnswer, submitAnswer, finishSession, setSessionMode, backToLobby,
     attachExisting: attach,
   };
 }
