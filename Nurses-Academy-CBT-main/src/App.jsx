@@ -5,6 +5,7 @@ import { AuthProvider }          from './context/AuthContext';
 import { ThemeProvider }         from './context/ThemeContext';
 import { FontSizeProvider }      from './context/FontSizeContext';
 import { ToastProvider }         from './components/shared/Toast';
+import { GroupCallProvider }     from './context/GroupCallContext';
 import { useAuth }               from './context/AuthContext';
 
 import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, SubAdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
@@ -254,6 +255,7 @@ export default function App() {
             <SwNavigationHandler />
             <ContentProtectionActivator />
 
+            <GroupCallProvider>
             <Routes>
               {/* Public */}
               <Route path="/" element={<LandingPage />} />
@@ -367,6 +369,7 @@ export default function App() {
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </GroupCallProvider>
           </BrowserRouter>
         </ToastProvider>
       </AuthProvider>
