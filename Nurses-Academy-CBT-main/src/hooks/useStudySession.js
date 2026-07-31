@@ -13,11 +13,15 @@
 //     examName:      string
 //     questionIds:   string[]              // fixed at session creation, same order for everyone
 //     currentIndex:  number                // the question every participant should be showing
-//     status:        'lobby' | 'active' | 'ended'
+//     mode:          'reading' | 'quiz'     // locked in at the lobby, before Start
+//     revealed:      boolean               // is the answer to the current question shown yet
+//     status:        'lobby' | 'active' | 'review' | 'ended'
 //     code:          6-char join code
 //     createdAt:     serverTimestamp
 //     participants/{uid}
 //       name, joinedAt, lastSeen
+//     responses/{uid}_{questionIndex}       // quiz mode only — one doc per person per question
+//       uid, name, qIndex, choiceIndex, ts
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -36,9 +40,11 @@ function genCode() {
 export function useStudySession({ uid, name }) {
   const [session, setSession]           = useState(null); // live session doc data + id
   const [participants, setParticipants] = useState([]);
+  const [responses, setResponses]       = useState([]); // quiz mode: every {uid,qIndex,choiceIndex} so far
   const [error, setError]               = useState(null);
   const unsubSession = useRef(null);
   const unsubParts   = useRef(null);
+  const unsubResp    = useRef(null);
   const heartbeat     = useRef(null);
 
   const isHost = !!session && session.hostId === uid;
@@ -46,9 +52,11 @@ export function useStudySession({ uid, name }) {
   const cleanup = useCallback(() => {
     unsubSession.current?.();
     unsubParts.current?.();
+    unsubResp.current?.();
     clearInterval(heartbeat.current);
     unsubSession.current = null;
     unsubParts.current = null;
+    unsubResp.current = null;
   }, []);
 
   useEffect(() => () => cleanup(), [cleanup]);
@@ -62,6 +70,9 @@ export function useStudySession({ uid, name }) {
     unsubParts.current = onSnapshot(collection(db, 'studySessions', sessionId, 'participants'), (snap) => {
       setParticipants(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
     });
+    unsubResp.current = onSnapshot(collection(db, 'studySessions', sessionId, 'responses'), (snap) => {
+      setResponses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
     // Presence heartbeat so the host / UI can tell who's actually still around.
     heartbeat.current = setInterval(() => {
       setDoc(doc(db, 'studySessions', sessionId, 'participants', uid),
@@ -70,12 +81,13 @@ export function useStudySession({ uid, name }) {
   }, [cleanup, uid]);
 
   // ── Create a new group session (host) ────────────────────────────────
-  const createSession = useCallback(async ({ examType, examName, category, questionIds }) => {
+  const createSession = useCallback(async ({ examType, examName, category, questionIds, mode }) => {
     const code = genCode();
     const ref = doc(collection(db, 'studySessions'));
     await setDoc(ref, {
       hostId: uid, examType, examName, category, questionIds,
-      currentIndex: 0, status: 'lobby', code, createdAt: serverTimestamp(),
+      currentIndex: 0, mode: mode === 'quiz' ? 'quiz' : 'reading', revealed: false,
+      status: 'lobby', code, createdAt: serverTimestamp(),
     });
     await setDoc(doc(db, 'studySessions', ref.id, 'participants', uid),
       { name: name || 'Host', joinedAt: serverTimestamp(), lastSeen: serverTimestamp() });
@@ -89,7 +101,7 @@ export function useStudySession({ uid, name }) {
     const q = query(
       collection(db, 'studySessions'),
       where('code', '==', code.trim().toUpperCase()),
-      where('status', 'in', ['lobby', 'active']),
+      where('status', 'in', ['lobby', 'active', 'review']),
       limit(1),
     );
     const snap = await getDocs(q);
@@ -108,10 +120,35 @@ export function useStudySession({ uid, name }) {
   }, [session]);
 
   // ── Host advances/rewinds the shared question index ──────────────────
+  // Moving to a new question always resets `revealed` — nobody should see
+  // last question's answer bleed into the next one.
   const goToIndex = useCallback(async (index) => {
     if (!session) return;
     const clamped = Math.max(0, Math.min(index, (session.questionIds?.length || 1) - 1));
-    await updateDoc(doc(db, 'studySessions', session.id), { currentIndex: clamped });
+    await updateDoc(doc(db, 'studySessions', session.id), { currentIndex: clamped, revealed: false });
+  }, [session]);
+
+  // ── Host reveals the current question's answer to everyone ───────────
+  // In quiz mode this normally happens automatically once every
+  // participant has answered (see the effect below), but the host can
+  // also force it early for a straggler.
+  const revealAnswer = useCallback(async () => {
+    if (!session) return;
+    await updateDoc(doc(db, 'studySessions', session.id), { revealed: true });
+  }, [session]);
+
+  // ── Everyone (quiz mode): lock in a choice for the current question ──
+  const submitAnswer = useCallback(async (qIndex, choiceIndex) => {
+    if (!session) return;
+    await setDoc(doc(db, 'studySessions', session.id, 'responses', `${uid}_${qIndex}`), {
+      uid, name: name || 'Participant', qIndex, choiceIndex, ts: serverTimestamp(),
+    });
+  }, [session, uid, name]);
+
+  // ── Host ends the group exam — everyone flips to the synced review ───
+  const finishSession = useCallback(async () => {
+    if (!session) return;
+    await updateDoc(doc(db, 'studySessions', session.id), { status: 'review' });
   }, [session]);
 
   // ── Leave / end ───────────────────────────────────────────────────────
@@ -127,8 +164,9 @@ export function useStudySession({ uid, name }) {
   }, [session, uid, isHost, cleanup]);
 
   return {
-    session, participants, isHost, error,
+    session, participants, responses, isHost, error,
     createSession, joinByCode, startSession, goToIndex, leaveSession,
+    revealAnswer, submitAnswer, finishSession,
     attachExisting: attach,
   };
 }
