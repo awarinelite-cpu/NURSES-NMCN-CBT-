@@ -1,291 +1,455 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuth()  { return request.auth != null; }
-    function uid()     { return request.auth.uid; }
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
     function isAdmin() {
       return isAuth() &&
-        get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
     function isSubAdmin() {
       return isAuth() &&
-        get(/databases/$(database)/documents/users/$(uid())).data.role == 'subadmin';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'subadmin';
     }
+
+    function isAdminOrSubAdmin() {
+      return isAdmin() || isSubAdmin();
+    }
+
+    function isChangingProtectedFields() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasAny([
+        'entranceExamPaid',
+        'entranceExamPaidAt',
+        'entranceExamRef',
+        'subscribed',
+        'subscriptionPlan',
+        'subscriptionExpiry',
+        'role',
+      ]);
+    }
+
     match /users/{userId} {
       allow read:   if isAuth();
-      allow create: if isAuth() && uid() == userId;
-      allow update: if isAuth() && (uid() == userId || isAdmin());
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId) && !isChangingProtectedFields()) || isAdmin();
       allow delete: if isAdmin();
-      match /dailyPracticeArchive/{archiveId} {
-        allow read:   if isAuth() && uid() == userId;
-        allow create: if isAuth() && uid() == userId;
-        allow update: if isAuth() && uid() == userId;
-        allow delete: if isAuth() && (uid() == userId || isAdmin());
-      }
-      match /entranceDailyMock/{docId} {
-        allow read:   if isAuth() && uid() == userId;
-        allow create: if isAuth() && uid() == userId;
-        allow update: if isAuth() && uid() == userId;
-        allow delete: if isAdmin();
+      match /{subCollection}/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
-    match /questions/{qId} {
-      allow read:   if isAuth();
-      allow write:  if isAdmin();
+
+    match /questions/{questionId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
     }
+
+    // AI Answer Verification queue (Admin > Answer Audit). Holds low-confidence
+    // AI disagreements pending human accept/dismiss.
     match /answerReviewQueue/{reviewId} {
-      allow read:   if isAdmin();
-      allow write:  if isAdmin();
+      allow read:  if isAdminOrSubAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
+
+    match /essayQuestionSets/{setId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     match /exams/{examId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
-    match /examSessions/{sessionId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAdmin();
-    }
-    match /accessCodes/{codeId} {
-      allow read:   if isAuth();
-      allow create: if isAdmin();
-      allow delete: if isAdmin();
-      allow update: if isAuth() && (
-        isAdmin() ||
-        (
-          resource.data.used == false &&
-          request.resource.data.used == true &&
-          request.resource.data.usedBy == uid() &&
-          request.resource.data.code == resource.data.code &&
-          request.resource.data.plan == resource.data.plan
-        )
-      );
-    }
-    match /payments/{payId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-    match /notifications/{notifId} {
-      allow read:   if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow delete: if isAdmin();
-    }
-    match /bookmarks/{bookmarkId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    match /questionNotes/{noteId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    match /announcements/{annId} {
+
+    match /entranceExamQuestions/{questionId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
-    match /scheduledExams/{examId} {
+
+    match /entranceExamSchools/{schoolId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
-    match /courses/{courseId} {
+
+    match /entranceExamSubjects/{subjId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
-    match /pausedExams/{docId} {
-      allow read:   if isAuth() && resource.data.userId == uid();
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    match /questionReports/{reportId} {
-      allow read:   if isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-    match /entranceExamSchools/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdmin();
-    }
-    match /entranceExamQuestions/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdmin();
-    }
-    match /entranceExamDailyMockBank/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdmin();
-    }
+
     match /entranceExamConfig/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
+
     match /dailyMockSchedule/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
+
+    match /lectureNotes/{noteId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
+    match /lectureNoteDriveLinks/{specialtyId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     // Today's per-specialty Daily Mock Exam pools (dailyMockExam/{categoryId},
     // plus dailyMockExam/_index) — rotated every 24h by
-    // the rotateDailyMockExam Cloud Function (Admin SDK, bypasses these
-    // rules). Clients only ever need to read it.
+    // the rotateDailyMockExam Cloud Function (which uses the Admin SDK and
+    // bypasses these rules). Clients only ever need to read it.
     match /dailyMockExam/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin() || isSubAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
+
     // Archive of past daily pools — admin/debug use only.
     match /dailyMockExamHistory/{docId} {
-      allow read:  if isAdmin() || isSubAdmin();
-      allow write: if isAdmin() || isSubAdmin();
+      allow read:  if isAdminOrSubAdmin();
+      allow write: if isAdminOrSubAdmin();
     }
-    // Aggregate per-question pass-rate stats used to decide which questions
-    // must keep repeating in the Daily Mock Exam pool. Not sensitive — any
-    // signed-in student's completed attempt increments these counters.
+
+    // Aggregate per-question pass-rate stats, used to decide which questions
+    // must keep repeating in the Daily Mock Exam pool. Not sensitive —
+    // any signed-in student's completed attempt increments these counters.
     match /questionStats/{questionId} {
       allow read, write: if isAuth();
     }
-    match /entranceExamSessions/{docId} {
-      // Allow authenticated users to read all sessions (for leaderboard)
-      allow read:   if isAuth();
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    match /entrancePausedExams/{docId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    match /caosceCases/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdmin() || isSubAdmin();
-    }
-    match /caosceResults/{docId} {
-      allow read:   if isAuth() && (resource.data.userId == uid() || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == uid();
-      allow update: if isAuth() && resource.data.userId == uid();
-      allow delete: if isAuth() && (resource.data.userId == uid() || isAdmin());
-    }
-    // ── AI Study Plans (one doc per student, keyed by their uid) ──────────
-    match /studyPlans/{userId} {
-      allow read, write: if isAuth() && (uid() == userId || isAdmin());
+
+    // Same as questionStats above, scoped to the Entrance Exam question bank.
+    // Used by rotateEntranceDailyMock to decide which questions must repeat
+    // (pass rate < 50%) in the Entrance Exam Daily Mock.
+    match /entranceQuestionStats/{questionId} {
+      allow read, write: if isAuth();
     }
 
-    // ── NMCN CBT direct student-to-student chat ────────────────────────────
+    match /entranceExamSessions/{sessionId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /entrancePausedExams/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // Admin creates the day's question at entranceDailyChallenge/{date}.
+    // Students read it, submit their own response doc under responses/{uid},
+    // and bump correctCount on the parent doc via a merge update when they
+    // answer correctly (see EntranceDailyChallenge.jsx).
+    match /entranceDailyChallenge/{date} {
+      allow read:   if isAuth();
+      allow create: if isAdmin();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+
+      match /responses/{uid} {
+        allow read:           if isAuth();
+        allow create, update: if isAuth() && uid == request.auth.uid;
+        allow delete:         if isAdmin();
+      }
+    }
+
+    match /examSessions/{sessionId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /pausedExams/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /dailyAnnouncements/{annId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
+    match /bookmarks/{bookmarkId} {
+      allow read, write: if isAuth() && (
+        resource == null
+          ? request.resource.data.userId == request.auth.uid
+          : resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    match /questionNotes/{noteId} {
+      allow read, write: if isAuth() && (
+        resource == null
+          ? request.resource.data.userId == request.auth.uid
+          : resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    match /entranceBookmarks/{bookmarkId} {
+      allow read, write: if isAuth() && (
+        resource == null
+          ? request.resource.data.userId == request.auth.uid
+          : resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    match /announcements/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /accessCodes/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /scheduledExams/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /courses/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /topics/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── CAOSCE Prep (OSCE case bank + student results) ─────────────────────
+
+    match /caosceCases/{caseId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
+    match /caosceResults/{resultId} {
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /leaderboard/{id} {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+    }
+
+    // ── AI Study Plans (one doc per student, keyed by their uid) ──────────
+    match /studyPlans/{userId} {
+      allow read, write: if isAuth() && (isOwner(userId) || isAdmin());
+    }
+
+    match /config/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── Direct student-to-student chat ────────────────────────────────────
+
     match /directChats/{chatId} {
       function isParticipant() {
-        return isAuth() && resource.data.participants.hasAny([uid()]);
+        return isAuth() && resource.data.participants.hasAny([request.auth.uid]);
       }
       function isParticipantByCreate() {
-        return isAuth() && request.resource.data.participants.hasAny([uid()]);
+        return isAuth() && request.resource.data.participants.hasAny([request.auth.uid]);
       }
       function chatParticipants() {
         return exists(/databases/$(database)/documents/directChats/$(chatId))
           ? get(/databases/$(database)/documents/directChats/$(chatId)).data.participants
           : [];
       }
+
       allow read:   if isAuth();
       allow create: if isParticipantByCreate();
+      // Reverted: no participants-field guard — ChatPage always resends
+      // participants in every setDoc merge, so blocking it breaks sends.
       allow update: if isParticipant();
       allow delete: if isAdmin();
+
       match /messages/{msgId} {
-        allow read:   if isAuth() && chatParticipants().hasAny([uid()]);
+        allow read:   if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow create: if isAuth() &&
-          chatParticipants().hasAny([uid()]) &&
-          request.resource.data.senderId == uid();
-        allow update: if isAuth() && chatParticipants().hasAny([uid()]);
+          chatParticipants().hasAny([request.auth.uid]) &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow delete: if isAdmin();
       }
+
       match /typing/{typingUid} {
-        allow read, write: if isAuth() && chatParticipants().hasAny([uid()]);
+        allow read, write: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
       }
     }
 
-    // ── Entrance exam direct student-to-student chat ────────────────────────
+    // ── Direct entrance-exam student-to-student chat ───────────────────────
+
     match /entranceDirectChats/{chatId} {
       function isParticipant() {
-        return isAuth() && resource.data.participants.hasAny([uid()]);
+        return isAuth() && resource.data.participants.hasAny([request.auth.uid]);
       }
       function isParticipantByCreate() {
-        return isAuth() && request.resource.data.participants.hasAny([uid()]);
+        return isAuth() && request.resource.data.participants.hasAny([request.auth.uid]);
       }
       function chatParticipants() {
         return exists(/databases/$(database)/documents/entranceDirectChats/$(chatId))
           ? get(/databases/$(database)/documents/entranceDirectChats/$(chatId)).data.participants
           : [];
       }
+
       allow read:   if isAuth();
       allow create: if isParticipantByCreate();
       allow update: if isParticipant();
       allow delete: if isAdmin();
+
       match /messages/{msgId} {
-        allow read:   if isAuth() && chatParticipants().hasAny([uid()]);
+        allow read:   if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow create: if isAuth() &&
-          chatParticipants().hasAny([uid()]) &&
-          request.resource.data.senderId == uid();
-        allow update: if isAuth() && chatParticipants().hasAny([uid()]);
+          chatParticipants().hasAny([request.auth.uid]) &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
         allow delete: if isAdmin();
       }
+
       match /typing/{typingUid} {
-        allow read, write: if isAuth() && chatParticipants().hasAny([uid()]);
+        allow read, write: if isAuth() && chatParticipants().hasAny([request.auth.uid]);
       }
     }
 
-    // ── NMCN CBT group chats ─────────────────────────────────────────────
+    // ── NMCN CBT Group Chats ──────────────────────────────────────────────
+
     match /groupChats/{groupId} {
       allow read:  if isAuth();
       allow write: if isAuth();
+
       match /messages/{msgId} {
         allow read:   if isAuth();
-        allow create: if isAuth() && request.resource.data.senderId == uid();
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
         allow update: if isAuth();
         allow delete: if isAdmin();
       }
+
       match /members/{memberId} {
         allow read:  if isAuth();
-        allow write: if isAuth() && memberId == uid();
+        allow write: if isAuth() && memberId == request.auth.uid;
       }
+
       match /typing/{typingUid} {
         allow read:  if isAuth();
-        allow write: if isAuth() && typingUid == uid();
+        allow write: if isAuth() && typingUid == request.auth.uid;
       }
     }
 
-    // ── Entrance exam group chats ────────────────────────────────────────
+    // ── Entrance Exam Group Chats ─────────────────────────────────────────
+
     match /entranceGroupChats/{groupId} {
       allow read:  if isAuth();
       allow write: if isAuth();
+
       match /messages/{msgId} {
         allow read:   if isAuth();
-        allow create: if isAuth() && request.resource.data.senderId == uid();
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
         allow update: if isAuth();
         allow delete: if isAdmin();
       }
+
       match /members/{memberId} {
         allow read:  if isAuth();
-        allow write: if isAuth() && memberId == uid();
+        allow write: if isAuth() && memberId == request.auth.uid;
       }
+
       match /typing/{typingUid} {
         allow read:  if isAuth();
-        allow write: if isAuth() && typingUid == uid();
+        allow write: if isAuth() && typingUid == request.auth.uid;
       }
     }
+
     // ── Group Study Sessions ───────────────────────────────────────────────
+    // Sessions are found by a 6-char join code, so read access is broad
+    // (like groupChats) — the code itself is the gate. Only the host can
+    // mutate the session doc (advance the question, start/end it); each
+    // participant can only write their own presence doc.
+
     match /studySessions/{sessionId} {
       allow read:   if isAuth();
-      allow create: if isAuth() && request.resource.data.hostId == uid();
-      allow update: if isAuth() && resource.data.hostId == uid();
+      allow create: if isAuth() && request.resource.data.hostId == request.auth.uid;
+      allow update: if isAuth() && resource.data.hostId == request.auth.uid;
       allow delete: if isAdmin();
+
       match /participants/{participantId} {
         allow read:  if isAuth();
-        allow write: if isAuth() && participantId == uid();
+        allow write: if isAuth() && participantId == request.auth.uid;
       }
     }
+
+    // ── Group Calls ──────────────────────────────────────────────────────
+    // One persistent doc per subject group (doc id == groupId), unlike
+    // studySessions above which is one throwaway doc per exam. The call
+    // (and the synced reading/quiz study nested inside it via the `study`
+    // field) belongs to the group, so it's the host who starts/ends the
+    // call and controls the study; each participant only ever writes their
+    // own presence doc and their own quiz answers.
+
+    match /groupCalls/{groupId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.hostId == request.auth.uid;
+      // The current host controls an active call; once it's inactive,
+      // anyone can restart it (and becomes the new host) — same as how
+      // any student can kick off a fresh Group Study session today.
+      allow update: if isAuth() && (
+                      resource.data.hostId == request.auth.uid ||
+                      resource.data.active == false
+                    );
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read:  if isAuth();
+        allow write: if isAuth() && participantId == request.auth.uid;
+      }
+
+      match /responses/{responseId} {
+        allow read:   if isAuth();
+        allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+        allow update: if isAuth() && request.resource.data.uid == request.auth.uid
+                        && resource.data.uid == request.auth.uid;
+        allow delete: if isAdmin();
+      }
+    }
+
   }
 }
