@@ -417,5 +417,39 @@ service cloud.firestore {
       }
     }
 
+    // ── Group Calls ──────────────────────────────────────────────────────
+    // One persistent doc per subject group (doc id == groupId), unlike
+    // studySessions above which is one throwaway doc per exam. The call
+    // (and the synced reading/quiz study nested inside it via the `study`
+    // field) belongs to the group, so it's the host who starts/ends the
+    // call and controls the study; each participant only ever writes their
+    // own presence doc and their own quiz answers.
+
+    match /groupCalls/{groupId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.hostId == request.auth.uid;
+      // The current host controls an active call; once it's inactive,
+      // anyone can restart it (and becomes the new host) — same as how
+      // any student can kick off a fresh Group Study session today.
+      allow update: if isAuth() && (
+                      resource.data.hostId == request.auth.uid ||
+                      resource.data.active == false
+                    );
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read:  if isAuth();
+        allow write: if isAuth() && participantId == request.auth.uid;
+      }
+
+      match /responses/{responseId} {
+        allow read:   if isAuth();
+        allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+        allow update: if isAuth() && request.resource.data.uid == request.auth.uid
+                        && resource.data.uid == request.auth.uid;
+        allow delete: if isAdmin();
+      }
+    }
+
   }
 }
