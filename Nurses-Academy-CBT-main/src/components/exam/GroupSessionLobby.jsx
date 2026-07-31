@@ -236,7 +236,11 @@ export default function GroupSessionLobby({ uid, name, examSetup, existingSessio
           )}
 
           {/* Call initiation lives right here in the group study page */}
-          <GroupCallBar channel={session.id} uid={uid} participants={participants} />
+          <GroupCallBar
+            channel={session.id} uid={uid} participants={participants}
+            isHost={isHost} onEndCallForEveryone={study.endCallForEveryone}
+            callEndedSignal={session.callEndedAt}
+          />
 
           {isHost ? (
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleContinue}>
@@ -251,7 +255,11 @@ export default function GroupSessionLobby({ uid, name, examSetup, existingSessio
       {/* ── Start Exam step: host picks the question count ───────────────── */}
       {session && session.status === 'lobby' && step === 'count' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <GroupCallBar channel={session.id} uid={uid} participants={participants} />
+          <GroupCallBar
+            channel={session.id} uid={uid} participants={participants}
+            isHost={isHost} onEndCallForEveryone={study.endCallForEveryone}
+            callEndedSignal={session.callEndedAt}
+          />
 
           {isHost ? (
             <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 16, padding: 20 }}>

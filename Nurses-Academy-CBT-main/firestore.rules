@@ -419,7 +419,7 @@ service cloud.firestore {
       match /responses/{responseId} {
         allow read:   if isAuth();
         allow create, update: if isAuth() && request.resource.data.uid == request.auth.uid;
-        allow delete: if false;
+        allow delete: if isAuth() && get(/databases/$(database)/documents/studySessions/$(sessionId)).data.hostId == request.auth.uid;
       }
     }
 

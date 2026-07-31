@@ -1180,7 +1180,7 @@ export default function ExamSession() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
             {groupMode === 'quiz' ? "Here's how the group did on each question, together." : 'A recap of everything the group went through.'}
           </p>
-          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} onLeaveGroup={() => { study.leaveSession(); navigate('/dashboard'); }} />
+          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} onLeaveGroup={() => { study.leaveSession(); navigate('/dashboard'); }} isHost={isGroupHost} onEndCallForEveryone={study.endCallForEveryone} callEndedSignal={study.session?.callEndedAt} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
             {questions.map((qq, i) => {
               const acc = groupMode === 'quiz' ? groupAccuracy(i) : null;
@@ -1487,7 +1487,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
 
       <div className="exam-session-container" style={{ padding: '16px' }}>
         {groupSessionId && (
-          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} />
+          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} isHost={isGroupHost} onEndCallForEveryone={study.endCallForEveryone} callEndedSignal={study.session?.callEndedAt} />
         )}
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setShowNav(v => !v)}>{showNav ? '▲ Hide' : '▼ Show'} Question Navigator</button>
         {showNav && (

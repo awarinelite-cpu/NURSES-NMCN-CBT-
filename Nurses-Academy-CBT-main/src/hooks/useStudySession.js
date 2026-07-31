@@ -187,10 +187,19 @@ export function useStudySession({ uid, name }) {
     setParticipants([]);
   }, [session, uid, isHost, cleanup]);
 
+  // ── Host ends the group's voice call for every participant, not just
+  // themselves. Writes a timestamp everyone's GroupCallBar watches — the
+  // exam/study session itself keeps going, only the call drops. ─────────
+  const endCallForEveryone = useCallback(async () => {
+    if (!session) return;
+    await updateDoc(doc(db, 'studySessions', session.id), { callEndedAt: Date.now() });
+  }, [session]);
+
   return {
     session, participants, responses, isHost, error,
     createSession, joinByCode, startSession, goToIndex, leaveSession,
     revealAnswer, submitAnswer, finishSession, setSessionMode, backToLobby,
+    endCallForEveryone,
     attachExisting: attach,
   };
 }

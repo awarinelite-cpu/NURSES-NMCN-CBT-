@@ -22,13 +22,14 @@
 // studySessions doc before handing one out — see that file's SETUP
 // comment for the two secrets it needs (AGORA_APP_ID, AGORA_APP_CERTIFICATE).
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGroupCall, toAgoraUid } from '../../context/GroupCallContext';
 
 export default function GroupCallBar({
   channel, uid, participants = [],
   autoJoin = false, hideJoinButton = false,
   onLeaveGroup, onLeave,
+  isHost = false, onEndCallForEveryone, callEndedSignal, onCallEndedByHost,
 }) {
   const {
     channel: liveChannel, joined, joining, muted, speaking, remoteUids, callErr,
@@ -38,11 +39,22 @@ export default function GroupCallBar({
   // GroupCallContext only ever tracks one channel at a time, so "joined"
   // here effectively means "live on this exact channel."
   const liveHere = joined && liveChannel === channel;
+  const seenEndSignal = useRef(callEndedSignal || null);
 
   useEffect(() => {
     if (autoJoin && !liveHere && !joining) joinCall(channel, uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoJoin, channel]);
+
+  // Host ended the call for everyone — anyone still on this channel drops
+  // off automatically, without needing to tap "Leave Call" themselves.
+  useEffect(() => {
+    if (!callEndedSignal || callEndedSignal === seenEndSignal.current) return;
+    seenEndSignal.current = callEndedSignal;
+    if (liveHere) leaveCall();
+    onCallEndedByHost?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callEndedSignal, liveHere]);
 
   const nameFor = (agoraUid) => {
     const p = participants.find(p => toAgoraUid(p.uid) === agoraUid);
@@ -52,6 +64,11 @@ export default function GroupCallBar({
   const handleLeaveCall = async () => {
     await leaveCall();
     onLeave?.();
+  };
+
+  const handleEndCallForEveryone = async () => {
+    await leaveCall();
+    onEndCallForEveryone?.();
   };
 
   return (
@@ -75,6 +92,11 @@ export default function GroupCallBar({
               <button onClick={toggleMute} className="btn btn-ghost btn-sm">{muted ? '🔇 Unmute' : '🎤 Mute'}</button>
               <button onClick={handleLeaveCall} className="btn btn-sm" style={{ background: '#DC2626', color: '#fff', border: 'none' }}>Leave Call</button>
             </>
+          )}
+          {isHost && onEndCallForEveryone && (
+            <button onClick={handleEndCallForEveryone} className="btn btn-sm" style={{ background: '#7F1D1D', color: '#fff', border: 'none' }} title="Ends the call for every participant, not just you">
+              🔴 End Call
+            </button>
           )}
           {onLeaveGroup && (
             <button onClick={onLeaveGroup} className="btn btn-ghost btn-sm" title="Leave the group study session entirely">
