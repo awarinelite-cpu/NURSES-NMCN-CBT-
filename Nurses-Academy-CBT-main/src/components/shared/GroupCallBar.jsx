@@ -23,7 +23,7 @@ function toAgoraUid(str) {
   return Math.abs(h) % 2147483647 || 1;
 }
 
-export default function GroupCallBar({ channel, uid, participants = [] }) {
+export default function GroupCallBar({ channel, uid, participants = [], autoJoin = false, hideJoinButton = false }) {
   const [joined, setJoined]     = useState(false);
   const [joining, setJoining]   = useState(false);
   const [muted, setMuted]       = useState(false);
