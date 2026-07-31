@@ -415,6 +415,12 @@ service cloud.firestore {
         allow read:  if isAuth();
         allow write: if isAuth() && participantId == request.auth.uid;
       }
+
+      match /responses/{responseId} {
+        allow read:   if isAuth();
+        allow create, update: if isAuth() && request.resource.data.uid == request.auth.uid;
+        allow delete: if false;
+      }
     }
 
     // ── Group Calls ──────────────────────────────────────────────────────

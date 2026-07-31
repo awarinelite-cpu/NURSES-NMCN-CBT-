@@ -277,6 +277,58 @@ function ReviewReadButton({ text = '' }) {
   );
 }
 
+// ── Group Study, Quiz Mode: the reveal card shown once everyone (or the
+// host manually) reveals the current question. Shows correct % vs wrong %,
+// each expandable into the list of who's in that bucket.
+function QuizRevealCard({ question, responses, participants }) {
+  const [openBucket, setOpenBucket] = useState(null); // 'correct' | 'wrong' | null
+  const total = responses.length || 1;
+  const nameFor = (uid) => participants.find(p => p.uid === uid)?.name || 'Participant';
+  const correctResponses = responses.filter(r => r.choiceIndex === question.correctIndex);
+  const wrongResponses   = responses.filter(r => r.choiceIndex !== question.correctIndex);
+  const correctPct = Math.round((correctResponses.length / total) * 100);
+  const wrongPct   = 100 - correctPct;
+  const correctText = typeof question.options?.[question.correctIndex] === 'string'
+    ? question.options[question.correctIndex] : question.options?.[question.correctIndex]?.text;
+
+  const Bucket = ({ kind, pct, list, color, label }) => (
+    <div>
+      <button
+        onClick={() => setOpenBucket(prev => (prev === kind ? null : kind))}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${color}40`, background: `${color}12`, cursor: list.length ? 'pointer' : 'default' }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color }}>{label}</span>
+        <span style={{ fontSize: 15, fontWeight: 900, color }}>{pct}% {list.length > 0 && (openBucket === kind ? '▲' : '▼')}</span>
+      </button>
+      {openBucket === kind && (
+        <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {list.length === 0
+            ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nobody</div>
+            : list.map(r => <div key={r.uid} style={{ fontSize: 13, color: 'var(--text-primary)' }}>• {nameFor(r.uid)}</div>)}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>✅ Correct Answer</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--teal)', marginBottom: 14 }}>
+        {String.fromCharCode(65 + (question.correctIndex ?? 0))}. {correctText}
+      </div>
+      {question.explanation && (
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16, background: 'var(--bg-tertiary)', borderRadius: 10, padding: 12 }}>
+          {question.explanation}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Bucket kind="correct" pct={correctPct} list={correctResponses} color="#16A34A" label="Got it right" />
+        <Bucket kind="wrong"   pct={wrongPct}   list={wrongResponses}   color="#DC2626" label="Got it wrong" />
+      </div>
+    </div>
+  );
+}
+
 export default function ExamSession() {
   const { state }   = useLocation();
   const [sp]        = useSearchParams();   // fallback for pages that navigate via URL params
@@ -410,6 +462,26 @@ export default function ExamSession() {
     return () => { if (groupSessionId) study.leaveSession(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupSessionId]);
+
+  // ── Group Study: Reading vs Quiz mode ────────────────────────────────
+  const groupMode     = study.session?.mode || 'reading';
+  const groupRevealed = !!study.session?.revealed;
+  // Everyone's submitted choice for the question currently on screen.
+  const responsesForCurrent = groupSessionId ? study.responses.filter(r => r.qIndex === current) : [];
+  const myGroupResponse = responsesForCurrent.find(r => r.uid === groupUid);
+  const groupParticipantCount = study.participants.length || 1;
+  // Host-only: once every participant has answered the current question,
+  // reveal it automatically. The host can also reveal early manually.
+  const autoRevealedIdx = useRef(-1);
+  useEffect(() => {
+    if (!groupSessionId || !isGroupHost || groupMode !== 'quiz' || groupRevealed) return;
+    if (autoRevealedIdx.current === current) return; // already tried this question
+    if (responsesForCurrent.length >= groupParticipantCount) {
+      autoRevealedIdx.current = current;
+      study.revealAnswer();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSessionId, isGroupHost, groupMode, groupRevealed, responsesForCurrent.length, groupParticipantCount, current]);
 
   const startedAt = useRef(null);
 
@@ -1068,6 +1140,61 @@ export default function ExamSession() {
 
   const q = questions[current];
 
+  // ── Group Study: the host left/exited without finishing for the group —
+  // don't leave everyone else stuck staring at a frozen question.
+  if (groupSessionId && study.session?.status === 'ended' && !isGroupHost) {
+    return (
+      <div style={S.center}>
+        <div style={{ textAlign: 'center', maxWidth: 320, padding: 24 }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', marginBottom: 6 }}>The host ended this session</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 }}>The group study session is over. Your voice call, if still connected, stays live until you tap Leave Call.</div>
+          <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>🏠 Back Home</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Group Study: synced review, shown to everyone once the host finishes.
+  // No personal score/mastery is saved here — this is a shared recap only.
+  if (groupSessionId && study.session?.status === 'review') {
+    const groupAccuracy = (qIndex) => {
+      const rs = study.responses.filter(r => r.qIndex === qIndex);
+      if (!rs.length) return null;
+      const correctQ = questions[qIndex];
+      const right = rs.filter(r => r.choiceIndex === correctQ?.correctIndex).length;
+      return Math.round((right / rs.length) * 100);
+    };
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
+        <div className="exam-session-container">
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', marginBottom: 4 }}>📋 Group Review — {study.session.examName}</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+            {groupMode === 'quiz' ? "Here's how the group did on each question, together." : 'A recap of everything the group went through.'}
+          </p>
+          <GroupCallBar channel={groupSessionId} uid={groupUid} participants={study.participants} onLeaveGroup={() => { study.leaveSession(); navigate('/dashboard'); }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+            {questions.map((qq, i) => {
+              const acc = groupMode === 'quiz' ? groupAccuracy(i) : null;
+              const correctText = typeof qq.options?.[qq.correctIndex] === 'string' ? qq.options[qq.correctIndex] : qq.options?.[qq.correctIndex]?.text;
+              return (
+                <div key={qq.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>Q{i + 1}{acc !== null && <span style={{ marginLeft: 8, color: acc >= 70 ? '#16A34A' : acc >= 50 ? '#F59E0B' : '#DC2626' }}>· {acc}% of the group got this right</span>}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>{qq.question}</div>
+                  <div style={{ fontSize: 13, color: '#16A34A', fontWeight: 700 }}>✅ {String.fromCharCode(65 + (qq.correctIndex ?? 0))}. {correctText}</div>
+                  {qq.explanation && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>{qq.explanation}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => { study.leaveSession(); navigate('/dashboard'); }}>
+            🏠 Back Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === 'review') {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 16px' }}>
@@ -1419,39 +1546,100 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
               />
             </div>
             {q.imageUrl && <div style={{ marginBottom: 16, textAlign: 'center' }}><img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 10, border: '1px solid var(--border)', objectFit: 'contain' }} /></div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {q.options?.map((opt, i) => {
-                const selected = answers[q.id] === i;
-                return (
-                  <button key={i} id={`vem-opt-${i}`} onClick={() => {
-                    // If voice mode is actively reading/listening, let it handle the
-                    // tap: it will announce "Option X." and auto-advance, same as a
-                    // spoken answer. Otherwise fall back to a plain silent select.
-                    const handled = voiceModeRef.current?.selectOption(i);
-                    if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
-                  }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
-                    <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
-                    {typeof opt === 'string' ? opt : opt.text}
-                  </button>
-                );
-              })}
-            </div>
+            {groupSessionId ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {q.options?.map((opt, i) => {
+                  const isCorrect = groupRevealed && i === q.correctIndex;
+                  const isMyReading  = groupMode === 'reading';
+                  const isMyPick     = groupMode === 'quiz' && myGroupResponse?.choiceIndex === i;
+                  const isMyWrong    = groupMode === 'quiz' && groupRevealed && isMyPick && i !== q.correctIndex;
+                  const locked       = isMyReading || !!myGroupResponse || groupRevealed;
+                  const borderColor  = isCorrect ? '#16A34A' : isMyWrong ? '#DC2626' : isMyPick ? 'var(--teal)' : 'var(--border)';
+                  const bg           = isCorrect ? 'rgba(22,163,74,0.12)' : isMyWrong ? 'rgba(220,38,38,0.1)' : isMyPick ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)';
+                  return (
+                    <button
+                      key={i}
+                      disabled={locked}
+                      onClick={() => { if (groupMode === 'quiz' && !myGroupResponse && !groupRevealed) study.submitAnswer(current, i); }}
+                      className="exam-opt-text"
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: locked ? 'default' : 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${borderColor}`, background: bg, color: 'var(--text-primary)', fontWeight: isMyPick || isCorrect ? 700 : 400, transition: 'all 0.15s' }}
+                    >
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#16A34A' : isMyPick ? 'var(--teal)' : 'var(--bg-card)', color: (isCorrect || isMyPick) ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${borderColor}` }}>{String.fromCharCode(65 + i)}</span>
+                      {typeof opt === 'string' ? opt : opt.text}
+                    </button>
+                  );
+                })}
+                {groupMode === 'quiz' && myGroupResponse && !groupRevealed && (
+                  <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    ✅ Answer locked in — waiting for the rest of the group ({responsesForCurrent.length}/{groupParticipantCount} answered)…
+                  </div>
+                )}
+                {groupRevealed && (
+                  <div style={{ marginTop: 4 }}>
+                    {groupMode === 'quiz'
+                      ? <QuizRevealCard question={q} responses={responsesForCurrent} participants={study.participants} />
+                      : q.explanation && (
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--bg-tertiary)', borderRadius: 10, padding: 14 }}>
+                          {q.explanation}
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {q.options?.map((opt, i) => {
+                  const selected = answers[q.id] === i;
+                  return (
+                    <button key={i} id={`vem-opt-${i}`} onClick={() => {
+                      // If voice mode is actively reading/listening, let it handle the
+                      // tap: it will announce "Option X." and auto-advance, same as a
+                      // spoken answer. Otherwise fall back to a plain silent select.
+                      const handled = voiceModeRef.current?.selectOption(i);
+                      if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
+                    }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
+                      {typeof opt === 'string' ? opt : opt.text}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
         {groupSessionId && !isGroupHost && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            🔒 The host controls navigation — you'll move to the next question together.
+            🔒 The host controls pacing — you'll move together{groupMode === 'quiz' && !groupRevealed ? ' once everyone answers' : ''}.
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-ghost" disabled={current === 0 || (groupSessionId && !isGroupHost)} onClick={() => groupSessionId ? groupNav(c => c - 1) : setCurrent(c => c - 1)}>← Previous</button>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{current + 1} / {questions.length}</span>
-          {current < questions.length - 1
-            ? <button className="btn btn-primary" disabled={groupSessionId && !isGroupHost} onClick={() => groupSessionId ? groupNav(c => c + 1) : setCurrent(c => c + 1)}>Next →</button>
-            : <button className="btn btn-primary" onClick={() => { if (window.confirm(`Submit exam? ${unanswered > 0 ? `You have ${unanswered} unanswered question(s).` : 'All questions answered.'}`)) handleSubmit(); }}>✅ Finish</button>
-          }
-        </div>
+        {groupSessionId ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{current + 1} / {questions.length}</span>
+            {isGroupHost && (
+              groupMode === 'quiz' && !groupRevealed ? (
+                <button className="btn btn-primary" onClick={() => study.revealAnswer()}>
+                  👁️ Reveal Now ({responsesForCurrent.length}/{groupParticipantCount} answered)
+                </button>
+              ) : groupMode === 'reading' && !groupRevealed ? (
+                <button className="btn btn-primary" onClick={() => study.revealAnswer()}>👁️ Show Answer</button>
+              ) : current < questions.length - 1 ? (
+                <button className="btn btn-primary" onClick={() => groupNav(c => c + 1)}>Next →</button>
+              ) : (
+                <button className="btn btn-primary" onClick={() => { if (window.confirm('End the exam for the whole group and show everyone the review?')) study.finishSession(); }}>✅ Finish for Group</button>
+              )
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <button className="btn btn-ghost" disabled={current === 0} onClick={() => setCurrent(c => c - 1)}>← Previous</button>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{current + 1} / {questions.length}</span>
+            {current < questions.length - 1
+              ? <button className="btn btn-primary" onClick={() => setCurrent(c => c + 1)}>Next →</button>
+              : <button className="btn btn-primary" onClick={() => { if (window.confirm(`Submit exam? ${unanswered > 0 ? `You have ${unanswered} unanswered question(s).` : 'All questions answered.'}`)) handleSubmit(); }}>✅ Finish</button>
+            }
+          </div>
+        )}
 
         {/* ── Upgrade nudge banner — visible on the last free question ── */}
         {!isSub && current === questions.length - 1 && (

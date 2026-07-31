@@ -12,19 +12,21 @@ import { useStudySession } from '../../hooks/useStudySession';
 export default function GroupSessionLobby({ uid, name, examSetup, onCancel }) {
   const navigate = useNavigate();
   const study = useStudySession({ uid, name });
-  const [choice, setChoice] = useState(null); // 'create' | 'join' | null
+  const [choice, setChoice] = useState(null); // 'mode' | 'join' | null
+  const [mode, setMode] = useState(null); // 'reading' | 'quiz' — locked in before the session is created
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
 
   const { session, participants, isHost, error, createSession, joinByCode, startSession, leaveSession } = study;
 
-  const handleCreate = async () => {
+  const handleCreate = async (chosenMode) => {
     setBusy(true);
     await createSession({
       examType: examSetup.examType,
       examName: examSetup.examName,
       category: examSetup.category,
       questionIds: examSetup.questionIds, // pre-drawn so every participant gets the identical set, in order
+      mode: chosenMode,
     });
     setBusy(false);
   };
@@ -74,12 +76,43 @@ export default function GroupSessionLobby({ uid, name, examSetup, onCancel }) {
 
       {!session && !choice && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button className="btn btn-primary" onClick={() => { setChoice('create'); handleCreate(); }}>
+          <button className="btn btn-primary" onClick={() => setChoice('mode')}>
             🚀 Create a Group Session
           </button>
           <button className="btn btn-ghost" onClick={() => setChoice('join')}>
             🔑 Join with a Code
           </button>
+        </div>
+      )}
+
+      {!session && choice === 'mode' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>
+            How should the group go through the questions?
+          </div>
+          <button
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={() => { setMode('reading'); handleCreate('reading'); }}
+            style={{ textAlign: 'left', padding: '14px 16px' }}
+          >
+            📖 Reading Mode
+            <div style={{ fontSize: 12, fontWeight: 500, opacity: 0.85, marginTop: 3 }}>
+              Everyone reads together — host reveals the answer + explanation, then moves to the next question.
+            </div>
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={() => { setMode('quiz'); handleCreate('quiz'); }}
+            style={{ textAlign: 'left', padding: '14px 16px' }}
+          >
+            🎯 Quiz Mode
+            <div style={{ fontSize: 12, fontWeight: 500, opacity: 0.85, marginTop: 3 }}>
+              Everyone picks their own answer. Once all have answered, see who got it right vs wrong.
+            </div>
+          </button>
+          {busy && <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>Setting up…</div>}
         </div>
       )}
 
