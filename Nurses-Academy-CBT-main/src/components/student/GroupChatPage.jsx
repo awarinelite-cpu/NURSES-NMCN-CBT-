@@ -12,10 +12,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
-import { useGroupCall } from '../../hooks/useGroupCall';
-import GroupCallBar from '../shared/GroupCallBar';
-import GroupStudySetupModal from '../shared/GroupStudySetupModal';
-import GroupStudyOverlay from '../shared/GroupStudyOverlay';
 
 const F = "'Times New Roman', Times, serif";
 const H = "'Arial Black', Arial, sans-serif";
@@ -672,13 +668,6 @@ export default function GroupChatPage() {
   const [replyTo, setReplyTo] = useState(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [memberCount, setMemberCount] = useState('...');
-  const [showStudySetup, setShowStudySetup] = useState(false);
-
-  const groupCall = useGroupCall({ groupId: subjectId, uid: myUid, name: myName });
-  const {
-    call, participants: callParticipants, inCall, isHost: isCallHost,
-    startCall, joinCall, leaveCall, endCall, startStudy,
-  } = groupCall;
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -1000,41 +989,6 @@ export default function GroupChatPage() {
               animation: 'ctxPop 0.15s ease',
               zIndex: 100,
             }}>
-              {/* Group call — persistent, tied to this group, not to any one exam */}
-              {!call?.active ? (
-                <button onClick={() => { setShowMenu(false); startCall(); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  width: '100%', padding: '13px 16px',
-                  border: 'none', cursor: 'pointer',
-                  background: 'transparent',
-                  color: '#E9EDEF',
-                  fontFamily: F, fontWeight: 700, fontSize: 14,
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <span style={{ fontSize: 18 }}>🎙️</span>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13 }}>Start Group Call</div>
-                    <div style={{ fontSize: 11, color: '#8696A0', marginTop: 1 }}>Everyone stays on it through exams too</div>
-                  </div>
-                </button>
-              ) : isCallHost && !call.study ? (
-                <button onClick={() => { setShowMenu(false); setShowStudySetup(true); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  width: '100%', padding: '13px 16px',
-                  border: 'none', cursor: 'pointer',
-                  background: 'transparent',
-                  color: '#E9EDEF',
-                  fontFamily: F, fontWeight: 700, fontSize: 14,
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <span style={{ fontSize: 18 }}>🎧</span>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13 }}>Start Synced Study</div>
-                    <div style={{ fontSize: 11, color: '#8696A0', marginTop: 1 }}>Reading or Quiz mode, for everyone on the call</div>
-                  </div>
-                </button>
-              ) : null}
-
               {/* Insert flag questions — KEY FEATURE */}
               <button onClick={() => { setShowMenu(false); setShowPicker(true); }} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -1092,33 +1046,6 @@ export default function GroupChatPage() {
           )}
         </div>
       </div>
-
-      {/* ── GROUP CALL — persistent for the group, survives exams starting/ending ── */}
-      {call?.active && (
-        <div style={{ padding: '10px 12px 0', flexShrink: 0 }}>
-          {inCall ? (
-            <GroupCallBar
-              channel={groupCall.channel}
-              uid={myUid}
-              participants={callParticipants}
-              autoJoin
-              hideJoinButton
-              onLeave={leaveCall}
-            />
-          ) : (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-              background: 'rgba(13,148,136,0.1)', border: '1px solid rgba(13,148,136,0.35)',
-              borderRadius: 14, padding: '10px 14px', marginBottom: 10,
-            }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#2DD4BF' }}>
-                🎙️ {call.hostName || 'Someone'} started a call · {callParticipants.length} in call
-              </div>
-              <button onClick={joinCall} className="btn btn-primary btn-sm">Join Call</button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── MESSAGES AREA ── */}
       <div className="msg-area" style={{
@@ -1322,40 +1249,6 @@ export default function GroupChatPage() {
           onSelect={sendQuestion}
           onClose={() => setShowPicker(false)}
           accentColor={accentColor}
-        />
-      )}
-
-      {/* ── Group Study setup (host) ── */}
-      {showStudySetup && (
-        <GroupStudySetupModal
-          defaultCategory={subjectId}
-          onCancel={() => setShowStudySetup(false)}
-          onStart={async (cfg) => {
-            await startStudy(cfg);
-            setShowStudySetup(false);
-          }}
-        />
-      )}
-
-      {/* ── Synced study overlay — sits on top of this whole page. The call
-          bar above stays mounted underneath the entire time, so nobody is
-          ever dropped from the call by starting, finishing, or exiting the
-          study. ── */}
-      {inCall && call?.study && (
-        <GroupStudyOverlay
-          groupId={subjectId}
-          uid={myUid}
-          isHost={isCallHost}
-          study={call.study}
-          participants={callParticipants}
-          responses={groupCall.responses}
-          actions={{
-            revealAnswer: groupCall.revealAnswer,
-            nextQuestion: groupCall.nextQuestion,
-            prevQuestion: groupCall.prevQuestion,
-            endStudy: groupCall.endStudy,
-            submitQuizAnswer: groupCall.submitQuizAnswer,
-          }}
         />
       )}
 
