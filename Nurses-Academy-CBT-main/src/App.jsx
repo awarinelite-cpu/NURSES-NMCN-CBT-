@@ -8,7 +8,7 @@ import { ToastProvider }         from './components/shared/Toast';
 import { GroupCallProvider }     from './context/GroupCallContext';
 import { useAuth }               from './context/AuthContext';
 
-import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, SubAdminRoute, GuestRoute } from './components/shared/ProtectedRoute';
+import { ProtectedRoute, SubscribedRoute, FreeTrialRoute, AdminRoute, SubAdminRoute, GuestRoute, NmcnRoute } from './components/shared/ProtectedRoute';
 import EntranceExamRoute  from './components/shared/EntranceExamRoute';
 import AppLayout      from './components/shared/AppLayout';
 import LandingPage    from './components/shared/LandingPage';
@@ -266,40 +266,40 @@ export default function App() {
               <Route path="/exam/session" element={<FreeTrialRoute><ExamSession /></FreeTrialRoute>} />
               <Route path="/exam/review"  element={<FreeTrialRoute><ExamReviewPage /></FreeTrialRoute>} />
 
-              {/* Payment pages — any logged-in user */}
-              <Route path="/payment"               element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-              <Route path="/entrance-exam/payment" element={<ProtectedRoute><EntranceExamPaymentPage /></ProtectedRoute>} />
+              {/* Payment pages — gated by track */}
+              <Route path="/payment"               element={<NmcnRoute><PaymentPage /></NmcnRoute>} />
+              <Route path="/entrance-exam/payment" element={<EntranceExamRoute><EntranceExamPaymentPage /></EntranceExamRoute>} />
 
               {/* Authenticated layout */}
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
 
                 {/* Student pages */}
-                <Route path="/dashboard"    element={<StudentDashboard />} />
-                <Route path="/lecture-notes"                       element={<LectureNotesSpecialtyPage />} />
-                <Route path="/lecture-notes/:specialtyId"          element={<LectureNotesTopicsPage />} />
-                <Route path="/lecture-notes/:specialtyId/:noteId"  element={<LectureNoteViewerPage />} />
-                <Route path="/results"      element={<AnalyticsPage />} />
-                <Route path="/performance"  element={<PerformanceMonitorPage />} />
-                <Route path="/bookmarks"    element={<BookmarksPage />} />
-                <Route path="/notes"        element={<NotesPage />} />
-                <Route path="/subscription" element={<SubscriptionPage />} />
-                <Route path="/leaderboard"       element={<LeaderboardPage />} />
-                <Route path="/study-plan"        element={<StudyPlanPage />} />
-                <Route path="/badges"            element={<BadgesPage />} />
-                <Route path="/progress-wall"     element={<ProgressWallPage />} />
+                <Route path="/dashboard"    element={<NmcnRoute><StudentDashboard /></NmcnRoute>} />
+                <Route path="/lecture-notes"                       element={<NmcnRoute><LectureNotesSpecialtyPage /></NmcnRoute>} />
+                <Route path="/lecture-notes/:specialtyId"          element={<NmcnRoute><LectureNotesTopicsPage /></NmcnRoute>} />
+                <Route path="/lecture-notes/:specialtyId/:noteId"  element={<NmcnRoute><LectureNoteViewerPage /></NmcnRoute>} />
+                <Route path="/results"      element={<NmcnRoute><AnalyticsPage /></NmcnRoute>} />
+                <Route path="/performance"  element={<NmcnRoute><PerformanceMonitorPage /></NmcnRoute>} />
+                <Route path="/bookmarks"    element={<NmcnRoute><BookmarksPage /></NmcnRoute>} />
+                <Route path="/notes"        element={<NmcnRoute><NotesPage /></NmcnRoute>} />
+                <Route path="/subscription" element={<NmcnRoute><SubscriptionPage /></NmcnRoute>} />
+                <Route path="/leaderboard"       element={<NmcnRoute><LeaderboardPage /></NmcnRoute>} />
+                <Route path="/study-plan"        element={<NmcnRoute><StudyPlanPage /></NmcnRoute>} />
+                <Route path="/badges"            element={<NmcnRoute><BadgesPage /></NmcnRoute>} />
+                <Route path="/progress-wall"     element={<NmcnRoute><ProgressWallPage /></NmcnRoute>} />
                 <Route path="/profile"           element={<ProfilePage />} />
                 <Route path="/notifications"    element={<NotificationSettings />} />
-                <Route path="/study-buddy"       element={<StudyBuddyPage />} />
+                <Route path="/study-buddy"       element={<NmcnRoute><StudyBuddyPage /></NmcnRoute>} />
 
-                <Route path="/student/:uid"       element={<StudentPublicProfile />} />
-                <Route path="/entrance-exam/student/:uid" element={<StudentPublicProfile />} />
-                <Route path="/entrance-exam/chat/:uid"    element={<ChatPage />} />
-                <Route path="/entrance-exam/chat-inbox"   element={<ChatInbox />} />
+                <Route path="/student/:uid"       element={<NmcnRoute><StudentPublicProfile /></NmcnRoute>} />
+                <Route path="/entrance-exam/student/:uid" element={<EntranceExamRoute><StudentPublicProfile /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/chat/:uid"    element={<EntranceExamRoute><ChatPage /></EntranceExamRoute>} />
+                <Route path="/entrance-exam/chat-inbox"   element={<EntranceExamRoute><ChatInbox /></EntranceExamRoute>} />
                 {/* CBT (NMCN) direct chat routes */}
-                <Route path="/chat/:uid"    element={<ChatPage />} />
-                <Route path="/chat-inbox"   element={<ChatInbox />} />
-                <Route path="/group-chat"                 element={<GroupChatHub />} />
-                <Route path="/group-chat/:subjectId"      element={<GroupChatPage />} />
+                <Route path="/chat/:uid"    element={<NmcnRoute><ChatPage /></NmcnRoute>} />
+                <Route path="/chat-inbox"   element={<NmcnRoute><ChatInbox /></NmcnRoute>} />
+                <Route path="/group-chat"                 element={<NmcnRoute><GroupChatHub /></NmcnRoute>} />
+                <Route path="/group-chat/:subjectId"      element={<NmcnRoute><GroupChatPage /></NmcnRoute>} />
 
                 {/* NMCN exam modes */}
                 <Route path="/exams"           element={<FreeTrialRoute><ExamSetup /></FreeTrialRoute>} />

@@ -30,6 +30,24 @@ export function ProtectedRoute({ children }) {
   return children;
 }
 
+/* ── NmcnRoute — blocks Entrance-track students from NMCN CBT pages.
+     Accounts with no platform set yet (pre-migration) pass through until
+     an admin assigns their track via Users Manager.                    ── */
+export function NmcnRoute({ children }) {
+  const { user, profile, loading } = useAuth();
+
+  if (loading)  return <LoadingScreen />;
+  if (!user)    return <Navigate to="/auth" replace />;
+  if (!profile) return <LoadingScreen />;
+
+  const isAdminOrSubAdmin = profile.role === 'admin' || profile.role === 'subadmin';
+  if (!isAdminOrSubAdmin && profile.platform === 'entrance') {
+    return <Navigate to="/entrance-exam" replace />;
+  }
+
+  return children;
+}
+
 /* ── SubscribedRoute — must be logged in AND have an active subscription ── */
 export function SubscribedRoute({ children }) {
   const { user, profile, loading } = useAuth();
@@ -37,6 +55,11 @@ export function SubscribedRoute({ children }) {
   if (loading) return <LoadingScreen />;
   if (!user)   return <Navigate to="/auth" replace />;
   if (!profile) return <LoadingScreen />;
+
+  const isAdminOrSubAdmin = profile.role === 'admin' || profile.role === 'subadmin';
+  if (!isAdminOrSubAdmin && profile.platform === 'entrance') {
+    return <Navigate to="/entrance-exam" replace />;
+  }
 
   const now    = new Date();
   const expiry = profile.subscriptionExpiry
@@ -56,13 +79,19 @@ export function SubscribedRoute({ children }) {
 /* ── FreeTrialRoute — subscribed users pass through freely.
      Free users pass through ONCE per exam mode (10 Qs cap enforced
      inside each page via useFreeTrialGate). This wrapper just ensures
-     the user is logged in and the profile is loaded.                  ── */
+     the user is logged in, the profile is loaded, and (for students)
+     the account belongs to the NMCN track.                              ── */
 export function FreeTrialRoute({ children }) {
   const { user, profile, loading } = useAuth();
 
   if (loading)  return <LoadingScreen />;
   if (!user)    return <Navigate to="/auth" replace />;
   if (!profile) return <LoadingScreen />;
+
+  const isAdminOrSubAdmin = profile.role === 'admin' || profile.role === 'subadmin';
+  if (!isAdminOrSubAdmin && profile.platform === 'entrance') {
+    return <Navigate to="/entrance-exam" replace />;
+  }
 
   return children;
 }

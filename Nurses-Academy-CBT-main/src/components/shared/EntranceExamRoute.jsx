@@ -5,7 +5,9 @@
 // Access tiers:
 //   - Not logged in              → /auth?redirect=...
 //   - Profile still loading      → spinner
-//   - Admin                      → full access
+//   - Admin / Sub-Admin          → full access
+//   - platform === 'nmcn'        → BLOCKED, sent to /dashboard
+//                                  (NMCN-track students cannot cross into Entrance)
 //   - entranceExamPaid === true  → full access (all questions)
 //   - Logged-in, NOT paid        → FREE PREVIEW (10 questions per exam)
 //                                  enforced inside each session component
@@ -15,6 +17,11 @@
 //   - profile.subscribed / profile.accessLevel  → NMCN CBT only
 //   - profile.entranceExamPaid                  → Entrance Exam only
 //   Neither grants access to the other platform.
+//
+// TRACK RULE: profile.platform decides which side of the app a student may
+//   use at all. Accounts created before this field existed have
+//   platform === undefined and are grandfathered through both sides until
+//   an admin migrates them via Users Manager.
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth }               from '../../context/AuthContext';
@@ -53,7 +60,13 @@ export default function EntranceExamRoute({ children }) {
     );
   }
 
-  // All logged-in users pass through.
+  // NMCN-track students are blocked from Entrance Exam pages entirely.
+  const isAdminOrSubAdmin = profile?.role === 'admin' || profile?.role === 'subadmin';
+  if (!isAdminOrSubAdmin && profile?.platform === 'nmcn') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // All remaining logged-in users pass through.
   // Paid users  (entranceExamPaid === true OR admin) → full questions
   // Unpaid users                                      → capped at FREE_CAP (10)
   //   The cap is enforced inside:

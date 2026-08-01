@@ -237,7 +237,7 @@ export default function Sidebar({ open, onClose }) {
               )}
             </div>
           )}
-          {!isAdmin && (
+          {!isAdmin && !profile?.platform && (
             <div style={{ marginTop: 16, padding: '0 6px' }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 8 }}>
                 Switch to

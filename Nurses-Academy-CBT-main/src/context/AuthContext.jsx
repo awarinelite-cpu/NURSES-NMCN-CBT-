@@ -51,12 +51,14 @@ export function AuthProvider({ children }) {
         const userRef = doc(db, 'users', uid);
         const snap = await getDoc(userRef);
         if (!snap.exists()) {
+          const storedPlatform = localStorage.getItem('nmcn_chosen_platform') === 'entrance' ? 'entrance' : 'nmcn';
           await setDoc(userRef, {
             uid,
             name:           displayName || '',
             email:          email || '',
             school:         '',          // ← will be set from profile edit
             role:           'student',
+            platform:       storedPlatform, // ← TRACK SAVED HERE
             subscribed:     false,
             accessLevel:    'free',
             createdAt:      serverTimestamp(),
@@ -139,8 +141,8 @@ export function AuthProvider({ children }) {
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 
-  // ── register now accepts school ──────────────────────────────────────────
-  const register = async (email, password, name, role = 'student', school = '') => {
+  // ── register now accepts school AND platform ─────────────────────────────
+  const register = async (email, password, name, role = 'student', school = '', platform = 'nmcn') => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
     await setDoc(doc(db, 'users', cred.user.uid), {
@@ -149,6 +151,7 @@ export function AuthProvider({ children }) {
       email,
       school,                           // ← SCHOOL SAVED HERE
       role,
+      platform:       platform === 'entrance' ? 'entrance' : 'nmcn', // ← TRACK SAVED HERE
       subscribed:     false,
       accessLevel:    'free',
       createdAt:      serverTimestamp(),
@@ -164,7 +167,7 @@ export function AuthProvider({ children }) {
   };
 
   // ── Google login — school left empty, user sets it in profile ───────────
-  const googleLogin = async (useRedirect = false) => {
+  const googleLogin = async (useRedirect = false, platform = 'nmcn') => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -182,6 +185,7 @@ export function AuthProvider({ children }) {
         email:          email || '',
         school:         '',              // ← prompted from profile page
         role:           'student',
+        platform:       platform === 'entrance' ? 'entrance' : 'nmcn', // ← TRACK SAVED HERE
         subscribed:     false,
         accessLevel:    'free',
         createdAt:      serverTimestamp(),

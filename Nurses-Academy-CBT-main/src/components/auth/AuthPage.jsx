@@ -86,7 +86,7 @@ export default function AuthPage() {
         if (password.length < 6)  throw new Error('Password must be at least 6 characters.');
         // School is only required for entrance platform
         if (isEntrance && !school) throw new Error('Please select your school.');
-        await register(email, password, name, 'student', school);
+        await register(email, password, name, 'student', school, platform);
         navigate(platformRedirect(platform));
       } else {
         await resetPassword(email);
@@ -106,11 +106,11 @@ export default function AuthPage() {
   const handleGoogleLogin = async () => {
     setError(''); setLoading(true);
     try {
-      await googleLogin();
+      await googleLogin(false, platform);
       navigate(platformRedirect(platform));
     } catch (err) {
       if (err.code === 'auth/popup-blocked' || (err.message && err.message.includes('popup-blocked'))) {
-        await googleLogin(true);
+        await googleLogin(true, platform);
         return;
       }
       let msg = err.message || '';

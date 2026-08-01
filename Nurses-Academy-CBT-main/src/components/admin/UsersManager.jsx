@@ -27,7 +27,12 @@ export default function UsersManager() {
 
   const filtered = users.filter(u => {
     const matchSearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' ? true : filter === 'admin' ? u.role === 'admin' : filter === 'subadmin' ? u.role === 'subadmin' : filter === 'premium' ? u.subscribed : !u.subscribed && u.role !== 'admin' && u.role !== 'subadmin';
+    const matchFilter = filter === 'all' ? true
+      : filter === 'admin' ? u.role === 'admin'
+      : filter === 'subadmin' ? u.role === 'subadmin'
+      : filter === 'premium' ? u.subscribed
+      : filter === 'unassigned' ? !u.platform && u.role !== 'admin' && u.role !== 'subadmin'
+      : !u.subscribed && u.role !== 'admin' && u.role !== 'subadmin';
     return matchSearch && matchFilter;
   });
 
@@ -66,6 +71,15 @@ export default function UsersManager() {
     updateUser(u.id, { role: isSubAdmin ? 'student' : 'subadmin' });
   };
 
+  // ── Track (platform) migration — NMCN CBT and Entrance Exam are separate
+  //    tracks; a student may only access the one assigned here. New signups
+  //    set this automatically; older accounts show "Unassigned" (both sides
+  //    still open) until migrated here.
+  const setTrack = (u, platform) => {
+    if (u.platform === platform) return;
+    updateUser(u.id, { platform });
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 1200 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -83,7 +97,7 @@ export default function UsersManager() {
         <input className="form-input" placeholder="🔍 Search name or email…" value={search}
           onChange={e => setSearch(e.target.value)} style={{ maxWidth: 280 }} />
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
-          {[['all','All'], ['free','Free'], ['premium','Premium'], ['admin','Admin'], ['subadmin','Sub-Admin']].map(([v,l]) => (
+          {[['all','All'], ['unassigned','⚠️ Unassigned'], ['free','Free'], ['premium','Premium'], ['admin','Admin'], ['subadmin','Sub-Admin']].map(([v,l]) => (
             <button key={v} onClick={() => setFilter(v)}
               style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                 background: filter === v ? 'var(--teal)' : 'transparent', color: filter === v ? '#fff' : 'var(--text-muted)',
@@ -104,6 +118,7 @@ export default function UsersManager() {
                 <th>User</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Track</th>
                 <th>Plan</th>
                 <th>Exams</th>
                 <th>Joined</th>
@@ -132,6 +147,23 @@ export default function UsersManager() {
                       {u.role === 'admin' ? 'Admin' : u.role === 'subadmin' ? 'Sub-Admin' : 'Student'}
                       {u.role || 'student'}
                     </span>
+                  </td>
+                  <td>
+                    <select
+                      className="form-input form-select"
+                      value={u.platform || ''}
+                      onChange={e => setTrack(u, e.target.value)}
+                      style={{
+                        fontSize: 11, padding: '4px 8px', borderRadius: 6, maxWidth: 130,
+                        color: u.platform ? undefined : '#F59E0B',
+                        borderColor: u.platform ? undefined : 'rgba(245,158,11,0.35)',
+                      }}
+                      title="Which platform this student may access"
+                    >
+                      <option value="">⚠️ Unassigned</option>
+                      <option value="nmcn">📝 NMCN CBT</option>
+                      <option value="entrance">🏫 Entrance Exam</option>
+                    </select>
                   </td>
                   <td>
                     <span className={`badge ${u.subscribed ? 'badge-teal' : 'badge-grey'}`}>
