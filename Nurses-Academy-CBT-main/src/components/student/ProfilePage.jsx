@@ -439,7 +439,10 @@ const styles = {
   page: {
     padding: '20px 16px 40px',
     maxWidth: 680,
+    width: '100%',
+    boxSizing: 'border-box',
     margin: '0 auto',
+    overflowX: 'hidden',
     fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
   },
   headerCard: {
@@ -472,10 +475,13 @@ const styles = {
   badge: { fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 },
 
   statsStrip: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    display: 'flex',
     gap: 10,
     marginBottom: 16,
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    scrollbarWidth: 'thin',
+    paddingBottom: 4,
   },
   statBox: {
     background: 'var(--bg-secondary, rgba(255,255,255,0.04))',
@@ -483,6 +489,8 @@ const styles = {
     borderRadius: 12,
     padding: '14px 10px',
     textAlign: 'center',
+    flex: '1 0 22%',
+    minWidth: 100,
   },
   statIcon: { fontSize: 20, marginBottom: 6 },
   statValue: { fontSize: 20, fontWeight: 800, lineHeight: 1 },
@@ -496,9 +504,13 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.07)',
     borderRadius: 10,
     padding: 4,
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    scrollbarWidth: 'thin',
   },
   tab: {
-    flex: 1, padding: '9px 0', border: 'none',
+    flex: '0 0 auto', padding: '9px 16px', border: 'none',
+    whiteSpace: 'nowrap',
     background: 'transparent', color: 'var(--text-muted)',
     fontSize: 13, fontWeight: 600, borderRadius: 8,
     cursor: 'pointer', transition: 'all .15s',
