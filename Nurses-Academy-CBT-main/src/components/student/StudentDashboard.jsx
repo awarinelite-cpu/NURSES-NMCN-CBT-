@@ -946,11 +946,11 @@ export default function StudentDashboard() {
                 padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
                 opacity: slideFade ? 1 : 0,
                 transition: 'opacity .38s ease',
-                background: 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 100%)',
+                background: 'linear-gradient(135deg, #2B3320 0%, #4B5320 100%)',
                 borderRadius: 20, boxSizing: 'border-box',
               }}
             >
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: 'radial-gradient(ellipse at 75% 50%, #3B82F633 0%, transparent 65%)' }} />
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: 'radial-gradient(ellipse at 75% 50%, #6B8E2333 0%, transparent 65%)' }} />
 
               <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
                 <h1 style={{ fontSize: 'clamp(1rem,5vw,1.4rem)', color: 'rgba(255,255,255,0.9)', fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', margin: '0 0 6px' }}>
@@ -992,7 +992,7 @@ export default function StudentDashboard() {
                       style={{
                         width: di === slideIdx ? 20 : 6, height: 6,
                         borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                        background: di === slideIdx ? '#93C5FD' : 'rgba(255,255,255,0.28)',
+                        background: di === slideIdx ? '#A9C46C' : 'rgba(255,255,255,0.28)',
                         transition: 'width .3s ease, background .3s ease',
                       }}
                     />
@@ -1524,7 +1524,7 @@ function SessionRow({ s, cat, delay }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
   banner: {
-    background: 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 100%)',
+    background: 'linear-gradient(135deg, #2B3320 0%, #4B5320 100%)',
     borderRadius: 20, marginBottom: 28,
     position: 'relative', overflow: 'hidden',
   },
