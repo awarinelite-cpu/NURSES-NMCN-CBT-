@@ -41,6 +41,37 @@ jobs:
       # then either add them to the file or deploy indexes manually with
       # --force once you're sure it's safe.
 
+  deploy-hosting:
+    # Builds the frontend and deploys to Firebase Hosting. This job was
+    # previously missing entirely — Firestore rules and Functions deployed
+    # on every push, but nothing ever published a build to Hosting, so
+    # elitecarehub-a80da.firebaseapp.com had no live site (ERR_CONNECTION_REFUSED).
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: Nurses-Academy-CBT-main
+        run: npm ci || npm install
+
+      - name: Build
+        working-directory: Nurses-Academy-CBT-main
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELITECAREHUB_A80DA }}'
+
+      - name: Deploy Hosting
+        run: npx firebase-tools deploy --only hosting --project elitecarehub-a80da --non-interactive
+
   deploy-functions:
     # Only on actual pushes to main — not PR previews, and only if
     # functions/ actually changed, so this doesn't run on every hosting-only
