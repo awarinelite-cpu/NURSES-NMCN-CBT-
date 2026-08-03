@@ -946,11 +946,11 @@ export default function StudentDashboard() {
                 padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
                 opacity: slideFade ? 1 : 0,
                 transition: 'opacity .38s ease',
-                background: `linear-gradient(135deg, #1E3A8A 0%, ${action.color}bb 100%)`,
+                background: 'linear-gradient(135deg, #1E3A8A 0%, #0D9488 100%)',
                 borderRadius: 20, boxSizing: 'border-box',
               }}
             >
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: `radial-gradient(ellipse at 75% 50%, ${action.color}33 0%, transparent 65%)` }} />
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: 'radial-gradient(ellipse at 75% 50%, #0D948833 0%, transparent 65%)' }} />
 
               <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
                 <h1 style={{ fontSize: 'clamp(1rem,5vw,1.4rem)', color: 'rgba(255,255,255,0.9)', fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', margin: '0 0 6px' }}>
@@ -992,7 +992,7 @@ export default function StudentDashboard() {
                       style={{
                         width: di === slideIdx ? 20 : 6, height: 6,
                         borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                        background: di === slideIdx ? action.color : 'rgba(255,255,255,0.28)',
+                        background: di === slideIdx ? '#5EEAD4' : 'rgba(255,255,255,0.28)',
                         transition: 'width .3s ease, background .3s ease',
                       }}
                     />
