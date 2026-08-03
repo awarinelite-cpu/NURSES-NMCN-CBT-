@@ -1000,19 +1000,6 @@ export default function StudentDashboard() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={e => { e.stopPropagation(); setShowStartModal(true); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 7,
-                      padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
-                      fontWeight: 700, fontSize: 15, fontFamily: F,
-                      background: '#F59E0B', color: '#1a1a1a', border: 'none',
-                      whiteSpace: 'nowrap', flexShrink: 0,
-                    }}
-                  >
-                    ⚡ Start Exam
-                  </button>
-
                   {pausedExams.length > 0 && (
                     <button
                       onClick={e => { e.stopPropagation(); setShowModal(true); }}
