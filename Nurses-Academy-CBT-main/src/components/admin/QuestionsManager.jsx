@@ -53,7 +53,13 @@ const EXTENDED_EXAM_TYPES = [
     label: '🏥 Mock Exam (by Specialty)',
     hint:  'Select the specialty below. Questions appear instantly on the student Mock Exam page.',
   },
-  // hospital_finals, past_questions, and all legacy types excluded from upload options
+  // ── Hospital Finals ───────────────────────────────────────────────────────
+  {
+    id:    'hospital_finals',
+    label: '🏨 Hospital Final Exams',
+    hint:  'Premium content. Tag with the exam Year below, students filter by year on the Hospital Finals page.',
+  },
+  // past_questions and all legacy types remain excluded from upload options
 ];
 
 // Filter dropdown: active types + legacy (for viewing old data).
