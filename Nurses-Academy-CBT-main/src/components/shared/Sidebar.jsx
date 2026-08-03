@@ -1,4 +1,5 @@
 // src/components/shared/Sidebar.jsx
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth }              from '../../context/AuthContext';
 import { useTheme }             from '../../context/ThemeContext';
@@ -79,8 +80,25 @@ export default function Sidebar({ open, onClose }) {
   const isSubAdmin    = profile?.role === 'subadmin';
   const isEntranceRoute = isEntranceContext || location.pathname.startsWith('/admin/entrance-exam');
 
+  // ── Remember which dashboard (NMCN CBT or Entrance Exam) the admin was on
+  // before entering the admin panel, so the sidebar "Dashboard" link can
+  // send them back to the right one regardless of which /admin/* page
+  // they're currently viewing.
+  const [dashboardContext, setDashboardContext] = useState(
+    () => localStorage.getItem('lastDashboardContext') || 'nmcn'
+  );
+  useEffect(() => {
+    const inAdminArea = location.pathname.startsWith('/admin') || location.pathname.startsWith('/subadmin');
+    if (!inAdminArea) {
+      const ctx = isEntranceContext ? 'entrance' : 'nmcn';
+      localStorage.setItem('lastDashboardContext', ctx);
+      setDashboardContext(ctx);
+    }
+  }, [location.pathname, isEntranceContext]);
+  const dashboardTarget = dashboardContext === 'entrance' ? '/entrance-exam' : '/dashboard';
+
   const navItems = isAdmin
-    ? ADMIN_NAV
+    ? [{ to: dashboardTarget, icon: '🏠', label: 'Dashboard' }, ...ADMIN_NAV]
     : isSubAdmin
       ? SUBADMIN_NAV
       : isEntranceRoute
