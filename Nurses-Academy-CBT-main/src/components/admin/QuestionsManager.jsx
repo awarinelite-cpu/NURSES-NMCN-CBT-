@@ -54,10 +54,14 @@ const EXTENDED_EXAM_TYPES = [
     hint:  'Select the specialty below. Questions appear instantly on the student Mock Exam page.',
   },
   // ── Hospital Finals ───────────────────────────────────────────────────────
+  // NOTE: the student "Hospital Final Exam" screen (route /mock-exams) is the
+  // SAME page/component as Mock Exam — it queries questions by mockExamId
+  // (specialty), not by examType or year. So this option must tag mockExamId
+  // exactly like 'mock_exam' does, or uploads silently never appear there.
   {
     id:    'hospital_finals',
     label: '🏨 Hospital Final Exams',
-    hint:  'Premium content. Tag with the exam Year below, students filter by year on the Hospital Finals page.',
+    hint:  'Select the specialty below. Questions appear instantly on the student Hospital Final Exam page under that specialty.',
   },
   // past_questions and all legacy types remain excluded from upload options
 ];
@@ -946,8 +950,9 @@ export default function QuestionsManager() {
     try {
       const data = {
         ...formatQuestionForFirestore(q, q),
-        // Tag with selected specialty id for mock_exam type
-        ...(form.examType === 'mock_exam' && form.mockExamId && { mockExamId: form.mockExamId }),
+        // Tag with selected specialty id — required for both mock_exam and
+        // hospital_finals, since both are read by the same student page via mockExamId.
+        ...(['mock_exam', 'hospital_finals'].includes(form.examType) && form.mockExamId && { mockExamId: form.mockExamId }),
         active: true,
       };
       if (form.id) {
@@ -1101,11 +1106,13 @@ export default function QuestionsManager() {
   const handleBulkUpload = async () => {
     if (parsedQs.length === 0) { toast('Nothing to upload.', 'error'); return; }
 
-    const isMockExam = bulkMeta.examType === 'mock_exam';
+    // hospital_finals shares the same student page/query (mockExamId) as
+    // mock_exam, so it needs the same specialty tagging treatment.
+    const isMockExam = ['mock_exam', 'hospital_finals'].includes(bulkMeta.examType);
     const isQBank    = bulkMeta.examType === 'question_bank';
 
     if (isMockExam && !bulkMeta.mockExamId) {
-      toast('⚠️ Please select a Specialty for Mock Exam uploads.', 'error'); return;
+      toast('⚠️ Please select a Specialty for Mock Exam / Hospital Final uploads.', 'error'); return;
     }
     // For Question Bank: course is optional when CSV has inline course per question
     const hasInlineCourses = parsedQs.some(q => q._inlineCourse);
@@ -1128,7 +1135,8 @@ export default function QuestionsManager() {
       let examName = '';
       if (isMockExam) {
         const spObj = MOCK_EXAM_SPECIALTIES.find(s => s.id === bulkMeta.mockExamId);
-        examName = `Mock Exam — ${spObj?.label?.replace(/^.{2}/,'').trim() || bulkMeta.mockExamId} — ${dateStr}, ${timeStr}`;
+        const prefix = bulkMeta.examType === 'hospital_finals' ? 'Hospital Final Exam' : 'Mock Exam';
+        examName = `${prefix} — ${spObj?.label?.replace(/^.{2}/,'').trim() || bulkMeta.mockExamId} — ${dateStr}, ${timeStr}`;
       } else if (isQBank) {
         const courseObj = firestoreCourses.find(c => c.id === bulkMeta.course);
         const topicPart = bulkMeta.topic ? ` › ${bulkMeta.topic}` : '';
@@ -1626,16 +1634,16 @@ export default function QuestionsManager() {
               </div>
             </div>
 
-            {/* Mock Exam specialty picker */}
-            {form.examType === 'mock_exam' && (
+            {/* Mock Exam / Hospital Finals specialty picker — same underlying page */}
+            {['mock_exam', 'hospital_finals'].includes(form.examType) && (
               <div style={{ gridColumn: '1/-1' }}>
                 <div style={{
                   background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
                   borderRadius: 10, padding: '12px 16px', fontSize: 13,
                   color: 'var(--text-primary)', marginBottom: 12,
                 }}>
-                  🏥 <strong>Mock Exam</strong> — select the specialty below. This question will appear
-                  instantly on the student Mock Exam page under that specialty.
+                  🏥 <strong>{form.examType === 'hospital_finals' ? 'Hospital Final Exam' : 'Mock Exam'}</strong> — select the specialty below. This question will appear
+                  instantly on the student Hospital Final Exam page under that specialty.
                 </div>
                 <div className="form-group">
                   <label className="form-label" style={{ color: 'var(--gold)' }}>Specialty * (required)</label>
@@ -1759,7 +1767,7 @@ export default function QuestionsManager() {
               </div>
             </div>
 
-            {bulkMeta.examType !== 'mock_exam' && (
+            {!['mock_exam', 'hospital_finals'].includes(bulkMeta.examType) && (
               <div className="form-group">
                 <label className="form-label">Category</label>
                 <select className="form-input" value={bulkMeta.category} onChange={e=>setBulkMeta(m=>({...m,category:e.target.value,course:''}))}>
@@ -1768,16 +1776,16 @@ export default function QuestionsManager() {
               </div>
             )}
 
-            {/* Mock Exam specialty picker */}
-            {bulkMeta.examType === 'mock_exam' && (
+            {/* Mock Exam / Hospital Finals specialty picker — same underlying student page */}
+            {['mock_exam', 'hospital_finals'].includes(bulkMeta.examType) && (
               <div style={{ gridColumn: '1/-1' }}>
                 <div style={{
                   background: 'rgba(245,158,11,0.08)', border: '1.5px solid rgba(245,158,11,0.35)',
                   borderRadius: 10, padding: '12px 16px', fontSize: 13,
                   color: 'var(--text-primary)', marginBottom: 12,
                 }}>
-                  🏥 <strong>Mock Exam</strong> — select the specialty below. Questions will be tagged
-                  with the specialty id and appear instantly on the student Mock Exam page under that specialty.
+                  🏥 <strong>{bulkMeta.examType === 'hospital_finals' ? 'Hospital Final Exam' : 'Mock Exam'}</strong> — select the specialty below. Questions will be tagged
+                  with the specialty id and appear instantly on the student Hospital Final Exam page under that specialty.
                 </div>
                 <div className="form-group">
                   <label className="form-label" style={{ color: 'var(--gold)' }}>Specialty * (required)</label>
