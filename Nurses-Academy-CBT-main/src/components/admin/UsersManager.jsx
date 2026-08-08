@@ -60,6 +60,34 @@ export default function UsersManager() {
     updateUser(uid, { subscribed: plan !== 'free', accessLevel: plan, subscriptionPlan: plan, subscriptionExpiry: expiry.toISOString() });
   };
 
+  // ── Entrance Exam access is a SEPARATE track from the NMCN CBT subscription
+  //    above. It reads its own fields (entranceExamPaid / entranceExamPlan /
+  //    entranceExamExpiry), so granting a plan via grantSubscription() has no
+  //    effect on the entrance side. These two actions manage that track directly.
+  const grantEntranceAccess = (u) => {
+    if (!window.confirm(`Grant Entrance Exam access to ${u.name}?`)) return;
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 36500); // lifetime, matches the 'full' plan
+    updateUser(u.id, {
+      entranceExamPaid:   true,
+      entranceExamPlan:   'full',
+      entranceExamExpiry: expiry.toISOString(),
+      entranceExamPaidAt: serverTimestamp(),
+      entranceExamRef:    'admin-grant',
+    });
+  };
+
+  const clearEntranceAccess = (u) => {
+    if (!window.confirm(`Clear Entrance Exam access for ${u.name}? This removes their paid status on that track.`)) return;
+    updateUser(u.id, {
+      entranceExamPaid:   false,
+      entranceExamPlan:   null,
+      entranceExamExpiry: null,
+      entranceExamPaidAt: null,
+      entranceExamRef:    null,
+    });
+  };
+
   const toggleAdmin = (u) => {
     if (!window.confirm(`${u.role === 'admin' ? 'Revoke' : 'Grant'} admin access for ${u.name}?`)) return;
     updateUser(u.id, { role: u.role === 'admin' ? 'student' : 'admin' });
@@ -120,6 +148,7 @@ export default function UsersManager() {
                 <th>Role</th>
                 <th>Track</th>
                 <th>Plan</th>
+                <th>Entrance</th>
                 <th>Exams</th>
                 <th>Joined</th>
                 <th>Actions</th>
@@ -170,6 +199,11 @@ export default function UsersManager() {
                       {u.subscriptionPlan || (u.subscribed ? 'premium' : 'free')}
                     </span>
                   </td>
+                  <td>
+                    <span className={`badge ${u.entranceExamPaid ? 'badge-teal' : 'badge-grey'}`}>
+                      {u.entranceExamPaid ? (u.entranceExamPlan || 'paid') : 'free'}
+                    </span>
+                  </td>
                   <td style={{ fontSize: 13 }}>{u.totalExams || 0}</td>
                   <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {u.createdAt?.toDate ? new Date(u.createdAt.toDate()).toLocaleDateString() : '—'}
@@ -196,6 +230,17 @@ export default function UsersManager() {
                         style={{ opacity: u.role === 'admin' ? 0.3 : 1, pointerEvents: u.role === 'admin' ? 'none' : 'auto' }}>
                         {u.role === 'subadmin' ? '🔧✕' : '🔧'}
                       </button>
+                      {u.entranceExamPaid ? (
+                        <button className="btn btn-ghost btn-sm" onClick={() => clearEntranceAccess(u)}
+                          title="Clear Entrance Exam access">
+                          🎓✕
+                        </button>
+                      ) : (
+                        <button className="btn btn-ghost btn-sm" onClick={() => grantEntranceAccess(u)}
+                          title="Grant Entrance Exam access">
+                          🎓
+                        </button>
+                      )}
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>🗑️</button>
                     </div>
                   </td>
