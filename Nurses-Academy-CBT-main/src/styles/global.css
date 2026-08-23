@@ -243,12 +243,21 @@
 /* ── Reset ────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Long dynamic strings (specialty names, category labels, etc.) should wrap
+   instead of forcing their container wider than the viewport. */
+h1, h2, h3, h4, h5, h6, p { overflow-wrap: break-word; word-break: break-word; }
+img, svg { max-width: 100%; height: auto; }
+
 html {
   scroll-behavior: smooth;
   font-size: 16px;
   /* Prevent elastic overscroll bounce that causes navbar to shake on mobile */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
+  /* Safety net: never allow the page itself to scroll/clip sideways, no
+     matter what an individual component's layout does. */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -260,6 +269,8 @@ body {
   transition: background 0.3s, color 0.3s;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  max-width: 100%;
+  overflow-x: hidden;
   /* Kill pull-to-refresh & overscroll bounce on Android/iOS */
   overscroll-behavior: none;
   overscroll-behavior-y: none;

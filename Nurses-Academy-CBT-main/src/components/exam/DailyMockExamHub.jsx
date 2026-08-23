@@ -209,9 +209,9 @@ export default function DailyMockExamHub() {
   if (view === 'specialty') {
     return (
       <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <span style={{ fontSize: 30 }}>🗓️</span>
-          <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 30, flexShrink: 0 }}>🗓️</span>
+          <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
             Daily Mock Exam
           </h2>
         </div>
@@ -296,7 +296,7 @@ export default function DailyMockExamHub() {
         <button className="btn btn-ghost btn-sm" onClick={backToSpecialties}>
           ← All Specialties
         </button>
-        <div style={{ display: 'flex', border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexShrink: 0, border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
           <button
             onClick={() => setStudyMode('single')}
             style={{ padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: studyMode === 'single' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'single' ? '#fff' : 'var(--text-secondary)' }}
@@ -312,13 +312,13 @@ export default function DailyMockExamHub() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 28 }}>{sp.icon}</span>
-        <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
+        <span style={{ fontSize: 28, flexShrink: 0 }}>{sp.icon}</span>
+        <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
           Daily Mock Exam — {sp.label}
         </h2>
       </div>
-      <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+      <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
         A fresh pool of up to 250 {sp.label} questions every 24 hours. Choose how many you want to answer — the exam is timed at 1 minute per question.
       </p>
 
@@ -392,9 +392,9 @@ export default function DailyMockExamHub() {
       </div>
 
       {/* Exams Taken */}
-      <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
         📋 Exams Taken — {sp.label}
-        {attempts.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{attempts.length}</span>}
+        {attempts.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', flexShrink: 0 }}>{attempts.length}</span>}
       </h3>
 
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
