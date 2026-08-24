@@ -254,10 +254,11 @@ html {
   /* Prevent elastic overscroll bounce that causes navbar to shake on mobile */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
-  /* Safety net: never allow the page itself to scroll/clip sideways, no
-     matter what an individual component's layout does. */
+  /* NOTE: overflow-x:hidden intentionally NOT set here. Setting it on both
+     html AND body at once breaks vertical scrolling entirely on iOS/mobile
+     WebKit (a known engine quirk) - the horizontal-clip safety net below on
+     body alone is enough to stop sideways overflow. */
   max-width: 100%;
-  overflow-x: hidden;
 }
 
 body {
