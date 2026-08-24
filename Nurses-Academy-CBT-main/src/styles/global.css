@@ -647,6 +647,17 @@ tr:hover td { background: var(--bg-secondary); }
   /* Allow children (like chat) to take full height */
   display: flex;
   flex-direction: column;
+  /* CRITICAL: .main-content is a grid item of .dashboard-layout. Grid items
+     default to min-width:auto, which means the browser will NOT let this
+     column shrink below the intrinsic (min-content) width of whatever is
+     inside it - so a single hard-to-wrap child anywhere in this subtree
+     (e.g. a segmented toggle control, a long line of text) silently forces
+     the entire column, and everything else in it, wider than the phone's
+     viewport. overflow-x:hidden above only clips scrolling of content that
+     already fits in the box; it does not stop the box itself from being
+     sized too wide in the first place. min-width:0 is what actually allows
+     this column to shrink to the real available width. */
+  min-width: 0;
 }
 
 /* ── Stat Cards ───────────────────────────────────────────────────── */
