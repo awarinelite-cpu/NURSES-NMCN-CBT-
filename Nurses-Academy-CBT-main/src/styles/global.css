@@ -254,11 +254,13 @@ html {
   /* Prevent elastic overscroll bounce that causes navbar to shake on mobile */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
-  /* NOTE: overflow-x:hidden intentionally NOT set here. Setting it on both
-     html AND body at once breaks vertical scrolling entirely on iOS/mobile
-     WebKit (a known engine quirk) - the horizontal-clip safety net below on
-     body alone is enough to stop sideways overflow. */
-  max-width: 100%;
+  /* NOTE: no overflow-x rule here on purpose. On iOS/mobile WebKit, giving
+     the document root (html and/or body) an explicit overflow-x clips or
+     locks the whole page's scrolling in unpredictable ways - it caused a
+     total vertical-scroll freeze in one build and right-edge content
+     clipping/horizontal panning in the next. Horizontal clipping is instead
+     handled below on #root, a normal (non-root-scroller) block element,
+     which clips overflow without touching how the document itself scrolls. */
 }
 
 body {
@@ -270,11 +272,16 @@ body {
   transition: background 0.3s, color 0.3s;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  max-width: 100%;
-  overflow-x: hidden;
   /* Kill pull-to-refresh & overscroll bounce on Android/iOS */
   overscroll-behavior: none;
   overscroll-behavior-y: none;
+}
+
+/* React root: the actual place we clip sideways overflow. A plain block
+   element (not html/body) so it can't interfere with document scrolling. */
+#root {
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* ── Typography ───────────────────────────────────────────────────── */
