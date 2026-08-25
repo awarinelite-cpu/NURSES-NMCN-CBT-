@@ -12,3 +12,9 @@ exports.manuallyRotateEntranceDailyMock = manuallyRotateEntranceDailyMock;
 
 const { mintAgoraToken } = require('./src/agoraToken');
 exports.mintAgoraToken = mintAgoraToken;
+
+const { telegramWebhook } = require('./src/telegramBot');
+exports.telegramWebhook = telegramWebhook;
+
+const { createTelegramLinkCode } = require('./src/telegramLinkCode');
+exports.createTelegramLinkCode = createTelegramLinkCode;
