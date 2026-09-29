@@ -126,7 +126,7 @@ export default function GroupSessionLobby({ uid, name, examSetup, existingSessio
   };
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 520, margin: '0 auto' }}>
+    <div style={{ padding: '24px 16px', maxWidth: 520, width: '100%', boxSizing: 'border-box', margin: '0 auto', overflowX: 'hidden' }}>
       <button className="btn btn-ghost btn-sm" onClick={handleBack} style={{ marginBottom: 16 }}>
         {backLabel}
       </button>
@@ -150,18 +150,18 @@ export default function GroupSessionLobby({ uid, name, examSetup, existingSessio
 
       {/* ── Pick exam type (Reading or Quiz) — locked in before the group is created ── */}
       {!session && choice === 'mode' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Pick your exam type
           </div>
           <button
             className="btn btn-primary"
             disabled={busy}
             onClick={() => handleCreate('reading')}
-            style={{ textAlign: 'left', padding: '14px 16px' }}
+            style={{ display: 'block', width: '100%', minWidth: 0, boxSizing: 'border-box', textAlign: 'left', padding: '20px 18px', borderRadius: 16, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', fontSize: 20, fontWeight: 800, lineHeight: 1.3 }}
           >
             📖 Reading Mode
-            <div style={{ fontSize: 12, fontWeight: 500, opacity: 0.85, marginTop: 3 }}>
+            <div style={{ fontSize: 15, fontWeight: 500, opacity: 0.95, marginTop: 8, lineHeight: 1.5, whiteSpace: 'normal' }}>
               Everyone reads together — reveal the answer + explanation, then move to the next question.
             </div>
           </button>
@@ -169,10 +169,10 @@ export default function GroupSessionLobby({ uid, name, examSetup, existingSessio
             className="btn btn-primary"
             disabled={busy}
             onClick={() => handleCreate('quiz')}
-            style={{ textAlign: 'left', padding: '14px 16px' }}
+            style={{ display: 'block', width: '100%', minWidth: 0, boxSizing: 'border-box', textAlign: 'left', padding: '20px 18px', borderRadius: 16, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', fontSize: 20, fontWeight: 800, lineHeight: 1.3 }}
           >
             🎯 Quiz Mode
-            <div style={{ fontSize: 12, fontWeight: 500, opacity: 0.85, marginTop: 3 }}>
+            <div style={{ fontSize: 15, fontWeight: 500, opacity: 0.95, marginTop: 8, lineHeight: 1.5, whiteSpace: 'normal' }}>
               Everyone picks their own answer. Once all have answered, see who got it right vs wrong.
             </div>
           </button>
