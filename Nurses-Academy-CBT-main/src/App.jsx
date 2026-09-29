@@ -99,6 +99,7 @@ import CoursesManager        from './components/admin/CoursesManager';
 import CaosceManager         from './components/admin/CaosceManager';
 import EntranceExamManager   from './components/admin/EntranceExamManager';
 import DailyMockExamAdmin    from './components/admin/DailyMockExamAdmin';
+import PHNDailyMockBank      from './components/admin/PHNDailyMockBank';
 import LectureNotesManager   from './components/admin/LectureNotesManager';
 
 import './styles/global.css';
@@ -364,6 +365,7 @@ export default function App() {
                 <Route path="/admin/caosce"                          element={<SubAdminRoute><CaosceManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam"                   element={<SubAdminRoute><EntranceExamManager /></SubAdminRoute>} />
                 <Route path="/admin/daily-mock-exam"                 element={<SubAdminRoute><DailyMockExamAdmin /></SubAdminRoute>} />
+                <Route path="/admin/phn-daily-mock-bank"             element={<SubAdminRoute><PHNDailyMockBank /></SubAdminRoute>} />
                 <Route path="/admin/lecture-notes"                   element={<SubAdminRoute><LectureNotesManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
 

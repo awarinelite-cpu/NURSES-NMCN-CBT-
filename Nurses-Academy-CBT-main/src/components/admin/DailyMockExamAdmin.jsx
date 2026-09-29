@@ -90,6 +90,10 @@ export default function DailyMockExamAdmin() {
         until they recover to 50%+.
       </p>
 
+      <a href="/admin/phn-daily-mock-bank" style={{ display: 'inline-block', margin: '0 0 16px', padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.35)', color: '#16A34A', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+        🌍 Manage the dedicated Public Health Daily Mock bank →
+      </a>
+
       {loading ? (
         <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
       ) : !index ? (

@@ -39,6 +39,18 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 const POOL_SIZE  = 250;
+
+// ── Dedicated Daily Mock banks ──────────────────────────────────────────────
+// A specialty listed here does NOT draw from the shared `questions` bank by
+// its own category. Its daily pool is built ONLY from questions uploaded under
+// the dedicated bank category (admin: /admin/phn-daily-mock-bank), which no
+// other exam mode queries — so those questions never appear in Past Questions,
+// Topic Drill, Mock Exams, etc., and the shared PHN questions never appear
+// in the Daily Mock.
+//   { [poolCategoryId]: dedicatedBankCategoryId }
+const DEDICATED_BANKS = { public_health: 'phn_daily_mock' };
+// Legacy/duplicate ids for the same specialty — never build a pool from them.
+const EXCLUDED_POOL_CATEGORIES = new Set(['public_health_nursing']);
 const LOW_PASS_THRESHOLD = 49; // pass rate (%) at or below this ⇒ must repeat
 
 function todayKey(date = new Date()) {
@@ -69,6 +81,16 @@ async function runRotation() {
     const cat = d.data()?.category || 'uncategorized';
     (idsByCategory[cat] = idsByCategory[cat] || []).push(d.id);
   });
+
+  // 1b. Apply dedicated banks: the specialty pool uses only its own bank, and
+  //     the dedicated bank category never becomes a student-facing pool itself.
+  for (const [poolCat, bankCat] of Object.entries(DEDICATED_BANKS)) {
+    const bankIds = idsByCategory[bankCat] || [];
+    delete idsByCategory[bankCat];
+    if (bankIds.length > 0) idsByCategory[poolCat] = bankIds;
+    else delete idsByCategory[poolCat];
+  }
+  EXCLUDED_POOL_CATEGORIES.forEach(c => { delete idsByCategory[c]; });
 
   // 2. Load per-question stats once to find low-pass-rate carryovers.
   const statsSnap = await db.collection('questionStats').get();
