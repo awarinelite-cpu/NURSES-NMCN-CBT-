@@ -208,7 +208,7 @@ export default function DailyMockExamHub() {
   // ══════════════════════════════════════════════════════════════════════
   if (view === 'specialty') {
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+      <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
           <span style={{ fontSize: 30, flexShrink: 0 }}>🗓️</span>
           <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -291,7 +291,7 @@ export default function DailyMockExamHub() {
   const sp = selected;
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         <button className="btn btn-ghost btn-sm" onClick={backToSpecialties}>
           ← All Specialties
@@ -333,7 +333,7 @@ export default function DailyMockExamHub() {
           {pushState === 'denied' ? (
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Notifications blocked — enable in browser settings</span>
           ) : (
-            <button onClick={handleEnablePush} disabled={pushBusy} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#7C3AED', color: '#fff', fontWeight: 700, fontSize: 13, cursor: pushBusy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+            <button onClick={handleEnablePush} disabled={pushBusy} style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: '#7C3AED', color: '#fff', fontWeight: 700, fontSize: 13, cursor: pushBusy ? 'default' : 'pointer', whiteSpace: 'normal' }}>
             {pushBusy ? 'Enabling…' : 'Enable Notifications'}
           </button>
           )}
@@ -341,7 +341,7 @@ export default function DailyMockExamHub() {
       )}
 
       {/* Today's pool card */}
-      <div style={{ background: 'var(--bg-card)', border: `2px solid ${sp.color}`, borderRadius: 18, padding: 24, marginBottom: 28, boxShadow: `0 0 0 4px ${sp.glow}` }}>
+      <div style={{ background: 'var(--bg-card)', border: `2px solid ${sp.color}`, borderRadius: 18, padding: 'clamp(14px, 4vw, 24px)', marginBottom: 28, boxShadow: `0 0 0 4px ${sp.glow}`, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 24 }}>📚</span>
@@ -381,7 +381,7 @@ export default function DailyMockExamHub() {
           </div>
         )}
 
-        <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none' }}>
+        <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.3, overflowWrap: 'anywhere' }}>
           {studyMode === 'group' ? '👥 Continue to Group Study' : `🚀 Start Daily Mock Exam — ${finalCount} Questions`}
         </button>
         {studyMode === 'group' && (
