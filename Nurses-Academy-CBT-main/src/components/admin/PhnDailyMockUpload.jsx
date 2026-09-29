@@ -58,6 +58,14 @@ export default function PhnDailyMockUpload() {
   const [rotating, setRotating]         = useState(false);
   const [pool, setPool]                 = useState(undefined); // undefined = loading, null = none today
 
+  // ── Manage / delete questions ──
+  const [manageOpen, setManageOpen]   = useState(false);
+  const [bankQs, setBankQs]           = useState([]);      // [{ id, question }]
+  const [bankLoading, setBankLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [filter, setFilter]           = useState('');
+  const [deleting, setDeleting]       = useState(false);
+
   async function loadCount() {
     try {
       const snap = await getDocs(collection(db, BANK));
@@ -71,6 +79,81 @@ export default function PhnDailyMockUpload() {
     } catch { setPool(null); }
   }
   useEffect(() => { loadCount(); loadPool(); }, []);
+
+
+  async function loadBank() {
+    setBankLoading(true);
+    try {
+      const snap = await getDocs(collection(db, BANK));
+      const list = snap.docs.map(d => ({ id: d.id, question: String(d.data().question || '(no text)') }));
+      setBankQs(list);
+      setBankCount(list.length);
+      setSelectedIds(prev => new Set([...prev].filter(id => list.some(q => q.id === id))));
+    } catch (err) {
+      toast('Could not load questions: ' + err.message, 'error');
+    } finally {
+      setBankLoading(false);
+    }
+  }
+
+  function toggleManage() {
+    const next = !manageOpen;
+    setManageOpen(next);
+    if (next) loadBank();
+  }
+
+  const visibleQs = bankQs.filter(q => q.question.toLowerCase().includes(filter.trim().toLowerCase()));
+  const allVisibleSelected = visibleQs.length > 0 && visibleQs.every(q => selectedIds.has(q.id));
+
+  function toggleOne(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function toggleAllVisible() {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleQs.forEach(q => next.delete(q.id));
+      else visibleQs.forEach(q => next.add(q.id));
+      return next;
+    });
+  }
+
+  async function deleteIds(ids) {
+    setDeleting(true);
+    try {
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        ids.slice(i, i + BATCH_SIZE).forEach(id => batch.delete(doc(db, BANK, id)));
+        await batch.commit();
+      }
+      toast(`🗑️ Deleted ${ids.length} question${ids.length === 1 ? '' : 's'}. Rotate the PHN pool to refresh today's exam.`, 'success', 4500);
+      setSelectedIds(new Set());
+      await loadBank();
+    } catch (err) {
+      toast('Delete failed: ' + err.message, 'error');
+      await loadBank();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    if (!ids.length) { toast('Select at least one question first', 'error'); return; }
+    if (!window.confirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'} from the PHN Daily Mock bank? This cannot be undone.`)) return;
+    deleteIds(ids);
+  }
+
+  function deleteAll() {
+    if (!bankQs.length) { toast('The PHN bank is already empty', 'error'); return; }
+    if (!window.confirm(`Delete ALL ${bankQs.length} questions from the PHN Daily Mock bank? This cannot be undone.`)) return;
+    const typed = window.prompt('Type DELETE to confirm deleting every question in the PHN bank:');
+    if (typed !== 'DELETE') { toast('Cancelled. Nothing was deleted.', 'error'); return; }
+    deleteIds(bankQs.map(q => q.id));
+  }
 
   async function rotatePhn() {
     setRotating(true);
@@ -213,6 +296,69 @@ export default function PhnDailyMockUpload() {
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
           Only the Public Health pool is rebuilt. Other specialties are untouched and no notifications are sent.
         </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Manage questions</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+          Select questions to delete, or clear the whole PHN bank.
+        </div>
+        <button style={{ ...btn, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                onClick={toggleManage}>
+          {manageOpen ? '▲ Hide questions' : '🗂️ Select / delete questions'}
+        </button>
+
+        {manageOpen && (
+          <div style={{ marginTop: 14 }}>
+            {bankLoading ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
+            ) : bankQs.length === 0 ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)' }}>The PHN bank is empty.</div>
+            ) : (
+              <>
+                <input
+                  value={filter} onChange={e => setFilter(e.target.value)}
+                  placeholder="Search questions…"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: 10, borderRadius: 10, marginBottom: 10,
+                           border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
+                           color: 'var(--text-primary)', fontSize: 14 }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 700,
+                                color: 'var(--text-primary)', marginBottom: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible}
+                         style={{ width: 18, height: 18 }} />
+                  Select all{filter.trim() ? ' shown' : ''} ({visibleQs.length})
+                </label>
+                <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+                  {visibleQs.map((q, i) => (
+                    <label key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
+                                               borderBottom: i < visibleQs.length - 1 ? '1px solid var(--border)' : 'none',
+                                               fontSize: 13, lineHeight: 1.5, cursor: 'pointer',
+                                               background: selectedIds.has(q.id) ? 'rgba(220,38,38,0.08)' : 'transparent',
+                                               color: 'var(--text-secondary)' }}>
+                      <input type="checkbox" checked={selectedIds.has(q.id)} onChange={() => toggleOne(q.id)}
+                             style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{q.question}</span>
+                    </label>
+                  ))}
+                  {visibleQs.length === 0 && (
+                    <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No matches.</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+                  <button style={{ ...btn, background: '#DC2626', color: '#fff', opacity: deleting || !selectedIds.size ? 0.5 : 1 }}
+                          disabled={deleting || !selectedIds.size} onClick={deleteSelected}>
+                    {deleting ? 'Deleting…' : `🗑️ Delete selected (${selectedIds.size})`}
+                  </button>
+                  <button style={{ ...btn, background: 'transparent', color: '#DC2626', border: '2px solid #DC2626', opacity: deleting ? 0.5 : 1 }}
+                          disabled={deleting} onClick={deleteAll}>
+                    ⚠️ Delete all ({bankQs.length})
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={card}>
