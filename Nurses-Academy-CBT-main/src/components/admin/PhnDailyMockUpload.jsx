@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, writeBatch, doc, serverTimestamp,
+  collection, getDocs, query, where, writeBatch, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
@@ -24,6 +24,15 @@ import { readQuestionFile } from '../../utils/questionFileImport';
 
 const BANK = 'phnDailyMockQuestions';
 const BATCH_SIZE = 400;
+
+// CSV helpers for downloading the previous Public Health questions.
+// Column names match what the uploader below already understands, so the
+// downloaded file can be edited and uploaded straight back into the PHN bank.
+const csvCell = v => {
+  const t = String(v ?? '').replace(/\r?\n/g, ' ').trim();
+  return /[",]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 const card = {
   background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -44,6 +53,7 @@ export default function PhnDailyMockUpload() {
   const [parsed, setParsed]       = useState([]);
   const [saving, setSaving]       = useState(false);
   const [fileInfo, setFileInfo]   = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   async function loadCount() {
     try {
@@ -75,6 +85,38 @@ export default function PhnDailyMockUpload() {
       toast(err.message || 'Could not read that file', 'error');
     } finally {
       if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function downloadPrevious() {
+    setDownloading(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'questions'), where('category', '==', 'public_health')));
+      if (snap.empty) { toast('No previous Public Health questions found', 'error'); return; }
+
+      const header = ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'answer', 'explanation', 'topic', 'year'];
+      const rows = snap.docs.map(d => {
+        const q = d.data();
+        const opts = Array.isArray(q.options) ? q.options : [];
+        const optText = i => (typeof opts[i] === 'string' ? opts[i] : opts[i]?.text) || '';
+        return [
+          q.question, optText(0), optText(1), optText(2), optText(3), optText(4),
+          LETTERS[q.correctIndex] || '', q.explanation, q.topic, q.year,
+        ].map(csvCell).join(',');
+      });
+
+      const csv  = '\uFEFF' + [header.join(','), ...rows].join('\r\n');
+      const url  = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `public-health-previous-questions-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast(`⬇️ Downloaded ${rows.length} previous Public Health questions`, 'success');
+    } catch (err) {
+      toast('Download failed: ' + err.message, 'error');
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -126,6 +168,18 @@ export default function PhnDailyMockUpload() {
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--teal)' }}>
           {bankCount === null ? '…' : bankCount}
         </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Previous Public Health questions</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+          Download the Public Health questions still in the main bank as a CSV. You can edit it and upload it back below.
+        </div>
+        <button style={{ ...btn, background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                         border: '1px solid var(--border)', opacity: downloading ? 0.6 : 1 }}
+                disabled={downloading} onClick={downloadPrevious}>
+          {downloading ? 'Preparing…' : '⬇️ Download previous PHN questions (CSV)'}
+        </button>
       </div>
 
       <div style={card}>
