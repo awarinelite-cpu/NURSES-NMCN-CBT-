@@ -13,8 +13,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, query, where, writeBatch, doc, serverTimestamp,
+  collection, getDoc, getDocs, query, where, writeBatch, doc, serverTimestamp,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
 import {
@@ -54,6 +55,8 @@ export default function PhnDailyMockUpload() {
   const [saving, setSaving]       = useState(false);
   const [fileInfo, setFileInfo]   = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [rotating, setRotating]         = useState(false);
+  const [pool, setPool]                 = useState(undefined); // undefined = loading, null = none today
 
   async function loadCount() {
     try {
@@ -61,7 +64,33 @@ export default function PhnDailyMockUpload() {
       setBankCount(snap.size);
     } catch { setBankCount(null); }
   }
-  useEffect(() => { loadCount(); }, []);
+  async function loadPool() {
+    try {
+      const snap = await getDoc(doc(db, 'dailyMockExam', 'public_health'));
+      setPool(snap.exists() ? snap.data() : null);
+    } catch { setPool(null); }
+  }
+  useEffect(() => { loadCount(); loadPool(); }, []);
+
+  async function rotatePhn() {
+    setRotating(true);
+    try {
+      const fn  = httpsCallable(getFunctions(), 'manuallyRotatePhnDailyMock');
+      const res = (await fn()).data || {};
+      if (res.ok) {
+        toast(`✅ PHN pool rebuilt: ${res.count} questions from ${res.bankActive} active (${res.carryoverCount} carried over)`, 'success', 4500);
+      } else if (res.reason === 'phn-bank-empty') {
+        toast('PHN bank has no active questions. Upload some first.', 'error');
+      } else {
+        toast('Rotation did not complete', 'error');
+      }
+      loadPool();
+    } catch (err) {
+      toast('Rotation failed: ' + (err.message || 'unknown error'), 'error');
+    } finally {
+      setRotating(false);
+    }
+  }
 
   function runParse(raw = text) {
     if (!raw.trim()) { toast('Paste questions or choose a file first', 'error'); return; }
@@ -167,6 +196,22 @@ export default function PhnDailyMockUpload() {
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Questions in PHN bank</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--teal)' }}>
           {bankCount === null ? '…' : bankCount}
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Today's PHN Daily Mock pool</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+          {pool === undefined ? 'Checking…'
+            : pool === null ? 'No pool yet. Press the button to build one from the PHN bank.'
+            : `${(pool.questionIds || []).length} questions, built for ${pool.date || 'unknown date'}${pool.source ? '' : ' (old pool, please rebuild)'}`}
+        </div>
+        <button style={{ ...btn, background: 'var(--teal)', color: '#fff', opacity: rotating ? 0.6 : 1 }}
+                disabled={rotating} onClick={rotatePhn}>
+          {rotating ? 'Rotating…' : '🔄 Rotate PHN pool now'}
+        </button>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+          Only the Public Health pool is rebuilt. Other specialties are untouched and no notifications are sent.
         </div>
       </div>
 
