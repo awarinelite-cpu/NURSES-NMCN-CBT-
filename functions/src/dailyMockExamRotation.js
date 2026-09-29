@@ -39,6 +39,11 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 const POOL_SIZE  = 250;
+
+// Public Health Nursing uses its own dedicated bank so its Daily Mock never
+// shares questions with the main `questions` collection.
+const PHN_CATEGORY   = 'public_health';
+const PHN_COLLECTION = 'phnDailyMockQuestions';
 const LOW_PASS_THRESHOLD = 49; // pass rate (%) at or below this ⇒ must repeat
 
 function todayKey(date = new Date()) {
@@ -69,6 +74,18 @@ async function runRotation() {
     const cat = d.data()?.category || 'uncategorized';
     (idsByCategory[cat] = idsByCategory[cat] || []).push(d.id);
   });
+
+  // PHN never draws from the shared bank: replace whatever the main bank had
+  // for public_health with the dedicated PHN bank's active questions.
+  delete idsByCategory[PHN_CATEGORY];
+  const phnSnap = await db.collection(PHN_COLLECTION).where('active', '==', true).get();
+  if (!phnSnap.empty) {
+    idsByCategory[PHN_CATEGORY] = phnSnap.docs.map(d => d.id);
+  } else {
+    // No PHN questions yet: remove any stale pool so students see "not ready"
+    // instead of yesterday's pool.
+    await db.doc(`dailyMockExam/${PHN_CATEGORY}`).delete().catch(() => {});
+  }
 
   // 2. Load per-question stats once to find low-pass-rate carryovers.
   const statsSnap = await db.collection('questionStats').get();

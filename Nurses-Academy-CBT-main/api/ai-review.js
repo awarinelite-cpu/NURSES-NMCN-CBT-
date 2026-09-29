@@ -47,6 +47,7 @@ const AUTO_THRESHOLD = 85; // matches AnswerAuditTab's AUTO_FIX_CONFIDENCE
 const SHAPES = {
   questions:             { kind: 'index',  reviewQueue: 'answerReviewQueue' },
   entranceExamQuestions: { kind: 'letter', reviewQueue: 'entranceAnswerReviewQueue' },
+  phnDailyMockQuestions: { kind: 'index',  reviewQueue: 'answerReviewQueue' },
 };
 
 function optionsToLetterList(options) {

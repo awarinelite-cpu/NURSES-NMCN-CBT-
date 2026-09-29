@@ -69,6 +69,12 @@ service cloud.firestore {
       allow write: if isAdminOrSubAdmin();
     }
 
+    // Dedicated Public Health Nursing Daily Mock bank (never shared with `questions`)
+    match /phnDailyMockQuestions/{questionId} {
+      allow read:  if isAuth();
+      allow write: if isAdminOrSubAdmin();
+    }
+
     match /entranceExamQuestions/{questionId} {
       allow read:  if isAuth();
       allow write: if isAdminOrSubAdmin();

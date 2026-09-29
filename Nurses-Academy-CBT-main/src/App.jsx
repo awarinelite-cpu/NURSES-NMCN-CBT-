@@ -70,6 +70,7 @@ import EntranceExamSetup        from './components/entrance/EntranceExamSetup';
 import EntranceSubjectDrill     from './components/entrance/EntranceSubjectDrill';
 import EntranceSubjectSession   from './components/entrance/EntranceSubjectSession';
 import EntranceDailyMockUpload  from './components/entrance/EntranceDailyMockUpload';
+import PhnDailyMockUpload       from './components/admin/PhnDailyMockUpload';
 import EntranceLeaderboard      from './components/entrance/EntranceLeaderboard';
 import {
   EntranceMyResults,
@@ -366,6 +367,7 @@ export default function App() {
                 <Route path="/admin/daily-mock-exam"                 element={<SubAdminRoute><DailyMockExamAdmin /></SubAdminRoute>} />
                 <Route path="/admin/lecture-notes"                   element={<SubAdminRoute><LectureNotesManager /></SubAdminRoute>} />
                 <Route path="/admin/entrance-exam/daily-mock-upload" element={<SubAdminRoute><EntranceDailyMockUpload /></SubAdminRoute>} />
+                <Route path="/admin/phn-daily-mock-upload"          element={<SubAdminRoute><PhnDailyMockUpload /></SubAdminRoute>} />
 
               </Route>
 

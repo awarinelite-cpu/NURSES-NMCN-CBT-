@@ -165,8 +165,14 @@ function fisherYatesShuffle(arr) {
 // the student's chosen specialty ────────────────────────────────────────
 // Used both on initial load and on Retake (each attempt draws a fresh random
 // subset of the same day's specialty pool for a clean re-score).
+// Public Health Nursing has its own dedicated bank (phnDailyMockQuestions),
+// so its Daily Mock never shares questions with the main `questions` bank.
+const PHN_DAILY_MOCK_CATEGORY   = 'public_health';
+const PHN_DAILY_MOCK_COLLECTION = 'phnDailyMockQuestions';
+
 async function loadDailyMockQuestions(count, category) {
   if (!category) return [];
+  const bankCollection = category === PHN_DAILY_MOCK_CATEGORY ? PHN_DAILY_MOCK_COLLECTION : 'questions';
   const dmSnap = await getDoc(doc(db, 'dailyMockExam', category));
   const allIds = dmSnap.exists() ? (dmSnap.data()?.questionIds || []) : [];
   if (allIds.length === 0) return [];
@@ -176,10 +182,15 @@ async function loadDailyMockQuestions(count, category) {
   for (let i = 0; i < idPool.length; i += 10) chunks.push(idPool.slice(i, i + 10));
 
   const snaps = await Promise.all(chunks.map(ch => getDocs(query(
-    collection(db, 'questions'), where(documentId(), 'in', ch),
+    collection(db, bankCollection), where(documentId(), 'in', ch),
   ))));
   const byId = {};
-  snaps.forEach(s => s.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
+  snaps.forEach(s => s.docs.forEach(d => {
+    byId[d.id] = {
+      id: d.id, ...d.data(),
+      ...(bankCollection !== 'questions' && { _sourceCollection: bankCollection }),
+    };
+  }));
   return idPool.map(id => byId[id]).filter(Boolean);
 }
 
