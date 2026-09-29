@@ -565,14 +565,25 @@ export default function ExamSession() {
         // every participant — drawn once by the host in the lobby) ─────────
         if (presetQuestionIds?.length) {
           const ids = presetQuestionIds;
+          // Public Health Nursing's Daily Mock draws from its own dedicated
+          // bank (phnDailyMockQuestions), not the shared `questions` bank —
+          // group sessions must read from the same place the pool was built from.
+          const presetBank = (category === PHN_DAILY_MOCK_CATEGORY && examType === 'daily_mock_exam')
+            ? PHN_DAILY_MOCK_COLLECTION : 'questions';
           const chunks = [];
           for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
           const fetched = await Promise.all(chunks.map(chunk =>
-            getDocs(query(collection(db, 'questions'), where('__name__', 'in', chunk)))
+            getDocs(query(collection(db, presetBank), where('__name__', 'in', chunk)))
           ));
           const byId = {};
-          fetched.forEach(snap => snap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; }));
+          fetched.forEach(snap => snap.docs.forEach(d => {
+            byId[d.id] = {
+              id: d.id, ...d.data(),
+              ...(presetBank !== 'questions' && { _sourceCollection: presetBank }),
+            };
+          }));
           qs = ids.map(id => byId[id]).filter(Boolean);
+          if (qs.length === 0) { setQuestions([]); setPhase('empty'); return; }
           setQuestions(qs); questionsRef.current = qs;
           setPhase('exam'); startedAt.current = Date.now();
           return;
