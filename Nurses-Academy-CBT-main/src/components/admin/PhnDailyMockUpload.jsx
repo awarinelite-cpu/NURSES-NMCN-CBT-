@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDoc, getDocs, query, where, writeBatch, doc, serverTimestamp,
+  collection, getDoc, getDocs, query, where, writeBatch, doc, serverTimestamp, updateDoc,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase/config';
@@ -38,6 +38,12 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const card = {
   background: 'var(--bg-card)', border: '1px solid var(--border)',
   borderRadius: 14, padding: 16, marginBottom: 16,
+};
+const lbl = { fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 };
+const inp = {
+  width: '100%', boxSizing: 'border-box', padding: 12, borderRadius: 10,
+  border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
+  color: 'var(--text-primary)', fontSize: 14, resize: 'vertical', fontFamily: 'inherit',
 };
 const btn = {
   padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -65,6 +71,8 @@ export default function PhnDailyMockUpload() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [filter, setFilter]           = useState('');
   const [deleting, setDeleting]       = useState(false);
+  const [editing, setEditing]         = useState(null);   // { id, question, options[], correctIndex, explanation, topic }
+  const [savingEdit, setSavingEdit]   = useState(false);
 
   async function loadCount() {
     try {
@@ -85,7 +93,17 @@ export default function PhnDailyMockUpload() {
     setBankLoading(true);
     try {
       const snap = await getDocs(collection(db, BANK));
-      const list = snap.docs.map(d => ({ id: d.id, question: String(d.data().question || '(no text)') }));
+      const list = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          question: String(data.question || '(no text)'),
+          options: (Array.isArray(data.options) ? data.options : []).map(o => (typeof o === 'string' ? o : o?.text || '')),
+          correctIndex: Number.isInteger(data.correctIndex) ? data.correctIndex : 0,
+          explanation: data.explanation || '',
+          topic: data.topic || '',
+        };
+      });
       setBankQs(list);
       setBankCount(list.length);
       setSelectedIds(prev => new Set([...prev].filter(id => list.some(q => q.id === id))));
@@ -119,6 +137,52 @@ export default function PhnDailyMockUpload() {
       else visibleQs.forEach(q => next.add(q.id));
       return next;
     });
+  }
+
+
+  function startEdit(q) {
+    const opts = q.options.length >= 2 ? [...q.options] : ['', ''];
+    setEditing({ id: q.id, question: q.question === '(no text)' ? '' : q.question, options: opts,
+                 correctIndex: Math.min(q.correctIndex, opts.length - 1), explanation: q.explanation, topic: q.topic });
+  }
+  const setEditField = (k, v) => setEditing(e => ({ ...e, [k]: v }));
+  const setEditOption = (i, v) => setEditing(e => ({ ...e, options: e.options.map((o, j) => (j === i ? v : o)) }));
+  function addEditOption() {
+    setEditing(e => (e.options.length >= 5 ? e : { ...e, options: [...e.options, ''] }));
+  }
+  function removeEditOption(i) {
+    setEditing(e => {
+      if (e.options.length <= 2) return e;
+      const options = e.options.filter((_, j) => j !== i);
+      let correctIndex = e.correctIndex;
+      if (i === correctIndex) correctIndex = 0;
+      else if (i < correctIndex) correctIndex -= 1;
+      return { ...e, options, correctIndex };
+    });
+  }
+  async function saveEdit() {
+    const e = editing;
+    const question = e.question.trim();
+    const options  = e.options.map(o => o.trim());
+    if (!question) { toast('Question text cannot be empty', 'error'); return; }
+    if (options.some(o => !o)) { toast('Fill in every option or remove the empty ones', 'error'); return; }
+    setSavingEdit(true);
+    try {
+      await updateDoc(doc(db, BANK, e.id), {
+        question, options,
+        correctIndex: e.correctIndex,
+        explanation: e.explanation.trim(),
+        topic: e.topic.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      toast('✅ Question updated', 'success');
+      setEditing(null);
+      await loadBank();
+    } catch (err) {
+      toast('Update failed: ' + err.message, 'error');
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function deleteIds(ids) {
@@ -301,11 +365,11 @@ export default function PhnDailyMockUpload() {
       <div style={card}>
         <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>Manage questions</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
-          Select questions to delete, or clear the whole PHN bank.
+          Edit questions, select ones to delete, or clear the whole PHN bank.
         </div>
         <button style={{ ...btn, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                 onClick={toggleManage}>
-          {manageOpen ? '▲ Hide questions' : '🗂️ Select / delete questions'}
+          {manageOpen ? '▲ Hide questions' : '🗂️ Edit / delete questions'}
         </button>
 
         {manageOpen && (
@@ -331,15 +395,21 @@ export default function PhnDailyMockUpload() {
                 </label>
                 <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
                   {visibleQs.map((q, i) => (
-                    <label key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
-                                               borderBottom: i < visibleQs.length - 1 ? '1px solid var(--border)' : 'none',
-                                               fontSize: 13, lineHeight: 1.5, cursor: 'pointer',
-                                               background: selectedIds.has(q.id) ? 'rgba(220,38,38,0.08)' : 'transparent',
-                                               color: 'var(--text-secondary)' }}>
-                      <input type="checkbox" checked={selectedIds.has(q.id)} onChange={() => toggleOne(q.id)}
-                             style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2 }} />
-                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{q.question}</span>
-                    </label>
+                    <div key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px',
+                                             borderBottom: i < visibleQs.length - 1 ? '1px solid var(--border)' : 'none',
+                                             background: selectedIds.has(q.id) ? 'rgba(220,38,38,0.08)' : 'transparent' }}>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0,
+                                      fontSize: 13, lineHeight: 1.5, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={selectedIds.has(q.id)} onChange={() => toggleOne(q.id)}
+                               style={{ width: 18, height: 18, flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{q.question}</span>
+                      </label>
+                      <button onClick={() => startEdit(q)} disabled={deleting}
+                              style={{ ...btn, padding: '6px 12px', fontSize: 13, flexShrink: 0,
+                                       background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                        ✏️ Edit
+                      </button>
+                    </div>
                   ))}
                   {visibleQs.length === 0 && (
                     <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No matches.</div>
@@ -426,6 +496,58 @@ export default function PhnDailyMockUpload() {
                   disabled={saving || !valid.length} onClick={save}>
             {saving ? 'Saving…' : `💾 Save ${valid.length} to PHN Daily Mock bank`}
           </button>
+        </div>
+      )}
+      {editing && (
+        <div onClick={() => !savingEdit && setEditing(null)}
+             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+                      display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: 12 }}>
+          <div onClick={e => e.stopPropagation()}
+               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 16,
+                        width: '100%', maxWidth: 560, boxSizing: 'border-box', margin: '16px 0' }}>
+            <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', marginBottom: 12 }}>✏️ Edit question</div>
+
+            <div style={lbl}>Question</div>
+            <textarea value={editing.question} onChange={e => setEditField('question', e.target.value)} rows={4} style={inp} />
+
+            <div style={{ ...lbl, marginTop: 12 }}>Options (tap the circle to mark the correct answer)</div>
+            {editing.options.map((o, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <input type="radio" name="phn-correct" checked={editing.correctIndex === i}
+                       onChange={() => setEditField('correctIndex', i)} style={{ width: 20, height: 20, flexShrink: 0 }} />
+                <span style={{ fontWeight: 800, color: 'var(--text-muted)', width: 18, flexShrink: 0 }}>{LETTERS[i]}</span>
+                <input value={o} onChange={e => setEditOption(i, e.target.value)}
+                       style={{ ...inp, flex: 1, minWidth: 0, padding: 10 }} />
+                {editing.options.length > 2 && (
+                  <button onClick={() => removeEditOption(i)} title="Remove option"
+                          style={{ ...btn, padding: '6px 10px', background: 'transparent', color: '#DC2626', border: '1px solid #DC2626' }}>✕</button>
+                )}
+              </div>
+            ))}
+            {editing.options.length < 5 && (
+              <button onClick={addEditOption}
+                      style={{ ...btn, padding: '6px 12px', fontSize: 13, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                + Add option
+              </button>
+            )}
+
+            <div style={{ ...lbl, marginTop: 12 }}>Explanation</div>
+            <textarea value={editing.explanation} onChange={e => setEditField('explanation', e.target.value)} rows={5} style={inp} />
+
+            <div style={{ ...lbl, marginTop: 12 }}>Topic (optional)</div>
+            <input value={editing.topic} onChange={e => setEditField('topic', e.target.value)} style={{ ...inp, padding: 10 }} />
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button style={{ ...btn, flex: 1, background: 'var(--teal)', color: '#fff', opacity: savingEdit ? 0.6 : 1 }}
+                      disabled={savingEdit} onClick={saveEdit}>
+                {savingEdit ? 'Saving…' : '💾 Save changes'}
+              </button>
+              <button style={{ ...btn, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                      disabled={savingEdit} onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
