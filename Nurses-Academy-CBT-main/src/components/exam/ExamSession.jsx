@@ -373,6 +373,9 @@ export default function ExamSession() {
   const isSub      = (profile?.subscribed === true || PAID_LEVELS.includes(profile?.accessLevel)) && expiry && expiry > now;
   const count      = isSub ? rawCount : Math.min(rawCount, 10);
   const timeLimit   = sp_num('timeLimit', 0);
+  // Reading mode (Daily Mock Exam): reveal the correct answer + explanation
+  // immediately after the student answers, before they press Next.
+  const readingMode = state?.readingMode === true;
   const doShuffle   = sp_bool('shuffle', true);
   const showExpl    = sp_bool('showExpl', false);
   const reviewMode  = state?.reviewMode || false;
@@ -1614,19 +1617,50 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {q.options?.map((opt, i) => {
                   const selected = answers[q.id] === i;
+                  const rmRevealed = readingMode && answers[q.id] !== undefined;
+                  const rmCorrect  = rmRevealed && i === q.correctIndex;
+                  const rmWrong    = rmRevealed && selected && i !== q.correctIndex;
+                  const rmColor    = rmCorrect ? '#16A34A' : rmWrong ? '#DC2626' : null;
                   return (
-                    <button key={i} id={`vem-opt-${i}`} onClick={() => {
+                    <button key={i} id={`vem-opt-${i}`} disabled={rmRevealed} onClick={() => {
+                      if (rmRevealed) return; // Reading mode: answer is locked once chosen
                       // If voice mode is actively reading/listening, let it handle the
                       // tap: it will announce "Option X." and auto-advance, same as a
                       // spoken answer. Otherwise fall back to a plain silent select.
                       const handled = voiceModeRef.current?.selectOption(i);
                       if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
-                    }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected ? 700 : 400, transition: 'all 0.15s' }}>
-                      <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: selected ? 'var(--teal)' : 'var(--bg-card)', color: selected ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? 'var(--teal)' : 'var(--border)'}` }}>{String.fromCharCode(65 + i)}</span>
+                    }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: rmRevealed ? 'default' : 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${rmColor || (selected ? 'var(--teal)' : 'var(--border)')}`, background: rmCorrect ? 'rgba(22,163,74,0.12)' : rmWrong ? 'rgba(220,38,38,0.1)' : selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: rmColor ? 'var(--text-primary)' : selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected || rmCorrect ? 700 : 400, opacity: 1, transition: 'all 0.15s' }}>
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: rmColor || (selected ? 'var(--teal)' : 'var(--bg-card)'), color: (rmColor || selected) ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${rmColor || (selected ? 'var(--teal)' : 'var(--border)')}` }}>{String.fromCharCode(65 + i)}</span>
                       {typeof opt === 'string' ? opt : opt.text}
+                      {rmCorrect && <span style={{ marginLeft: 'auto' }}>✓</span>}
+                      {rmWrong && <span style={{ marginLeft: 'auto' }}>✗</span>}
                     </button>
                   );
                 })}
+                {readingMode && answers[q.id] !== undefined && (
+                  <div style={{ marginTop: 4, borderRadius: 14, overflow: 'hidden', border: `2px solid ${answers[q.id] === q.correctIndex ? 'rgba(22,163,74,0.5)' : 'rgba(220,38,38,0.45)'}`, width: '100%' }}>
+                    <div style={{ padding: '10px 16px', background: answers[q.id] === q.correctIndex ? '#16A34A' : '#DC2626', color: '#fff', fontWeight: 800, fontSize: 14 }}>
+                      {answers[q.id] === q.correctIndex ? '✅ Correct!' : '❌ Incorrect'}
+                    </div>
+                    <div style={{ padding: '14px 16px', background: 'var(--bg-tertiary)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Correct Answer</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#16A34A', marginBottom: q.explanation ? 12 : 0 }}>
+                        {String.fromCharCode(65 + (q.correctIndex ?? 0))}. {typeof q.options?.[q.correctIndex] === 'string' ? q.options[q.correctIndex] : q.options?.[q.correctIndex]?.text}
+                      </div>
+                      {q.explanation && (
+                        <>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>💡 Explanation</div>
+                          <ExplanationText text={q.explanation} />
+                          {q.explanationImageUrl && (
+                            <div style={{ marginTop: 10, textAlign: 'center' }}>
+                              <img src={q.explanationImageUrl} alt="Explanation" style={{ maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }} />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -78,6 +78,7 @@ export default function DailyMockExamHub() {
   const [qCount,       setQCount]      = useState(50);
   const [customCount,  setCustomCount] = useState('');
   const [useCustom,    setUseCustom]   = useState(false);
+  const [examMode,     setExamMode]    = useState('exam');        // 'exam' | 'reading'
   const [attempts,     setAttempts]    = useState([]);
   const [loadingAtt,   setLoadingAtt]  = useState(false);
   const [pushState,    setPushState]   = useState(pushPermission()); // 'default'|'granted'|'denied'|'unsupported'
@@ -181,7 +182,10 @@ export default function DailyMockExamHub() {
         poolMode:  true,
         doShuffle: true,
         count:     finalCount,
-        timeLimit: finalCount, // 1 minute per question
+        // Exam mode: 1 minute per question. Reading mode is untimed so the
+        // student can take time over each answer + explanation.
+        timeLimit: examMode === 'reading' ? 0 : finalCount,
+        readingMode: examMode === 'reading',
       },
     });
   };
@@ -362,6 +366,23 @@ export default function DailyMockExamHub() {
 
         {studyMode === 'single' && (
           <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>🎯 Mode</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { id: 'exam',    icon: '📝', label: 'Exam Mode',    hint: 'Timed. Answers revealed at the end.' },
+                { id: 'reading', icon: '📖', label: 'Reading Mode', hint: 'Untimed. Answer + explanation shown right after you answer.' },
+              ].map(m => (
+                <button key={m.id} onClick={() => setExamMode(m.id)} style={{ flex: '1 1 140px', padding: '10px 14px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', textAlign: 'left', border: `2px solid ${examMode === m.id ? sp.color : 'var(--border)'}`, background: examMode === m.id ? sp.glow : 'var(--bg-tertiary)', color: examMode === m.id ? sp.color : 'var(--text-secondary)' }}>
+                  <div>{m.icon} {m.label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.4 }}>{m.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {studyMode === 'single' && (
+          <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>📊 Number of Questions</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {PRESETS.map(n => (
@@ -373,7 +394,7 @@ export default function DailyMockExamHub() {
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-              ⏱ {finalCount} questions ≈ {finalCount} minute{finalCount === 1 ? '' : 's'}
+              {examMode === 'reading' ? `📖 ${finalCount} questions — untimed` : `⏱ ${finalCount} questions ≈ ${finalCount} minute${finalCount === 1 ? '' : 's'}`}
             </div>
             {!isSub && (
               <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 4 }}>⚡ Free preview is capped — upgrade for the full pool.</div>
@@ -382,7 +403,7 @@ export default function DailyMockExamHub() {
         )}
 
         <button className="btn btn-primary" onClick={startExam} disabled={poolLoading || totalAvailable === 0} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '13px', fontSize: 15, fontWeight: 700, borderRadius: 12, background: sp.color, border: 'none', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.3, overflowWrap: 'anywhere' }}>
-          {studyMode === 'group' ? '👥 Continue to Group Study' : `🚀 Start Daily Mock Exam — ${finalCount} Questions`}
+          {studyMode === 'group' ? '👥 Continue to Group Study' : `🚀 Start ${examMode === 'reading' ? 'Reading Mode' : 'Daily Mock Exam'} — ${finalCount} Questions`}
         </button>
         {studyMode === 'group' && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
