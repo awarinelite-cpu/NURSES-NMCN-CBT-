@@ -766,5 +766,10 @@ html[style*="font-size: 14"] h3 { font-size: clamp(1.6rem, 2.88vw, 2.08rem); }
 /* ── Desktop font-size bump for exam question/option text ──
    Applies only on desktop (≥901px); mobile/tablet keep their original size. */
 @media (min-width: 901px) {
-  .exam-q-text, .exam-opt-text { font-size: 16px !important; }
+  .exam-q-text { font-size: 24px !important; line-height: 1.6 !important; }
+  .exam-opt-text { font-size: 20px !important; line-height: 1.5 !important; }
+}
+@media (min-width: 1400px) {
+  .exam-q-text { font-size: 26px !important; }
+  .exam-opt-text { font-size: 22px !important; }
 }
