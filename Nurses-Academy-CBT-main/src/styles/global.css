@@ -818,3 +818,24 @@ button:not(:disabled):not([style*="underline"]):active, input[type="button"]:act
   transform: translateY(3px);
   box-shadow: var(--shadow-btn-down) !important;
 }
+
+/* ----- inline-styled cards and link-buttons (elements styled with style={{...}} rather than .card / .btn) -----
+   Matched by their inline border-radius (10px and up) plus padding, so small bars, avatars (50%) and
+   inline chips are left alone. */
+:is(div, section, article, li, label)[style*="padding"]:is(
+  [style*="border-radius: 10px"], [style*="border-radius: 12px"], [style*="border-radius: 14px"],
+  [style*="border-radius: 16px"], [style*="border-radius: 18px"], [style*="border-radius: 20px"],
+  [style*="border-radius: 24px"], [style*="border-radius: var(--radius-md)"], [style*="border-radius: var(--radius-lg)"]
+):not([style*="display: inline"]):not(.card):not(.stat-card):not(.pub-card):not(.option-card) {
+  border-radius: 28px !important;
+  background-image: var(--gloss-card) !important;
+  box-shadow: var(--shadow-card-cap) !important;
+}
+a[style*="padding"]:is(
+  [style*="border-radius: 8px"], [style*="border-radius: 10px"], [style*="border-radius: 12px"],
+  [style*="border-radius: 14px"], [style*="border-radius: 20px"], [style*="border-radius: var(--radius-md)"]
+):is([style*="background"], [style*="border:"]) {
+  border-radius: 9999px !important;
+  background-image: var(--gloss-btn) !important;
+  box-shadow: var(--shadow-btn-cap) !important;
+}
