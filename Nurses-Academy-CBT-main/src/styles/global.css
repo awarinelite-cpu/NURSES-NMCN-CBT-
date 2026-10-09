@@ -773,3 +773,48 @@ html[style*="font-size: 14"] h3 { font-size: clamp(1.6rem, 2.88vw, 2.08rem); }
   .exam-q-text { font-size: 26px !important; }
   .exam-opt-text { font-size: 22px !important; }
 }
+
+/* =====================================================================
+   Capsule-tablet look (same design language as MedIndex / EliteReg)
+   - every card: large tablet corners + glossy cylinder shading + soft shadow
+   - every button: raised capsule with a thick bottom edge that presses down
+   Gradients are layered with background-image so every colour, state and
+   theme colour keeps working. !important so it beats the older per-class rules.
+   ===================================================================== */
+:root {
+  --gloss-card: linear-gradient(to bottom, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 30%, rgba(71,85,105,.06) 62%, rgba(71,85,105,.16) 100%);
+  --gloss-btn: linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.06) 50%, rgba(0,0,0,.09) 100%);
+  --shadow-card-cap: inset 0 3px 3px rgba(255,255,255,.7), inset 0 -10px 14px rgba(71,85,105,.14), 0 10px 14px -9px rgba(15,23,42,.42);
+  --shadow-btn-cap: inset 0 1px 0 rgba(255,255,255,.5), 0 4px 0 rgba(15,23,42,.26), 0 7px 9px -3px rgba(15,23,42,.28);
+  --shadow-btn-down: inset 0 1px 2px rgba(15,23,42,.35), 0 1px 0 rgba(15,23,42,.26);
+}
+[data-theme="dark"] {
+  --gloss-card: linear-gradient(to bottom, rgba(255,255,255,.11) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,.14) 65%, rgba(0,0,0,.32) 100%);
+  --gloss-btn: linear-gradient(180deg, rgba(255,255,255,.17) 0%, rgba(255,255,255,.03) 50%, rgba(0,0,0,.20) 100%);
+  --shadow-card-cap: inset 0 2px 2px rgba(255,255,255,.12), inset 0 -10px 14px rgba(0,0,0,.30), 0 10px 14px -9px rgba(0,0,0,.75);
+  --shadow-btn-cap: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 0 rgba(0,0,0,.6), 0 7px 9px -3px rgba(0,0,0,.6);
+  --shadow-btn-down: inset 0 1px 2px rgba(0,0,0,.6), 0 1px 0 rgba(0,0,0,.6);
+}
+
+/* ----- cards ----- */
+.card, .stat-card, .pub-card, .option-card {
+  border-radius: 28px !important;
+  background-image: var(--gloss-card) !important;
+  box-shadow: var(--shadow-card-cap) !important;
+}
+.card { padding: 24px 28px; }
+.option-card { padding: 16px 24px; }
+.card-flat { box-shadow: var(--shadow-card-cap) !important; }
+
+/* ----- buttons: every button is a raised capsule (text-link buttons excluded) ----- */
+button:not([style*="underline"]), input[type="button"], input[type="submit"], a.btn {
+  border-radius: 9999px !important;
+  background-image: var(--gloss-btn) !important;
+  box-shadow: var(--shadow-btn-cap) !important;
+  transition: transform .1s, box-shadow .1s, background-color .15s;
+}
+button:disabled { box-shadow: 0 2px 0 rgba(15,23,42,.16) !important; }
+button:not(:disabled):not([style*="underline"]):active, input[type="button"]:active, input[type="submit"]:active, a.btn:active {
+  transform: translateY(3px);
+  box-shadow: var(--shadow-btn-down) !important;
+}
