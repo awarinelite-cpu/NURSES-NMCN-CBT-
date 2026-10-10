@@ -846,3 +846,28 @@ a[style*="padding"]:is([style*="border-radius: 8px"], [style*="border-radius: 10
   background-image: var(--gloss-btn) !important;
   box-shadow: var(--shadow-btn-cap) !important;
 }
+
+/* ----- Sidebar: every item is its own raised capsule button (same look as the rest of the app,
+   tuned for the navy sidebar surface). Repeated class = priority over the generic link/button rules. ----- */
+.sidebar-nav li { margin-bottom: 8px; }
+.sidebar.sidebar.sidebar.sidebar .sidebar-nav a,
+.sidebar.sidebar.sidebar.sidebar .sidebar-nav button,
+.sidebar.sidebar.sidebar.sidebar a,
+.sidebar.sidebar.sidebar.sidebar button {
+  border-radius: 9999px !important;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.05) 50%, rgba(0,0,0,.22) 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.30), 0 4px 0 rgba(0,0,0,.45), 0 7px 9px -3px rgba(0,0,0,.5) !important;
+  transition: transform .1s, box-shadow .1s, background-color .15s;
+}
+.sidebar-nav a, .sidebar-nav button {
+  padding: 12px 18px;
+  background-color: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+}
+.sidebar-nav a:hover, .sidebar-nav button:hover { background-color: var(--nav-hover); }
+.sidebar-nav a.active { background-color: var(--nav-active); border-color: rgba(0,0,0,.25); }
+.sidebar.sidebar.sidebar.sidebar a:active,
+.sidebar.sidebar.sidebar.sidebar button:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.6), 0 1px 0 rgba(0,0,0,.5) !important;
+}
