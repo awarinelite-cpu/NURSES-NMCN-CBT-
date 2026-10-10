@@ -820,21 +820,28 @@ button:not(:disabled):not([style*="underline"]):active, input[type="button"]:act
 }
 
 /* ----- inline-styled cards and link-buttons (elements styled with style={{...}} rather than .card / .btn) -----
-   Matched by their inline border-radius (10px and up) plus padding, so small bars, avatars (50%) and
-   inline chips are left alone. */
-:is(div, section, article, li, label)[style*="padding"]:is(
-  [style*="border-radius: 10px"], [style*="border-radius: 12px"], [style*="border-radius: 14px"],
-  [style*="border-radius: 16px"], [style*="border-radius: 18px"], [style*="border-radius: 20px"],
-  [style*="border-radius: 24px"], [style*="border-radius: var(--radius-md)"], [style*="border-radius: var(--radius-lg)"]
-):not([style*="display: inline"]):not(.card):not(.stat-card):not(.pub-card):not(.option-card) {
+   Matched by inline border-radius + padding, so thin bars, avatars (50%) and inline chips are left alone.
+   Links shaped like cards (quick-action tiles: column layout or generous padding) are CARDS; other padded
+   links are BUTTONS. Cards whose own inline background is a coloured gradient keep that gradient and get the
+   tablet shape + cylinder shading from shadows only. */
+:is(div[style*="padding"]:is([style*="border-radius: 10px"], [style*="border-radius: 12px"], [style*="border-radius: 14px"], [style*="border-radius: 16px"], [style*="border-radius: 18px"], [style*="border-radius: 20px"], [style*="border-radius: 24px"], [style*="border-radius: var(--radius-md)"], [style*="border-radius: var(--radius-lg)"]),
+  div[style*="padding"][style*="border: "][style*="border-radius: 8px"],
+  section[style*="padding"][style*="border-radius"], article[style*="padding"][style*="border-radius"],
+  li[style*="padding"][style*="border-radius"], label[style*="padding"][style*="border-radius: 1"],
+  a[style*="flex-direction: column"][style*="border-radius"],
+  a:is([style*="padding: 16px 20px"], [style*="padding: 18px"], [style*="padding: 20px"], [style*="padding: 24px"])[style*="border-radius"]):not([style*="display: inline"]):not([style*="position: absolute"]):not([style*="position: fixed"]):not(.card):not(.stat-card):not(.pub-card):not(.option-card) {
   border-radius: 28px !important;
-  background-image: var(--gloss-card) !important;
   box-shadow: var(--shadow-card-cap) !important;
 }
-a[style*="padding"]:is(
-  [style*="border-radius: 8px"], [style*="border-radius: 10px"], [style*="border-radius: 12px"],
-  [style*="border-radius: 14px"], [style*="border-radius: 20px"], [style*="border-radius: var(--radius-md)"]
-):is([style*="background"], [style*="border:"]) {
+:is(div[style*="padding"]:is([style*="border-radius: 10px"], [style*="border-radius: 12px"], [style*="border-radius: 14px"], [style*="border-radius: 16px"], [style*="border-radius: 18px"], [style*="border-radius: 20px"], [style*="border-radius: 24px"], [style*="border-radius: var(--radius-md)"], [style*="border-radius: var(--radius-lg)"]),
+  div[style*="padding"][style*="border: "][style*="border-radius: 8px"],
+  section[style*="padding"][style*="border-radius"], article[style*="padding"][style*="border-radius"],
+  li[style*="padding"][style*="border-radius"], label[style*="padding"][style*="border-radius: 1"],
+  a[style*="flex-direction: column"][style*="border-radius"],
+  a:is([style*="padding: 16px 20px"], [style*="padding: 18px"], [style*="padding: 20px"], [style*="padding: 24px"])[style*="border-radius"]):not([style*="gradient"]):not([style*="display: inline"]):not([style*="position: absolute"]):not([style*="position: fixed"]):not(.card):not(.stat-card):not(.pub-card):not(.option-card) {
+  background-image: var(--gloss-card) !important;
+}
+a[style*="padding"]:is([style*="border-radius: 8px"], [style*="border-radius: 10px"], [style*="border-radius: 12px"], [style*="border-radius: 14px"], [style*="border-radius: 20px"], [style*="border-radius: var(--radius-md)"]):is([style*="background"], [style*="border:"]):not([style*="flex-direction: column"]):not([style*="padding: 16px 20px"]):not([style*="padding: 18px"]):not([style*="padding: 20px"]):not([style*="padding: 24px"]) {
   border-radius: 9999px !important;
   background-image: var(--gloss-btn) !important;
   box-shadow: var(--shadow-btn-cap) !important;
