@@ -300,20 +300,6 @@ export default function DailyMockExamHub() {
         <button className="btn btn-ghost btn-sm" onClick={backToSpecialties}>
           ← All Specialties
         </button>
-        <div style={{ display: 'flex', flexShrink: 0, border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-          <button
-            onClick={() => setStudyMode('single')}
-            style={{ padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: studyMode === 'single' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'single' ? '#fff' : 'var(--text-secondary)' }}
-          >
-            🧍 Single
-          </button>
-          <button
-            onClick={() => setStudyMode('group')}
-            style={{ padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: studyMode === 'group' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'group' ? '#fff' : 'var(--text-secondary)' }}
-          >
-            👥 Group
-          </button>
-        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
@@ -325,6 +311,22 @@ export default function DailyMockExamHub() {
       <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
         A fresh pool of up to 250 {sp.label} questions every 24 hours. Choose how many you want to answer — the exam is timed at 1 minute per question.
       </p>
+
+      {/* Single / Group switch — full width, right above the main exam card so it is easy to see */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+        <button
+          onClick={() => setStudyMode('single')}
+          style={{ flex: 1, padding: '12px 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer', border: 'none', background: studyMode === 'single' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'single' ? '#fff' : 'var(--text-secondary)' }}
+        >
+          🧍 Single
+        </button>
+        <button
+          onClick={() => setStudyMode('group')}
+          style={{ flex: 1, padding: '12px 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer', border: 'none', background: studyMode === 'group' ? sp.color : 'var(--bg-tertiary)', color: studyMode === 'group' ? '#fff' : 'var(--text-secondary)' }}
+        >
+          👥 Group
+        </button>
+      </div>
 
       {/* Push notification prompt */}
       {pushSupported() && pushState !== 'granted' && pushState !== 'unsupported' && (
