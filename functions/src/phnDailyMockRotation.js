@@ -100,5 +100,11 @@ exports.manuallyRotatePhnDailyMock = functions.https.onCall(async (data, context
   if (role !== 'admin' && role !== 'subadmin') {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
-  return rotatePhnPool();
+  try {
+    return await rotatePhnPool();
+  } catch (e) {
+    // Surface the real cause to the admin toast instead of a bare "internal".
+    console.error('PHN rotation failed', e);
+    throw new functions.https.HttpsError('internal', `PHN rotation failed: ${e.code || ''} ${e.message || e}`.slice(0, 300));
+  }
 });
