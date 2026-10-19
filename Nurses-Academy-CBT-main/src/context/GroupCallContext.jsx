@@ -101,7 +101,29 @@ export function GroupCallProvider({ children }) {
       setJoined(true);
     } catch (e) {
       console.error('Agora join failed', e);
-      setCallErr('Could not start the call — check mic permission and try again.');
+      const name = e?.name || '';
+      const code = e?.code || '';
+      let msg = 'Could not start the call — check mic permission and try again.';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || code === 'PERMISSION_DENIED') {
+        msg = 'Microphone access was blocked — allow the mic for this app in your phone/browser settings, then try again.';
+      } else if (name === 'NotFoundError' || code === 'DEVICE_NOT_FOUND') {
+        msg = 'No microphone found on this device.';
+      } else if (code === 'unauthenticated' || code === 'functions/unauthenticated') {
+        msg = 'Please sign in again, then rejoin the call.';
+      } else if (code === 'permission-denied' || code === 'functions/permission-denied') {
+        msg = 'You must be a member of this group session to join its call.';
+      } else if (code === 'failed-precondition' || code === 'functions/failed-precondition') {
+        msg = 'Group calling isn\u2019t configured on the server yet (Agora secrets missing).';
+      } else if (code === 'functions/not-found' || code === 'functions/internal' || code === 'functions/unavailable') {
+        msg = 'Call server unreachable (token service). Check that mintAgoraToken is deployed.';
+      } else if (code === 'INVALID_OPERATION' || /token|dynamic key|invalid vendor key/i.test(e?.message || '')) {
+        msg = 'Call rejected by Agora (invalid App ID/token). Check Agora credentials.';
+      } else if (code === 'NETWORK_ERROR' || code === 'UNEXPECTED_ERROR' || /network|fetch|csp|blocked/i.test(e?.message || '')) {
+        msg = 'Could not reach the call service — check your connection and try again.';
+      }
+      setCallErr(msg);
+      try { micRef.current?.close(); } catch {}
+      micRef.current = null;
       clientRef.current = null;
       setChannel(null);
     } finally {
