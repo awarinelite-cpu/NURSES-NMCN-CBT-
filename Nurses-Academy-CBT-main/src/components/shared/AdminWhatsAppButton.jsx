@@ -47,7 +47,8 @@ function defaultPosition() {
   if (typeof window === 'undefined') return { x: MARGIN, y: MARGIN };
   return clampPosition({
     x: window.innerWidth - SIZE - 16,
-    y: window.innerHeight - SIZE - 16,
+    // On phones the NMCN bottom tab bar occupies the lowest ~72px
+    y: window.innerHeight - SIZE - (window.innerWidth <= 900 ? 88 : 16),
   });
 }
 

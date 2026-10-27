@@ -6,6 +6,7 @@ import Sidebar                  from './Sidebar';
 import InstallBanner            from './InstallBanner';
 import MessageNotifier          from './MessageNotifier';
 import AdminWhatsAppButton      from './AdminWhatsAppButton';
+import NmcnBottomNav            from './NmcnBottomNav';
 import { useToast }             from './Toast';
 import { useAuth }              from '../../context/AuthContext';
 import {
@@ -25,6 +26,10 @@ export default function AppLayout() {
 
   // Detect entrance vs NMCN context for MessageNotifier
   const isEntrance = location.pathname.startsWith('/entrance-exam');
+  const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/subadmin');
+  // Chat screens need the whole viewport (input bar at the bottom)
+  const isChatScreen = /^\/chat\/|^\/group-chat\/[^/]+/.test(location.pathname);
+  const showBottomNav = !!user && !isEntrance && !isAdminPath && !isChatScreen;
 
   // ── Fetch streak once on mount, re-check when route changes ──────────────
   useEffect(() => {
@@ -54,7 +59,7 @@ export default function AppLayout() {
   }, [streakData, streakToastFired, toast]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div className={showBottomNav ? 'nmcn-has-bottom-nav' : ''} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <Navbar onMenuToggle={() => setSidebarOpen(o => !o)} />
       <div className="dashboard-layout" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -62,6 +67,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      {showBottomNav && <NmcnBottomNav />}
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
       <MessageNotifier mode={isEntrance ? 'entrance' : 'nmcn'} />

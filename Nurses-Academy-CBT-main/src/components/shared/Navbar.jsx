@@ -1,5 +1,5 @@
 // src/components/shared/Navbar.jsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -44,14 +44,60 @@ function useSiteContext() {
   return stored;
 }
 
+function useIsMobile(bp = 900) {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.innerWidth <= bp);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp}px)`);
+    const h = () => setM(mq.matches);
+    h();
+    mq.addEventListener ? mq.addEventListener('change', h) : mq.addListener(h);
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', h) : mq.removeListener(h); };
+  }, [bp]);
+  return m;
+}
+
 export default function Navbar({ onMenuToggle }) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
   const site      = useSiteContext();
   const isEntrance = site === 'entrance';
   const dashboardTo = isEntrance ? '/entrance-exam' : '/dashboard';
+
+  // Compact one-row header for the NMCN CBT side on phones
+  if (user && isMobile && !isEntrance) {
+    return (
+      <header style={styles.compactNav}>
+        <button style={styles.compactMenu} onClick={onMenuToggle} aria-label="Toggle sidebar">
+          <span style={styles.bar} /><span style={styles.bar} /><span style={styles.bar} />
+        </button>
+        <Link to={dashboardTo} style={styles.compactBrand}>
+          <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 56, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+          <span style={styles.compactText}>
+            The Elite Nurses
+            <span style={styles.compactTagline}>Your Path to Nursing Excellence</span>
+          </span>
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <button
+            style={{
+              ...styles.themeBtn, width: 40, height: 40,
+              background: theme === 'dark' ? 'rgba(245,158,11,0.15)' : theme === 'reading' ? 'rgba(160,132,92,0.2)' : 'rgba(30,58,138,0.15)',
+              border: theme === 'dark' ? '1px solid rgba(245,158,11,0.45)' : theme === 'reading' ? '1px solid rgba(160,132,92,0.4)' : '1px solid rgba(99,102,241,0.35)',
+            }}
+            onClick={toggleTheme}
+            aria-label="Switch theme"
+          >
+            <span style={{ fontSize: 18 }}>{theme === 'dark' ? '☀️' : theme === 'light' ? '📖' : '🌙'}</span>
+          </button>
+          <FontSizeControl />
+          <NotificationBell />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header style={styles.navbar}>
@@ -123,6 +169,30 @@ export default function Navbar({ onMenuToggle }) {
 }
 
 const styles = {
+  compactNav: {
+    background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)',
+    position: 'sticky', top: 0, zIndex: 100,
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '8px 12px', minHeight: 64,
+  },
+  compactMenu: {
+    background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+    display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0,
+  },
+  bar: { display: 'block', width: 24, height: 3, borderRadius: 2, background: '#fff' },
+  compactBrand: {
+    display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+    flex: 1, minWidth: 0,
+  },
+  compactText: {
+    display: 'flex', flexDirection: 'column', minWidth: 0,
+    fontFamily: "'Playfair Display', serif", fontWeight: 900, color: '#fff',
+    fontSize: 'clamp(17px, 5.4vw, 26px)', lineHeight: 1.1, whiteSpace: 'nowrap',
+  },
+  compactTagline: {
+    fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: '#14B8A8',
+    fontSize: 'clamp(9px, 2.9vw, 13px)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis',
+  },
   navbar: {
     background: 'var(--nav-bg)',
     borderBottom: '2px solid var(--teal)',

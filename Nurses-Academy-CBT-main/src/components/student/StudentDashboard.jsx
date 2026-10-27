@@ -500,6 +500,12 @@ const QUICK_ACTIONS = [
     desc: 'Practice real OSCE-style clinical stations: read the scenario, tick the procedures you would perform, then answer CBT questions on the case.',
     color: '#0D9488',
   },
+  {
+    to: '/essay-questions', icon: '✍️', label: 'Essay Questions',
+    sub: 'Practice written answers',
+    desc: 'Practice long-form essay questions with model answers to sharpen your written exam technique.',
+    color: '#F59E0B',
+  },
 ];
 
 // ── Start Exam Modal ──────────────────────────────────────────────────────────
@@ -848,363 +854,282 @@ export default function StudentDashboard() {
     return () => clearTimeout(t);
   }, [streak]);
 
+  const firstName = (profile?.name || user?.displayName || 'Nurse').split(' ')[0];
+  const slide = QUICK_ACTIONS[slideIdx] || QUICK_ACTIONS[0];
+
+  const statChips = [
+    { icon: '📄', label: 'Exams Taken', value: animExams,       to: '/results',   tint: '#2563EB' },
+    { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`,  to: '/performance', tint: '#22C55E' },
+    { icon: '🔥', label: 'Day Streak',  value: animStreak,      to: '/progress-wall', tint: '#F97316' },
+    { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,   to: '/bookmarks', tint: '#14B8A6' },
+  ];
+
   return (
-    <div style={{ padding: '24px', maxWidth: 1200 }}>
+    <div className="nmcn-dash" style={{ padding: '14px 14px 24px', maxWidth: 1200, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       <style>{`
         .btn-strip-track::-webkit-scrollbar { display: none; }
         .btn-strip-track { -ms-overflow-style: none; scrollbar-width: none; }
+        .nmcn-dash a { -webkit-tap-highlight-color: transparent; }
+        .nmcn-qgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        @media (min-width: 901px) { .nmcn-qgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .nmcn-dash { padding: 24px !important; } }
+        .nmcn-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        @media (min-width: 640px) { .nmcn-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        .nmcn-qcard:active, .nmcn-slidecard:active { transform: scale(0.985); }
       `}</style>
 
       {streakMilestone > 0 && (
-        <StreakMilestoneModal
-          streak={streakMilestone}
-          onClose={() => setStreakMilestone(0)}
-        />
+        <StreakMilestoneModal streak={streakMilestone} onClose={() => setStreakMilestone(0)} />
       )}
 
       {streakReminderData && <StreakReminderBanner streakData={streakReminderData} />}
 
       {showModal && (
-        <PausedExamsModal
-          paused={pausedExams}
-          onResume={handleResume}
-          onDelete={handleDelete}
-          onClose={() => setShowModal(false)}
-        />
+        <PausedExamsModal paused={pausedExams} onResume={handleResume} onDelete={handleDelete} onClose={() => setShowModal(false)} />
       )}
 
-      {showStartModal && (
-        <StartExamModal onClose={() => setShowStartModal(false)} />
-      )}
+      {showStartModal && <StartExamModal onClose={() => setShowStartModal(false)} />}
 
-      {/* ── Badge preview strip ── */}
-      {earnedBadges.length > 0 && (
-        <div
-          onClick={() => navigate('/badges')}
-          style={{
-            background: 'linear-gradient(135deg, #0D948818 0%, #1E3A8A18 100%)',
-            border: '1.5px solid rgba(13,148,136,0.25)',
-            borderRadius: 14, padding: '12px 18px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            cursor: 'pointer', marginBottom: 16,
-            transition: 'border-color 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>🏅</span>
-            <div>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: '#0D9488' }}>
-                {earnedBadges.length} Badge{earnedBadges.length !== 1 ? 's' : ''} Earned
-              </div>
-              <div style={{ fontFamily: F, fontSize: 11, color: 'var(--text-muted)' }}>
-                Tap to view your collection
-              </div>
-            </div>
+      {/* ── Badge strip ── */}
+      <div
+        onClick={() => navigate('/badges')}
+        role="button"
+        style={{
+          ...S.panel, display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 14px', cursor: 'pointer', marginBottom: 14,
+        }}
+      >
+        <span style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }}>🏅</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: H, fontWeight: 900, fontSize: 16, color: '#2dd4bf' }}>
+            {earnedBadges.length > 0
+              ? `${earnedBadges.length} Badge${earnedBadges.length !== 1 ? 's' : ''} Earned`
+              : 'No badges yet'}
           </div>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            {earnedBadges.slice(0, 5).map(id => {
-              const b = BADGE_MAP[id];
-              return b ? <span key={id} style={{ fontSize: 22 }} title={b.label}>{b.icon}</span> : null;
-            })}
-            <span style={{ fontFamily: H, fontWeight: 900, fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>›</span>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+            {earnedBadges.length > 0 ? 'Tap to view your collection' : 'Complete an exam to earn your first badge'}
           </div>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+          {earnedBadges.slice(0, 2).map(id => {
+            const b = BADGE_MAP[id];
+            return b ? (
+              <span key={id} title={b.label} style={{
+                width: 46, height: 46, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, background: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.7)',
+              }}>{b.icon}</span>
+            ) : null;
+          })}
+          <span style={{ fontSize: 26, color: 'var(--text-primary)', fontWeight: 700, marginLeft: 2 }}>›</span>
+        </div>
+      </div>
 
-      {/* ── Exam Countdown ── */}
-      <ExamCountdown />
-
-      {/* ── Tip of the Day ── */}
-      <TipOfDay />
-
-      {/* ── Daily Challenge ── */}
-      <DailyChallenge />
-
-      {/* ── Full-width carousel banner ── */}
+      {/* ── Hero banner ── */}
       <div
         style={{
           ...S.banner,
           opacity: bannerVis ? 1 : 0,
-          transform: bannerVis ? 'translateY(0)' : 'translateY(-20px)',
+          transform: bannerVis ? 'translateY(0)' : 'translateY(-14px)',
           transition: 'opacity .6s ease, transform .6s ease',
-          padding: 0, userSelect: 'none',
-          display: 'flex', flexDirection: 'column',
+          userSelect: 'none',
         }}
         onMouseDown={handlePointerDown}
         onMouseUp={handlePointerUp}
         onTouchStart={handlePointerDown}
         onTouchEnd={handlePointerUp}
       >
-        <div style={{ position: 'relative' }}>
-          {QUICK_ACTIONS.map((action, i) => (
-            <div
-              key={action.label}
-              style={{
-                display: i === slideIdx ? 'flex' : 'none',
-                alignItems: 'flex-start', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 12, width: '100%',
-                padding: 'clamp(18px, 4vw, 28px) clamp(16px, 4vw, 32px)',
-                opacity: slideFade ? 1 : 0,
-                transition: 'opacity .38s ease',
-                background: 'linear-gradient(135deg, #2B3320 0%, #4B5320 100%)',
-                borderRadius: 20, boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, background: 'radial-gradient(ellipse at 75% 50%, #6B8E2333 0%, transparent 65%)' }} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 85% 18%, rgba(110,160,120,0.35) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', right: 10, top: 18, fontSize: 'clamp(90px, 28vw, 150px)', opacity: 0.14, pointerEvents: 'none', lineHeight: 1, transform: 'rotate(-12deg)' }}>🩺</div>
 
-              <div style={{ position: 'relative', zIndex: 1, flex: '1 1 260px', minWidth: 0 }}>
-                <h1 style={{ fontSize: 'clamp(1rem,5vw,1.4rem)', color: 'rgba(255,255,255,0.9)', fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', margin: '0 0 6px' }}>
-                  🏥 NMCN CBT Platform
-                </h1>
-                <h1 style={{ color: '#fff', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1.4rem,6vw,2.4rem)', margin: '0 0 8px', lineHeight: 1.2 }}>
-                  {greet}, {(profile?.name || user?.displayName || 'Student').split(' ')[0]}! 👋
-                </h1>
-                <h2 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 'clamp(0.85rem,3vw,1.1rem)', fontWeight: 500, margin: '0 0 16px', lineHeight: 1.4 }}>
-                  {profile?.subscribed
-                    ? '🌟 Premium subscriber — all content unlocked'
-                    : '🎯 Free plan — upgrade to unlock all past questions'}
-                </h2>
-                <Link
-                  to={action.to}
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    textDecoration: 'none', width: '100%', boxSizing: 'border-box',
-                  }}
-                >
-                  <div style={{ fontSize: 32, flexShrink: 0 }}>
-                    {action.icon}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h2 style={{ fontWeight: 800, fontSize: 'clamp(1rem,3.5vw,1.3rem)', color: '#fff', margin: '0 0 3px' }}>{action.label}</h2>
-                    <h2 style={{ fontSize: 'clamp(0.78rem,2.5vw,1rem)', fontWeight: 400, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                      {action.desc}
-                    </h2>
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 900, fontSize: 22, flexShrink: 0 }}>→</div>
-                </Link>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 30 }}>📋</span>
+            <h1 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontWeight: 900, color: '#fff', letterSpacing: 1, textTransform: 'uppercase', fontSize: 'clamp(1.15rem, 5.6vw, 1.7rem)', lineHeight: 1.15 }}>
+              NMCN CBT Platform
+            </h1>
+          </div>
+          <h2 style={{ margin: '4px 0 6px', color: '#fff', fontWeight: 800, fontSize: 'clamp(1.35rem, 6.4vw, 2.1rem)', lineHeight: 1.2 }}>
+            {greet}, {firstName}! <span style={{ display: 'inline-block' }}>👋</span>
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.92)', fontSize: 'clamp(0.85rem, 3.4vw, 1.05rem)', marginBottom: 14 }}>
+            <span style={{ fontSize: 20 }}>{profile?.subscribed ? '👑' : '🎯'}</span>
+            <span>{profile?.subscribed ? 'Premium subscriber — all content unlocked' : 'Free plan — upgrade to unlock everything'}</span>
+          </div>
 
-                <div style={{ display: 'flex', gap: 5, marginTop: 10, marginBottom: 14 }}>
-                  {QUICK_ACTIONS.map((a, di) => (
-                    <button
-                      key={di}
-                      onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
-                      style={{
-                        width: di === slideIdx ? 20 : 6, height: 6,
-                        borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                        background: di === slideIdx ? '#A9C46C' : 'rgba(255,255,255,0.28)',
-                        transition: 'width .3s ease, background .3s ease',
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
-                  {pausedExams.length > 0 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); setShowModal(true); }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
-                        fontWeight: 700, fontSize: 15, fontFamily: F,
-                        background: 'rgba(13,148,136,0.25)', border: '1.5px solid rgba(13,148,136,0.65)', color: '#5EEAD4',
-                        whiteSpace: 'nowrap', flexShrink: 0,
-                      }}
-                    >
-                      ▶ Continue
-                      <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>
-                        {pausedExams.length}
-                      </span>
-                    </button>
-                  )}
-
-                  {!profile?.subscribed && (
-                    <Link
-                      to="/subscription"
-                      onClick={e => e.stopPropagation()}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '12px 26px', borderRadius: 10, cursor: 'pointer',
-                        fontWeight: 700, fontSize: 15, fontFamily: F,
-                        background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.4)', color: '#fff',
-                        whiteSpace: 'nowrap', flexShrink: 0, textDecoration: 'none',
-                      }}
-                    >
-                      👑 Upgrade
-                    </Link>
-                  )}
-                </div>
-
-                {/* ── Live stats — moved inside banner, frosted chips ── */}
-                <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }} onClick={e => e.stopPropagation()}>
-                  {[
-                    { icon: '📝', label: 'Exams Taken', value: animExams,      to: null },
-                    { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`, to: null },
-                    { icon: '🔥', label: 'Day Streak',  value: animStreak,     to: null },
-                    { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,  to: '/bookmarks' },
-                  ].map(s => {
-                    const chip = (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 12, padding: '10px 16px' }}>
-                        <span style={{ fontSize: 18 }}>{s.icon}</span>
-                        <div>
-                          <div style={{ fontWeight: 900, fontSize: 18, color: '#fff', lineHeight: 1, fontFamily: H }}>{s.value}</div>
-                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginTop: 2 }}>{s.label}</div>
-                        </div>
-                      </div>
-                    );
-                    return s.to ? (
-                      <Link key={s.label} to={s.to} style={{ textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{chip}</Link>
-                    ) : (
-                      <div key={s.label}>{chip}</div>
-                    );
-                  })}
-                </div>
+          {/* Rotating featured action (swipe / dots) */}
+          <Link
+            to={slide.to}
+            className="nmcn-slidecard"
+            onClick={e => e.stopPropagation()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none',
+              background: 'rgba(8,40,36,0.55)', border: '1.5px solid rgba(45,212,191,0.4)',
+              borderRadius: 16, padding: '14px 14px', marginBottom: 10, boxSizing: 'border-box',
+              opacity: slideFade ? 1 : 0, transition: 'opacity .35s ease, transform .15s',
+            }}
+          >
+            <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0 }}>{slide.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 'clamp(1.05rem, 4.4vw, 1.35rem)', color: '#fff', marginBottom: 3 }}>{slide.label}</div>
+              <div style={{ fontSize: 'clamp(0.8rem, 3.2vw, 0.98rem)', color: 'rgba(255,255,255,0.85)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                {slide.desc}
               </div>
             </div>
-          ))}
+            <span style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(45,212,191,0.7)', color: '#fff', fontSize: 20, background: 'rgba(13,148,136,0.25)' }}>→</span>
+          </Link>
+
+          <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 12 }}>
+            {QUICK_ACTIONS.map((a, di) => (
+              <button
+                key={di}
+                aria-label={`Show ${a.label}`}
+                onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
+                style={{
+                  width: di === slideIdx ? 20 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                  background: di === slideIdx ? '#2dd4bf' : 'rgba(255,255,255,0.28)',
+                  transition: 'width .3s ease, background .3s ease',
+                }}
+              />
+            ))}
+          </div>
+
+          {(pausedExams.length > 0 || !profile?.subscribed) && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }} onClick={e => e.stopPropagation()}>
+              {pausedExams.length > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setShowModal(true); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(13,148,136,0.28)', border: '1.5px solid rgba(45,212,191,0.7)', color: '#5EEAD4' }}
+                >
+                  ▶ Continue
+                  <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>{pausedExams.length}</span>
+                </button>
+              )}
+              {!profile?.subscribed && (
+                <Link
+                  to="/subscription"
+                  onClick={e => e.stopPropagation()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(245,158,11,0.18)', border: '1.5px solid rgba(245,158,11,0.7)', color: '#FCD34D', textDecoration: 'none' }}
+                >
+                  👑 Upgrade
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="nmcn-stats" onClick={e => e.stopPropagation()}>
+            {statChips.map(c => (
+              <Link
+                key={c.label}
+                to={c.to}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0,
+                  background: 'rgba(8,40,36,0.55)', border: '1.5px solid rgba(45,212,191,0.35)',
+                  borderRadius: 14, padding: '10px 10px',
+                }}
+              >
+                <span style={{ width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, background: `${c.tint}33`, flexShrink: 0 }}>{c.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 900, fontSize: 'clamp(1.1rem, 4.6vw, 1.45rem)', color: '#fff', lineHeight: 1.05, fontFamily: H }}>{c.value}</div>
+                  <div style={{ fontSize: 'clamp(11px, 3.2vw, 14px)', color: 'rgba(255,255,255,0.8)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'right', marginTop: 4, fontFamily: "'Segoe Script', 'Brush Script MT', cursive", fontStyle: 'italic', color: '#F5D88A', fontSize: 'clamp(15px, 4.6vw, 21px)', lineHeight: 1.15 }}>
+            Study Today<br />Pass Tomorrow
+            <div style={{ height: 2, width: '70%', marginLeft: 'auto', marginTop: 3, background: '#F5D88A', borderRadius: 2, opacity: 0.8 }} />
+          </div>
         </div>
       </div>
 
-      {/* ── Paused inline banner ── */}
+      {/* ── Paused exam inline banner ── */}
       {pausedExams.length > 0 && (
-        <ACard delay={700} style={{ marginBottom: 24 }}>
+        <ACard delay={300} style={{ marginBottom: 14 }}>
           <div
             onClick={() => setShowModal(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.3)',
-              borderRadius: 14, padding: '14px 18px', cursor: 'pointer',
-            }}
+            style={{ ...S.panel, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer' }}
           >
-            <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'rgba(13,148,136,0.18)', border: '1.5px solid rgba(13,148,136,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 2 }}>
                 You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {pausedExams[0]?.examName || 'Exam'} · click to resume
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {pausedExams[0]?.examName || 'Exam'} · tap to resume
               </div>
             </div>
-            <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 16 }}>→</span>
+            <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 18 }}>→</span>
           </div>
         </ACard>
       )}
 
-      {/* ── Free plan notice for unpaid users ── */}
+      {/* ── Free plan notice ── */}
       {!profile?.subscribed && (
-        <ACard delay={730} style={{ marginBottom: 20 }}>
-          <div style={{
-            display: 'flex', alignItems: 'flex-start', gap: 14,
-            background: 'rgba(245,158,11,0.07)',
-            border: '1.5px solid rgba(245,158,11,0.35)',
-            borderRadius: 14, padding: '14px 18px',
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(245,158,11,0.15)', border: '1.5px solid rgba(245,158,11,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-            }}>🎯</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#F59E0B', marginBottom: 3 }}>
-                Free Plan — 10 Question Preview
-              </div>
+        <ACard delay={330} style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: 'rgba(245,158,11,0.07)', border: '1.5px solid rgba(245,158,11,0.35)', borderRadius: 16, padding: '14px 16px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(245,158,11,0.15)', border: '1.5px solid rgba(245,158,11,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎯</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#F59E0B', marginBottom: 3 }}>Free Plan — 10 Question Preview</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                You can try any exam mode below. Each session gives you the same 10 starter questions
-                so you can experience the platform before upgrading.
+                Try any exam mode below. Each session gives you the same 10 starter questions before you upgrade.
               </div>
             </div>
-            <Link
-              to="/subscription"
-              style={{
-                flexShrink: 0, padding: '7px 14px', borderRadius: 8,
-                background: '#F59E0B', color: '#1a1a1a',
-                fontWeight: 700, fontSize: 12, textDecoration: 'none',
-                whiteSpace: 'nowrap', alignSelf: 'center',
-              }}
-            >
+            <Link to="/subscription" style={{ flexShrink: 0, padding: '7px 12px', borderRadius: 8, background: '#F59E0B', color: '#1a1a1a', fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
               👑 Upgrade
             </Link>
           </div>
         </ACard>
       )}
 
-      {/* ── Exam date countdown ── */}
-      <ExamCountdownBanner user={user} />
+      {/* ── Exam date ── */}
+      <ExamCountdownBanner user={user} profile={profile} />
+      <ExamCountdown />
 
-      {/* ── Quick actions ── */}
-      <ACard delay={750} style={{ marginBottom: 32 }}>
-        <h3 style={{ ...S.sectionTitle, marginBottom: 14 }}>⚡ Quick Actions</h3>
-        <SurpriseMeButton profile={profile} />
-        <div style={S.quickGrid}>
-          {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={800 + i * 70} />)}
+      {/* ── Quick Actions ── */}
+      <ACard delay={380} style={{ marginBottom: 22 }}>
+        <h3 style={{ ...S.sectionTitle, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ color: '#F59E0B' }}>⚡</span> Quick Actions
+        </h3>
+        <SurpriseMeButton profile={profile} user={user} />
+        <div className="nmcn-qgrid">
+          {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={420 + i * 50} />)}
         </div>
       </ACard>
 
-      {/* ── Weak Topic Detector ── */}
+      {/* ── Daily challenge + tip ── */}
+      <DailyChallenge />
+      <TipOfDay />
+
+      {/* ── Weak topics ── */}
       <WeakTopicDetector user={user} />
 
-      {/* ── Progress Wall shortcut ── */}
-      <ACard delay={980} style={{ marginBottom: 20 }}>
-        <div
-          onClick={() => navigate('/progress-wall')}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'linear-gradient(135deg,rgba(13,148,136,0.12),rgba(30,58,138,0.12))',
-            border: '1.5px solid rgba(13,148,136,0.25)',
-            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
-            transition: 'border-color 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 28 }}>🗺️</span>
-            <div>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Progress Wall</div>
-              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Heatmap · Subject mastery · Weak spots</div>
-            </div>
-          </div>
-          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
-        </div>
+      {/* ── Shortcuts ── */}
+      <ACard delay={600} style={{ marginBottom: 12 }}>
+        <ShortcutRow icon="🗺️" title="Progress Wall" sub="Heatmap · Subject mastery · Weak spots" to="/progress-wall" />
       </ACard>
-
-      {/* ── Study Buddy shortcut ── */}
-      <ACard delay={990} style={{ marginBottom: 20 }}>
-        <div
-          onClick={() => navigate('/study-buddy')}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(13,148,136,0.1))',
-            border: '1.5px solid rgba(124,58,237,0.25)',
-            borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
-            transition: 'border-color 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 28 }}>🤝</span>
-            <div>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>Study Buddy Finder</div>
-              <div style={{ fontFamily: F, fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Match with students who complement your weak subjects</div>
-            </div>
-          </div>
-          <span style={{ fontFamily: H, fontWeight: 900, fontSize: 18, color: 'var(--text-muted)' }}>›</span>
-        </div>
+      <ACard delay={640} style={{ marginBottom: 12 }}>
+        <ShortcutRow icon="🤝" title="Study Buddy Finder" sub="Match with students who complement your weak subjects" to="/study-buddy" />
+      </ACard>
+      <ACard delay={680} style={{ marginBottom: 22 }}>
+        <ShortcutRow icon="🏆" title="Leaderboard" sub="See how you rank against other students" to="/leaderboard" />
       </ACard>
 
       {/* ── Categories ── */}
-      <ACard delay={1000} style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={S.sectionTitle}>🏥 Exam Categories</h3>
-        </div>
+      <ACard delay={720} style={{ marginBottom: 24 }}>
+        <h3 style={{ ...S.sectionTitle, marginBottom: 12 }}>🏥 Exam Categories</h3>
         <div style={S.categoriesGrid}>
           {NURSING_CATEGORIES.slice(0, 8).map((cat, i) => (
-            <CatCard key={cat.id} cat={cat} delay={1050 + i * 60} />
+            <CatCard key={cat.id} cat={cat} delay={760 + i * 50} />
           ))}
         </div>
       </ACard>
 
       {/* ── Recent sessions ── */}
       {recentSessions.length > 0 && (
-        <ACard delay={1300}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <ACard delay={900}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h3 style={S.sectionTitle}>🕓 Recent Exams</h3>
             <Link to="/results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
           </div>
@@ -1216,7 +1141,7 @@ export default function StudentDashboard() {
               <tbody>
                 {recentSessions.map((s, i) => {
                   const cat = NURSING_CATEGORIES.find(c => c.id === s.category);
-                  return <SessionRow key={s.id} s={s} cat={cat} delay={1350 + i * 80} />;
+                  return <SessionRow key={s.id} s={s} cat={cat} delay={940 + i * 80} />;
                 })}
               </tbody>
             </table>
@@ -1251,7 +1176,7 @@ function StatInner({ icon, label, value, color, bg, ring }) {
 // ── Exam Date Countdown Banner ───────────────────────────────────────────────
 // Reads the student's studyPlan doc for their examDate and shows a countdown.
 // Color shifts: green (>60d) → amber (30–60d) → red (<30d) → purple (today).
-function ExamCountdownBanner({ user }) {
+function ExamCountdownBanner({ user, profile }) {
   const navigate = useNavigate();
   const [examDate, setExamDate] = useState('');
   const [loaded,   setLoaded]   = useState(false);
@@ -1269,23 +1194,22 @@ function ExamCountdownBanner({ user }) {
   }, [user]);
 
   if (!loaded) return null;
+  // profile.examDate is rendered by the shared <ExamCountdown /> widget
+  if (profile?.examDate) return null;
 
   if (!examDate) {
     return (
       <div
         onClick={() => navigate('/study-plan')}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-          borderRadius: 12, background: 'rgba(13,148,136,0.08)',
-          border: '1px dashed rgba(13,148,136,0.35)',
-          cursor: 'pointer', marginBottom: 20,
-        }}
+        role="button"
+        style={{ ...S.panel, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 14px', cursor: 'pointer', marginBottom: 20 }}
       >
-        <span style={{ fontSize: 20 }}>📅</span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: F, fontWeight: 700 }}>
-          Set your NMCN exam date → get a personalised countdown &amp; study plan
-        </span>
-        <span style={{ marginLeft: 'auto', color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>Set →</span>
+        <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0 }}>🗓️</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(15px, 4.6vw, 19px)', color: 'var(--text-primary)' }}>Set your NMCN exam date</div>
+          <div style={{ fontSize: 'clamp(12px, 3.6vw, 15px)', color: 'var(--text-muted)', marginTop: 3 }}>Personalised countdown &amp; study plan</div>
+        </div>
+        <span style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 24, background: 'linear-gradient(135deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 800, fontSize: 16, boxShadow: '0 3px 12px rgba(13,148,136,0.45)' }}>Set ›</span>
       </div>
     );
   }
@@ -1341,7 +1265,7 @@ function ExamCountdownBanner({ user }) {
 // Picks a random pool mode exam (10 questions) weighted toward weak areas.
 // Uses examSessions weak topic data from Firestore if available, otherwise
 // picks a random NMCN category.
-function SurpriseMeButton({ profile }) {
+function SurpriseMeButton({ profile, user }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [pulse, setPulse]     = useState(false);
@@ -1360,7 +1284,7 @@ function SurpriseMeButton({ profile }) {
     try {
       // Try to find a weak category from recent sessions
       let pickedCat = null;
-      const uid = profile?.uid;
+      const uid = user?.uid || profile?.uid;
       if (uid) {
         try {
           const { getDocs: gd, collection: col, query: q, where: w } = await import('firebase/firestore');
@@ -1414,51 +1338,72 @@ function SurpriseMeButton({ profile }) {
       onClick={handleSurprise}
       disabled={loading}
       style={{
-        width: '100%', padding: '16px 20px', borderRadius: 14, border: 'none',
-        background: 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+        width: '100%', padding: '14px 16px', borderRadius: 18,
+        border: '1.5px solid rgba(45,212,191,0.55)',
+        background: 'linear-gradient(135deg, #0b5f4f 0%, #0f766e 55%, #0d4a45 100%)',
         color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
-        display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16,
-        boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
-        transform: pulse ? 'scale(1.02)' : 'scale(1)',
+        display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12,
+        boxShadow: '0 4px 20px rgba(13,148,136,0.3)',
+        transform: pulse ? 'scale(1.015)' : 'scale(1)',
         transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
-        opacity: loading ? 0.7 : 1,
+        opacity: loading ? 0.7 : 1, textAlign: 'left',
       }}
     >
-      <span style={{ fontSize: 28 }}>{loading ? '⏳' : '🎲'}</span>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 16, fontWeight: 900, fontFamily: H, letterSpacing: 0.3 }}>
+      <span style={{ fontSize: 46, lineHeight: 1, flexShrink: 0 }}>{loading ? '⏳' : '🎲'}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 'clamp(1.1rem, 4.8vw, 1.4rem)', fontWeight: 900, fontFamily: H }}>
           {loading ? 'Finding questions…' : 'Surprise Me!'}
         </div>
-        <div style={{ fontSize: 12, opacity: 0.85, fontFamily: F, fontWeight: 700 }}>
+        <div style={{ fontSize: 'clamp(0.8rem, 3.3vw, 1rem)', opacity: 0.92, lineHeight: 1.35, marginTop: 2 }}>
           10 smart questions based on your weak areas • No setup needed
         </div>
       </div>
-      {!loading && <span style={{ marginLeft: 'auto', fontSize: 20, opacity: 0.7 }}>→</span>}
+      {!loading && (
+        <span style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(255,255,255,0.7)', fontSize: 20 }}>→</span>
+      )}
     </button>
   );
 }
 
-function QuickCard({ to, icon, label, sub, delay }) {
+function QuickCard({ to, icon, label, sub, color, delay }) {
   const [vis, setVis] = useState(false);
-  const [hov, setHov] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
+  const c = color || '#0D9488';
   return (
     <Link
       to={to}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className="nmcn-qcard"
       style={{
-        ...S.quickCard,
-        opacity: vis ? 1 : 0,
-        transform: vis ? (hov ? 'translateY(-4px)' : 'translateY(0)') : 'translateY(14px)',
-        boxShadow: hov ? '0 8px 24px rgba(13,148,136,0.15)' : 'none',
-        borderColor: hov ? 'var(--teal)' : 'var(--border)',
-        transition: 'opacity .4s ease, transform .3s ease, box-shadow .25s, border-color .25s',
+        ...S.panel, display: 'flex', alignItems: 'center', gap: 10,
+        padding: '14px 10px 14px 12px', textDecoration: 'none', color: 'var(--text-primary)',
+        minWidth: 0, minHeight: 78, boxSizing: 'border-box',
+        opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(12px)',
+        transition: 'opacity .4s ease, transform .2s ease',
       }}
     >
+      <span style={{
+        width: 46, height: 46, borderRadius: '50%', flexShrink: 0, fontSize: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `radial-gradient(circle at 30% 25%, ${c}55, ${c}1f)`, border: `1.5px solid ${c}66`,
+      }}>{icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 'clamp(14px, 4vw, 17px)', lineHeight: 1.2 }}>{label}</div>
+        <div style={{ fontSize: 'clamp(11.5px, 3.3vw, 13.5px)', color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.3 }}>{sub}</div>
+      </div>
+      <span style={{ fontSize: 22, color: 'var(--text-muted)', flexShrink: 0 }}>›</span>
+    </Link>
+  );
+}
+
+function ShortcutRow({ icon, title, sub, to }) {
+  return (
+    <Link to={to} style={{ ...S.panel, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textDecoration: 'none', color: 'var(--text-primary)' }}>
       <span style={{ fontSize: 28 }}>{icon}</span>
-      <span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span>
-      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.3 }}>{sub}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: H, fontWeight: 900, fontSize: 15 }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>
+      </div>
+      <span style={{ fontSize: 22, color: 'var(--text-muted)' }}>›</span>
     </Link>
   );
 }
@@ -1523,10 +1468,16 @@ function SessionRow({ s, cat, delay }) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
+  panel: {
+    background: 'var(--bg-card)',
+    border: '1.5px solid rgba(13,148,136,0.38)',
+    borderRadius: 18,
+  },
   banner: {
-    background: 'linear-gradient(135deg, #2B3320 0%, #4B5320 100%)',
-    borderRadius: 20, marginBottom: 28,
-    position: 'relative', overflow: 'hidden',
+    background: 'linear-gradient(145deg, #082f26 0%, #0e4a36 55%, #14532d 100%)',
+    border: '1.5px solid #c9a227',
+    borderRadius: 22, marginBottom: 14, padding: 'clamp(14px, 4vw, 24px)',
+    position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
   },
   statsGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
