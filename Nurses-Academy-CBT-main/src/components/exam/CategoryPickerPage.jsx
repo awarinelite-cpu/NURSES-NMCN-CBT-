@@ -221,7 +221,7 @@ const styles = {
   },
   stickyBar: {
     position: 'fixed', bottom: 0, left: 0, right: 0,
-    background: 'linear-gradient(135deg, #1E3A8A, #15803D)',
+    background: 'linear-gradient(135deg, #14532D, #15803D)',
     padding: '14px 20px',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
     zIndex: 100,

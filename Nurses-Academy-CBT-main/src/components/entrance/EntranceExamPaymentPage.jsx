@@ -709,7 +709,7 @@ const S = {
     fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
   },
   hero: {
-    background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
+    background: 'linear-gradient(135deg, #166534 0%, #065F46 100%)',
     borderRadius: 20, marginBottom: 28, overflow: 'hidden',
     position: 'relative', padding: 'clamp(22px,4vw,36px)',
   },

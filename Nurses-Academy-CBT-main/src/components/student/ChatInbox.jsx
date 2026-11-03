@@ -32,7 +32,7 @@ function Avatar({ name='', size=46 }) {
   return (
     <div style={{
       width:size, height:size, borderRadius:'50%', flexShrink:0,
-      background:'linear-gradient(135deg,#15803D,#1E3A8A)',
+      background:'#15803D',
       display:'flex', alignItems:'center', justifyContent:'center',
       fontFamily:H, fontWeight:900, color:'#fff', fontSize:size*0.38,
     }}>{initials}</div>

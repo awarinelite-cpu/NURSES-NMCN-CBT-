@@ -331,7 +331,7 @@ const styles = {
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 },
   logoIcon: {
     width: 48, height: 48, borderRadius: 12,
-    background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
+    background: '#15803D',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 22, flexShrink: 0,
   },

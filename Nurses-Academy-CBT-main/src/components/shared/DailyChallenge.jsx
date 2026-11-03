@@ -107,7 +107,7 @@ export default function DailyChallenge() {
   };
 
   const optColor = (k) => {
-    if (!answered) return selected === k ? '#1E3A8A' : 'rgba(255,255,255,0.04)';
+    if (!answered) return selected === k ? '#14532D' : 'rgba(255,255,255,0.04)';
     if (k === challenge.answer) return '#15803D22';
     if (k === selected && !isCorrect) return '#EF444418';
     return 'rgba(255,255,255,0.02)';
@@ -121,7 +121,7 @@ export default function DailyChallenge() {
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #1E3A8A18 0%, #15803D18 100%)',
+      background: 'linear-gradient(135deg, #14532D18 0%, #15803D18 100%)',
       border: '1.5px solid rgba(59,130,246,0.25)',
       borderRadius: 18, marginBottom: 20, overflow: 'hidden',
     }}>

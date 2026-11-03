@@ -318,7 +318,7 @@ export default function SubscriptionPage() {
     return (
       <div style={{ padding: 24, maxWidth: 600 }}>
         <div style={{
-          background: 'linear-gradient(135deg,#15803D,#1E3A8A)', borderRadius: 20, padding: '32px 28px',
+          background: '#15803D', borderRadius: 20, padding: '32px 28px',
           textAlign: 'center', color: 'var(--text-primary)',
         }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>🌟</div>

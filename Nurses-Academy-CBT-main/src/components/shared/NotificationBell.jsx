@@ -383,7 +383,7 @@ const styles = {
   },
   chatAvatar: {
     width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-    background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
+    background: '#15803D',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontFamily: H, fontWeight: 900, color: '#fff', fontSize: 15,
   },

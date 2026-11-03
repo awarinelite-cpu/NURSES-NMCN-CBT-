@@ -133,7 +133,7 @@ export default function Sidebar({ open, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 38, height: 38, borderRadius: 10,
-              background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
+              background: '#15803D',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 18, flexShrink: 0,
             }}>📚</div>

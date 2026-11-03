@@ -92,8 +92,8 @@ export default function NotesPage() {
           <style>{`@keyframes notesShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
           {Array.from({length: 4}).map((_,i) => (
             <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-              <div style={{ height: 12, width: '70%', borderRadius: 4, marginBottom: 10, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'notesShimmer 1.4s infinite' }} />
-              <div style={{ height: 12, width: '50%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'notesShimmer 1.4s infinite' }} />
+              <div style={{ height: 12, width: '70%', borderRadius: 4, marginBottom: 10, background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'notesShimmer 1.4s infinite' }} />
+              <div style={{ height: 12, width: '50%', borderRadius: 4, background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'notesShimmer 1.4s infinite' }} />
             </div>
           ))}
         </div>

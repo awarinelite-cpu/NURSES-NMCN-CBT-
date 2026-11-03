@@ -234,7 +234,7 @@ export default function StudentPublicProfile() {
           {/* Avatar */}
           <div style={{
             width: 76, height: 76, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
+            background: '#15803D',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: H, fontWeight: 900, fontSize: 28,
             color: 'var(--text-primary)', flexShrink: 0,

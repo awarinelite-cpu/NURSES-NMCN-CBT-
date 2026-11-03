@@ -236,7 +236,7 @@ export default function BadgesPage() {
 
       {/* Summary bar */}
       <div style={{
-        background: 'linear-gradient(135deg, #15803D 0%, #1E3A8A 100%)',
+        background: '#15803D',
         borderRadius: 16, padding: '18px 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 12, marginBottom: 24,
@@ -293,7 +293,7 @@ export default function BadgesPage() {
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={{
               height: 160, borderRadius: 20,
-              background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)',
+              background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)',
               backgroundSize: '200% 100%',
               animation: 'bdgShimmer 1.4s infinite',
             }} />

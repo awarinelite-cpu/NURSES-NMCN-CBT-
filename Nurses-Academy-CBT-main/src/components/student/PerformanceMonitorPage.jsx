@@ -18,7 +18,7 @@ function Skeleton({ w = '100%', h = 14, r = 8 }) {
       <style>{`@keyframes pmShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
       <div style={{
         width: w, height: h, borderRadius: r,
-        background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)',
+        background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)',
         backgroundSize: '200% 100%', animation: 'pmShimmer 1.4s infinite',
       }} />
     </>

@@ -449,7 +449,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 18,
-    background: 'linear-gradient(135deg, rgba(21,128,61,0.12) 0%, rgba(30,58,138,0.15) 100%)',
+    background: 'rgba(21,128,61,0.10)',
     border: '1px solid rgba(21,128,61,0.2)',
     borderRadius: 16,
     padding: '20px 22px',
@@ -458,7 +458,7 @@ const styles = {
   avatarRing: {
     padding: 3,
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
+    background: '#15803D',
     flexShrink: 0,
   },
   avatar: {

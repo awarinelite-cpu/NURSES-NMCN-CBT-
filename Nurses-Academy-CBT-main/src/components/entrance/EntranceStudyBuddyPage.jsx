@@ -86,7 +86,7 @@ function BuddyCard({ buddy, idx }) {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0, background: 'linear-gradient(135deg, var(--teal), #1E3A8A)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: H, fontWeight: 900, fontSize: 18, color: '#fff' }}>
+        <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0, background: 'linear-gradient(135deg, var(--teal), #14532D)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: H, fontWeight: 900, fontSize: 18, color: '#fff' }}>
           {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>

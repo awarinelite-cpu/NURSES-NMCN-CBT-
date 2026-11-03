@@ -22,12 +22,12 @@ function SkeletonRow() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
       <style>{`@keyframes lbShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ height: 13, width: '55%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
-        <div style={{ height: 10, width: '30%', borderRadius: 4, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+        <div style={{ height: 13, width: '55%', borderRadius: 4, background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+        <div style={{ height: 10, width: '30%', borderRadius: 4, background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
       </div>
-      <div style={{ width: 44, height: 22, borderRadius: 6, background: 'linear-gradient(90deg,#1e293b 25%,#273548 50%,#1e293b 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
+      <div style={{ width: 44, height: 22, borderRadius: 6, background: 'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%)', backgroundSize: '200% 100%', animation: 'lbShimmer 1.4s infinite' }} />
     </div>
   );
 }
@@ -38,7 +38,7 @@ function Avatar({ name = '', size = 36 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
+      background: '#15803D',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: H, fontWeight: 900, color: 'var(--text-primary)',
       fontSize: size * 0.38,

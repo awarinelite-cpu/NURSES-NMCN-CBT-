@@ -563,7 +563,7 @@ const S = {
   },
   listAvatar: {
     width: 34, height: 34, borderRadius: '50%',
-    background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
+    background: '#15803D',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0,
   },

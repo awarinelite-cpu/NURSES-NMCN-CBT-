@@ -653,7 +653,7 @@ export default function EntranceExamHub() {
         <div
           onClick={() => navigate('/badges')}
           style={{
-            background: 'linear-gradient(135deg, #15803D18 0%, #1E3A8A18 100%)',
+            background: 'linear-gradient(135deg, #15803D18 0%, #14532D18 100%)',
             border: '1.5px solid rgba(21,128,61,0.25)',
             borderRadius: 14, padding: '12px 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -696,7 +696,7 @@ export default function EntranceExamHub() {
 
       {/* Welcome Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
+        background: 'linear-gradient(135deg, #166534 0%, #065F46 100%)',
         borderRadius: 20, marginBottom: 32, overflow: 'hidden', position: 'relative',
         opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
         transition: 'opacity .6s ease, transform .6s ease',

@@ -237,8 +237,10 @@ export default function ExamReviewPage() {
         {/* Score card */}
         <div style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 20, padding: 28, marginBottom: 24, textAlign: 'center',
+          borderRadius: 28, padding: 28, marginBottom: 24, textAlign: 'center',
+          borderTop: '6px solid #15803D', boxShadow: '0 4px 16px rgba(20,83,45,0.08)',
         }}>
+          <div style={{ fontWeight: 800, fontSize: 20, color: '#14532D', marginBottom: 12 }}>Exam Completed!</div>
           {catInfo && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
