@@ -16,8 +16,8 @@ import ExamCountdown from '../shared/ExamCountdown';
 import TipOfDay from '../shared/TipOfDay';
 import StreakReminderBanner from '../shared/StreakReminderBanner';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target, duration = 1600, delay = 0) {
@@ -937,13 +937,12 @@ export default function StudentDashboard() {
         onTouchStart={handlePointerDown}
         onTouchEnd={handlePointerUp}
       >
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 85% 18%, rgba(110,160,120,0.35) 0%, transparent 55%)' }} />
         <div style={{ position: 'absolute', right: 10, top: 18, fontSize: 'clamp(90px, 28vw, 150px)', opacity: 0.14, pointerEvents: 'none', lineHeight: 1, transform: 'rotate(-12deg)' }}>🩺</div>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <span style={{ fontSize: 30 }}>📋</span>
-            <h1 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontWeight: 900, color: '#fff', letterSpacing: 1, textTransform: 'uppercase', fontSize: 'clamp(1.15rem, 5.6vw, 1.7rem)', lineHeight: 1.15 }}>
+            <h1 style={{ margin: 0, fontFamily: H, fontWeight: 800, color: '#fff', letterSpacing: 0.5, fontSize: 'clamp(1.15rem, 5.6vw, 1.7rem)', lineHeight: 1.15 }}>
               NMCN CBT Platform
             </h1>
           </div>
@@ -1024,7 +1023,7 @@ export default function StudentDashboard() {
                 onClick={e => e.stopPropagation()}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0,
-                  background: 'rgba(8,40,36,0.55)', border: '1.5px solid rgba(45,212,191,0.35)',
+                  background: '#14532D', border: '1.5px solid #22C55E',
                   borderRadius: 14, padding: '10px 10px',
                 }}
               >
@@ -1368,7 +1367,7 @@ function SurpriseMeButton({ profile, user }) {
 function QuickCard({ to, icon, label, sub, color, delay }) {
   const [vis, setVis] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, [delay]);
-  const c = color || '#0D9488';
+  const c = color || '#15803D';
   return (
     <Link
       to={to}
@@ -1384,7 +1383,7 @@ function QuickCard({ to, icon, label, sub, color, delay }) {
       <span style={{
         width: 46, height: 46, borderRadius: '50%', flexShrink: 0, fontSize: 24,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `radial-gradient(circle at 30% 25%, ${c}55, ${c}1f)`, border: `1.5px solid ${c}66`,
+        background: `${c}22`, border: `1.5px solid ${c}55`,
       }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 'clamp(14px, 4vw, 17px)', lineHeight: 1.2 }}>{label}</div>
@@ -1470,13 +1469,14 @@ function SessionRow({ s, cat, delay }) {
 const S = {
   panel: {
     background: 'var(--bg-card)',
-    border: '1.5px solid rgba(13,148,136,0.38)',
-    borderRadius: 18,
+    border: '1.5px solid #BBF7D0',
+    borderRadius: 20,
+    boxShadow: '0 4px 16px rgba(20,83,45,0.08)',
   },
   banner: {
-    background: 'linear-gradient(145deg, #082f26 0%, #0e4a36 55%, #14532d 100%)',
-    border: '1.5px solid #c9a227',
-    borderRadius: 22, marginBottom: 14, padding: 'clamp(14px, 4vw, 24px)',
+    background: '#166534',
+    border: 'none',
+    borderRadius: 28, marginBottom: 14, padding: 'clamp(14px, 4vw, 24px)',
     position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
   },
   statsGrid: {

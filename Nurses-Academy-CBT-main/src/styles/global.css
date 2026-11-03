@@ -45,15 +45,15 @@
 
 /* ── CSS Variables: Light Mode ────────────────────────────────────── */
 :root {
-  --teal:           #0D9488;
-  --teal-light:     #14B8A8;
-  --teal-dark:      #0F766E;
-  --teal-glow:      rgba(13,148,136,0.14);
+  --teal:           #15803D;
+  --teal-light:     #22C55E;
+  --teal-dark:      #166534;
+  --teal-glow:      rgba(21,128,61,0.14);
 
-  --blue-deep:      #0F2A5E;
+  --blue-deep:      #14532D;
   --blue-mid:       #2563EB;
   --blue-light:     #3B82F6;
-  --blue-glow:      rgba(15,42,94,0.14);
+  --blue-glow:      rgba(20,83,45,0.14);
 
   --gold:           #F59E0B;
   --gold-light:     #FCD34D;
@@ -66,7 +66,7 @@
 
   /* Light mode backgrounds */
   --bg-primary:     #FFFFFF;
-  --bg-secondary:   #F0FDFA;
+  --bg-secondary:   #F0FDF4;
   --bg-tertiary:    #F8FAFC;
   --bg-card:        #FFFFFF;
   --bg-overlay:     rgba(255,255,255,0.95);
@@ -77,11 +77,11 @@
   --text-muted:     #1F2937;   /* medium-dark, still very readable */
   --text-hint:      #374151;   /* subtle hint text, still legible */
 
-  --border:         #D1D5DB;
+  --border:         #CFE8D6;
   --border-focus:   var(--teal);
 
   /* Sidebar & header = navy blue in light mode */
-  --nav-bg:         #0F2A5E;
+  --nav-bg:         #166534;
   --nav-text:       #FFFFFF;
   --nav-border:     rgba(255,255,255,0.10);
   --nav-hover:      rgba(255,255,255,0.12);
@@ -90,17 +90,17 @@
   --shadow-sm:      0 1px 3px rgba(0,0,0,0.10);
   --shadow-md:      0 4px 16px rgba(0,0,0,0.12);
   --shadow-lg:      0 10px 40px rgba(0,0,0,0.15);
-  --shadow-teal:    0 4px 20px rgba(13,148,136,0.25);
+  --shadow-teal:    0 4px 20px rgba(21,128,61,0.25);
   --shadow-gold:    0 4px 20px rgba(245,158,11,0.25);
 
   /* ── Font stack ── */
   /* h1 only */
-  --font-heading:   'Arial Black', 'Arial Bold', Arial, sans-serif;
+  --font-heading:   'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* h2–h4 + body */
-  --font-subhead:   'Times New Roman', Times, Georgia, serif;
-  --font-body:      'Times New Roman', Times, Georgia, serif;
+  --font-subhead:   'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:      'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* kept for legacy JSX references */
-  --font-display:   'Times New Roman', Times, Georgia, serif;
+  --font-display:   'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --radius-sm:      6px;
   --radius-md:      12px;
@@ -112,7 +112,7 @@
   /* Exam specific */
   --correct:        #16A34A;
   --wrong:          #DC2626;
-  --selected:       rgba(13,148,136,0.15);
+  --selected:       rgba(21,128,61,0.15);
   --unanswered:     rgba(245,158,11,0.10);
 }
 

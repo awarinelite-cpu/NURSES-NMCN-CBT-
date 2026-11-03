@@ -22,19 +22,19 @@ export default function NmcnBottomNav() {
         @media (max-width: 900px) {
           .nmcn-bottom-nav {
             display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
-            background: var(--nav-bg); border-top: 1px solid var(--border);
+            background: #FFFFFF; border-top: 1px solid #DCFCE7;
             padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.35);
+            box-shadow: 0 -4px 20px rgba(20,83,45,0.10);
           }
           .nmcn-has-bottom-nav .main-content { padding-bottom: 84px; }
         }
         .nmcn-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
           text-decoration: none; padding: 4px 2px 6px; position: relative;
-          font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.62); -webkit-tap-highlight-color: transparent; }
+          font-size: 14px; font-weight: 600; color: #4B5E52; -webkit-tap-highlight-color: transparent; }
         .nmcn-tab .ico { font-size: 24px; line-height: 1.1; filter: grayscale(0.4); opacity: 0.85; }
-        .nmcn-tab.active { color: #2dd4bf; }
+        .nmcn-tab.active { color: #15803D; font-weight: 800; }
         .nmcn-tab.active .ico { filter: none; opacity: 1; }
-        .nmcn-tab.active::after { content: ''; position: absolute; bottom: 0; left: 22%; right: 22%; height: 3px; border-radius: 2px; background: #2dd4bf; }
+        .nmcn-tab.active::after { content: ''; position: absolute; bottom: 0; left: 22%; right: 22%; height: 3px; border-radius: 2px; background: #15803D; }
       `}</style>
       <nav className="nmcn-bottom-nav" aria-label="Main navigation">
         {TABS.map(t => (

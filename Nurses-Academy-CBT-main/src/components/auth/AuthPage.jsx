@@ -121,37 +121,34 @@ export default function AuthPage() {
     }
   };
 
-  const F = "'Times New Roman', Times, serif";
-  const H = "'Arial Black', Arial, sans-serif";
+  const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+  const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
   // Platform-specific branding
   const brand = isEntrance
     ? { icon: '🏫', name: 'Entrance Exam', sub: 'Nursing Schools Entrance Exam Platform', accent: '#F59E0B' }
-    : { icon: '📚', name: 'NMCN CBT',      sub: 'Nursing Exam Prep Platform',             accent: '#0D9488' };
+    : { icon: '📚', name: 'NMCN CBT',      sub: 'Nursing Exam Prep Platform',             accent: '#15803D' };
 
   return (
     <div style={styles.page}>
-      <div style={styles.bgOrb1} />
-      <div style={styles.bgOrb2} />
-
       <div style={styles.card} className="anim-bounceIn">
         {/* Platform indicator strip at top */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 4,
           borderRadius: '24px 24px 0 0',
-          background: `linear-gradient(90deg, ${brand.accent}, ${isEntrance ? '#D97706' : '#1E3A8A'})`,
+          background: brand.accent,
         }} />
 
         {/* Logo */}
         <div style={styles.logo}>
-          <div style={{ ...styles.logoIcon, background: `linear-gradient(135deg, ${brand.accent}, ${isEntrance ? '#92400E' : '#1E3A8A'})` }}>
-            {brand.icon}
+          <div style={{ ...styles.logoIcon, background: brand.accent }}>
+            <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8l36 12v26c0 24-16 40-36 46C30 86 14 70 14 46V20z" fill="#fff"/><path d="M45 30h10v14h14v10H55v14H45V54H31V44h14z" fill={brand.accent}/></svg>
           </div>
           <div>
-            <div style={{ fontFamily: H, fontWeight: 900, fontSize: 20, color: '#FFFFFF', letterSpacing: 1 }}>
+            <div style={{ fontFamily: H, fontWeight: 800, fontSize: 20, color: '#14532D', letterSpacing: 1 }}>
               {brand.name}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1, fontFamily: F }}>
+            <div style={{ fontSize: 11, color: '#4B5E52', marginTop: 1, fontFamily: F }}>
               {brand.sub}
             </div>
           </div>
@@ -162,19 +159,19 @@ export default function AuthPage() {
           display: 'inline-flex', alignItems: 'center', gap: 6,
           background: `${brand.accent}18`, border: `1px solid ${brand.accent}44`,
           borderRadius: 20, padding: '4px 12px', marginBottom: 20,
-          fontSize: 12, color: brand.accent, fontWeight: 700, fontFamily: F,
+          fontSize: 12, color: isEntrance ? '#92400E' : brand.accent, fontWeight: 700, fontFamily: F,
         }}>
           {isEntrance ? '🏫 Nursing Schools Entrance Exam' : '📚 NMCN CBT — Nursing Council Exam'}
         </div>
 
         {/* Title */}
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontFamily: H, fontWeight: 900, color: '#FFFFFF', fontSize: 'clamp(1.4rem,3vw,2rem)', marginBottom: 6 }}>
-            {mode === 'login'    && 'Welcome Back'}
+          <h2 style={{ fontFamily: H, fontWeight: 800, color: '#14532D', fontSize: 'clamp(1.4rem,3vw,2rem)', marginBottom: 6 }}>
+            {mode === 'login'    && 'Welcome Back!'}
             {mode === 'register' && 'Create Account'}
             {mode === 'forgot'   && 'Reset Password'}
           </h2>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, fontFamily: F, fontWeight: 700 }}>
+          <p style={{ fontSize: 14, color: '#4B5E52', lineHeight: 1.5, fontFamily: F, fontWeight: 700 }}>
             {mode === 'login'    && 'Sign in to continue your exam preparation'}
             {mode === 'register' && `Join thousands of nursing students preparing ${isEntrance ? 'for entrance exams' : 'for NMCN'}`}
             {mode === 'forgot'   && 'Enter your email to receive a reset link'}
@@ -186,7 +183,7 @@ export default function AuthPage() {
           {/* Full Name */}
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: '#14532D' }}>
                 Full Name
               </label>
               <input
@@ -200,7 +197,7 @@ export default function AuthPage() {
 
           {/* Email */}
           <div className="form-group">
-            <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+            <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: '#14532D' }}>
               Email Address
             </label>
             <input
@@ -214,7 +211,7 @@ export default function AuthPage() {
           {/* Password */}
           {mode !== 'forgot' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: '#14532D' }}>
                 Password
               </label>
               <div style={{ position: 'relative' }}>
@@ -234,7 +231,7 @@ export default function AuthPage() {
           {/* Confirm Password */}
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: '#14532D' }}>
                 Confirm Password
               </label>
               <input
@@ -249,7 +246,7 @@ export default function AuthPage() {
           {/* School selector — only for entrance platform registration */}
           {mode === 'register' && isEntrance && (
             <div className="form-group">
-              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              <label className="form-label" style={{ fontFamily: F, fontWeight: 700, color: '#14532D' }}>
                 🏫 Your Nursing School
               </label>
               <select
@@ -259,21 +256,21 @@ export default function AuthPage() {
                 required
                 style={{
                   ...styles.input,
-                  color: school ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+                  color: school ? '#FFFFFF' : '#4B5E52',
                   fontFamily: F, fontWeight: 700,
                 }}
               >
-                <option value="" disabled style={{ background: '#0A1F35', color: 'rgba(255,255,255,0.5)' }}>
+                <option value="" disabled style={{ background: '#FFFFFF', color: '#4B5E52' }}>
                   {schoolsLoading ? 'Loading schools…' : '— Select your school —'}
                 </option>
                 {schools.map(s => (
-                  <option key={s.id} value={s.name} style={{ background: '#0A1F35', color: '#fff' }}>
+                  <option key={s.id} value={s.name} style={{ background: '#FFFFFF', color: '#14301F' }}>
                     {s.name}
                   </option>
                 ))}
-                <option value="Other" style={{ background: '#0A1F35', color: '#fff' }}>Other</option>
+                <option value="Other" style={{ background: '#FFFFFF', color: '#14301F' }}>Other</option>
               </select>
-              <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+              <p style={{ fontSize: 12, fontFamily: F, fontWeight: 700, color: '#4B5E52', marginTop: 4 }}>
                 This determines which leaderboard you appear on. Can be changed in your profile.
               </p>
             </div>
@@ -284,7 +281,7 @@ export default function AuthPage() {
 
           {mode === 'login' && (
             <button type="button" onClick={() => { setMode('forgot'); setError(''); }}
-              style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: 'var(--teal-light)', fontSize: 13, cursor: 'pointer', fontFamily: F, textDecoration: 'underline', fontWeight: 700 }}>
+              style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: '#15803D', fontSize: 13, cursor: 'pointer', fontFamily: F, textDecoration: 'underline', fontWeight: 700 }}>
               Forgot password?
             </button>
           )}
@@ -294,15 +291,15 @@ export default function AuthPage() {
             className="btn btn-primary btn-full btn-lg"
             disabled={loading}
             style={{
-              fontFamily: F, fontWeight: 700, fontSize: 15,
+              fontFamily: F, fontWeight: 800, fontSize: 16, height: 52, borderRadius: 26,
               background: brand.accent,
               borderColor: brand.accent,
             }}
           >
             {loading ? <><span className="spinner spinner-sm" />Processing…</> : (
-              mode === 'login'    ? '🔐 Sign In' :
-              mode === 'register' ? '🚀 Create Account' :
-              '📧 Send Reset Link'
+              mode === 'login'    ? 'Login' :
+              mode === 'register' ? 'Register' :
+              'Send Reset Link'
             )}
           </button>
         </form>
@@ -311,9 +308,9 @@ export default function AuthPage() {
         {mode !== 'forgot' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 12px' }}>
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: 700, textTransform: 'uppercase', fontFamily: F }}>or</span>
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ flex: 1, height: 1, background: '#BBF7D0' }} />
+              <span style={{ fontSize: 12, color: '#4B5E52', fontWeight: 700, textTransform: 'uppercase', fontFamily: F }}>or</span>
+              <div style={{ flex: 1, height: 1, background: '#BBF7D0' }} />
             </div>
             <button type="button" onClick={handleGoogleLogin} disabled={loading} style={styles.googleBtn}>
               <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
@@ -331,8 +328,8 @@ export default function AuthPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
           {mode === 'login' && (
             <>
-              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700 }}>Don't have an account?</span>
-              <button style={{ background: 'none', border: 'none', color: 'var(--teal-light)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
+              <span style={{ fontSize: 14, color: '#4B5E52', fontFamily: F, fontWeight: 700 }}>Don't have an account?</span>
+              <button style={{ background: 'none', border: 'none', color: '#15803D', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
                 onClick={() => { setMode('register'); setError(''); }}>
                 Create one free
               </button>
@@ -340,8 +337,8 @@ export default function AuthPage() {
           )}
           {(mode === 'register' || mode === 'forgot') && (
             <>
-              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: F, fontWeight: 700 }}>Already have an account?</span>
-              <button style={{ background: 'none', border: 'none', color: 'var(--teal-light)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
+              <span style={{ fontSize: 14, color: '#4B5E52', fontFamily: F, fontWeight: 700 }}>Already have an account?</span>
+              <button style={{ background: 'none', border: 'none', color: '#15803D', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, textDecoration: 'underline' }}
                 onClick={() => { setMode('login'); setError(''); }}>
                 Sign in
               </button>
@@ -353,13 +350,13 @@ export default function AuthPage() {
         <div style={{ textAlign: 'center', marginTop: 12 }}>
           <a
             href={isEntrance ? '/auth?platform=nmcn' : '/auth?platform=entrance'}
-            style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: F, fontWeight: 700, textDecoration: 'underline' }}
+            style={{ fontSize: 12, color: '#4B5E52', fontFamily: F, fontWeight: 700, textDecoration: 'underline' }}
           >
             {isEntrance ? '← Switch to NMCN CBT platform' : '← Switch to Entrance Exam platform'}
           </a>
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 14, padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontFamily: F, fontWeight: 700 }}>
+        <div style={{ textAlign: 'center', fontSize: 12, color: '#4B5E52', marginTop: 14, padding: '10px', background: '#F0FDF4', borderRadius: 8, fontFamily: F, fontWeight: 700 }}>
           🏥 {isEntrance ? 'For nursing school applicants & Post-UTME candidates' : 'Exclusively for NMCN-registered nursing students'}
         </div>
       </div>
@@ -370,7 +367,7 @@ export default function AuthPage() {
 const styles = {
   page: {
     minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'linear-gradient(135deg, #020B18 0%, #041428 50%, #071E33 100%)',
+    background: '#F0FDF4',
     padding: '20px', position: 'relative', overflow: 'hidden',
   },
   bgOrb1: {
@@ -384,21 +381,21 @@ const styles = {
     bottom: -80, left: -80, pointerEvents: 'none',
   },
   card: {
-    background: 'rgba(10,31,53,0.95)', border: '1px solid rgba(13,148,136,0.25)',
-    borderRadius: 24, padding: '44px 36px 36px', width: '100%', maxWidth: 460,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(13,148,136,0.1)',
-    backdropFilter: 'blur(12px)', position: 'relative', overflow: 'hidden',
+    background: '#FFFFFF', border: '1px solid #BBF7D0',
+    borderRadius: 28, padding: '44px 36px 36px', width: '100%', maxWidth: 460,
+    boxShadow: '0 10px 40px rgba(20,83,45,0.12)',
+    position: 'relative', overflow: 'hidden',
   },
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 },
   logoIcon: {
-    width: 48, height: 48, borderRadius: 12,
+    width: 48, height: 48, borderRadius: 14,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 22, flexShrink: 0,
   },
   input: {
-    background: 'rgba(255,255,255,0.07)',
-    border: '1.5px solid rgba(13,148,136,0.3)',
-    color: '#FFFFFF',
+    background: '#FFFFFF',
+    border: '1.5px solid #BBF7D0',
+    color: '#14301F',
   },
   eyeBtn: {
     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
