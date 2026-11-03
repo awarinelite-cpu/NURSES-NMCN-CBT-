@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   collection, query, where, orderBy, limit,
-  getDocs, deleteDoc, doc,
+  getDocs, getDoc, deleteDoc, doc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import DailyChallenge from '../shared/DailyChallenge';
 import ExamCountdown from '../shared/ExamCountdown';
 import TipOfDay from '../shared/TipOfDay';
 import StreakReminderBanner from '../shared/StreakReminderBanner';
+import DashboardHome from './DashboardHome';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -686,57 +687,10 @@ export default function StudentDashboard() {
   const [showStartModal, setShowStartModal] = useState(false);
   const [loading,        setLoading]        = useState(true);
   const [bannerVis,      setBannerVis]      = useState(false);
-  const [slideIdx,       setSlideIdx]       = useState(0);
-  const [slideFade,      setSlideFade]      = useState(true);
   const [earnedBadges,   setEarnedBadges]   = useState([]);
   const [streakReminderData, setStreakReminderData] = useState(null);
 
-  const swipeStartX  = useRef(null);
-  const swipeStartY  = useRef(null);
-  const isDragging   = useRef(false);
-  const slideIdxRef  = useRef(0);
-  const autoTimer    = useRef(null);
 
-  const goToSlide = useCallback((idx) => {
-    const next = ((idx % QUICK_ACTIONS.length) + QUICK_ACTIONS.length) % QUICK_ACTIONS.length;
-    setSlideFade(false);
-    setTimeout(() => {
-      slideIdxRef.current = next;
-      setSlideIdx(next);
-      setSlideFade(true);
-    }, 300);
-  }, []);
-
-  const startAuto = useCallback(() => {
-    clearInterval(autoTimer.current);
-    autoTimer.current = setInterval(() => {
-      goToSlide(slideIdxRef.current + 1);
-    }, 4000);
-  }, [goToSlide]);
-
-  useEffect(() => {
-    startAuto();
-    return () => clearInterval(autoTimer.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handlePointerDown = (e) => {
-    swipeStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
-    swipeStartY.current = e.touches ? e.touches[0].clientY : e.clientY;
-    isDragging.current  = true;
-  };
-  const handlePointerUp = (e) => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-    const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-    const dx   = endX - swipeStartX.current;
-    const dy   = Math.abs(endY - swipeStartY.current);
-    if (Math.abs(dx) > 40 && Math.abs(dx) > dy) {
-      goToSlide(slideIdxRef.current + (dx < 0 ? 1 : -1));
-      startAuto();
-    }
-  };
 
   useEffect(() => {
     setTimeout(() => setBannerVis(true), 80);
@@ -836,9 +790,6 @@ export default function StudentDashboard() {
   const hour  = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const animExams     = useCounter(totalExams, 1600, 400);
-  const animStreak    = useCounter(streak,     1400, 550);
-  const animBookmarks = useCounter(bookmarks,  1400, 700);
 
   // ── Streak milestone detection ───────────────────────────────────────────
   const [streakMilestone, setStreakMilestone] = useState(0);
@@ -855,305 +806,53 @@ export default function StudentDashboard() {
   }, [streak]);
 
   const firstName = (profile?.name || user?.displayName || 'Nurse').split(' ')[0];
-  const slide = QUICK_ACTIONS[slideIdx] || QUICK_ACTIONS[0];
 
-  const statChips = [
-    { icon: '📄', label: 'Exams Taken', value: animExams,       to: '/results',   tint: '#2563EB' },
-    { icon: '📊', label: 'Avg. Score',  value: `${avgScore}%`,  to: '/performance', tint: '#22C55E' },
-    { icon: '🔥', label: 'Day Streak',  value: animStreak,      to: '/progress-wall', tint: '#F97316' },
-    { icon: '🔖', label: 'Bookmarked',  value: animBookmarks,   to: '/bookmarks', tint: '#14B8A6' },
-  ];
+  // ── Exam date → days remaining (profile.examDate, else study plan) ───────
+  const [planExamDate, setPlanExamDate] = useState('');
+  const [examDateLoaded, setExamDateLoaded] = useState(false);
+  useEffect(() => {
+    if (!user?.uid) { setExamDateLoaded(true); return; }
+    getDoc(doc(db, 'studyPlans', user.uid))
+      .then(snap => { if (snap.exists()) setPlanExamDate(snap.data().examDate || ''); })
+      .catch(() => {})
+      .finally(() => setExamDateLoaded(true));
+  }, [user]);
+  const daysToExam = useMemo(() => {
+    const raw = profile?.examDate || planExamDate;
+    if (!raw) return null;
+    const t = new Date(raw); t.setHours(0, 0, 0, 0);
+    const n = new Date();    n.setHours(0, 0, 0, 0);
+    const d = Math.ceil((t - n) / 86400000);
+    return d < 0 ? null : d;
+  }, [profile?.examDate, planExamDate]);
+
+  // Overall progress: exams completed toward a 50-exam target
+  const progressPct = Math.min(100, Math.round((totalExams / 50) * 100));
 
   return (
-    <div className="nmcn-dash" style={{ padding: '14px 14px 24px', maxWidth: 1200, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-      <style>{`
-        .btn-strip-track::-webkit-scrollbar { display: none; }
-        .btn-strip-track { -ms-overflow-style: none; scrollbar-width: none; }
-        .nmcn-dash a { -webkit-tap-highlight-color: transparent; }
-        .nmcn-qgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-        @media (min-width: 901px) { .nmcn-qgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .nmcn-dash { padding: 24px !important; } }
-        .nmcn-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-        @media (min-width: 640px) { .nmcn-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        .nmcn-qcard:active, .nmcn-slidecard:active { transform: scale(0.985); }
-      `}</style>
-
+    <>
       {streakMilestone > 0 && (
         <StreakMilestoneModal streak={streakMilestone} onClose={() => setStreakMilestone(0)} />
       )}
-
-      {streakReminderData && <StreakReminderBanner streakData={streakReminderData} />}
 
       {showModal && (
         <PausedExamsModal paused={pausedExams} onResume={handleResume} onDelete={handleDelete} onClose={() => setShowModal(false)} />
       )}
 
-      {showStartModal && <StartExamModal onClose={() => setShowStartModal(false)} />}
-
-      {/* ── Badge strip ── */}
-      <div
-        onClick={() => navigate('/badges')}
-        role="button"
-        style={{
-          ...S.panel, display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 14px', cursor: 'pointer', marginBottom: 14,
-        }}
-      >
-        <span style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }}>🏅</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: H, fontWeight: 800, fontSize: 16, color: 'var(--accent-text)' }}>
-            {earnedBadges.length > 0
-              ? `${earnedBadges.length} Badge${earnedBadges.length !== 1 ? 's' : ''} Earned`
-              : 'No badges yet'}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-            {earnedBadges.length > 0 ? 'Tap to view your collection' : 'Complete an exam to earn your first badge'}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-          {earnedBadges.slice(0, 2).map(id => {
-            const b = BADGE_MAP[id];
-            return b ? (
-              <span key={id} title={b.label} style={{
-                width: 46, height: 46, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, background: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.7)',
-              }}>{b.icon}</span>
-            ) : null;
-          })}
-          <span style={{ fontSize: 26, color: 'var(--text-primary)', fontWeight: 700, marginLeft: 2 }}>›</span>
-        </div>
-      </div>
-
-      {/* ── Hero banner ── */}
-      <div
-        style={{
-          ...S.banner,
-          opacity: bannerVis ? 1 : 0,
-          transform: bannerVis ? 'translateY(0)' : 'translateY(-14px)',
-          transition: 'opacity .6s ease, transform .6s ease',
-          userSelect: 'none',
-        }}
-        onMouseDown={handlePointerDown}
-        onMouseUp={handlePointerUp}
-        onTouchStart={handlePointerDown}
-        onTouchEnd={handlePointerUp}
-      >
-        <div style={{ position: 'absolute', right: 10, top: 18, fontSize: 'clamp(90px, 28vw, 150px)', opacity: 0.14, pointerEvents: 'none', lineHeight: 1, transform: 'rotate(-12deg)' }}>🩺</div>
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 30 }}>📋</span>
-            <h1 style={{ margin: 0, fontFamily: H, fontWeight: 800, color: '#fff', letterSpacing: 0.5, fontSize: 'clamp(1.15rem, 5.6vw, 1.7rem)', lineHeight: 1.15 }}>
-              NMCN CBT Platform
-            </h1>
-          </div>
-          <h2 style={{ margin: '4px 0 6px', color: '#fff', fontWeight: 800, fontSize: 'clamp(1.35rem, 6.4vw, 2.1rem)', lineHeight: 1.2 }}>
-            {greet}, {firstName}! <span style={{ display: 'inline-block' }}>👋</span>
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.92)', fontSize: 'clamp(0.85rem, 3.4vw, 1.05rem)', marginBottom: 14 }}>
-            <span style={{ fontSize: 20 }}>{profile?.subscribed ? '👑' : '🎯'}</span>
-            <span>{profile?.subscribed ? 'Premium subscriber — all content unlocked' : 'Free plan — upgrade to unlock everything'}</span>
-          </div>
-
-          {/* Rotating featured action (swipe / dots) */}
-          <Link
-            to={slide.to}
-            className="nmcn-slidecard"
-            onClick={e => e.stopPropagation()}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none',
-              background: 'rgba(8,40,36,0.55)', border: '1.5px solid rgba(45,212,191,0.4)',
-              borderRadius: 16, padding: '14px 14px', marginBottom: 10, boxSizing: 'border-box',
-              opacity: slideFade ? 1 : 0, transition: 'opacity .35s ease, transform .15s',
-            }}
-          >
-            <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0 }}>{slide.icon}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 'clamp(1.05rem, 4.4vw, 1.35rem)', color: '#fff', marginBottom: 3 }}>{slide.label}</div>
-              <div style={{ fontSize: 'clamp(0.8rem, 3.2vw, 0.98rem)', color: 'rgba(255,255,255,0.85)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {slide.desc}
-              </div>
-            </div>
-            <span style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(45,212,191,0.7)', color: '#fff', fontSize: 20, background: 'rgba(21,128,61,0.25)' }}>→</span>
-          </Link>
-
-          <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 12 }}>
-            {QUICK_ACTIONS.map((a, di) => (
-              <button
-                key={di}
-                aria-label={`Show ${a.label}`}
-                onClick={e => { e.stopPropagation(); goToSlide(di); startAuto(); }}
-                style={{
-                  width: di === slideIdx ? 20 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                  background: di === slideIdx ? '#2dd4bf' : 'rgba(255,255,255,0.28)',
-                  transition: 'width .3s ease, background .3s ease',
-                }}
-              />
-            ))}
-          </div>
-
-          {(pausedExams.length > 0 || !profile?.subscribed) && (
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }} onClick={e => e.stopPropagation()}>
-              {pausedExams.length > 0 && (
-                <button
-                  onClick={e => { e.stopPropagation(); setShowModal(true); }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(21,128,61,0.28)', border: '1.5px solid rgba(45,212,191,0.7)', color: '#5EEAD4' }}
-                >
-                  ▶ Continue
-                  <span style={{ background: '#15803D', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>{pausedExams.length}</span>
-                </button>
-              )}
-              {!profile?.subscribed && (
-                <Link
-                  to="/subscription"
-                  onClick={e => e.stopPropagation()}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(245,158,11,0.18)', border: '1.5px solid rgba(245,158,11,0.7)', color: '#FCD34D', textDecoration: 'none' }}
-                >
-                  👑 Upgrade
-                </Link>
-              )}
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="nmcn-stats" onClick={e => e.stopPropagation()}>
-            {statChips.map(c => (
-              <Link
-                key={c.label}
-                to={c.to}
-                onClick={e => e.stopPropagation()}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0,
-                  background: '#14532D', border: '1.5px solid #22C55E',
-                  borderRadius: 14, padding: '10px 10px',
-                }}
-              >
-                <span style={{ width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, background: `${c.tint}33`, flexShrink: 0 }}>{c.icon}</span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: 'clamp(1.1rem, 4.6vw, 1.45rem)', color: '#fff', lineHeight: 1.05, fontFamily: H }}>{c.value}</div>
-                  <div style={{ fontSize: 'clamp(11px, 3.2vw, 14px)', color: 'rgba(255,255,255,0.8)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          <div style={{ textAlign: 'right', marginTop: 4, fontFamily: "'Segoe Script', 'Brush Script MT', cursive", fontStyle: 'italic', color: '#F5D88A', fontSize: 'clamp(15px, 4.6vw, 21px)', lineHeight: 1.15 }}>
-            Study Today<br />Pass Tomorrow
-            <div style={{ height: 2, width: '70%', marginLeft: 'auto', marginTop: 3, background: '#F5D88A', borderRadius: 2, opacity: 0.8 }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Paused exam inline banner ── */}
-      {pausedExams.length > 0 && (
-        <ACard delay={300} style={{ marginBottom: 14 }}>
-          <div
-            onClick={() => setShowModal(true)}
-            style={{ ...S.panel, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer' }}
-          >
-            <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'rgba(21,128,61,0.18)', border: '1.5px solid rgba(21,128,61,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 2 }}>
-                You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {pausedExams[0]?.examName || 'Exam'} · tap to resume
-              </div>
-            </div>
-            <span style={{ color: 'var(--teal)', fontWeight: 800, fontSize: 18 }}>→</span>
-          </div>
-        </ACard>
-      )}
-
-      {/* ── Free plan notice ── */}
-      {!profile?.subscribed && (
-        <ACard delay={330} style={{ marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: 'rgba(245,158,11,0.07)', border: '1.5px solid rgba(245,158,11,0.35)', borderRadius: 16, padding: '14px 16px' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'rgba(245,158,11,0.15)', border: '1.5px solid rgba(245,158,11,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎯</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#F59E0B', marginBottom: 3 }}>Free Plan — 10 Question Preview</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                Try any exam mode below. Each session gives you the same 10 starter questions before you upgrade.
-              </div>
-            </div>
-            <Link to="/subscription" style={{ flexShrink: 0, padding: '7px 12px', borderRadius: 8, background: '#F59E0B', color: '#1a1a1a', fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
-              👑 Upgrade
-            </Link>
-          </div>
-        </ACard>
-      )}
-
-      {/* ── Exam date ── */}
-      <ExamCountdownBanner user={user} profile={profile} />
-      <ExamCountdown />
-
-      {/* ── Quick Actions ── */}
-      <ACard delay={380} style={{ marginBottom: 22 }}>
-        <h3 style={{ ...S.sectionTitle, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ color: '#F59E0B' }}>⚡</span> Quick Actions
-        </h3>
-        <SurpriseMeButton profile={profile} user={user} />
-        <div className="nmcn-qgrid">
-          {QUICK_ACTIONS.map((a, i) => <QuickCard key={a.label} {...a} delay={420 + i * 50} />)}
-        </div>
-      </ACard>
-
-      {/* ── Daily challenge + tip ── */}
-      <DailyChallenge />
-      <TipOfDay />
-
-      {/* ── Weak topics ── */}
-      <WeakTopicDetector user={user} />
-
-      {/* ── Shortcuts ── */}
-      <ACard delay={600} style={{ marginBottom: 12 }}>
-        <ShortcutRow icon="🗺️" title="Progress Wall" sub="Heatmap · Subject mastery · Weak spots" to="/progress-wall" />
-      </ACard>
-      <ACard delay={640} style={{ marginBottom: 12 }}>
-        <ShortcutRow icon="🤝" title="Study Buddy Finder" sub="Match with students who complement your weak subjects" to="/study-buddy" />
-      </ACard>
-      <ACard delay={680} style={{ marginBottom: 22 }}>
-        <ShortcutRow icon="🏆" title="Leaderboard" sub="See how you rank against other students" to="/leaderboard" />
-      </ACard>
-
-      {/* ── Categories ── */}
-      <ACard delay={720} style={{ marginBottom: 24 }}>
-        <h3 style={{ ...S.sectionTitle, marginBottom: 12 }}>🏥 Exam Categories</h3>
-        <div style={S.categoriesGrid}>
-          {NURSING_CATEGORIES.slice(0, 8).map((cat, i) => (
-            <CatCard key={cat.id} cat={cat} delay={760 + i * 50} />
-          ))}
-        </div>
-      </ACard>
-
-      {/* ── Recent sessions ── */}
-      {recentSessions.length > 0 && (
-        <ACard delay={900}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={S.sectionTitle}>🕓 Recent Exams</h3>
-            <Link to="/results" style={{ color: 'var(--teal)', fontSize: 13, fontWeight: 700 }}>All results →</Link>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Category</th><th>Type</th><th>Score</th><th>Date</th><th></th></tr>
-              </thead>
-              <tbody>
-                {recentSessions.map((s, i) => {
-                  const cat = NURSING_CATEGORIES.find(c => c.id === s.category);
-                  return <SessionRow key={s.id} s={s} cat={cat} delay={940 + i * 80} />;
-                })}
-              </tbody>
-            </table>
-          </div>
-        </ACard>
-      )}
-
-      {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '20px 0' }}>
-          {[1,2,3].map(k => <Skeleton key={k} h={48} r={12} />)}
-        </div>
-      )}
-    </div>
+      <DashboardHome
+        firstName={firstName}
+        progressPct={progressPct}
+        examsCount={totalExams}
+        avgScore={avgScore}
+        streak={streak}
+        savedCount={bookmarks}
+        daysToExam={daysToExam}
+        examDateLoading={!examDateLoaded}
+        pausedExam={pausedExams[0] || null}
+        onResume={() => (pausedExams.length > 1 ? setShowModal(true) : handleResume(pausedExams[0]))}
+        onNotifications={() => navigate('/notifications')}
+      />
+    </>
   );
 }
 
