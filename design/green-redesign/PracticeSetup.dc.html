@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Practice test setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0}
+.p{position:relative;overflow:hidden;background:#F0FDF4;font-family:'Plus Jakarta Sans',sans-serif;color:#0F2A1A;font-size:14px}
+.p *{box-sizing:border-box}
+.p a{text-decoration:none;color:inherit}
+.th{display:flex;align-items:center;justify-content:space-between;padding:16px;font-weight:800;font-size:17px}
+.ib{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 8px rgba(20,83,45,.14);display:flex;align-items:center;justify-content:center;flex:none}
+.cd{background:#fff;border-radius:22px;padding:16px;box-shadow:0 4px 16px rgba(20,83,45,.08)}
+.bt{height:52px;border:0;border-radius:26px;background:#15803D;color:#fff;font:800 16px 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.b2{background:#fff;border:2px solid #15803D;color:#15803D}
+.ch{min-height:44px;padding:0 16px;border-radius:22px;background:#fff;border:1.5px solid #BBF7D0;font:700 13px 'Plus Jakarta Sans',sans-serif;color:#166534;white-space:nowrap}
+.ch.on{background:#15803D;border-color:#15803D;color:#fff}
+.ti{border-radius:20px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;font-size:13px;text-align:center;min-height:96px;justify-content:center}
+.ls{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 14px;font-weight:700;font-size:14px;box-shadow:0 2px 10px rgba(20,83,45,.06);min-height:64px}
+.ls small,.sm{display:block;font-weight:400;font-size:12px;color:#4B5E52;margin-top:1px}
+.ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.fl{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #BBF7D0;border-radius:16px;height:52px;padding:0 14px}
+.fl input{border:0;background:none;flex:1;font:500 14px 'Plus Jakarta Sans',sans-serif;outline:0;min-width:0;color:#0F2A1A}
+.nv{position:absolute;left:0;right:0;bottom:0;height:72px;background:#fff;border-top:1px solid #DCFCE7;display:flex;padding-top:8px}
+.nv div{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:#4B5E52}
+.nv .a{color:#15803D;font-weight:800}
+.fx{position:absolute;left:16px;right:16px;bottom:16px;display:flex;gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px}
+.sw{width:44px;height:26px;border-radius:13px;background:#15803D;position:relative;flex:none}
+.sw:after{content:"";position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+.op{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;background:#fff;border:2px solid #DCFCE7;font-weight:600;margin-bottom:10px}
+.op b{width:30px;height:30px;border-radius:50%;background:#F0FDF4;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.pl{padding:4px 10px;border-radius:10px;font-weight:800;font-size:12px}
+</style>
+</helmet>
+<div class="p" style="width:390px;height:844px">
+<div class="th"><button class="ib" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><span>Practice Test</span><span style="width:44px;display:flex;justify-content:flex-end"></span></div><div style="padding:0 16px"><div style="display:flex;gap:8px;overflow:hidden;"><button class="ch on">Course Drill</button><button class="ch">Topic Drill</button><button class="ch">Final Prep</button><button class="ch">Daily Mock</button><button class="ch">Past Qs</button></div></div><div style="text-align:center;padding:14px 0 6px"><div class="ic" style="background:#DCFCE7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9zM7 6H5v15h14V6h-2M9 13l2 2 4-4"/></svg></div><div style="font-weight:800;font-size:18px;margin-top:8px">Test Mode</div><div class="sm">Full-length exam, 200 questions</div></div><div style="padding:0 16px"><div style="font-weight:800;margin:8px 0">Select category</div><div style="display:flex;align-items:center;gap:12px;min-height:40px;font-weight:600"><i style="width:22px;height:22px;border-radius:50%;border:2px solid #15803D;background:#15803D;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></i>All Subjects</div><div style="display:flex;align-items:center;gap:12px;min-height:40px;font-weight:600"><i style="width:22px;height:22px;border-radius:50%;border:2px solid #15803D;background:#fff;display:flex;align-items:center;justify-content:center"></i>Medical-Surgical Nursing</div><div style="display:flex;align-items:center;gap:12px;min-height:40px;font-weight:600"><i style="width:22px;height:22px;border-radius:50%;border:2px solid #15803D;background:#fff;display:flex;align-items:center;justify-content:center"></i>Maternal and Child Health</div><div style="display:flex;align-items:center;gap:12px;min-height:40px;font-weight:600"><i style="width:22px;height:22px;border-radius:50%;border:2px solid #15803D;background:#fff;display:flex;align-items:center;justify-content:center"></i>Community Health</div><div style="display:flex;align-items:center;gap:12px;min-height:40px;font-weight:600"><i style="width:22px;height:22px;border-radius:50%;border:2px solid #15803D;background:#fff;display:flex;align-items:center;justify-content:center"></i>Mental Health Nursing</div><div style="font-weight:800;margin:12px 0 8px">Questions</div><div style="display:flex;gap:8px;overflow:hidden;"><button class="ch">10</button><button class="ch">20</button><button class="ch on">50</button><button class="ch">100</button><button class="ch">200</button></div><div style="height:10px"></div><div class="ls" style="margin-bottom:10px"><div style="flex:1">Time limit<small>60 minutes</small></div><span class="sw"></span></div><div class="ls" style="margin-bottom:10px"><div style="flex:1">Show explanations<small>After each question</small></div><span class="sw"></span></div></div><div class="fx"><button class="bt ">Start Test<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

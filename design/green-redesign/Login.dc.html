@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Login</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0}
+.p{position:relative;overflow:hidden;background:#F0FDF4;font-family:'Plus Jakarta Sans',sans-serif;color:#0F2A1A;font-size:14px}
+.p *{box-sizing:border-box}
+.p a{text-decoration:none;color:inherit}
+.th{display:flex;align-items:center;justify-content:space-between;padding:16px;font-weight:800;font-size:17px}
+.ib{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 8px rgba(20,83,45,.14);display:flex;align-items:center;justify-content:center;flex:none}
+.cd{background:#fff;border-radius:22px;padding:16px;box-shadow:0 4px 16px rgba(20,83,45,.08)}
+.bt{height:52px;border:0;border-radius:26px;background:#15803D;color:#fff;font:800 16px 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.b2{background:#fff;border:2px solid #15803D;color:#15803D}
+.ch{min-height:44px;padding:0 16px;border-radius:22px;background:#fff;border:1.5px solid #BBF7D0;font:700 13px 'Plus Jakarta Sans',sans-serif;color:#166534;white-space:nowrap}
+.ch.on{background:#15803D;border-color:#15803D;color:#fff}
+.ti{border-radius:20px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;font-size:13px;text-align:center;min-height:96px;justify-content:center}
+.ls{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 14px;font-weight:700;font-size:14px;box-shadow:0 2px 10px rgba(20,83,45,.06);min-height:64px}
+.ls small,.sm{display:block;font-weight:400;font-size:12px;color:#4B5E52;margin-top:1px}
+.ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.fl{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #BBF7D0;border-radius:16px;height:52px;padding:0 14px}
+.fl input{border:0;background:none;flex:1;font:500 14px 'Plus Jakarta Sans',sans-serif;outline:0;min-width:0;color:#0F2A1A}
+.nv{position:absolute;left:0;right:0;bottom:0;height:72px;background:#fff;border-top:1px solid #DCFCE7;display:flex;padding-top:8px}
+.nv div{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:#4B5E52}
+.nv .a{color:#15803D;font-weight:800}
+.fx{position:absolute;left:16px;right:16px;bottom:16px;display:flex;gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px}
+.sw{width:44px;height:26px;border-radius:13px;background:#15803D;position:relative;flex:none}
+.sw:after{content:"";position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+.op{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;background:#fff;border:2px solid #DCFCE7;font-weight:600;margin-bottom:10px}
+.op b{width:30px;height:30px;border-radius:50%;background:#F0FDF4;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.pl{padding:4px 10px;border-radius:10px;font-weight:800;font-size:12px}
+</style>
+</helmet>
+<div class="p" style="width:390px;height:844px">
+<div style="padding:56px 24px 0;text-align:center"><div style="width:96px;height:96px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;flex:none"><svg width="59" height="59" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8l36 12v26c0 24-16 40-36 46C30 86 14 70 14 46V20z" fill="#14532D"/><path d="M45 30h10v14h14v10H55v14H45V54H31V44h14z" fill="#DCFCE7"/></svg></div><div style="font-weight:800;font-size:26px;margin-top:20px">Welcome Back!</div><div style="color:#4B5E52;margin:4px 0 24px">Sign in to continue</div><div style="display:flex;flex-direction:column;gap:12px;text-align:left"><label class="fl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5E52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18v12H3zM3 7l9 7 9-7"/></svg><input aria-label="Email address" placeholder="Email Address"></label><label class="fl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5E52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3"/></svg><input aria-label="Password" placeholder="Password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5E52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></label><div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600"><label style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" checked> Remember me</label><a href="#" style="color:#15803D">Forgot password?</a></div><button class="bt ">Login</button><div style="text-align:center;color:#4B5E52;font-size:13px">OR</div><button class="bt b2" style="font-size:15px">Continue with Google</button><button class="bt b2" style="font-size:15px">Continue with Apple</button></div><div style="margin-top:20px;font-size:14px">Don't have an account? <a href="#" style="color:#15803D;font-weight:800">Sign Up</a></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
