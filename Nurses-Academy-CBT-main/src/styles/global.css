@@ -47,6 +47,7 @@
 :root {
   --teal:           #15803D;
   --teal-light:     #22C55E;
+  --accent-text:    #15803D;
   --teal-dark:      #166534;
   --teal-glow:      rgba(21,128,61,0.14);
 
@@ -118,11 +119,11 @@
 
 /* ── Dark Mode ────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --bg-primary:     #020B18;
-  --bg-secondary:   #041428;
-  --bg-tertiary:    #071E33;
-  --bg-card:        #0A1F35;
-  --bg-overlay:     rgba(2,11,24,0.95);
+  --bg-primary:     #07140D;
+  --bg-secondary:   #0B1F14;
+  --bg-tertiary:    #10291B;
+  --bg-card:        #0F2A1A;
+  --bg-overlay:     rgba(7,20,13,0.95);
 
   /* Dark mode text — bright whites for readability */
   --text-primary:   #FFFFFF;
@@ -130,21 +131,22 @@
   --text-muted:     #CBD5E1;
   --text-hint:      #94A3B8;
 
-  --border:         #1E3A5F;
+  --accent-text:    #4ADE80;
+  --border:         #1F4D32;
 
   /* Dark mode sidebar stays dark navy */
-  --nav-bg:         #010810;
+  --nav-bg:         #0B2A18;
   --nav-text:       #FFFFFF;
   --nav-border:     rgba(255,255,255,0.07);
-  --nav-hover:      rgba(13,148,136,0.18);
+  --nav-hover:      rgba(34,197,94,0.18);
   --nav-active:     var(--teal);
 
   --shadow-sm:      0 1px 3px rgba(0,0,0,0.4);
   --shadow-md:      0 4px 16px rgba(0,0,0,0.5);
   --shadow-lg:      0 10px 40px rgba(0,0,0,0.6);
-  --shadow-teal:    0 4px 24px rgba(13,148,136,0.35);
+  --shadow-teal:    0 4px 24px rgba(34,197,94,0.35);
 
-  --selected:       rgba(13,148,136,0.20);
+  --selected:       rgba(34,197,94,0.20);
 }
 
 /* ── High Contrast Mode ───────────────────────────────────────────── */

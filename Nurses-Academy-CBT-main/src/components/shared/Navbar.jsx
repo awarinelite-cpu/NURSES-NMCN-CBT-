@@ -186,11 +186,11 @@ const styles = {
   },
   compactText: {
     display: 'flex', flexDirection: 'column', minWidth: 0,
-    fontFamily: "'Playfair Display', serif", fontWeight: 900, color: '#fff',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 900, color: '#fff',
     fontSize: 'clamp(17px, 5.4vw, 26px)', lineHeight: 1.1, whiteSpace: 'nowrap',
   },
   compactTagline: {
-    fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: '#22C55E',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 600, color: '#22C55E',
     fontSize: 'clamp(9px, 2.9vw, 13px)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis',
   },
   navbar: {
@@ -203,7 +203,7 @@ const styles = {
     width: '100%',
     padding: '18px 20px 14px',
     textAlign: 'center',
-    background: 'linear-gradient(135deg, rgba(21,128,61,0.18), rgba(30,58,138,0.18))',
+    background: 'rgba(21,128,61,0.14)',
     borderBottom: '1px solid var(--border)',
   },
   brandLink: {
@@ -212,14 +212,14 @@ const styles = {
   },
   brandText: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    fontFamily: "'Playfair Display', serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     fontWeight: 900, color: '#FFFFFF',
     fontSize: 'clamp(24px, 5.5vw, 48px)',
     lineHeight: 1.15, letterSpacing: 0.5,
   },
   brandTagline: {
     display: 'block',
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     fontWeight: 600, color: '#22C55E',
     fontSize: 'clamp(11px, 2.2vw, 18px)',
     letterSpacing: 0.6, marginTop: 4,

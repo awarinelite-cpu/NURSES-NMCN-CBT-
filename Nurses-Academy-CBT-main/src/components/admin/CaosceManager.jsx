@@ -310,7 +310,7 @@ export default function CaosceManager() {
     return (
       <div style={{ padding: 24, maxWidth: 900 }}>
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
             🩺 CAOSCE Prep Manager
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
@@ -358,7 +358,7 @@ export default function CaosceManager() {
           {selectedSpecialty.icon}
         </div>
         <div style={{ flex: 1 }}>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
             {selectedSpecialty.label}
           </h2>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{cases.length} case{cases.length !== 1 ? 's' : ''}</div>

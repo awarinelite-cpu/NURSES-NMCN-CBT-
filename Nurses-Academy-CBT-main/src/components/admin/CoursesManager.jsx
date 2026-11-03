@@ -508,7 +508,7 @@ export default function CoursesManager() {
             {selectedSpecialty.icon}
           </div>
           <div style={{ flex: 1 }}>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
               {selectedSpecialty.label}
             </h2>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
@@ -794,7 +794,7 @@ export default function CoursesManager() {
 
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0, color: 'var(--text-primary)' }}>
           📖 Manage Courses
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '6px 0 0' }}>

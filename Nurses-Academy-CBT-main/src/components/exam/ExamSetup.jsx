@@ -59,7 +59,7 @@ export default function ExamSetup() {
   return (
     <div style={{ padding: '16px', maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", color: 'var(--text-primary)', marginBottom: 6 }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", color: 'var(--text-primary)', marginBottom: 6 }}>
           📝 Set Up Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -314,7 +314,7 @@ const styles = {
     borderRadius: 20, padding: '24px 20px',
   },
   previewHead: {
-    fontFamily: "'Playfair Display',serif", fontWeight: 700,
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight: 700,
     fontSize: 16, color: 'var(--text-primary)', textAlign: 'center', marginBottom: 16,
   },
   previewRows: { marginBottom: 20 },

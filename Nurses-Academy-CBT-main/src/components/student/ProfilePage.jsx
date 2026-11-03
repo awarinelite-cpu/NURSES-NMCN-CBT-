@@ -443,7 +443,7 @@ const styles = {
     boxSizing: 'border-box',
     margin: '0 auto',
     overflowX: 'hidden',
-    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif, 'Segoe UI', sans-serif",
   },
   headerCard: {
     display: 'flex',

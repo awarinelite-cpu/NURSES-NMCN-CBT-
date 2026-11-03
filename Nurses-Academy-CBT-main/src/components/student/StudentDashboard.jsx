@@ -900,7 +900,7 @@ export default function StudentDashboard() {
       >
         <span style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }}>🏅</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: H, fontWeight: 900, fontSize: 16, color: '#2dd4bf' }}>
+          <div style={{ fontFamily: H, fontWeight: 800, fontSize: 16, color: 'var(--accent-text)' }}>
             {earnedBadges.length > 0
               ? `${earnedBadges.length} Badge${earnedBadges.length !== 1 ? 's' : ''} Earned`
               : 'No badges yet'}

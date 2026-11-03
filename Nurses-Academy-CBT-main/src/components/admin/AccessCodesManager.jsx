@@ -112,7 +112,7 @@ export default function AccessCodesManager() {
   return (
     <div style={{ padding: 24, maxWidth: 960 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>🔑 Access Codes</h2>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0 }}>🔑 Access Codes</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>
           Each code is locked to one device on first use.&ensp;·&ensp;
           {codes.filter(c => !c.used).length} unused&ensp;·&ensp;

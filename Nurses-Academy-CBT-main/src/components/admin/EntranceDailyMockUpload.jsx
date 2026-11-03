@@ -172,7 +172,7 @@ export default function EntranceDailyMockUpload() {
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(139,92,246,0.25) 0%, transparent 60%)' }} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: '0 0 4px' }}>
+            <h2 style={{ color: '#fff', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: '0 0 4px' }}>
               📅 Daily Entrance Mock — Upload
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontSize: 14 }}>

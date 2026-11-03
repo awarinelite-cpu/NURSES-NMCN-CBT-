@@ -416,7 +416,7 @@ const styles = {
     padding: '20px 16px 48px',
     maxWidth: 960,
     margin: '0 auto',
-    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif, 'Segoe UI', sans-serif",
   },
   pageHeader: {
     display: 'flex',
@@ -427,7 +427,7 @@ const styles = {
     marginBottom: 20,
   },
   pageTitle: {
-    fontFamily: "'Playfair Display', serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     fontSize: 22,
     fontWeight: 900,
     color: '#F1F5F9',

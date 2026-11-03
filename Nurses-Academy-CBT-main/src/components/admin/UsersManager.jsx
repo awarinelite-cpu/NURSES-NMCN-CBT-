@@ -112,7 +112,7 @@ export default function UsersManager() {
     <div style={{ padding: 24, maxWidth: 1200 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>👥 Users Manager</h2>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0 }}>👥 Users Manager</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>
             {users.length} registered users · {users.filter(u => u.subscribed).length} subscribers
           </p>

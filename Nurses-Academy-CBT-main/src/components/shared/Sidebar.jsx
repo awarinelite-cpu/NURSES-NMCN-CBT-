@@ -138,7 +138,7 @@ export default function Sidebar({ open, onClose }) {
               fontSize: 18, flexShrink: 0,
             }}>📚</div>
             <div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 900, color: '#fff', fontSize: 16 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight: 900, color: '#fff', fontSize: 16 }}>
                 NMCN CBT
               </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>

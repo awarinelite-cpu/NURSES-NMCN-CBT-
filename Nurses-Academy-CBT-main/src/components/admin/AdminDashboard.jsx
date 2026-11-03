@@ -330,7 +330,7 @@ export default function AdminDashboard() {
       }}>
         <div style={S.headerGlow} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: 0 }}>
+          <h2 style={{ color: '#fff', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0 }}>
             🛡️ Admin Control Panel
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.65)', margin: '4px 0 0', fontSize: 14 }}>
@@ -540,7 +540,7 @@ const S = {
     gap: 16, marginBottom: 32,
   },
   sectionTitle: {
-    fontFamily: "'Playfair Display',serif", fontSize: '1.1rem',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", fontSize: '1.1rem',
     color: 'var(--text-primary)', margin: '0 0 14px',
   },
   actionsGrid: {

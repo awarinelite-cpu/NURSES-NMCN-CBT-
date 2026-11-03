@@ -54,7 +54,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
           </div>
           <div>
             <h2 style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
               fontWeight: 900, fontSize: 'clamp(1.2rem, 3vw, 1.7rem)',
               color: '#fff', margin: 0, lineHeight: 1.2,
             }}>
@@ -122,7 +122,7 @@ export default function LandingPage() {
         position: 'sticky', top: 0, zIndex: 10, background: '#010810',
       }}>
         <div style={{
-          fontFamily: "'Playfair Display',serif", fontWeight: 900, fontSize: 20,
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight: 900, fontSize: 20,
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 56, width: 'auto', objectFit: 'contain' }} />
@@ -183,7 +183,7 @@ export default function LandingPage() {
           </div>
 
           <h1 style={{
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             color: '#fff', fontSize: 'clamp(1.8rem, 5vw, 3rem)',
             lineHeight: 1.25, marginBottom: 16, fontWeight: 900,
           }}>
@@ -245,7 +245,7 @@ export default function LandingPage() {
       <section style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>17 Nursing Specialties Covered</h2>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", color: '#fff' }}>17 Nursing Specialties Covered</h2>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>General Nursing + all Post-Basic specialties</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 12 }}>
@@ -268,7 +268,7 @@ export default function LandingPage() {
       <section style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff' }}>Simple, Affordable Plans</h2>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", color: '#fff' }}>Simple, Affordable Plans</h2>
             <p style={{ color: 'rgba(255,255,255,0.55)' }}>Pay once via bank transfer — no recurring charges</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 18 }}>
@@ -287,7 +287,7 @@ export default function LandingPage() {
                 )}
                 <div style={{ fontWeight: 900, fontSize: 15, color: '#fff', marginBottom: 6 }}>{p.label}</div>
                 <div style={{
-                  fontFamily: "'Playfair Display',serif",
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif",
                   fontSize: p.price === 0 ? '1.6rem' : '1.9rem',
                   fontWeight: 900, color: p.color, marginBottom: 4,
                 }}>
@@ -312,7 +312,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section style={{ padding: '80px 24px', textAlign: 'center' }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", color: '#fff', marginBottom: 12 }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", color: '#fff', marginBottom: 12 }}>
           Ready to Pass Your Exam?
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>

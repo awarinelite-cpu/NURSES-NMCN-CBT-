@@ -146,7 +146,7 @@ export default function AdminPayments() {
         <div style={s.headerGlow} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ color: '#fff', fontFamily: "'Playfair Display',serif", margin: 0 }}>
+            <h2 style={{ color: '#fff', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0 }}>
               💰 Payment Management
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '4px 0 0' }}>

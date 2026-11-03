@@ -214,7 +214,7 @@ export default function MockExamManager() {
             <span style={{ fontSize: 26 }}>{selectedSpecialty.icon}</span>
           </div>
           <div>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0, color: 'var(--text-primary)' }}>
               {selectedSpecialty.label}
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '3px 0 0' }}>
@@ -488,7 +488,7 @@ export default function MockExamManager() {
 
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0, color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0, color: 'var(--text-primary)' }}>
           📋 Manage Mock Exams
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '6px 0 0' }}>

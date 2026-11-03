@@ -57,7 +57,7 @@ export default function AnnouncementsManager() {
   return (
     <div style={{ padding: 24, maxWidth: 800 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", margin: 0 }}>📢 Announcements</h2>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,serif", margin: 0 }}>📢 Announcements</h2>
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>
           {showForm ? '× Cancel' : '+ New Announcement'}
         </button>

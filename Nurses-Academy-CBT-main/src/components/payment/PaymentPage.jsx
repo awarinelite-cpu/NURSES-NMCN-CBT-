@@ -552,7 +552,7 @@ const s = {
     background: 'radial-gradient(ellipse at 80% 50%, rgba(21,128,61,0.2) 0%, transparent 60%)',
   },
   heading: {
-    color: 'var(--text-primary)', fontFamily: "'Playfair Display', serif",
+    color: 'var(--text-primary)', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     fontSize: '1.3rem', margin: 0, marginBottom: 4,
   },
   label: {
