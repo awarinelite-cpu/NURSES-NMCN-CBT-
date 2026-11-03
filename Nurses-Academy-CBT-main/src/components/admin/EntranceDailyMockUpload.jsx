@@ -297,7 +297,7 @@ function SingleForm({ toast }) {
             padding: '8px 16px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer',
             fontFamily: 'inherit', fontWeight: 700, fontSize: 12, transition: 'all .2s',
             borderColor: mode === m.id ? 'var(--teal)' : 'var(--border)',
-            background:  mode === m.id ? 'rgba(13,148,136,0.12)' : 'var(--bg-card)',
+            background:  mode === m.id ? 'rgba(21,128,61,0.12)' : 'var(--bg-card)',
             color:       mode === m.id ? 'var(--teal)' : 'var(--text-muted)',
           }}>{m.label}</button>
         ))}

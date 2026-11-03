@@ -15,8 +15,8 @@ import {
 import { db } from '../../firebase/config';
 import { getAiTagsForBatch, toTagPayload } from '../../utils/aiAutoTag';
 
-const H = "'Arial Black',Arial,sans-serif";
-const TEAL  = '#0D9488';
+const H = "'Plus Jakarta Sans', system-ui, sans-serif,Arial,sans-serif";
+const TEAL  = '#15803D';
 const GOLD  = '#F59E0B';
 const GREEN = '#22C55E';
 const RED   = '#EF4444';

@@ -19,8 +19,8 @@ import ExplanationText from '../shared/ExplanationText';
 import AiExplainButton from '../shared/AiExplainButton';
 
 const OPT_KEYS = ['A', 'B', 'C', 'D'];
-const F        = "'Times New Roman', Times, serif";
-const H        = "'Arial Black', Arial, sans-serif";
+const F        = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H        = "'Plus Jakarta Sans', system-ui, sans-serif";
 const FREE_CAP = 10; // max questions for unpaid users
 
 // Mirror of ExamSession's sanitizeKey — makes a Firestore-safe map key
@@ -49,7 +49,7 @@ export default function EntranceSubjectSession() {
   const isPaid = profile?.entranceExamPaid || profile?.role === 'admin';
 
   const {
-    subject      = { name: 'Subject Drill', icon: '📚', color: '#0D9488' },
+    subject      = { name: 'Subject Drill', icon: '📚', color: '#15803D' },
     year         = 'All Years',
     count        = 20,
     timeLimitMin = 20,
@@ -177,7 +177,7 @@ export default function EntranceSubjectSession() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, submitted, questions.length, showExitModal]);
 
-  const timerColor = timeLeft < 60 ? '#EF4444' : timeLeft < 120 ? '#F59E0B' : '#0D9488';
+  const timerColor = timeLeft < 60 ? '#EF4444' : timeLeft < 120 ? '#F59E0B' : '#15803D';
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const doSubmit = useCallback(async () => {
@@ -197,7 +197,7 @@ export default function EntranceSubjectSession() {
     if (user?.uid) {
       try {
         const drillRef = await addDoc(collection(db, 'users', user.uid, 'entranceSubjectDrills'), {
-          subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#0D9488',
+          subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#15803D',
           year: year || 'All Years', score, correct, totalQuestions: qs.length,
           answers: ans, questionIds: qs.map(q => q.id), createdAt: serverTimestamp(),
         });
@@ -264,7 +264,7 @@ export default function EntranceSubjectSession() {
     if (qs.length && user?.uid) {
       addDoc(collection(db, 'entrancePausedExams'), {
         userId: user.uid, examType: 'entrance_subject_drill', examName: `${subject.name} Drill`,
-        subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#0D9488',
+        subject: subject.name, subjectIcon: subject.icon || '📚', subjectColor: subject.color || '#15803D',
         year: year || 'All Years', timeLimitMin, questionIds: qs.map(q => q.id),
         answers: ans, flagged: flagSnap, currentIndex: idxSnap, timeLeft: timeSnap,
         answeredCount: Object.keys(ans).length, totalQuestions: qs.length, savedAt: serverTimestamp(),
@@ -413,9 +413,9 @@ export default function EntranceSubjectSession() {
           }}>
             <span style={{
               fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
-              color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+              color: 'rgba(21,128,61,0.07)', transform: 'rotate(-30deg)',
               whiteSpace: 'nowrap', userSelect: 'none',
-              fontFamily: "'Arial Black', Arial, sans-serif",
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             }}>
               {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
             </span>
@@ -512,9 +512,9 @@ export default function EntranceSubjectSession() {
         }}>
           <span style={{
             fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
-            color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+            color: 'rgba(21,128,61,0.07)', transform: 'rotate(-30deg)',
             whiteSpace: 'nowrap', userSelect: 'none',
-            fontFamily: "'Arial Black', Arial, sans-serif",
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           }}>
             {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
           </span>
@@ -526,7 +526,7 @@ export default function EntranceSubjectSession() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
             <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
-            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
               You've reached your free limit!
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
@@ -538,7 +538,7 @@ export default function EntranceSubjectSession() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
                 onClick={() => navigate('/entrance-exam/payment')}
-                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
               >
                 🚀 Upgrade Now — ₦3,000 Only
               </button>
@@ -623,12 +623,12 @@ export default function EntranceSubjectSession() {
                 })}
               </div>
               {submitted && currentQ.explanation && (
-                <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)', width: '100%' }}>
+                <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(21,128,61,0.35)', boxShadow: '0 2px 12px rgba(21,128,61,0.1)', width: '100%' }}>
                   <div style={{ background: 'var(--teal)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>💡</span>
-                    <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
                   </div>
-                  <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                  <div style={{ padding: '14px 16px', background: 'rgba(21,128,61,0.06)' }}>
                     <ExplanationText text={currentQ.explanation} />
                   </div>
                 </div>
@@ -662,7 +662,7 @@ export default function EntranceSubjectSession() {
 }
 
 const S = {
-  overlay: { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: "'Times New Roman', Times, serif", display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  btnGhost: { padding: '10px 20px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" },
-  btnPrimary: { padding: '10px 22px', borderRadius: 10, cursor: 'pointer', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: "'Times New Roman', Times, serif" },
+  overlay: { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  btnGhost: { padding: '10px 20px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" },
+  btnPrimary: { padding: '10px 22px', borderRadius: 10, cursor: 'pointer', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" },
 };

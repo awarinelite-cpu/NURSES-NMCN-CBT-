@@ -12,8 +12,8 @@ import { db, storage } from '../../firebase/config';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 /* ─── EMOJI PICKER DATA ─────────────────────────────────────── */
 const EMOJI_GROUPS = [
@@ -69,8 +69,8 @@ function Spinner() {
     <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
       <div style={{
         width:40, height:40, borderRadius:'50%',
-        border:'3px solid rgba(13,148,136,0.15)',
-        borderTopColor:'#0D9488',
+        border:'3px solid rgba(21,128,61,0.15)',
+        borderTopColor:'#15803D',
         animation:'spin 0.8s linear infinite',
       }} />
     </div>
@@ -82,7 +82,7 @@ function Avatar({ name='', size=40 }) {
   return (
     <div style={{
       width:size, height:size, borderRadius:'50%', flexShrink:0,
-      background:'linear-gradient(135deg,#0D9488,#1E3A8A)',
+      background:'linear-gradient(135deg,#15803D,#1E3A8A)',
       display:'flex', alignItems:'center', justifyContent:'center',
       fontFamily:H, fontWeight:900, color:'#fff', fontSize:size*0.38,
     }}>{initials}</div>
@@ -180,11 +180,11 @@ function ReplyBar({ msg, myUid, onCancel }) {
       display:'flex', alignItems:'center', gap:10,
       background:'var(--bg-secondary,rgba(255,255,255,0.04))',
       borderTop:'1px solid rgba(255,255,255,0.07)',
-      borderLeft:'3px solid #0D9488',
+      borderLeft:'3px solid #15803D',
       padding:'8px 14px',
     }}>
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'#0D9488', fontFamily:F, marginBottom:2 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#15803D', fontFamily:F, marginBottom:2 }}>
           {isMe ? 'You' : msg.senderName || 'Student'}
         </div>
         <div style={{
@@ -312,7 +312,7 @@ function Bubble({ msg, isMe, theirName, prevMsg, nextMsg, onContextMenu, onReact
               maxWidth:'100%',
               width:'100%',
             }}>
-              <div style={{ fontSize:11, fontWeight:700, color: isMe ? 'rgba(255,255,255,0.75)' : '#0D9488', fontFamily:F }}>
+              <div style={{ fontSize:11, fontWeight:700, color: isMe ? 'rgba(255,255,255,0.75)' : '#15803D', fontFamily:F }}>
                 {msg.replyTo.senderName}
               </div>
               <div style={{
@@ -453,8 +453,8 @@ function EmojiPicker({ onPick, onClose }) {
           <button key={i} onClick={() => setTab(i)} style={{
             background:'none', border:'none', cursor:'pointer',
             padding:'6px 10px', fontSize:16, borderRadius:'8px 8px 0 0',
-            background: tab===i ? 'rgba(13,148,136,0.15)' : 'transparent',
-            borderBottom: tab===i ? '2px solid #0D9488' : '2px solid transparent',
+            background: tab===i ? 'rgba(21,128,61,0.15)' : 'transparent',
+            borderBottom: tab===i ? '2px solid #15803D' : '2px solid transparent',
             flexShrink:0,
           }}>{g.emojis[0]}</button>
         ))}
@@ -512,7 +512,7 @@ function AudioBubble({ src, duration, isMe }) {
       />
       <button onClick={toggle} style={{
         width:38, height:38, borderRadius:'50%', flexShrink:0,
-        background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(13,148,136,0.3)',
+        background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(21,128,61,0.3)',
         border:'none', cursor:'pointer',
         display:'flex', alignItems:'center', justifyContent:'center',
         color:'#fff', fontSize:16,
@@ -532,12 +532,12 @@ function AudioBubble({ src, duration, isMe }) {
           <div style={{
             position:'absolute', left:0, top:0, bottom:0,
             width: pct + '%',
-            background: isMe ? 'rgba(255,255,255,0.85)' : '#0D9488',
+            background: isMe ? 'rgba(255,255,255,0.85)' : '#15803D',
             borderRadius:4, transition:'width 0.1s',
           }} />
         </div>
         <div style={{
-          fontSize:10, fontFamily:"'Times New Roman',serif", fontWeight:700,
+          fontSize:10, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700,
           color: isMe ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.4)',
         }}>
           {fmt(playing ? current : total)}
@@ -595,9 +595,9 @@ function ImageBubble({ src, isOptimistic }) {
           <a href={src} download target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
             style={{
               position:'absolute', bottom:24,
-              background:'rgba(13,148,136,0.85)', color:'#fff',
+              background:'rgba(21,128,61,0.85)', color:'#fff',
               padding:'10px 22px', borderRadius:24,
-              fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:13,
+              fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700, fontSize:13,
               textDecoration:'none',
             }}>⬇ Download</a>
         </div>
@@ -618,20 +618,20 @@ function ImagePreviewModal({ preview, onSend, onCancel }) {
     }}>
       <img src={preview.url} alt="preview"
         style={{ maxWidth:'88vw', maxHeight:'65vh', objectFit:'contain', borderRadius:12 }} />
-      <div style={{ fontSize:13, color:'rgba(255,255,255,0.55)', fontFamily:"'Times New Roman',serif", fontWeight:700 }}>
+      <div style={{ fontSize:13, color:'rgba(255,255,255,0.55)', fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700 }}>
         {preview.file.name} · {(preview.file.size/1024).toFixed(0)} KB
       </div>
       <div style={{ display:'flex', gap:16 }}>
         <button onClick={onCancel} style={{
           padding:'12px 28px', borderRadius:24,
           background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)',
-          color:'#E9EDEF', fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:15,
+          color:'#E9EDEF', fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700, fontSize:15,
           cursor:'pointer',
         }}>Cancel</button>
         <button onClick={() => onSend(preview.file)} style={{
           padding:'12px 32px', borderRadius:24,
           background:'#00A884', border:'none',
-          color:'#fff', fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:15,
+          color:'#fff', fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700, fontSize:15,
           cursor:'pointer', boxShadow:'0 4px 14px rgba(0,168,132,0.4)',
         }}>📤 Send</button>
       </div>
@@ -699,7 +699,7 @@ function VoiceRecorder({ onSend, onCancel }) {
   const fmt = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
 
   if (error) return (
-    <div style={{ padding:'10px 14px', color:'#EF4444', fontSize:12, fontFamily:"'Times New Roman',serif", fontWeight:700, display:'flex', alignItems:'center', gap:10 }}>
+    <div style={{ padding:'10px 14px', color:'#EF4444', fontSize:12, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700, display:'flex', alignItems:'center', gap:10 }}>
       ⚠️ {error}
       <button onClick={onCancel} style={{ background:'none', border:'none', cursor:'pointer', color:'#8696A0', fontSize:18 }}>✕</button>
     </div>
@@ -722,9 +722,9 @@ function VoiceRecorder({ onSend, onCancel }) {
             animation:'recPulse 1s ease infinite' }} />
         )}
         {state === 'stopped' && <span style={{ fontSize:16 }}>🎤</span>}
-        {state === 'uploading' && <span style={{ fontSize:13, color:'#0D9488', fontFamily:"'Times New Roman',serif", fontWeight:700 }}>Sending…</span>}
+        {state === 'uploading' && <span style={{ fontSize:13, color:'#15803D', fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700 }}>Sending…</span>}
         <span style={{
-          fontFamily:"'Times New Roman',serif", fontWeight:700, fontSize:16,
+          fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif,serif", fontWeight:700, fontSize:16,
           color:'#E9EDEF', minWidth:42,
         }}>{fmt(secs)}</span>
         {state === 'recording' && (
@@ -732,7 +732,7 @@ function VoiceRecorder({ onSend, onCancel }) {
             {Array.from({length:20}).map((_,i) => (
               <div key={i} style={{
                 width:3, borderRadius:2,
-                background:'rgba(13,148,136,0.6)',
+                background:'rgba(21,128,61,0.6)',
                 height: (Math.sin(i*0.8)*10 + 14) + 'px',
                 animation:'waveBar 0.8s ease infinite',
                 animationDelay: (i * 0.05) + 's',
@@ -1269,7 +1269,7 @@ export default function ChatPage() {
       }}>
         <button onClick={() => navigate(inboxPath)} style={{
           background:'none', border:'none', cursor:'pointer',
-          fontSize:22, color:'#0D9488', padding:'2px 4px',
+          fontSize:22, color:'#15803D', padding:'2px 4px',
           fontWeight:900, lineHeight:1, flexShrink:0,
         }}>←</button>
 
@@ -1466,7 +1466,7 @@ export default function ChatPage() {
               <button onClick={() => { setShowEmoji(v => !v); }} style={{
                 background:'none', border:'none', cursor:'pointer',
                 fontSize:22, padding:'4px', flexShrink:0,
-                color: showEmoji ? '#0D9488' : '#8696A0',
+                color: showEmoji ? '#15803D' : '#8696A0',
                 transition:'color 0.15s',
                 lineHeight:1,
               }}>😊</button>

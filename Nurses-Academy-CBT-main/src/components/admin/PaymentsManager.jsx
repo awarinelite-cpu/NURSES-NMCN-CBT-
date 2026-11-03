@@ -170,8 +170,8 @@ export default function AdminPayments() {
             onClick={() => setFilter(f)}
             style={{
               ...s.tab,
-              borderBottomColor: filter === f ? '#0D9488' : 'transparent',
-              color: filter === f ? '#0D9488' : 'rgba(255,255,255,0.45)',
+              borderBottomColor: filter === f ? '#15803D' : 'transparent',
+              color: filter === f ? '#15803D' : 'rgba(255,255,255,0.45)',
               fontWeight: filter === f ? 700 : 400,
             }}
           >
@@ -215,8 +215,8 @@ export default function AdminPayments() {
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                            background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
-                            border: '1px solid rgba(13,148,136,0.35)', cursor: 'pointer',
+                            background: 'rgba(21,128,61,0.15)', color: '#2DD4BF',
+                            border: '1px solid rgba(21,128,61,0.35)', cursor: 'pointer',
                             whiteSpace: 'nowrap',
                           }}
                         >
@@ -227,11 +227,11 @@ export default function AdminPayments() {
                       )}
                     </td>
                     <td style={s.td}>
-                      <span style={{ ...s.planChip, background: p.plan === 'premium' ? 'rgba(124,58,237,0.2)' : p.plan === 'standard' ? 'rgba(37,99,235,0.2)' : 'rgba(13,148,136,0.2)', color: p.plan === 'premium' ? '#A78BFA' : p.plan === 'standard' ? '#60A5FA' : '#2DD4BF' }}>
+                      <span style={{ ...s.planChip, background: p.plan === 'premium' ? 'rgba(124,58,237,0.2)' : p.plan === 'standard' ? 'rgba(37,99,235,0.2)' : 'rgba(21,128,61,0.2)', color: p.plan === 'premium' ? '#A78BFA' : p.plan === 'standard' ? '#60A5FA' : '#2DD4BF' }}>
                         {p.plan}
                       </span>
                     </td>
-                    <td style={{ ...s.td, fontWeight: 700, color: '#0D9488' }}>
+                    <td style={{ ...s.td, fontWeight: 700, color: '#15803D' }}>
                       ₦{(p.amount || 0).toLocaleString()}
                     </td>
                     <td style={s.td}>
@@ -328,7 +328,7 @@ export default function AdminPayments() {
 const s = {
   header: {
     background: 'linear-gradient(135deg,#010810,#0F2A4A)',
-    border: '1px solid rgba(13,148,136,0.3)',
+    border: '1px solid rgba(21,128,61,0.3)',
     borderRadius: 20, padding: '24px 28px', marginBottom: 20,
     position: 'relative', overflow: 'hidden',
   },

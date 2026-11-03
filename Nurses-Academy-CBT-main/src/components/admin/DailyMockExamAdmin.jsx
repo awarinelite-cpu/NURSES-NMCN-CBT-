@@ -134,7 +134,7 @@ export default function DailyMockExamAdmin() {
       <button
         onClick={forceRotate}
         disabled={rotating}
-        style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#0D9488', color: '#fff', fontWeight: 700, fontSize: 14, cursor: rotating ? 'default' : 'pointer' }}
+        style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#15803D', color: '#fff', fontWeight: 700, fontSize: 14, cursor: rotating ? 'default' : 'pointer' }}
       >
         {rotating ? 'Rotating…' : '🔄 Force Rotate Now (all specialties)'}
       </button>

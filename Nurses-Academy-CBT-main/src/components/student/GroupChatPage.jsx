@@ -13,12 +13,12 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 /* ─── Subject groups metadata ────────────────────────────── */
 const GROUP_META = {
-  general_nursing:    { label: 'General Nursing (RN)',        icon: '🏥', color: '#0D9488' },
+  general_nursing:    { label: 'General Nursing (RN)',        icon: '🏥', color: '#15803D' },
   midwifery:          { label: 'Midwifery',                   icon: '👶', color: '#7C3AED' },
   mental_health:      { label: 'Psychiatric Nursing',         icon: '🧠', color: '#2563EB' },
   public_health:      { label: 'Public Health Nursing',       icon: '🌍', color: '#16A34A' },
@@ -60,9 +60,9 @@ function sameDay(ts1, ts2) {
 }
 
 /* ─── Avatar ─────────────────────────────────────────────── */
-function Avatar({ name = '', size = 36, color = '#0D9488' }) {
+function Avatar({ name = '', size = 36, color = '#15803D' }) {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
-  const colors = ['#0D9488', '#7C3AED', '#2563EB', '#DC2626', '#D97706', '#F59E0B', '#8B5CF6', '#059669'];
+  const colors = ['#15803D', '#7C3AED', '#2563EB', '#DC2626', '#D97706', '#F59E0B', '#8B5CF6', '#059669'];
   const bg = colors[name.charCodeAt(0) % colors.length] || color;
   return (
     <div style={{
@@ -124,12 +124,12 @@ function QuestionCard({ question, accentColor, compact = false }) {
                 display: 'flex', alignItems: 'flex-start', gap: 8,
                 padding: '5px 10px',
                 borderRadius: 8,
-                background: isCorrect ? 'rgba(13,148,136,0.2)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${isCorrect ? '#0D9488' : 'rgba(255,255,255,0.06)'}`,
+                background: isCorrect ? 'rgba(21,128,61,0.2)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${isCorrect ? '#15803D' : 'rgba(255,255,255,0.06)'}`,
               }}>
                 <span style={{
                   fontFamily: H, fontWeight: 900, fontSize: 11,
-                  color: isCorrect ? '#0D9488' : '#8696A0',
+                  color: isCorrect ? '#15803D' : '#8696A0',
                   flexShrink: 0, minWidth: 16,
                 }}>{optLabel}.</span>
                 <span style={{
@@ -155,8 +155,8 @@ function QuestionCard({ question, accentColor, compact = false }) {
             {showExplanation && (
               <div style={{
                 marginTop: 6, padding: '8px 10px',
-                background: 'rgba(13,148,136,0.1)',
-                border: '1px solid rgba(13,148,136,0.25)',
+                background: 'rgba(21,128,61,0.1)',
+                border: '1px solid rgba(21,128,61,0.25)',
                 borderRadius: 8,
                 fontFamily: F, fontWeight: 700, fontSize: 12,
                 color: '#94A3B8', lineHeight: 1.65,
@@ -652,7 +652,7 @@ export default function GroupChatPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
-  const grp = GROUP_META[subjectId] || state?.group || { label: subjectId, icon: '💬', color: '#0D9488' };
+  const grp = GROUP_META[subjectId] || state?.group || { label: subjectId, icon: '💬', color: '#15803D' };
   const accentColor = grp.color;
   const myUid = user?.uid;
   const myName = profile?.name || user?.displayName || 'Student';

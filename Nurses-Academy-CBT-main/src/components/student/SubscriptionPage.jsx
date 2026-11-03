@@ -6,8 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../shared/Toast';
 import { ACCESS_PLANS, BANK_DETAILS } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_25be9012b1233d358dfbab621aac09469f128cd4';
 
@@ -318,11 +318,11 @@ export default function SubscriptionPage() {
     return (
       <div style={{ padding: 24, maxWidth: 600 }}>
         <div style={{
-          background: 'linear-gradient(135deg,#0D9488,#1E3A8A)', borderRadius: 20, padding: '32px 28px',
+          background: 'linear-gradient(135deg,#15803D,#1E3A8A)', borderRadius: 20, padding: '32px 28px',
           textAlign: 'center', color: 'var(--text-primary)',
         }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>🌟</div>
-          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)', margin: '0 0 8px' }}>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: 'var(--text-primary)', margin: '0 0 8px' }}>
             You're a Premium Member!
           </h2>
           <p style={{ color: 'var(--text-primary)', margin: '0 0 16px' }}>
@@ -339,7 +339,7 @@ export default function SubscriptionPage() {
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <div style={{ marginBottom: 28, textAlign: 'center' }}>
-        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>💎 Upgrade Your Plan</h2>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>💎 Upgrade Your Plan</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>
           Unlock full access to all NMCN past questions, AI explanations & analytics
         </p>
@@ -426,9 +426,9 @@ export default function SubscriptionPage() {
           {payMode === 'paystack' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {activating ? (
-                <div style={{ ...styles.bankBox, textAlign: 'center', borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                <div style={{ ...styles.bankBox, textAlign: 'center', borderColor: 'rgba(21,128,61,0.3)', background: 'rgba(21,128,61,0.06)' }}>
                   <div style={{
-                    width: 28, height: 28, margin: '0 auto 14px', border: '3px solid rgba(13,148,136,0.25)',
+                    width: 28, height: 28, margin: '0 auto 14px', border: '3px solid rgba(21,128,61,0.25)',
                     borderTopColor: 'var(--teal)', borderRadius: '50%', animation: 'spin 0.75s linear infinite',
                   }} />
                   <div style={{ fontWeight: 700, marginBottom: 6 }}>Payment received — activating your access…</div>
@@ -439,7 +439,7 @@ export default function SubscriptionPage() {
               ) : (
                 <>
                   <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPayMode(null)}>← Choose Method</button>
-                  <div style={{ ...styles.bankBox, borderColor: 'rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                  <div style={{ ...styles.bankBox, borderColor: 'rgba(21,128,61,0.3)', background: 'rgba(21,128,61,0.06)' }}>
                     <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.7 }}>
                       🔒 You'll be taken to <strong style={{ color: 'var(--text-primary)' }}>Paystack's secure checkout</strong>. Pay with debit card, bank transfer, or USSD. Access is granted <strong style={{ color: 'var(--text-primary)' }}>instantly</strong> after payment.
                     </p>
@@ -547,7 +547,7 @@ export default function SubscriptionPage() {
         <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
           <div style={styles.successCard}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
-            <h3 style={{ fontFamily: "'Arial Black', Arial, sans-serif" }}>
+            <h3 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
               {payMode === 'code' || payMode === 'paystack' ? 'Access Granted!' : 'Receipt Submitted!'}
             </h3>
             <p style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
@@ -573,14 +573,14 @@ const styles = {
     color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, padding: '4px 12px',
     borderRadius: 20, width: 'fit-content', marginBottom: 12,
   },
-  planPrice: { fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },
+  planPrice: { fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: '2rem', fontWeight: 900, marginBottom: 4 },
   payMethodCard: {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
     padding: '24px 16px', background: 'var(--bg-card)', border: '2px solid var(--border)',
     borderRadius: 16, transition: 'all 0.2s',
   },
   bankBox: {
-    background: 'var(--bg-secondary)', border: '1.5px solid rgba(13,148,136,0.25)',
+    background: 'var(--bg-secondary)', border: '1.5px solid rgba(21,128,61,0.25)',
     borderRadius: 12, padding: '16px 18px',
   },
   fileZone: {

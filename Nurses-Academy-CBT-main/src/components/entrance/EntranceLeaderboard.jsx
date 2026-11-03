@@ -10,8 +10,8 @@ import { collection, getDocs }              from 'firebase/firestore';
 import { db }                               from '../../firebase/config';
 import { useAuth }                          from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const gradeColor = (p) =>
   p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444';
@@ -41,7 +41,7 @@ function Spinner() {
       <div style={{
         width: 44, height: 44,
         border: '3px solid rgba(255,255,255,0.1)',
-        borderTopColor: '#0D9488',
+        borderTopColor: '#15803D',
         borderRadius: '50%',
         animation: 'spin 0.8s linear infinite',
       }} />
@@ -160,7 +160,7 @@ export default function EntranceLeaderboard() {
       style={{
         padding: '9px 20px', borderRadius: 20, border: 'none',
         cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: F,
-        background: filter === id ? '#0D9488' : 'var(--bg-tertiary)',
+        background: filter === id ? '#15803D' : 'var(--bg-tertiary)',
         color:      filter === id ? '#fff'    : 'var(--text-muted)',
         transition: 'all 0.15s',
       }}
@@ -172,7 +172,7 @@ export default function EntranceLeaderboard() {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: F, color: 'var(--text-primary)' }}>
         <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={() => navigate('/entrance-exam')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#0D9488', padding: 4, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>←</button>
+          <button onClick={() => navigate('/entrance-exam')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#15803D', padding: 4, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>←</button>
           <div>
             <h1 style={{ margin: 0, fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.3rem,3vw,1.9rem)', color: 'var(--text-primary)' }}>🏆 Leaderboard</h1>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, fontFamily: F, color: 'var(--text-muted)' }}>School rankings</p>
@@ -189,7 +189,7 @@ export default function EntranceLeaderboard() {
           </p>
           <button
             onClick={() => navigate('/profile')}
-            style={{ padding: '13px 32px', background: '#0D9488', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: F }}
+            style={{ padding: '13px 32px', background: '#15803D', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: F }}
           >
             👤 Go to My Profile
           </button>
@@ -217,7 +217,7 @@ export default function EntranceLeaderboard() {
           onClick={() => navigate('/entrance-exam')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 22, color: '#0D9488', padding: 4,
+            fontSize: 22, color: '#15803D', padding: 4,
             fontWeight: 700, lineHeight: 1, flexShrink: 0,
           }}
         >←</button>
@@ -247,7 +247,7 @@ export default function EntranceLeaderboard() {
         {/* Your rank banner */}
         {myRank > 0 && (
           <div style={{
-            background: 'linear-gradient(135deg, #0D9488, #0891B2)',
+            background: 'linear-gradient(135deg, #15803D, #0891B2)',
             borderRadius: 14, padding: '14px 20px', marginBottom: 18,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
@@ -318,7 +318,7 @@ export default function EntranceLeaderboard() {
             <button
               onClick={() => navigate('/entrance-exam')}
               style={{
-                padding: '12px 28px', background: '#0D9488', color: '#fff',
+                padding: '12px 28px', background: '#15803D', color: '#fff',
                 border: 'none', borderRadius: 10, cursor: 'pointer',
                 fontSize: 15, fontWeight: 700, fontFamily: F,
               }}
@@ -359,8 +359,8 @@ export default function EntranceLeaderboard() {
                       gridTemplateColumns: GRID,
                       gap: 6,
                       alignItems: 'center',
-                      background: isMe ? 'rgba(13,148,136,0.12)' : 'var(--bg-card)',
-                      border:     isMe ? '2px solid #0D9488' : '1.5px solid var(--border)',
+                      background: isMe ? 'rgba(21,128,61,0.12)' : 'var(--bg-card)',
+                      border:     isMe ? '2px solid #15803D' : '1.5px solid var(--border)',
                       borderRadius: 12,
                       padding: '10px 12px',
                       cursor: 'pointer',
@@ -368,7 +368,7 @@ export default function EntranceLeaderboard() {
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = 'translateX(3px)';
-                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(13,148,136,0.18)';
+                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(21,128,61,0.18)';
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.transform = '';
@@ -388,8 +388,8 @@ export default function EntranceLeaderboard() {
                     {/* Avatar */}
                     <div style={{
                       width: 30, height: 30, borderRadius: '50%',
-                      background: isMe ? '#0D9488' : 'var(--bg-tertiary)',
-                      border: `2px solid ${isMe ? '#0D9488' : 'var(--border)'}`,
+                      background: isMe ? '#15803D' : 'var(--bg-tertiary)',
+                      border: `2px solid ${isMe ? '#15803D' : 'var(--border)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 900, fontSize: 13,
                       color: isMe ? '#fff' : 'var(--text-muted)',
@@ -414,10 +414,10 @@ export default function EntranceLeaderboard() {
                         {r.name}
                         {isMe && (
                           <span style={{
-                            fontSize: 9, fontWeight: 700, color: '#0D9488',
-                            background: 'rgba(13,148,136,0.12)',
+                            fontSize: 9, fontWeight: 700, color: '#15803D',
+                            background: 'rgba(21,128,61,0.12)',
                             padding: '1px 6px', borderRadius: 20,
-                            border: '1px solid #0D9488', flexShrink: 0,
+                            border: '1px solid #15803D', flexShrink: 0,
                             lineHeight: 1.6,
                           }}>You</span>
                         )}

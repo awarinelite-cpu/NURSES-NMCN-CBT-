@@ -190,7 +190,7 @@ const styles = {
     fontSize: 'clamp(17px, 5.4vw, 26px)', lineHeight: 1.1, whiteSpace: 'nowrap',
   },
   compactTagline: {
-    fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: '#14B8A8',
+    fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: '#22C55E',
     fontSize: 'clamp(9px, 2.9vw, 13px)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis',
   },
   navbar: {
@@ -203,7 +203,7 @@ const styles = {
     width: '100%',
     padding: '18px 20px 14px',
     textAlign: 'center',
-    background: 'linear-gradient(135deg, rgba(13,148,136,0.18), rgba(30,58,138,0.18))',
+    background: 'linear-gradient(135deg, rgba(21,128,61,0.18), rgba(30,58,138,0.18))',
     borderBottom: '1px solid var(--border)',
   },
   brandLink: {
@@ -220,7 +220,7 @@ const styles = {
   brandTagline: {
     display: 'block',
     fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 600, color: '#14B8A8',
+    fontWeight: 600, color: '#22C55E',
     fontSize: 'clamp(11px, 2.2vw, 18px)',
     letterSpacing: 0.6, marginTop: 4,
   },

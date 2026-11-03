@@ -6,8 +6,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -34,7 +34,7 @@ function last52WeeksGrid() {
 function scoreColor(pct) {
   if (pct === null) return '#64748B';
   if (pct >= 80) return '#22C55E';
-  if (pct >= 60) return '#0D9488';
+  if (pct >= 60) return '#15803D';
   if (pct >= 40) return '#F59E0B';
   return '#EF4444';
 }
@@ -97,8 +97,8 @@ function Heatmap({ dayMap, weeks, today }) {
               const isFuture = day > today;
               const bg = isFuture ? 'rgba(255,255,255,0.03)'
                 : count === 0 ? 'rgba(255,255,255,0.06)'
-                : count === 1 ? '#0D948866'
-                : count <= 3  ? '#0D9488'
+                : count === 1 ? '#15803D66'
+                : count <= 3  ? '#15803D'
                 : '#F59E0B';
               return (
                 <div key={di} style={{
@@ -114,7 +114,7 @@ function Heatmap({ dayMap, weeks, today }) {
       {/* Legend */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
         <span style={{ fontFamily: F, fontSize: 10, color: 'var(--text-muted)' }}>Less</span>
-        {['rgba(255,255,255,0.06)', '#0D948866', '#0D9488', '#F59E0B'].map((c, i) => (
+        {['rgba(255,255,255,0.06)', '#15803D66', '#15803D', '#F59E0B'].map((c, i) => (
           <div key={i} style={{ width: cell, height: cell, borderRadius: 3, background: c }} />
         ))}
         <span style={{ fontFamily: F, fontSize: 10, color: 'var(--text-muted)' }}>More</span>
@@ -149,9 +149,9 @@ function MasteryBar({ cat, avg, count, onDrill }) {
           <button
             onClick={() => onDrill(cat)}
             style={{
-              background: '#0D948822', border: '1px solid #0D948855',
+              background: '#15803D22', border: '1px solid #15803D55',
               borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
-              fontFamily: H, fontWeight: 900, fontSize: 11, color: '#0D9488',
+              fontFamily: H, fontWeight: 900, fontSize: 11, color: '#15803D',
             }}
           >Drill →</button>
         </div>
@@ -214,7 +214,7 @@ export default function ProgressWallPage() {
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-      <div style={{ width: 44, height: 44, border: '3px solid rgba(255,255,255,0.08)', borderTopColor: '#0D9488', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 44, height: 44, border: '3px solid rgba(255,255,255,0.08)', borderTopColor: '#15803D', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -234,7 +234,7 @@ export default function ProgressWallPage() {
       {/* Summary stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
         {[
-          { label: 'Practice Days', value: practiceDays,      color: '#0D9488', icon: '📅' },
+          { label: 'Practice Days', value: practiceDays,      color: '#15803D', icon: '📅' },
           { label: 'Total Exams',   value: totalExams,        color: '#3B82F6', icon: '📝' },
           { label: 'Avg Score',     value: `${overallAvg}%`,  color: scoreColor(overallAvg), icon: '🎯' },
         ].map(s => (
@@ -282,7 +282,7 @@ export default function ProgressWallPage() {
           {[
             { color: '#EF4444', label: '< 40%' },
             { color: '#F59E0B', label: '40–59%' },
-            { color: '#0D9488', label: '60–79%' },
+            { color: '#15803D', label: '60–79%' },
             { color: '#22C55E', label: '≥ 80%' },
           ].map(l => (
             <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

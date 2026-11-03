@@ -7,8 +7,8 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ─── Specialties ───────────────────────────────────────────────────────────────
 // 'id' is written to questions as mockExamId in the admin bulk-upload panel.
@@ -29,7 +29,7 @@ const SPECIALTIES = [
   { id: 'cardio_thoracic',   label: 'Cardio-thoracic',     icon: '❤️',  color: '#E11D48', border: 'rgba(225,29,72,0.40)',   glow: 'rgba(225,29,72,0.12)'   },
   { id: 'nephrology',        label: 'Nephrology',          icon: '🫘',  color: '#1D4ED8', border: 'rgba(29,78,216,0.40)',   glow: 'rgba(29,78,216,0.12)'   },
   { id: 'oncology',          label: 'Oncology',            icon: '🎗️',  color: '#7C3AED', border: 'rgba(124,58,237,0.40)', glow: 'rgba(124,58,237,0.12)'  },
-  { id: 'community_nursing',     label: 'Community Nursing',     icon: '🏘️',  color: '#0D9488', border: 'rgba(13,148,136,0.40)',  glow: 'rgba(13,148,136,0.12)'  },
+  { id: 'community_nursing',     label: 'Community Nursing',     icon: '🏘️',  color: '#15803D', border: 'rgba(21,128,61,0.40)',  glow: 'rgba(21,128,61,0.12)'  },
 ];
 
 // Exported so the Essay Questions admin/student pages can share the exact
@@ -185,7 +185,7 @@ export default function MockExamPage() {
           <span style={{ fontSize: 30 }}>🏫</span>
           <h2 style={{
             margin: 0,
-            fontFamily: "'Arial Black', Arial, sans-serif",
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             fontSize: 26, fontWeight: 800,
             color: 'var(--text-primary)',
           }}>
@@ -311,7 +311,7 @@ export default function MockExamPage() {
         <span style={{ fontSize: 28 }}>{sp.icon}</span>
         <h2 style={{
           margin: 0,
-          fontFamily: "'Arial Black', Arial, sans-serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           fontSize: 22, fontWeight: 800,
           color: 'var(--text-primary)',
         }}>

@@ -7,8 +7,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { fetchNote, specialtyMeta } from '../../utils/lectureNotesUtils';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function LectureNoteViewerPage() {
   const { specialtyId, noteId } = useParams();
@@ -92,8 +92,8 @@ export default function LectureNoteViewerPage() {
           color: var(--text-primary);
         }
         .lecture-note-body img { height: auto; border-radius: 10px; margin: 10px 0; }
-        .lecture-note-body a { color: #0D9488; }
-        .lecture-note-body blockquote { border-left: 3px solid #0D9488; margin: 10px 0; padding: 4px 14px; color: var(--text-muted); }
+        .lecture-note-body a { color: #15803D; }
+        .lecture-note-body blockquote { border-left: 3px solid #15803D; margin: 10px 0; padding: 4px 14px; color: var(--text-muted); }
         .lecture-note-body pre { background: rgba(255,255,255,0.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto !important; white-space: pre-wrap !important; }
         .lecture-note-body table { display: block; overflow-x: auto !important; }
       `}</style>

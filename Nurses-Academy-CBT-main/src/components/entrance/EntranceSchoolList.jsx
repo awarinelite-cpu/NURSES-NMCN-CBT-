@@ -65,7 +65,7 @@ export default function EntranceSchoolList() {
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
           🏫 Select a Nursing School
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
@@ -110,7 +110,7 @@ export default function EntranceSchoolList() {
                 width: 30, height: 30, borderRadius: 6, border: '1.5px solid',
                 cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
                 borderColor: jumpLetter === l ? 'var(--teal)' : 'var(--border)',
-                background:  jumpLetter === l ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                background:  jumpLetter === l ? 'rgba(21,128,61,0.15)' : 'var(--bg-tertiary)',
                 color:       jumpLetter === l ? 'var(--teal)' : 'var(--text-secondary)',
               }}
             >{l}</button>
@@ -169,8 +169,8 @@ function SchoolCard({ school, onClick }) {
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 14,
-        background: hov ? 'rgba(13,148,136,0.06)' : 'var(--bg-card)',
-        border: `1.5px solid ${hov ? 'rgba(13,148,136,0.4)' : 'var(--border)'}`,
+        background: hov ? 'rgba(21,128,61,0.06)' : 'var(--bg-card)',
+        border: `1.5px solid ${hov ? 'rgba(21,128,61,0.4)' : 'var(--border)'}`,
         borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
         transform: hov ? 'translateX(4px)' : 'translateX(0)',
         transition: 'background .2s, border-color .2s, transform .2s',
@@ -179,7 +179,7 @@ function SchoolCard({ school, onClick }) {
       {/* Icon */}
       <div style={{
         width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-        background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.25)',
+        background: 'rgba(21,128,61,0.12)', border: '1.5px solid rgba(21,128,61,0.25)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
       }}>🏫</div>
 

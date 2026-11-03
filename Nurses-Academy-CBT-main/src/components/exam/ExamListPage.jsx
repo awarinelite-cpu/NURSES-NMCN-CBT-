@@ -22,8 +22,8 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function ExamListPage() {
   const navigate        = useNavigate();
@@ -202,7 +202,7 @@ export default function ExamListPage() {
             <div style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {typeLabel}
             </div>
-            <h2 style={{ margin: 0, fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '1.3rem', color: 'var(--text-primary)' }}>
+            <h2 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: '1.3rem', color: 'var(--text-primary)' }}>
               {breadcrumb()}
             </h2>
           </div>
@@ -263,7 +263,7 @@ export default function ExamListPage() {
                     {/* Index badge */}
                     <div style={{
                       width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                      background: isExpanded ? 'var(--teal)' : 'rgba(13,148,136,0.12)',
+                      background: isExpanded ? 'var(--teal)' : 'rgba(21,128,61,0.12)',
                       color: isExpanded ? '#fff' : 'var(--teal)',
                       fontWeight: 800, fontSize: 14,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -340,7 +340,7 @@ export default function ExamListPage() {
                     borderTop: '1px solid var(--border)',
                     padding: '14px 16px',
                     display: 'flex', gap: 10, flexWrap: 'wrap',
-                    background: 'rgba(13,148,136,0.04)',
+                    background: 'rgba(21,128,61,0.04)',
                   }}>
                     <button
                       className="btn btn-primary"

@@ -30,8 +30,8 @@ const S = {
   card:  { background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '18px 20px' },
 };
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ROOT
@@ -68,7 +68,7 @@ export default function EntranceExamManager() {
         borderRadius: 16, padding: '24px 28px', marginBottom: 28,
         position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.25) 0%, transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 50%, rgba(21,128,61,0.25) 0%, transparent 60%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 style={{ color: '#fff', fontFamily: H, fontWeight: 900, margin: '0 0 6px', fontSize: 'clamp(1.6rem,4vw,2.4rem)' }}>
             🏫 Entrance Exam Manager
@@ -87,7 +87,7 @@ export default function EntranceExamManager() {
             cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13,
             transition: 'all .2s',
             borderColor: tab === t.id ? 'var(--teal)' : 'var(--border)',
-            background:  tab === t.id ? 'rgba(13,148,136,0.15)' : 'var(--bg-card)',
+            background:  tab === t.id ? 'rgba(21,128,61,0.15)' : 'var(--bg-card)',
             color:       tab === t.id ? 'var(--teal)' : 'var(--text-secondary)',
           }}>{t.label}</button>
         ))}
@@ -200,7 +200,7 @@ function SchoolsTab({ toast, onSchoolsChanged }) {
               <label style={S.label}>Status</label>
               <div style={{ display: 'flex', gap: 10 }}>
                 {[{ v: true, l: '✅ Active' }, { v: false, l: '🙈 Hidden' }].map(o => (
-                  <button key={String(o.v)} onClick={() => setForm(p => ({ ...p, isActive: o.v }))} style={{ padding: '8px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: form.isActive === o.v ? 'var(--teal)' : 'var(--border)', background: form.isActive === o.v ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)', color: form.isActive === o.v ? 'var(--teal)' : 'var(--text-secondary)' }}>{o.l}</button>
+                  <button key={String(o.v)} onClick={() => setForm(p => ({ ...p, isActive: o.v }))} style={{ padding: '8px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: form.isActive === o.v ? 'var(--teal)' : 'var(--border)', background: form.isActive === o.v ? 'rgba(21,128,61,0.12)' : 'var(--bg-tertiary)', color: form.isActive === o.v ? 'var(--teal)' : 'var(--text-secondary)' }}>{o.l}</button>
                 ))}
               </div>
             </div>
@@ -271,7 +271,7 @@ function AddSingleTab({ toast, schools, schoolsReady }) {
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {[{ id: 'form', label: '🖊️ Form Entry' }, { id: 'paste', label: '📋 Paste & Parse' }].map(m => (
-          <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: mode === m.id ? 'var(--teal)' : 'var(--border)', background: mode === m.id ? 'rgba(13,148,136,0.12)' : 'var(--bg-card)', color: mode === m.id ? 'var(--teal)' : 'var(--text-muted)' }}>{m.label}</button>
+          <button key={m.id} onClick={() => setMode(m.id)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontFamily: F, fontWeight: 700, fontSize: 13, transition: 'all .2s', borderColor: mode === m.id ? 'var(--teal)' : 'var(--border)', background: mode === m.id ? 'rgba(21,128,61,0.12)' : 'var(--bg-card)', color: mode === m.id ? 'var(--teal)' : 'var(--text-muted)' }}>{m.label}</button>
         ))}
       </div>
       {mode === 'form' && (
@@ -501,7 +501,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
         {fileImportInfo && (
           <div style={{
             marginTop: 12, padding: '8px 14px', borderRadius: 9,
-            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+            background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
             fontSize: 12, color: 'var(--text-primary)', fontWeight: 600,
           }}>
             {fileImportInfo}
@@ -552,7 +552,7 @@ function BulkUploadTab({ toast, schools, schoolsReady }) {
                   <tr key={i}>
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{i + 1}</td>
                     <td style={{ fontSize: 12 }}>{q.questionText.replace(/^Instructions:.*?\n/i, '').slice(0, 55)}{q.questionText.length > 55 ? '…' : ''}</td>
-                    <td><span className="badge" style={{ background: q._detectedSubject ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)', color: q._detectedSubject ? 'var(--teal)' : 'var(--text-muted)', fontSize: 11 }}>{q._detectedSubject || subject}</span></td>
+                    <td><span className="badge" style={{ background: q._detectedSubject ? 'rgba(21,128,61,0.15)' : 'var(--bg-tertiary)', color: q._detectedSubject ? 'var(--teal)' : 'var(--text-muted)', fontSize: 11 }}>{q._detectedSubject || subject}</span></td>
                     <td><span className="badge badge-teal">{q.correctAnswer}</span></td>
                     <td><span className="badge badge-grey">{q.questionType === 'diagram' ? '🖼️' : '📝'}</span></td>
                   </tr>
@@ -972,7 +972,7 @@ function DailyMockSettings({ toast }) {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, fontFamily: F }}>If a question's overall pass rate falls <strong>below this threshold</strong>, it gets re-queued. Set to 0 to disable repeats.</div>
           <SliderWithPresets value={config.repeatThreshold} min={0} max={80} step={5} presets={[{ v: 0, l: 'Off' }, { v: 30, l: '30%' }, { v: 50, l: '50%' }, { v: 60, l: '60%' }]} onChange={v => setConfig(c => ({ ...c, repeatThreshold: v }))} displayFn={v => v === 0 ? 'Off' : `${v}%`} color="#EF4444" />
         </div>
-        <div style={{ background: 'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(13,148,136,0.08))', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 14, padding: '16px 20px' }}>
+        <div style={{ background: 'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(21,128,61,0.08))', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 14, padding: '16px 20px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, fontFamily: F }}>Preview — What students will see</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 2, fontFamily: F, fontWeight: 700 }}>
             📅 Daily Mock: <strong style={{ color: 'var(--text-primary)' }}>{Math.min(config.questionCount, bankSize || config.questionCount)} questions</strong> · {config.timeLimit > 0 ? <><strong style={{ color: '#F59E0B' }}>{config.timeLimit} minutes</strong></> : <strong style={{ color: '#10B981' }}>Untimed</strong>}<br />
@@ -1239,7 +1239,7 @@ function ParseError({ msg }) {
 
 function QuestionPreview({ q, children }) {
   return (
-    <div style={{ ...S.card, border: '1.5px solid rgba(13,148,136,0.4)', marginBottom: 16 }}>
+    <div style={{ ...S.card, border: '1.5px solid rgba(21,128,61,0.4)', marginBottom: 16 }}>
       <div style={{ fontWeight: 700, color: 'var(--teal)', marginBottom: 12, fontFamily: F }}>✅ Parsed — {q.questionType === 'diagram' ? '🖼️ Diagram' : '📝 Text'} Question</div>
       {q.diagramUrl && (<div style={{ marginBottom: 12 }}><img src={q.diagramUrl} alt="Diagram" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none'; }} /></div>)}
       <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 10, fontFamily: F }}>{q.questionText}</div>

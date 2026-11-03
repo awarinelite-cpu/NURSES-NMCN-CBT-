@@ -12,8 +12,8 @@ function LoadingScreen() {
     }}>
       <div style={{
         width: 40, height: 40, borderRadius: '50%',
-        border: '3px solid rgba(13,148,136,0.2)',
-        borderTopColor: '#0D9488',
+        border: '3px solid rgba(21,128,61,0.2)',
+        borderTopColor: '#15803D',
         animation: 'spin 0.8s linear infinite',
       }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

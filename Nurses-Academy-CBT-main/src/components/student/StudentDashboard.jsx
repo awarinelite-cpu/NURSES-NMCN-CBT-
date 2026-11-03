@@ -56,7 +56,7 @@ function ACard({ children, delay = 0, style: s = {} }) {
 }
 
 // ── Animated score ring ───────────────────────────────────────────────────────
-function ScoreRing({ percent, color = '#0D9488', size = 72 }) {
+function ScoreRing({ percent, color = '#15803D', size = 72 }) {
   const r = 28, circ = 2 * Math.PI * r;
   const [dash, setDash] = useState(0);
   useEffect(() => { const t = setTimeout(() => setDash((percent / 100) * circ), 500); return () => clearTimeout(t); }, [percent, circ]);
@@ -439,7 +439,7 @@ const M = {
   closeBtn: { background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card: { display: 'flex', alignItems: 'flex-start', gap: 12, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 14px 14px 18px', position: 'relative', overflow: 'hidden' },
   cardAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
-  tag: { fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(13,148,136,0.12)', color: 'var(--teal)' },
+  tag: { fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(21,128,61,0.12)', color: 'var(--teal)' },
   resumeBtn: { padding: '7px 14px', borderRadius: 8, cursor: 'pointer', background: 'var(--teal)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: F, whiteSpace: 'nowrap' },
   deleteBtn: { padding: '5px 10px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', fontWeight: 600, fontSize: 11, fontFamily: F, whiteSpace: 'nowrap' },
 };
@@ -450,7 +450,7 @@ const QUICK_ACTIONS = [
     to: '/course-drill', icon: '📖', label: 'Course Drill',
     sub: 'Take exam by courses',
     desc: 'Pick any nursing course and drill questions specifically from that course. Perfect for targeted revision before a test.',
-    color: '#0D9488',
+    color: '#15803D',
   },
   {
     to: '/topic-drill', icon: '🎯', label: 'Topic Drill',
@@ -498,7 +498,7 @@ const QUICK_ACTIONS = [
     to: '/caosce', icon: '🩺', label: 'CAOSCE PREP',
     sub: 'Computer-Based OSCE Practical Exam',
     desc: 'Practice real OSCE-style clinical stations: read the scenario, tick the procedures you would perform, then answer CBT questions on the case.',
-    color: '#0D9488',
+    color: '#15803D',
   },
   {
     to: '/essay-questions', icon: '✍️', label: 'Essay Questions',
@@ -650,10 +650,10 @@ function BannerButtonStrip({ pausedExams, profile, onContinue, onStartExam }) {
         {pausedExams.length > 0 && (
           <button
             onClick={e => { e.stopPropagation(); onContinue(); }}
-            style={{ ...btnBase, background: 'rgba(13,148,136,0.25)', border: '1.5px solid rgba(13,148,136,0.65)', color: '#5EEAD4' }}
+            style={{ ...btnBase, background: 'rgba(21,128,61,0.25)', border: '1.5px solid rgba(21,128,61,0.65)', color: '#5EEAD4' }}
           >
             ▶ Continue
-            <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', lineHeight: '16px' }}>
+            <span style={{ background: '#15803D', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 900, padding: '1px 7px', lineHeight: '16px' }}>
               {pausedExams.length}
             </span>
           </button>
@@ -973,7 +973,7 @@ export default function StudentDashboard() {
                 {slide.desc}
               </div>
             </div>
-            <span style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(45,212,191,0.7)', color: '#fff', fontSize: 20, background: 'rgba(13,148,136,0.25)' }}>→</span>
+            <span style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(45,212,191,0.7)', color: '#fff', fontSize: 20, background: 'rgba(21,128,61,0.25)' }}>→</span>
           </Link>
 
           <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 12 }}>
@@ -996,10 +996,10 @@ export default function StudentDashboard() {
               {pausedExams.length > 0 && (
                 <button
                   onClick={e => { e.stopPropagation(); setShowModal(true); }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(13,148,136,0.28)', border: '1.5px solid rgba(45,212,191,0.7)', color: '#5EEAD4' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: F, background: 'rgba(21,128,61,0.28)', border: '1.5px solid rgba(45,212,191,0.7)', color: '#5EEAD4' }}
                 >
                   ▶ Continue
-                  <span style={{ background: '#0D9488', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>{pausedExams.length}</span>
+                  <span style={{ background: '#15803D', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 900, padding: '1px 7px' }}>{pausedExams.length}</span>
                 </button>
               )}
               {!profile?.subscribed && (
@@ -1050,7 +1050,7 @@ export default function StudentDashboard() {
             onClick={() => setShowModal(true)}
             style={{ ...S.panel, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer' }}
           >
-            <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'rgba(13,148,136,0.18)', border: '1.5px solid rgba(13,148,136,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
+            <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'rgba(21,128,61,0.18)', border: '1.5px solid rgba(21,128,61,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶️</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 2 }}>
                 You have {pausedExams.length} paused exam{pausedExams.length !== 1 ? 's' : ''}
@@ -1208,7 +1208,7 @@ function ExamCountdownBanner({ user, profile }) {
           <div style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(15px, 4.6vw, 19px)', color: 'var(--text-primary)' }}>Set your NMCN exam date</div>
           <div style={{ fontSize: 'clamp(12px, 3.6vw, 15px)', color: 'var(--text-muted)', marginTop: 3 }}>Personalised countdown &amp; study plan</div>
         </div>
-        <span style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 24, background: 'linear-gradient(135deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 800, fontSize: 16, boxShadow: '0 3px 12px rgba(13,148,136,0.45)' }}>Set ›</span>
+        <span style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 24, background: 'linear-gradient(135deg,#15803D,#0f766e)', color: '#fff', fontWeight: 800, fontSize: 16, boxShadow: '0 3px 12px rgba(21,128,61,0.45)' }}>Set ›</span>
       </div>
     );
   }
@@ -1222,8 +1222,8 @@ function ExamCountdownBanner({ user, profile }) {
   const isToday  = days <= 0;
   const isUrgent = days > 0 && days <= 7;
   const isWarn   = days > 7 && days <= 30;
-  const color    = isToday ? '#7C3AED' : isUrgent ? '#EF4444' : isWarn ? '#F59E0B' : '#0D9488';
-  const bg       = isToday ? 'rgba(124,58,237,0.12)' : isUrgent ? 'rgba(239,68,68,0.1)' : isWarn ? 'rgba(245,158,11,0.1)' : 'rgba(13,148,136,0.08)';
+  const color    = isToday ? '#7C3AED' : isUrgent ? '#EF4444' : isWarn ? '#F59E0B' : '#15803D';
+  const bg       = isToday ? 'rgba(124,58,237,0.12)' : isUrgent ? 'rgba(239,68,68,0.1)' : isWarn ? 'rgba(245,158,11,0.1)' : 'rgba(21,128,61,0.08)';
   const label    = isToday ? '🎓 Exam Day!' : isUrgent ? `⚠️ ${days} day${days !== 1 ? 's' : ''} left!` : `📅 ${days} days to NMCN exam`;
   const msg      = isToday ? "You've got this. Everything you've practiced has led to today."
                  : isUrgent ? "Final sprint! Focus on your weak areas and trust your preparation."
@@ -1342,7 +1342,7 @@ function SurpriseMeButton({ profile, user }) {
         background: 'linear-gradient(135deg, #0b5f4f 0%, #0f766e 55%, #0d4a45 100%)',
         color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12,
-        boxShadow: '0 4px 20px rgba(13,148,136,0.3)',
+        boxShadow: '0 4px 20px rgba(21,128,61,0.3)',
         transform: pulse ? 'scale(1.015)' : 'scale(1)',
         transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
         opacity: loading ? 0.7 : 1, textAlign: 'left',
@@ -1484,7 +1484,7 @@ const S = {
     gap: 16, marginBottom: 32,
   },
   sectionTitle: {
-    fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '1.1rem',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: '1.1rem',
     color: 'var(--text-primary)', margin: 0,
   },
   quickGrid: {

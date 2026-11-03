@@ -6,8 +6,8 @@ import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCre
 import { db, auth } from '../../firebase/config';
 import NotificationSettings from './NotificationSettings';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const SPECIALIZATIONS = [
   'Medical-Surgical Nursing',
@@ -173,7 +173,7 @@ export default function ProfilePage() {
   }
 
   const scoreColor = avgScore === null ? '#94A3B8'
-    : avgScore >= 70 ? '#0D9488'
+    : avgScore >= 70 ? '#15803D'
     : avgScore >= 50 ? '#F59E0B'
     : '#EF4444';
 
@@ -190,9 +190,9 @@ export default function ProfilePage() {
           <div style={styles.badgeRow}>
             <span style={{
               ...styles.badge,
-              background: profile?.subscribed ? 'rgba(13,148,136,0.18)' : 'rgba(100,116,139,0.18)',
-              color: profile?.subscribed ? '#0D9488' : '#94A3B8',
-              border: `1px solid ${profile?.subscribed ? 'rgba(13,148,136,0.35)' : 'rgba(100,116,139,0.3)'}`,
+              background: profile?.subscribed ? 'rgba(21,128,61,0.18)' : 'rgba(100,116,139,0.18)',
+              color: profile?.subscribed ? '#15803D' : '#94A3B8',
+              border: `1px solid ${profile?.subscribed ? 'rgba(21,128,61,0.35)' : 'rgba(100,116,139,0.3)'}`,
             }}>
               {profile?.subscribed ? '⭐ ' + planLabel : '🆓 Free Plan'}
             </span>
@@ -250,8 +250,8 @@ export default function ProfilePage() {
       {msg && (
         <div style={{
           ...styles.msgBox,
-          background: msg.type === 'success' ? 'rgba(13,148,136,0.12)' : 'rgba(239,68,68,0.12)',
-          borderColor: msg.type === 'success' ? 'rgba(13,148,136,0.4)' : 'rgba(239,68,68,0.4)',
+          background: msg.type === 'success' ? 'rgba(21,128,61,0.12)' : 'rgba(239,68,68,0.12)',
+          borderColor: msg.type === 'success' ? 'rgba(21,128,61,0.4)' : 'rgba(239,68,68,0.4)',
           color: msg.type === 'success' ? '#2DD4BF' : '#FCA5A5',
         }}>
           {msg.type === 'success' ? '✅ ' : '⚠️ '}{msg.text}
@@ -449,8 +449,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 18,
-    background: 'linear-gradient(135deg, rgba(13,148,136,0.12) 0%, rgba(30,58,138,0.15) 100%)',
-    border: '1px solid rgba(13,148,136,0.2)',
+    background: 'linear-gradient(135deg, rgba(21,128,61,0.12) 0%, rgba(30,58,138,0.15) 100%)',
+    border: '1px solid rgba(21,128,61,0.2)',
     borderRadius: 16,
     padding: '20px 22px',
     marginBottom: 16,
@@ -458,14 +458,14 @@ const styles = {
   avatarRing: {
     padding: 3,
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+    background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
     flexShrink: 0,
   },
   avatar: {
     width: 62, height: 62, borderRadius: '50%',
     background: '#020B18',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 900, fontSize: 24, color: '#0D9488',
+    fontWeight: 900, fontSize: 24, color: '#15803D',
     letterSpacing: -1,
   },
   headerInfo: { flex: 1, minWidth: 0 },
@@ -516,9 +516,9 @@ const styles = {
     cursor: 'pointer', transition: 'all .15s',
   },
   tabActive: {
-    background: 'rgba(13,148,136,0.15)',
+    background: 'rgba(21,128,61,0.15)',
     color: '#2DD4BF',
-    boxShadow: 'inset 0 0 0 1px rgba(13,148,136,0.3)',
+    boxShadow: 'inset 0 0 0 1px rgba(21,128,61,0.3)',
   },
 
   msgBox: {
@@ -538,8 +538,8 @@ const styles = {
   },
   cardTitle: { fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' },
   editBtn: {
-    fontSize: 12, fontWeight: 600, color: '#0D9488',
-    background: 'rgba(13,148,136,0.1)', border: '1px solid rgba(13,148,136,0.25)',
+    fontSize: 12, fontWeight: 600, color: '#15803D',
+    background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.25)',
     borderRadius: 8, padding: '5px 12px', cursor: 'pointer',
     textDecoration: 'none',
   },
@@ -568,9 +568,9 @@ const styles = {
   },
   saveBtn: {
     padding: '9px 22px', borderRadius: 8, border: 'none',
-    background: 'linear-gradient(135deg,#0D9488,#0F766E)',
+    background: 'linear-gradient(135deg,#15803D,#166534)',
     color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
-    cursor: 'pointer', boxShadow: '0 2px 12px rgba(13,148,136,0.3)',
+    cursor: 'pointer', boxShadow: '0 2px 12px rgba(21,128,61,0.3)',
   },
 
   subBox: {

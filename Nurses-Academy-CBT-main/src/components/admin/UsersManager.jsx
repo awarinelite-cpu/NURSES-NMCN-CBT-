@@ -161,7 +161,7 @@ export default function UsersManager() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         width: 34, height: 34, borderRadius: '50%',
-                        background: 'linear-gradient(135deg,#0D9488,#7C3AED)',
+                        background: 'linear-gradient(135deg,#15803D,#7C3AED)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0,
                       }}>

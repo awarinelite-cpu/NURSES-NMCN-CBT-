@@ -10,9 +10,9 @@ import {
 import { db } from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman',Times,serif";
-const H = "'Arial Black',Arial,sans-serif";
-const TEAL   = '#0D9488';
+const F = "'Plus Jakarta Sans', system-ui, sans-serif,Times,serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif,Arial,sans-serif";
+const TEAL   = '#15803D';
 const GOLD   = '#F59E0B';
 const GREEN  = '#22C55E';
 const RED    = '#EF4444';
@@ -78,7 +78,7 @@ function Cell({ value, onChange, multiline = false, mono = false, placeholder = 
         wordBreak:'break-word', whiteSpace:'pre-wrap',
         ...style,
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(13,148,136,0.4)'; e.currentTarget.style.background='rgba(13,148,136,0.06)'; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(21,128,61,0.4)'; e.currentTarget.style.background='rgba(21,128,61,0.06)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent'; }}
     >
       {value || <span style={{ fontStyle:'italic', fontSize:11 }}>{placeholder || 'click to edit…'}</span>}
@@ -441,7 +441,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
       {/* ── Legend ──────────────────────────────────────────────────────── */}
       <div style={{
         display:'flex', gap:16, padding:'8px 14px', borderRadius:8, marginBottom:14,
-        background:'rgba(13,148,136,0.06)', border:'1px solid rgba(13,148,136,0.2)',
+        background:'rgba(21,128,61,0.06)', border:'1px solid rgba(21,128,61,0.2)',
         fontSize:12, color:'var(--text-muted)', flexWrap:'wrap', alignItems:'center',
       }}>
         <span>💡 <strong>Click any cell</strong> to edit inline.</span>
@@ -626,7 +626,7 @@ export default function EditQuestionsTab({ firestoreCourses, toast }) {
                         onClick={() => setExpandedId(expanded ? null : q.id)}
                         title={expanded ? 'Collapse' : 'Expand explanation + image fields'}
                         style={{
-                          background: expanded ? 'rgba(13,148,136,0.15)' : 'var(--bg-tertiary)',
+                          background: expanded ? 'rgba(21,128,61,0.15)' : 'var(--bg-tertiary)',
                           border:'1px solid var(--border)', borderRadius:8,
                           cursor:'pointer', padding:'6px 8px', fontSize:14,
                           color: expanded ? TEAL : 'var(--text-muted)',

@@ -20,8 +20,8 @@ import { fetchStreak } from '../../utils/streakUtils';
 import EntranceDailyChallenge from './EntranceDailyChallenge';
 import EntranceTipOfDay from './EntranceTipOfDay';
 import StreakReminderBanner from '../shared/StreakReminderBanner';
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 /* ── Animated wrapper ──────────────────────────────────────────────────────── */
 function ACard({ children, delay = 0, style: s = {} }) {
@@ -421,7 +421,7 @@ function SurpriseMeButton({ user }) {
   return (
     <button onClick={handleSurprise} disabled={isLoading} style={{
       width: '100%', padding: '16px 20px', borderRadius: 14, border: 'none',
-      background: 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+      background: 'linear-gradient(135deg, #7C3AED 0%, #15803D 100%)',
       color: '#fff', cursor: isLoading ? 'not-allowed' : 'pointer',
       display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20,
       boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
@@ -621,7 +621,7 @@ export default function EntranceExamHub() {
       to: '/entrance-exam/daily-mock',
       delay: 350,
     },
-    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools available`,             color: '#0D9488', to: '/entrance-exam/schools',       delay: 420 },
+    { icon: '🏫', label: 'School Past Questions', sub: `${animSchools || '…'} schools available`,             color: '#15803D', to: '/entrance-exam/schools',       delay: 420 },
     { icon: '📚', label: 'Subject Drill',          sub: 'Topic-by-topic practice',                             color: '#2563EB', to: '/entrance-exam/subject-drill', delay: 490 },
     { icon: '📋', label: 'Exams Taken',            sub: `${completedExams.length} recent session${completedExams.length !== 1 ? 's' : ''}`, color: '#7C3AED', to: '/entrance-exam/exams-taken', delay: 560 },
     { icon: '🔖', label: 'Bookmarks',              sub: 'Your saved questions',                                color: '#A855F7', to: '/entrance-exam/bookmarks',     delay: 630 },
@@ -653,8 +653,8 @@ export default function EntranceExamHub() {
         <div
           onClick={() => navigate('/badges')}
           style={{
-            background: 'linear-gradient(135deg, #0D948818 0%, #1E3A8A18 100%)',
-            border: '1.5px solid rgba(13,148,136,0.25)',
+            background: 'linear-gradient(135deg, #15803D18 0%, #1E3A8A18 100%)',
+            border: '1.5px solid rgba(21,128,61,0.25)',
             borderRadius: 14, padding: '12px 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             cursor: 'pointer', marginBottom: 16,
@@ -663,7 +663,7 @@ export default function EntranceExamHub() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 20 }}>🏅</span>
             <div>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: '#0D9488' }}>
+              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: '#15803D' }}>
                 {earnedBadges.length} Badge{earnedBadges.length !== 1 ? 's' : ''} Earned
               </div>
               <div style={{ fontFamily: F, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -701,7 +701,7 @@ export default function EntranceExamHub() {
         opacity: bannerVis ? 1 : 0, transform: bannerVis ? 'translateY(0)' : 'translateY(-16px)',
         transition: 'opacity .6s ease, transform .6s ease',
       }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(13,148,136,0.35) 0%, transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%, rgba(21,128,61,0.35) 0%, transparent 60%)' }} />
         <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(20px,4vw,36px)' }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>🏥 NMCN CBT Platform</div>
           <h2 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.5rem, 4vw, 2.4rem)', color: '#FFFFFF', margin: '0 0 10px', lineHeight: 1.2 }}>
@@ -810,7 +810,7 @@ export default function EntranceExamHub() {
 
       {/* ── Progress Wall shortcut ── */}
       <ACard delay={900} style={{ marginBottom: 20 }}>
-        <div onClick={() => navigate('/progress-wall')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,rgba(13,148,136,0.12),rgba(30,58,138,0.12))', border: '1.5px solid rgba(13,148,136,0.25)', borderRadius: 14, padding: '16px 20px', cursor: 'pointer' }}>
+        <div onClick={() => navigate('/progress-wall')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,rgba(21,128,61,0.12),rgba(30,58,138,0.12))', border: '1.5px solid rgba(21,128,61,0.25)', borderRadius: 14, padding: '16px 20px', cursor: 'pointer' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 28 }}>🗺️</span>
             <div>
@@ -828,7 +828,7 @@ export default function EntranceExamHub() {
           onClick={() => navigate('/entrance-exam/study-buddy')}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(13,148,136,0.1))',
+            background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(21,128,61,0.1))',
             border: '1.5px solid rgba(124,58,237,0.25)', borderRadius: 14,
             padding: '16px 20px', cursor: 'pointer',
           }}
@@ -846,7 +846,7 @@ export default function EntranceExamHub() {
 
       {/* Recommendation */}
       <ACard delay={900} style={{ marginBottom: 24 }}>
-        <div style={{ background: 'var(--teal-glow)', border: '1.5px solid rgba(13,148,136,0.25)', borderRadius: 14, padding: '18px 22px' }}>
+        <div style={{ background: 'var(--teal-glow)', border: '1.5px solid rgba(21,128,61,0.25)', borderRadius: 14, padding: '18px 22px' }}>
           <h3 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', color: 'var(--text-primary)', margin: '0 0 12px' }}>
             💡 Recommended For You
           </h3>

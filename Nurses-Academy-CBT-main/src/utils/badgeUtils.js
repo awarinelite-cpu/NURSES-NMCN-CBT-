@@ -15,14 +15,14 @@ export const BADGES = [
   { id: 'streak_30',    icon: '👑', label: '30-Day King/Queen',   desc: 'Practice 30 days in a row',          color: '#F59E0B', category: 'streak'   },
 
   // Score badges
-  { id: 'perfect_score',icon: '💯', label: 'Perfect Score',       desc: 'Score 100% in any exam',             color: '#0D9488', category: 'score'    },
+  { id: 'perfect_score',icon: '💯', label: 'Perfect Score',       desc: 'Score 100% in any exam',             color: '#15803D', category: 'score'    },
   { id: 'score_70',     icon: '🌟', label: 'High Achiever',       desc: 'Average score above 70%',            color: '#22C55E', category: 'score'    },
   { id: 'score_80',     icon: '🏅', label: 'Excellence Award',    desc: 'Average score above 80%',            color: '#3B82F6', category: 'score'    },
   { id: 'score_90',     icon: '🎖️', label: 'Distinction',         desc: 'Average score above 90%',            color: '#F59E0B', category: 'score'    },
 
   // Volume badges
   { id: 'exams_5',      icon: '📝', label: 'Getting Started',     desc: 'Complete 5 exams',                   color: '#64748B', category: 'volume'   },
-  { id: 'exams_25',     icon: '📚', label: 'Dedicated Student',   desc: 'Complete 25 exams',                  color: '#0D9488', category: 'volume'   },
+  { id: 'exams_25',     icon: '📚', label: 'Dedicated Student',   desc: 'Complete 25 exams',                  color: '#15803D', category: 'volume'   },
   { id: 'exams_50',     icon: '🎓', label: 'Scholar',             desc: 'Complete 50 exams',                  color: '#7C3AED', category: 'volume'   },
   { id: 'exams_100',    icon: '🏆', label: 'Centurion',           desc: 'Complete 100 exams',                 color: '#F59E0B', category: 'volume'   },
 

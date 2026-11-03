@@ -57,17 +57,17 @@ function NoteModal({ questionId, userId, existingNote, onClose, onSaved }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: '20px 20px 16px 16px', padding: 24, width: '100%', maxWidth: 560, boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>📝 Personal Note</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 900, fontSize: 15, color: 'var(--text-primary)' }}>📝 Personal Note</div>
           <button onClick={onClose} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700 }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, fontFamily: "'Times New Roman', Times, serif" }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
           Private note — only you can see this.
         </div>
         <textarea
           value={text} onChange={e => setText(e.target.value)}
           placeholder={'e.g. "Remember: Digoxin toxicity → bradycardia + yellow halos."'}
           rows={4}
-          style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.65, resize: 'vertical', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg-primary)', border: '1.5px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", lineHeight: 1.65, resize: 'vertical', boxSizing: 'border-box' }}
           autoFocus
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
@@ -91,7 +91,7 @@ function Confetti({ active }) {
     const ctx = canvas.getContext('2d');
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
-    const COLORS = ['#0D9488','#F59E0B','#EF4444','#22C55E','#A855F7','#3B82F6','#F97316'];
+    const COLORS = ['#15803D','#F59E0B','#EF4444','#22C55E','#A855F7','#3B82F6','#F97316'];
     const pieces = Array.from({ length: 160 }, () => ({
       x: Math.random() * canvas.width,
       y: -20 - Math.random() * 100,
@@ -199,8 +199,8 @@ import ExplanationText from '../shared/ExplanationText';
 import GroupCallBar from '../shared/GroupCallBar';
 import { useStudySession } from '../../hooks/useStudySession';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
   return (
@@ -231,9 +231,9 @@ function ExitModal({ onSaveExit, onAbandon, onCancel, saving }) {
 function UpgradeModal({ onContinue, onUpgrade }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(13,148,136,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
+      <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(21,128,61,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
         <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
-        <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+        <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
           You've reached your free limit!
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
@@ -245,7 +245,7 @@ function UpgradeModal({ onContinue, onUpgrade }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             onClick={onUpgrade}
-            style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #0D9488, #0F766E)', color: '#fff', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+            style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #15803D, #166534)', color: '#fff', letterSpacing: 0.5, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
           >
             🚀 Upgrade Now — Get Full Access
           </button>
@@ -279,9 +279,9 @@ function ReviewReadButton({ text = '' }) {
     <button onClick={toggle} title={speaking ? 'Stop reading' : 'Read question aloud'} style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-      border: `1px solid ${speaking ? 'rgba(13,148,136,.5)' : 'rgba(13,148,136,.25)'}`,
-      background: speaking ? 'rgba(13,148,136,.12)' : 'transparent',
-      color: speaking ? '#14B8A6' : '#0D9488', transition: 'all .15s',
+      border: `1px solid ${speaking ? 'rgba(21,128,61,.5)' : 'rgba(21,128,61,.25)'}`,
+      background: speaking ? 'rgba(21,128,61,.12)' : 'transparent',
+      color: speaking ? '#14B8A6' : '#15803D', transition: 'all .15s',
     }}>
       {speaking ? '■' : '🔊'} {speaking ? 'Stop' : 'Read'}
     </button>
@@ -1402,12 +1402,12 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
 
                   {/* ── Explanation — upgraded panel ── */}
                   {q.explanation && (
-                    <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(13,148,136,0.35)', boxShadow: '0 2px 12px rgba(13,148,136,0.1)', width: '100%' }}>
+                    <div style={{ marginBottom: 8, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(21,128,61,0.35)', boxShadow: '0 2px 12px rgba(21,128,61,0.1)', width: '100%' }}>
                       <div style={{ background: 'var(--teal)', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 16 }}>💡</span>
-                        <span style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>Explanation</span>
                       </div>
-                      <div style={{ padding: '14px 16px', background: 'rgba(13,148,136,0.06)' }}>
+                      <div style={{ padding: '14px 16px', background: 'rgba(21,128,61,0.06)' }}>
                         <ExplanationText text={q.explanation} />
                         {q.explanationImageUrl && (
                           <div style={{ marginTop: 10, textAlign: 'center' }}>
@@ -1461,9 +1461,9 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
         }}>
           <span style={{
             fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
-            color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+            color: 'rgba(21,128,61,0.07)', transform: 'rotate(-30deg)',
             whiteSpace: 'nowrap', userSelect: 'none',
-            textShadow: 'none', fontFamily: "'Arial Black', Arial, sans-serif",
+            textShadow: 'none', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           }}>
             {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
           </span>
@@ -1480,7 +1480,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 16px' }}>
         {/* ── Free trial ribbon — only for unpaid users ── */}
         {!isSub && phase === 'exam' && (
-          <div style={{ background: 'linear-gradient(90deg, rgba(13,148,136,0.15), rgba(245,158,11,0.1))', borderBottom: '1px solid rgba(13,148,136,0.25)', margin: '-10px -16px 10px', padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ background: 'linear-gradient(90deg, rgba(21,128,61,0.15), rgba(245,158,11,0.1))', borderBottom: '1px solid rgba(21,128,61,0.25)', margin: '-10px -16px 10px', padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)' }}>
               🎯 Free Trial — {current + 1}/{questions.length} questions used
             </span>
@@ -1499,13 +1499,13 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Q{current + 1} of {questions.length} · {answered} answered</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {timeLimit > 0 && <div style={{ fontWeight: 800, fontSize: 22, color: timerColor, fontVariantNumeric: 'tabular-nums' }}>⏱ {mins}:{secs}</div>}
+              {timeLimit > 0 && <div style={{ fontWeight: 800, fontSize: 22, color: timerColor, fontVariantNumeric: 'tabular-nums', padding: '4px 12px', borderRadius: 20, background: 'rgba(21,128,61,0.1)' }}>⏱ {mins}:{secs}</div>}
               <button onClick={() => setShowExitModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, cursor: 'pointer', background: 'rgba(245,158,11,0.12)', border: '1.5px solid rgba(245,158,11,0.4)', color: '#F59E0B', fontWeight: 700, fontSize: 12, fontFamily: F }} title="Save your progress and exit">🚪 Exit</button>
               <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm('Submit exam now?')) handleSubmit(); }}>Submit</button>
             </div>
           </div>
-          <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 2, background: 'var(--teal)', width: `${(answered / questions.length) * 100}%`, transition: 'width 0.3s' }} />
+          <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 3, background: 'var(--teal)', width: `${(answered / questions.length) * 100}%`, transition: 'width 0.3s' }} />
           </div>
         </div>
       </div>
@@ -1527,9 +1527,9 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
         )}
 
         {q && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, marginBottom: 16, boxShadow: '0 4px 16px rgba(20,83,45,0.08)' }}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-              {examType && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(13,148,136,0.12)', color: 'var(--teal)', border: '1px solid rgba(13,148,136,0.3)' }}>{examType.replace(/_/g, ' ')}</span>}
+              {examType && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(21,128,61,0.12)', color: 'var(--teal)', border: '1px solid rgba(21,128,61,0.3)' }}>{examType.replace(/_/g, ' ')}</span>}
               {q.topic  && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📌 {q.topic}</span>}
               {q.course && poolMode && examType === 'daily_practice' && <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.7 }}>· {q.course}</span>}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -1551,7 +1551,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                 }}>
                   <span style={{ fontSize: 20, flexShrink: 0 }}>🎙️</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#A78BFA', fontFamily: "'Arial Black',Arial,sans-serif" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#A78BFA', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,Arial,sans-serif" }}>
                       Try Voice Mode!
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
@@ -1593,7 +1593,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                   const isMyWrong    = groupMode === 'quiz' && groupRevealed && isMyPick && i !== q.correctIndex;
                   const locked       = isMyReading || !!myGroupResponse || groupRevealed;
                   const borderColor  = isCorrect ? '#16A34A' : isMyWrong ? '#DC2626' : isMyPick ? 'var(--teal)' : 'var(--border)';
-                  const bg           = isCorrect ? 'rgba(22,163,74,0.12)' : isMyWrong ? 'rgba(220,38,38,0.1)' : isMyPick ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)';
+                  const bg           = isCorrect ? 'rgba(22,163,74,0.12)' : isMyWrong ? 'rgba(220,38,38,0.1)' : isMyPick ? 'rgba(21,128,61,0.1)' : 'var(--bg-tertiary)';
                   return (
                     <button
                       key={i}
@@ -1640,7 +1640,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
                       // spoken answer. Otherwise fall back to a plain silent select.
                       const handled = voiceModeRef.current?.selectOption(i);
                       if (!handled) setAnswers(prev => ({ ...prev, [q.id]: i }));
-                    }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: rmRevealed ? 'default' : 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${rmColor || (selected ? 'var(--teal)' : 'var(--border)')}`, background: rmCorrect ? 'rgba(22,163,74,0.12)' : rmWrong ? 'rgba(220,38,38,0.1)' : selected ? 'rgba(13,148,136,0.1)' : 'var(--bg-tertiary)', color: rmColor ? 'var(--text-primary)' : selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected || rmCorrect ? 700 : 400, opacity: 1, transition: 'all 0.15s' }}>
+                    }} className="exam-opt-text" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 16, cursor: rmRevealed ? 'default' : 'pointer', fontFamily: F, fontSize: 15, textAlign: 'left', border: `2px solid ${rmColor || (selected ? 'var(--teal)' : 'var(--border)')}`, background: rmCorrect ? 'rgba(22,163,74,0.12)' : rmWrong ? 'rgba(220,38,38,0.1)' : selected ? 'rgba(21,128,61,0.1)' : 'var(--bg-card)', color: rmColor ? 'var(--text-primary)' : selected ? 'var(--teal)' : 'var(--text-primary)', fontWeight: selected || rmCorrect ? 700 : 400, opacity: 1, transition: 'all 0.15s' }}>
                       <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: rmColor || (selected ? 'var(--teal)' : 'var(--bg-card)'), color: (rmColor || selected) ? '#fff' : 'var(--text-muted)', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${rmColor || (selected ? 'var(--teal)' : 'var(--border)')}` }}>{String.fromCharCode(65 + i)}</span>
                       {typeof opt === 'string' ? opt : opt.text}
                       {rmCorrect && <span style={{ marginLeft: 'auto' }}>✓</span>}
@@ -1712,7 +1712,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
 
         {/* ── Upgrade nudge banner — visible on the last free question ── */}
         {!isSub && current === questions.length - 1 && (
-          <div style={{ marginTop: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(13,148,136,0.12), rgba(15,118,110,0.08))', border: '1.5px solid rgba(13,148,136,0.35)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(21,128,61,0.12), rgba(15,118,110,0.08))', border: '1.5px solid rgba(21,128,61,0.35)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 28 }}>🔒</span>
             <div style={{ flex: 1, minWidth: 160 }}>
               <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>This is your last free question</div>
@@ -1720,7 +1720,7 @@ Practice free: https://nurses-nmcn-cbt.vercel.app`;
             </div>
             <button
               onClick={() => navigate('/subscription')}
-              style={{ padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontWeight: 800, fontSize: 13, border: 'none', background: 'var(--teal)', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Arial Black', Arial, sans-serif" }}
+              style={{ padding: '9px 18px', borderRadius: 10, cursor: 'pointer', fontWeight: 800, fontSize: 13, border: 'none', background: 'var(--teal)', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
             >
               Upgrade Now 🚀
             </button>

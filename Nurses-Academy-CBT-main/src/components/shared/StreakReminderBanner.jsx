@@ -14,8 +14,8 @@ import {
   fireStreakReminderNotification,
 } from '../../utils/streakReminder';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function StreakReminderBanner({ streakData }) {
   const navigate = useNavigate();

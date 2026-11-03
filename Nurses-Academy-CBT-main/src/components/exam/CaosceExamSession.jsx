@@ -20,8 +20,8 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function scoreCase(c, ticked, cbtAnswers) {
   const procedures = c.procedures || [];
@@ -224,7 +224,7 @@ export default function CaosceExamSession() {
             <>
               <div style={{
                 padding: '13px', borderRadius: 12, textAlign: 'center', fontWeight: 800, fontSize: 14,
-                background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.4)', color: '#0D9488',
+                background: 'rgba(21,128,61,0.12)', border: '1.5px solid rgba(21,128,61,0.4)', color: '#15803D',
               }}>
                 ✅ Saved! Great work.
               </div>
@@ -256,12 +256,12 @@ export default function CaosceExamSession() {
       </div>
 
       <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-tertiary)', marginBottom: 22, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${((caseIndex + 1) / cases.length) * 100}%`, background: 'linear-gradient(90deg,#0D9488,#0F766E)', transition: 'width .3s' }} />
+        <div style={{ height: '100%', width: `${((caseIndex + 1) / cases.length) * 100}%`, background: 'linear-gradient(90deg,#15803D,#166534)', transition: 'width .3s' }} />
       </div>
 
       {/* Scenario / question */}
-      <div className="card" style={{ padding: '18px 20px', marginBottom: 22, border: '1.5px solid rgba(13,148,136,0.3)' }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: '#0D9488', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+      <div className="card" style={{ padding: '18px 20px', marginBottom: 22, border: '1.5px solid rgba(21,128,61,0.3)' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: '#15803D', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
           🩺 Scenario
         </div>
         <div style={{ fontFamily: F, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
@@ -283,14 +283,14 @@ export default function CaosceExamSession() {
                   style={{
                     display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left',
                     padding: '12px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: F,
-                    border: `1.5px solid ${isOn ? '#0D9488' : 'var(--border)'}`,
-                    background: isOn ? 'rgba(13,148,136,0.1)' : 'var(--bg-card)',
+                    border: `1.5px solid ${isOn ? '#15803D' : 'var(--border)'}`,
+                    background: isOn ? 'rgba(21,128,61,0.1)' : 'var(--bg-card)',
                   }}
                 >
                   <div style={{
                     width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
-                    border: `2px solid ${isOn ? '#0D9488' : 'var(--border)'}`,
-                    background: isOn ? '#0D9488' : 'transparent',
+                    border: `2px solid ${isOn ? '#15803D' : 'var(--border)'}`,
+                    background: isOn ? '#15803D' : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontSize: 12, fontWeight: 900,
                   }}>
@@ -356,6 +356,6 @@ export default function CaosceExamSession() {
 const styles = {
   center:     { minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 },
   sectionHead:{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 12 },
-  primaryBtn: { width: '100%', padding: '15px', borderRadius: 12, border: 'none', fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: 0.4, cursor: 'pointer', background: 'linear-gradient(135deg,#0D9488,#0F766E)', color: '#fff' },
+  primaryBtn: { width: '100%', padding: '15px', borderRadius: 12, border: 'none', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: 0.4, cursor: 'pointer', background: 'linear-gradient(135deg,#15803D,#166534)', color: '#fff' },
   ghostBtn:   { width: '100%', padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
 };

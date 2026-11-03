@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function daysUntil(dateStr) {
   if (!dateStr) return null;
@@ -39,7 +39,7 @@ export default function ExamCountdown() {
   : days === 0         ? { bg: 'rgba(239,68,68,0.12)',  border: '#EF444455',             accent: '#EF4444', icon: '🚨', message: "Today's the day! You've got this!" }
   : days <= 7          ? { bg: 'rgba(239,68,68,0.1)',   border: '#EF444444',             accent: '#EF4444', icon: '🔥', message: 'Final stretch — push hard!' }
   : days <= 30         ? { bg: 'rgba(245,158,11,0.1)',  border: '#F59E0B44',             accent: '#F59E0B', icon: '⚡', message: 'Keep the momentum going!' }
-  :                      { bg: 'rgba(13,148,136,0.1)',  border: '#0D948844',             accent: '#0D9488', icon: '📅', message: 'Stay consistent — you have time.' };
+  :                      { bg: 'rgba(21,128,61,0.1)',  border: '#15803D44',             accent: '#15803D', icon: '📅', message: 'Stay consistent — you have time.' };
 
   // Progress bar: percentage of 90-day window
   const totalDays = 90;

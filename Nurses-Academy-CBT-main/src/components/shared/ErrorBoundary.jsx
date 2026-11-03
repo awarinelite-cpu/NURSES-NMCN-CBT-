@@ -61,7 +61,7 @@ export class ErrorBoundary extends React.Component {
           onClick={this.handleReload}
           style={{
             padding: '12px 28px', borderRadius: 12, border: 'none',
-            background: '#0D9488', color: '#fff', fontWeight: 700,
+            background: '#15803D', color: '#fff', fontWeight: 700,
             fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >

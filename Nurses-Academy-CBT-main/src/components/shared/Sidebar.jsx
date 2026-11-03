@@ -133,7 +133,7 @@ export default function Sidebar({ open, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 38, height: 38, borderRadius: 10,
-              background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+              background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 18, flexShrink: 0,
             }}>📚</div>
@@ -153,7 +153,7 @@ export default function Sidebar({ open, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0D9488, #7C3AED)',
+              background: 'linear-gradient(135deg, #15803D, #7C3AED)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 700, color: '#fff', fontSize: 15,
             }}>

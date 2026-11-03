@@ -14,8 +14,8 @@ import {
 } from '../../utils/lectureNotesUtils';
 import LectureNoteEditor from './LectureNoteEditor';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const btn = (bg, color = '#fff') => ({
   padding: '9px 16px', borderRadius: 10, border: 'none', background: bg, color,
@@ -175,7 +175,7 @@ export default function LectureNotesManager() {
         </div>
 
         {msg && (
-          <div style={{ marginBottom: 16, borderRadius: 10, padding: '10px 14px', fontFamily: F, fontSize: 13, background: msg.type === 'error' ? '#EF444418' : '#0D948818', color: msg.type === 'error' ? '#EF4444' : '#0D9488', border: `1px solid ${msg.type === 'error' ? '#EF444455' : '#0D948855'}` }}>
+          <div style={{ marginBottom: 16, borderRadius: 10, padding: '10px 14px', fontFamily: F, fontSize: 13, background: msg.type === 'error' ? '#EF444418' : '#15803D18', color: msg.type === 'error' ? '#EF4444' : '#15803D', border: `1px solid ${msg.type === 'error' ? '#EF444455' : '#15803D55'}` }}>
             {msg.text}
           </div>
         )}
@@ -215,7 +215,7 @@ export default function LectureNotesManager() {
         />
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={saveForm} disabled={saving} style={btn('#0D9488')}>{saving ? 'Saving…' : '💾 Save Note'}</button>
+          <button onClick={saveForm} disabled={saving} style={btn('#15803D')}>{saving ? 'Saving…' : '💾 Save Note'}</button>
           <button onClick={cancelEdit} style={ghostBtn}>Cancel</button>
         </div>
       </div>
@@ -230,7 +230,7 @@ export default function LectureNotesManager() {
         <h1 style={{ fontFamily: H, fontWeight: 900, fontSize: 'clamp(1.1rem,4vw,1.6rem)', color: 'var(--text-primary)', margin: 0, flex: '1 1 100%' }}>
           📚 Lecture Notes
         </h1>
-        <button onClick={startNew} style={btn('#0D9488')}>➕ New Note</button>
+        <button onClick={startNew} style={btn('#15803D')}>➕ New Note</button>
         <select
           value={bulkSpecialty}
           onChange={e => setBulkSpecialty(e.target.value)}
@@ -274,13 +274,13 @@ export default function LectureNotesManager() {
             placeholder="Paste Google Drive folder link…"
             style={{ flex: '2 1 220px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '9px 12px', color: 'var(--text-primary)', fontFamily: F, fontSize: 13 }}
           />
-          <button onClick={submitDriveLink} disabled={driveSaving} style={btn('#0D9488')}>
+          <button onClick={submitDriveLink} disabled={driveSaving} style={btn('#15803D')}>
             {driveSaving ? 'Saving…' : '➕ Add Link'}
           </button>
         </div>
 
         {driveMsg && (
-          <div style={{ marginBottom: 12, borderRadius: 10, padding: '8px 12px', fontFamily: F, fontSize: 12.5, background: driveMsg.type === 'error' ? '#EF444418' : '#0D948818', color: driveMsg.type === 'error' ? '#EF4444' : '#0D9488', border: `1px solid ${driveMsg.type === 'error' ? '#EF444455' : '#0D948855'}` }}>
+          <div style={{ marginBottom: 12, borderRadius: 10, padding: '8px 12px', fontFamily: F, fontSize: 12.5, background: driveMsg.type === 'error' ? '#EF444418' : '#15803D18', color: driveMsg.type === 'error' ? '#EF4444' : '#15803D', border: `1px solid ${driveMsg.type === 'error' ? '#EF444455' : '#15803D55'}` }}>
             {driveMsg.text}
           </div>
         )}
@@ -325,7 +325,7 @@ export default function LectureNotesManager() {
       </div>
 
       {msg && (
-        <div style={{ marginBottom: 16, borderRadius: 10, padding: '10px 14px', fontFamily: F, fontSize: 13, background: msg.type === 'error' ? '#EF444418' : '#0D948818', color: msg.type === 'error' ? '#EF4444' : '#0D9488', border: `1px solid ${msg.type === 'error' ? '#EF444455' : '#0D948855'}` }}>
+        <div style={{ marginBottom: 16, borderRadius: 10, padding: '10px 14px', fontFamily: F, fontSize: 13, background: msg.type === 'error' ? '#EF444418' : '#15803D18', color: msg.type === 'error' ? '#EF4444' : '#15803D', border: `1px solid ${msg.type === 'error' ? '#EF444455' : '#15803D55'}` }}>
           {msg.text}
         </div>
       )}

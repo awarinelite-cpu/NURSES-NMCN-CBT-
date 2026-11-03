@@ -185,9 +185,9 @@ export default function ShareResultCard({ scorePct, examLabel, correct, total })
         onClick={handleOpenPreview}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-          borderRadius: 10, background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+          borderRadius: 10, background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
           color: '#fff', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer',
-          fontFamily: "'Arial Black', Arial, sans-serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         }}
       >
         🖼️ Share as Image
@@ -215,7 +215,7 @@ export default function ShareResultCard({ scorePct, examLabel, correct, total })
               <button
                 onClick={handleShare}
                 disabled={busy}
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: '#0D9488', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: '#15803D', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
               >
                 📤 Share
               </button>

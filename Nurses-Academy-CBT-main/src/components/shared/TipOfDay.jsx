@@ -5,8 +5,8 @@
 
 import { useState } from 'react';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const TIPS = [
   { icon: '💊', cat: 'Pharmacology', tip: 'Digoxin toxicity triad: Bradycardia + Yellow/green visual halos + GI upset (nausea, vomiting). Always check apical pulse for 1 full minute before giving.' },
@@ -66,8 +66,8 @@ export default function TipOfDay() {
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, rgba(13,148,136,0.08) 0%, rgba(30,58,138,0.08) 100%)',
-      border: '1.5px solid rgba(13,148,136,0.2)',
+      background: 'linear-gradient(135deg, rgba(21,128,61,0.08) 0%, rgba(30,58,138,0.08) 100%)',
+      border: '1.5px solid rgba(21,128,61,0.2)',
       borderRadius: 14, marginBottom: 20, overflow: 'hidden',
     }}>
       {/* Header row */}
@@ -90,7 +90,7 @@ export default function TipOfDay() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-            background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
+            background: 'rgba(21,128,61,0.12)', color: 'var(--teal)',
           }}>
             {tip.cat}
           </span>
@@ -113,7 +113,7 @@ export default function TipOfDay() {
       {expanded && (
         <div style={{
           padding: '0 16px 14px',
-          borderTop: '1px solid rgba(13,148,136,0.12)',
+          borderTop: '1px solid rgba(21,128,61,0.12)',
         }}>
           <p style={{
             fontFamily: F, fontSize: 14, color: 'var(--text-primary)',

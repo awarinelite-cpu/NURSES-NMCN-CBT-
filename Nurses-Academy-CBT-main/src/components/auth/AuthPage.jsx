@@ -372,7 +372,7 @@ const styles = {
   },
   bgOrb1: {
     position: 'absolute', width: 400, height: 400, borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 70%)',
+    background: 'radial-gradient(circle, rgba(21,128,61,0.18) 0%, transparent 70%)',
     top: -100, right: -100, pointerEvents: 'none',
   },
   bgOrb2: {

@@ -805,7 +805,7 @@ export default function CoursesManager() {
 
       {/* Info box */}
       <div style={{
-        background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+        background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
         borderRadius: 12, padding: '14px 18px', marginBottom: 20,
         fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
       }}>
@@ -988,7 +988,7 @@ export default function CoursesManager() {
       {showMerge && (
         <div className="card" style={{
           marginBottom: 28, padding: '18px 20px',
-          border: '1.5px solid rgba(13,148,136,0.35)',
+          border: '1.5px solid rgba(21,128,61,0.35)',
         }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
             🔀 Merge Courses
@@ -1181,7 +1181,7 @@ const styles = {
   },
   courseIcon: {
     width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-    background: 'rgba(13,148,136,0.12)',
+    background: 'rgba(21,128,61,0.12)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
   },
   formLabel: {

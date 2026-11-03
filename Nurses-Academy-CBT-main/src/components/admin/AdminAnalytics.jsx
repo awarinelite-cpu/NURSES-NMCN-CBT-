@@ -20,7 +20,7 @@ function pct(a, b) {
 }
 
 // ── Mini sparkline (SVG) ─────────────────────────────────────────
-function Sparkline({ data = [], color = '#0D9488', height = 28 }) {
+function Sparkline({ data = [], color = '#15803D', height = 28 }) {
   if (data.length < 2) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data);
@@ -38,7 +38,7 @@ function Sparkline({ data = [], color = '#0D9488', height = 28 }) {
 }
 
 // ── Bar chart (horizontal) ────────────────────────────────────────
-function HBar({ label, value, max, color = '#0D9488' }) {
+function HBar({ label, value, max, color = '#15803D' }) {
   const pctW = max ? Math.round((value / max) * 100) : 0;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -251,7 +251,7 @@ export default function AdminAnalytics() {
               value={data.totalUsers}
               sub={`+${data.newUsers} in last ${range}d`}
               spark={data.userSpark}
-              sparkColor="#0D9488"
+              sparkColor="#15803D"
               trend={data.userTrend}
             />
             <StatCard
@@ -307,7 +307,7 @@ export default function AdminAnalytics() {
                     label={course}
                     value={count}
                     max={data.topCourses[0][1]}
-                    color="#0D9488"
+                    color="#15803D"
                   />
                 ))
               )}
@@ -320,7 +320,7 @@ export default function AdminAnalytics() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {[
                     { label: 'Free Users',    value: data.freeUsers,    color: '#64748B' },
-                    { label: 'Premium Users', value: data.premiumUsers, color: '#0D9488' },
+                    { label: 'Premium Users', value: data.premiumUsers, color: '#15803D' },
                     { label: `New (${range}d)`, value: data.newUsers,   color: '#3B82F6' },
                   ].map(r => (
                     <HBar key={r.label} label={r.label} value={r.value} max={data.totalUsers} color={r.color} />
@@ -330,7 +330,7 @@ export default function AdminAnalytics() {
                 <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                   {[
                     { label: 'Free', value: pct(data.freeUsers, data.totalUsers), color: '#64748B' },
-                    { label: 'Premium', value: pct(data.premiumUsers, data.totalUsers), color: '#0D9488' },
+                    { label: 'Premium', value: pct(data.premiumUsers, data.totalUsers), color: '#15803D' },
                   ].map(s => (
                     <div key={s.label} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                       <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -345,7 +345,7 @@ export default function AdminAnalytics() {
                 <div style={styles.sectionTitle}>🔑 Access Code Status</div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   {[
-                    { label: 'Used', value: data.usedCodes, color: '#0D9488' },
+                    { label: 'Used', value: data.usedCodes, color: '#15803D' },
                     { label: 'Unused', value: data.unusedCodes, color: '#F59E0B' },
                     { label: 'Total', value: data.usedCodes + data.unusedCodes, color: '#3B82F6' },
                   ].map(s => (
@@ -394,7 +394,7 @@ export default function AdminAnalytics() {
                     <div style={{ fontSize: 10, color: '#475569' }}>{v}</div>
                     <div style={{
                       width: '100%', height: h,
-                      background: 'linear-gradient(180deg,#0D9488,#0F766E)',
+                      background: 'linear-gradient(180deg,#15803D,#166534)',
                       borderRadius: '4px 4px 0 0',
                       transition: 'height .4s ease',
                     }} />
@@ -441,8 +441,8 @@ const styles = {
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   rangeBtnActive: {
-    background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
-    borderColor: 'rgba(13,148,136,0.3)',
+    background: 'rgba(21,128,61,0.15)', color: '#2DD4BF',
+    borderColor: 'rgba(21,128,61,0.3)',
   },
   refreshBtn: {
     padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',

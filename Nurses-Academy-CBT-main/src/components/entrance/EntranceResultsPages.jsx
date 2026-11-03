@@ -21,8 +21,8 @@ import ExplanationText      from '../shared/ExplanationText';
 import AiExplainButton      from '../shared/AiExplainButton';
 
 /* ── Font constants ─────────────────────────────────────────────────────────── */
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 const fmt = (ts) => {
@@ -398,13 +398,13 @@ export function EntranceBookmarks() {
       {fromChat && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          background: 'rgba(13,148,136,0.12)',
-          border: '1.5px solid rgba(13,148,136,0.4)',
+          background: 'rgba(21,128,61,0.12)',
+          border: '1.5px solid rgba(21,128,61,0.4)',
           borderRadius: 12, padding: '12px 16px', marginBottom: 20,
         }}>
           <span style={{ fontSize: 22 }}>📤</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: '#0D9488', fontFamily: "'Arial Black', Arial, sans-serif" }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#15803D', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
               Sharing to {groupLabel}
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', fontFamily: F, marginTop: 2 }}>
@@ -482,9 +482,9 @@ export function EntranceBookmarks() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                     {fromChat && (
                       <button onClick={() => shareToChat(b)} style={{
-                        background: 'rgba(13,148,136,0.15)',
-                        border: '1.5px solid rgba(13,148,136,0.5)',
-                        color: '#0D9488', borderRadius: 10,
+                        background: 'rgba(21,128,61,0.15)',
+                        border: '1.5px solid rgba(21,128,61,0.5)',
+                        color: '#15803D', borderRadius: 10,
                         padding: '9px 14px', cursor: 'pointer',
                         fontSize: 13, fontWeight: 700, fontFamily: F,
                         whiteSpace: 'nowrap',
@@ -675,7 +675,7 @@ export function EntranceAnalysis() {
       {/* ── Top stat cards ─────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 14, marginBottom: 28 }}>
         {[
-          { label: 'Exams Taken',     value: totalSessions,    icon: '📝', color: '#0D9488', bg: 'rgba(13,148,136,0.12)' },
+          { label: 'Exams Taken',     value: totalSessions,    icon: '📝', color: '#15803D', bg: 'rgba(21,128,61,0.12)' },
           { label: 'Drills Done',     value: totalDrills,      icon: '📚', color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
           { label: 'Average Score',   value: `${avgScore}%`,   icon: '📊', color: '#2563EB', bg: 'rgba(37,99,235,0.12)'  },
           { label: 'Best Score',      value: `${bestScore}%`,  icon: '🏆', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
@@ -894,8 +894,8 @@ export function EntranceAnalysis() {
                     <td style={{ padding: '12px 14px' }}>
                       <span style={{
                         fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                        background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
-                        border: '1px solid rgba(13,148,136,0.3)', fontFamily: F,
+                        background: 'rgba(21,128,61,0.12)', color: 'var(--teal)',
+                        border: '1px solid rgba(21,128,61,0.3)', fontFamily: F,
                         textTransform: 'capitalize', whiteSpace: 'nowrap',
                       }}>
                         {(s.examType || 'mock').replace(/_/g, ' ')}

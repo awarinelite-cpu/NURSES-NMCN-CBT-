@@ -12,8 +12,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_YEARS } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const TIME_OPTIONS = [
   { label: 'No Timer',  value: 0   },
@@ -127,7 +127,7 @@ export default function PastQuestionsPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>📜</span>
-            <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
               Past Questions
             </h2>
           </div>
@@ -201,7 +201,7 @@ export default function PastQuestionsPage() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16 }}>✕</button>
       </div>
 
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
+      <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
         ⚙️ Set Up Your Exam
       </h2>
       <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 24px' }}>
@@ -248,7 +248,7 @@ export default function PastQuestionsPage() {
                 cursor: 'pointer', fontSize: 13, fontWeight: 700,
                 fontFamily: F, transition: 'all 0.2s',
                 borderColor: count === n ? 'var(--teal)' : 'var(--border)',
-                background:  count === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                background:  count === n ? 'rgba(21,128,61,0.12)' : 'var(--bg-tertiary)',
                 color:       count === n ? 'var(--teal)' : 'var(--text-secondary)',
               }}>
                 {n} Qs

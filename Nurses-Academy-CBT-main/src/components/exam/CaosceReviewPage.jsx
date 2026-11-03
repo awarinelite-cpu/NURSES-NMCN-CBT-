@@ -24,8 +24,8 @@ import { NURSING_CATEGORIES } from '../../data/categories';
 import ExplanationText from '../shared/ExplanationText';
 import AiExplainButton from '../shared/AiExplainButton';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function CaosceReviewPage() {
   const { user }     = useAuth();
@@ -234,8 +234,8 @@ function CaseReview({ c, index, total }) {
       )}
 
       {c.scenario && (
-        <div className="card" style={{ padding: '16px 18px', marginBottom: 16, border: '1.5px solid rgba(13,148,136,0.3)' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#0D9488', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+        <div className="card" style={{ padding: '16px 18px', marginBottom: 16, border: '1.5px solid rgba(21,128,61,0.3)' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#15803D', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
             🩺 Scenario
           </div>
           <div style={{ fontFamily: F, fontSize: 14.5, color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>

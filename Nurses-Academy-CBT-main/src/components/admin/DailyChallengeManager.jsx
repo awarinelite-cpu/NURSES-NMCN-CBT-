@@ -8,8 +8,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function todayKey() {
   const d = new Date();
@@ -80,7 +80,7 @@ export default function DailyChallengeManager() {
       </div>
 
       {existing && (
-        <div style={{ background: '#0D948818', border: '1.5px solid #0D948855', borderRadius: 12, padding: '10px 16px', marginBottom: 20, fontFamily: F, fontSize: 13, color: '#0D9488' }}>
+        <div style={{ background: '#15803D18', border: '1.5px solid #15803D55', borderRadius: 12, padding: '10px 16px', marginBottom: 20, fontFamily: F, fontSize: 13, color: '#15803D' }}>
           ✓ A challenge exists for today ({today}). You can update it below.
         </div>
       )}
@@ -98,9 +98,9 @@ export default function DailyChallengeManager() {
           <div style={{ display: 'flex', gap: 10 }}>
             {['A','B','C','D'].map(k => (
               <button key={k} onClick={() => set('answer', k)} style={{
-                padding: '10px 20px', borderRadius: 10, border: `2px solid ${form.answer === k ? '#0D9488' : 'rgba(255,255,255,0.1)'}`,
-                background: form.answer === k ? '#0D948822' : 'transparent',
-                color: form.answer === k ? '#0D9488' : 'var(--text-muted)',
+                padding: '10px 20px', borderRadius: 10, border: `2px solid ${form.answer === k ? '#15803D' : 'rgba(255,255,255,0.1)'}`,
+                background: form.answer === k ? '#15803D22' : 'transparent',
+                color: form.answer === k ? '#15803D' : 'var(--text-muted)',
                 fontFamily: H, fontWeight: 900, fontSize: 14, cursor: 'pointer',
               }}>{k}</button>
             ))}
@@ -113,7 +113,7 @@ export default function DailyChallengeManager() {
           <div style={{ background: msg.type === 'success' ? '#15803D22' : '#EF444418', border: `1px solid ${msg.type === 'success' ? '#22C55E55' : '#EF444455'}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontFamily: F, fontSize: 13, color: msg.type === 'success' ? '#22C55E' : '#EF4444' }}>{msg.text}</div>
         )}
 
-        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#0D9488', border: 'none', cursor: saving ? 'wait' : 'pointer', fontFamily: H, fontWeight: 900, fontSize: 15, color: '#fff' }}>
+        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#15803D', border: 'none', cursor: saving ? 'wait' : 'pointer', fontFamily: H, fontWeight: 900, fontSize: 15, color: '#fff' }}>
           {saving ? 'Saving…' : existing ? 'Update Challenge' : 'Post Challenge'}
         </button>
       </div>

@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'react';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 const DISMISS_KEY = 'nmcn_install_banner_dismissed';
 
 export default function InstallBanner() {
@@ -60,7 +60,7 @@ export default function InstallBanner() {
     <div style={{
       position: 'fixed', bottom: 80, left: 16, right: 16, zIndex: 1000,
       background: 'var(--bg-card)',
-      border: '1.5px solid rgba(13,148,136,0.5)',
+      border: '1.5px solid rgba(21,128,61,0.5)',
       borderRadius: 16, padding: '14px 16px',
       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', gap: 12,
@@ -77,7 +77,7 @@ export default function InstallBanner() {
       {/* Icon */}
       <div style={{
         width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-        background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)',
+        background: 'rgba(21,128,61,0.15)', border: '1px solid rgba(21,128,61,0.3)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
       }}>
         📲
@@ -100,7 +100,7 @@ export default function InstallBanner() {
           disabled={installing}
           style={{
             padding: '8px 14px', borderRadius: 10, border: 'none',
-            background: 'var(--teal, #0D9488)', color: '#fff',
+            background: 'var(--teal, #15803D)', color: '#fff',
             fontWeight: 800, fontSize: 12, cursor: 'pointer', fontFamily: H,
             opacity: installing ? 0.7 : 1,
           }}

@@ -127,8 +127,8 @@ export default function SeedCoursesButton({ onComplete }) {
             </span>
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20,
-              background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
-              border: '1px solid rgba(13,148,136,0.25)',
+              background: 'rgba(21,128,61,0.12)', color: 'var(--teal)',
+              border: '1px solid rgba(21,128,61,0.25)',
             }}>
               {count} courses
             </span>

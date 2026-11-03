@@ -11,13 +11,13 @@ import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
 // ── Design tokens (match rest of app) ────────────────────────────────────────
-const H = "'Arial Black', Arial, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 const F = "'Inter', 'Segoe UI', Arial, sans-serif";
 
 const T = {
   primary:   'var(--text-primary)',
   muted:     'var(--text-muted)',
-  teal:      'var(--teal, #0D9488)',
+  teal:      'var(--teal, #15803D)',
   gold:      '#F59E0B',
   red:       '#EF4444',
   green:     '#22C55E',
@@ -89,7 +89,7 @@ function PillToggle({ options, selected, onChange, multi = false }) {
               padding: '8px 14px', borderRadius: 20, cursor: 'pointer',
               fontFamily: F, fontSize: 13, fontWeight: isOn ? 700 : 500,
               border: `1.5px solid ${isOn ? T.teal : C.border}`,
-              background: isOn ? 'rgba(13,148,136,0.12)' : C.primary,
+              background: isOn ? 'rgba(21,128,61,0.12)' : C.primary,
               color: isOn ? T.teal : T.primary,
               transition: 'all .2s',
             }}
@@ -208,13 +208,13 @@ function WeekCard({ week, onDrill }) {
                     style={{
                       padding: '7px 13px', borderRadius: 20,
                       border: `1.5px solid ${T.teal}40`,
-                      background: 'rgba(13,148,136,0.08)',
+                      background: 'rgba(21,128,61,0.08)',
                       color: T.teal, fontSize: 12, fontWeight: 700,
                       cursor: 'pointer', fontFamily: F,
                       transition: 'background .2s',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(13,148,136,0.18)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(13,148,136,0.08)'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(21,128,61,0.18)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(21,128,61,0.08)'}
                   >
                     📚 {t.name} →
                   </button>
@@ -649,7 +649,7 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
 
           {/* Stats preview */}
           {stats && stats.total > 0 && (
-            <Card style={{ background: 'rgba(13,148,136,0.04)', border: `1.5px solid rgba(13,148,136,0.2)` }}>
+            <Card style={{ background: 'rgba(21,128,61,0.04)', border: `1.5px solid rgba(21,128,61,0.2)` }}>
               <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: T.teal, marginBottom: 10 }}>
                 📊 Your performance data will also be included
               </div>
@@ -684,7 +684,7 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
               border: 'none', cursor: (!examDate || studyDays.length === 0) ? 'not-allowed' : 'pointer',
               background: (!examDate || studyDays.length === 0)
                 ? C.border
-                : 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+                : 'linear-gradient(135deg, #7C3AED 0%, #15803D 100%)',
               color: '#fff', fontFamily: H, fontWeight: 900, fontSize: 15,
               letterSpacing: 0.5, transition: 'opacity .2s',
               opacity: (!examDate || studyDays.length === 0) ? 0.5 : 1,
@@ -712,7 +712,7 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
       {step === 3 && plan && (
         <div>
           {/* Plan header */}
-          <Card style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(13,148,136,0.08) 100%)', border: `1.5px solid rgba(124,58,237,0.2)` }}>
+          <Card style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(21,128,61,0.08) 100%)', border: `1.5px solid rgba(124,58,237,0.2)` }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: H, fontWeight: 900, fontSize: 16, color: T.primary, marginBottom: 6 }}>
@@ -771,7 +771,7 @@ Daily schedule entries should cover exactly the days: ${studyDays.join(', ')}.`;
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <div style={{
                       width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                      background: 'rgba(13,148,136,0.12)', border: `1px solid rgba(13,148,136,0.25)`,
+                      background: 'rgba(21,128,61,0.12)', border: `1px solid rgba(21,128,61,0.25)`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontFamily: H, fontWeight: 900, fontSize: 11, color: T.teal,
                     }}>

@@ -11,8 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { BADGES, evaluateBadges, syncBadges, fetchBadges } from '../../utils/badgeUtils';
 import { fetchStreak } from '../../utils/streakUtils';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Confetti burst ───────────────────────────────────────────────────────────
 function Confetti({ active }) {
@@ -29,7 +29,7 @@ function Confetti({ active }) {
       y: -20,
       r: Math.random() * 8 + 4,
       d: Math.random() * 120 + 60,
-      color: ['#0D9488','#F59E0B','#EF4444','#22C55E','#A855F7','#3B82F6'][Math.floor(Math.random() * 6)],
+      color: ['#15803D','#F59E0B','#EF4444','#22C55E','#A855F7','#3B82F6'][Math.floor(Math.random() * 6)],
       tilt: Math.random() * 10 - 10,
       tiltAngle: 0,
       tiltSpeed: Math.random() * 0.1 + 0.05,
@@ -150,7 +150,7 @@ function Pill({ label, active, onClick }) {
     <button onClick={onClick} style={{
       padding: '8px 18px', borderRadius: 20, border: 'none',
       cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: F,
-      background: active ? '#0D9488' : 'rgba(255,255,255,0.05)',
+      background: active ? '#15803D' : 'rgba(255,255,255,0.05)',
       color: active ? '#fff' : 'var(--text-muted, #64748B)',
       transition: 'all 0.2s', flexShrink: 0,
     }}>{label}</button>
@@ -236,7 +236,7 @@ export default function BadgesPage() {
 
       {/* Summary bar */}
       <div style={{
-        background: 'linear-gradient(135deg, #0D9488 0%, #1E3A8A 100%)',
+        background: 'linear-gradient(135deg, #15803D 0%, #1E3A8A 100%)',
         borderRadius: 16, padding: '18px 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 12, marginBottom: 24,

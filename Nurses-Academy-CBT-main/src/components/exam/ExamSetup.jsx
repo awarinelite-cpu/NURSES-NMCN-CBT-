@@ -112,7 +112,7 @@ export default function ExamSetup() {
                   }}
                 >
                   {et.icon} {et.label}
-                  {isPremiumType(et.id) && !isSub && <span style={{ fontSize: 9, marginLeft: 4, background: 'rgba(13,148,136,0.2)', color: 'var(--teal)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>FREE 10Q</span>}
+                  {isPremiumType(et.id) && !isSub && <span style={{ fontSize: 9, marginLeft: 4, background: 'rgba(21,128,61,0.2)', color: 'var(--teal)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>FREE 10Q</span>}
                 </button>
               ))}
             </div>

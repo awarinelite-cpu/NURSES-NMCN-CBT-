@@ -9,8 +9,8 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const LONG_PRESS_MS = 550; // slightly above the OS's own long-press-to-select threshold
 const MOVE_TOLERANCE = 10;
@@ -199,7 +199,7 @@ export default function LectureNoteEditor({ value, onChange }) {
           onClick={() => { openImagePromptAtIndex(pill.index); dismissPill(); }}
           style={{
             position: 'fixed', left: Math.max(8, pill.x - 60), top: Math.max(8, pill.y - 46),
-            zIndex: 1500, background: '#0D9488', color: '#fff', border: 'none', borderRadius: 20,
+            zIndex: 1500, background: '#15803D', color: '#fff', border: 'none', borderRadius: 20,
             padding: '9px 16px', fontFamily: H, fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
             boxShadow: '0 6px 18px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: 6,
           }}
@@ -249,7 +249,7 @@ export default function LectureNoteEditor({ value, onChange }) {
               <button
                 onClick={confirmImage}
                 disabled={!looksLikeUrl(imageUrl)}
-                style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: looksLikeUrl(imageUrl) ? '#0D9488' : 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: H, fontWeight: 800, fontSize: 12.5, cursor: looksLikeUrl(imageUrl) ? 'pointer' : 'not-allowed' }}
+                style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: looksLikeUrl(imageUrl) ? '#15803D' : 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: H, fontWeight: 800, fontSize: 12.5, cursor: looksLikeUrl(imageUrl) ? 'pointer' : 'not-allowed' }}
               >Insert</button>
             </div>
           </div>

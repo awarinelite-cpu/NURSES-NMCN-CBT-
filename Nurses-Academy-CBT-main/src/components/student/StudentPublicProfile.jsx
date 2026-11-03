@@ -9,8 +9,8 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db }                          from '../../firebase/config';
 import { useAuth }                     from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const gradeColor = (p) =>
   p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444';
@@ -21,7 +21,7 @@ function Spinner() {
       <div style={{
         width: 44, height: 44,
         border: '3px solid rgba(255,255,255,0.08)',
-        borderTopColor: '#0D9488',
+        borderTopColor: '#15803D',
         borderRadius: '50%',
         animation: 'spin 0.8s linear infinite',
       }} />
@@ -157,7 +157,7 @@ export default function StudentPublicProfile() {
         <button
           onClick={() => navigate(-1)}
           style={{
-            padding: '11px 28px', background: '#0D9488', color: 'var(--text-primary)',
+            padding: '11px 28px', background: '#15803D', color: 'var(--text-primary)',
             border: 'none', borderRadius: 10, cursor: 'pointer',
             fontWeight: 700, fontSize: 14, fontFamily: F,
           }}
@@ -181,7 +181,7 @@ export default function StudentPublicProfile() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .pub-card { animation: fadeUp 0.35s ease both; }
-        .chat-fab:hover { transform: scale(1.08) !important; box-shadow: 0 8px 28px rgba(13,148,136,0.55) !important; }
+        .chat-fab:hover { transform: scale(1.08) !important; box-shadow: 0 8px 28px rgba(21,128,61,0.55) !important; }
         .chat-fab:active { transform: scale(0.96) !important; }
       `}</style>
 
@@ -197,7 +197,7 @@ export default function StudentPublicProfile() {
           onClick={() => navigate(-1)}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 22, color: '#0D9488', padding: 4,
+            fontSize: 22, color: '#15803D', padding: 4,
             fontWeight: 700, lineHeight: 1, flexShrink: 0,
           }}
         >←</button>
@@ -223,8 +223,8 @@ export default function StudentPublicProfile() {
 
         {/* Avatar + name card */}
         <div className="pub-card" style={{
-          background: 'linear-gradient(135deg, rgba(13,148,136,0.13) 0%, rgba(30,58,138,0.18) 100%)',
-          border: '1.5px solid rgba(13,148,136,0.22)',
+          background: 'linear-gradient(135deg, rgba(21,128,61,0.13) 0%, rgba(30,58,138,0.18) 100%)',
+          border: '1.5px solid rgba(21,128,61,0.22)',
           borderRadius: 18,
           padding: '28px 24px',
           display: 'flex', alignItems: 'center', gap: 20,
@@ -234,11 +234,11 @@ export default function StudentPublicProfile() {
           {/* Avatar */}
           <div style={{
             width: 76, height: 76, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+            background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: H, fontWeight: 900, fontSize: 28,
             color: 'var(--text-primary)', flexShrink: 0,
-            boxShadow: '0 0 0 3px rgba(13,148,136,0.3)',
+            boxShadow: '0 0 0 3px rgba(21,128,61,0.3)',
           }}>
             {initials || '?'}
           </div>
@@ -249,14 +249,14 @@ export default function StudentPublicProfile() {
               {isOwnProfile && (
                 <span style={{
                   marginLeft: 8, fontSize: 10, fontWeight: 700,
-                  color: '#0D9488', background: 'rgba(13,148,136,0.15)',
-                  border: '1px solid #0D9488', borderRadius: 20,
+                  color: '#15803D', background: 'rgba(21,128,61,0.15)',
+                  border: '1px solid #15803D', borderRadius: 20,
                   padding: '2px 8px', verticalAlign: 'middle',
                 }}>You</span>
               )}
             </div>
             {school && (
-              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: '#0D9488', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: F, color: '#15803D', marginBottom: 4 }}>
                 🏫 {school}
               </div>
             )}
@@ -269,9 +269,9 @@ export default function StudentPublicProfile() {
               <span style={{
                 fontSize: 11, fontWeight: 700,
                 padding: '3px 10px', borderRadius: 20,
-                background: isPremium ? 'rgba(13,148,136,0.18)' : 'rgba(100,116,139,0.18)',
-                color: isPremium ? '#0D9488' : '#94A3B8',
-                border: `1px solid ${isPremium ? 'rgba(13,148,136,0.35)' : 'rgba(100,116,139,0.3)'}`,
+                background: isPremium ? 'rgba(21,128,61,0.18)' : 'rgba(100,116,139,0.18)',
+                color: isPremium ? '#15803D' : '#94A3B8',
+                border: `1px solid ${isPremium ? 'rgba(21,128,61,0.35)' : 'rgba(100,116,139,0.3)'}`,
               }}>
                 {isPremium ? '⭐ Premium' : '🆓 Free Plan'}
               </span>
@@ -394,12 +394,12 @@ export default function StudentPublicProfile() {
             style={{
               display: 'block', width: '100%',
               padding: '14px 20px',
-              background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+              background: 'linear-gradient(135deg, #15803D, #166534)',
               border: 'none', borderRadius: 12,
               color: 'var(--text-primary)', fontWeight: 700, fontSize: 14,
               fontFamily: F, cursor: 'pointer',
               textAlign: 'center',
-              boxShadow: '0 4px 18px rgba(13,148,136,0.3)',
+              boxShadow: '0 4px 18px rgba(21,128,61,0.3)',
               animationDelay: '240ms',
             }}
           >
@@ -421,13 +421,13 @@ export default function StudentPublicProfile() {
             width: 62,
             height: 62,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #0D9488, #0891B2)',
+            background: 'linear-gradient(135deg, #15803D, #0891B2)',
             border: 'none',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 6px 24px rgba(13,148,136,0.45)',
+            boxShadow: '0 6px 24px rgba(21,128,61,0.45)',
             transition: 'transform 0.18s, box-shadow 0.18s',
             zIndex: 50,
           }}
@@ -447,7 +447,7 @@ export default function StudentPublicProfile() {
           <span style={{
             position: 'absolute', inset: -4,
             borderRadius: '50%',
-            border: '2px solid rgba(13,148,136,0.5)',
+            border: '2px solid rgba(21,128,61,0.5)',
             animation: 'pulse-ring 1.8s ease-out infinite',
           }} />
         </button>

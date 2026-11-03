@@ -7,8 +7,8 @@
 import { useNavigate } from 'react-router-dom';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function LectureNotesSpecialtyPage() {
   const navigate = useNavigate();

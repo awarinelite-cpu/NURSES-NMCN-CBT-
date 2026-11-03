@@ -9,8 +9,8 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db }                  from '../../firebase/config';
 import { useAuth }             from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const gradeColor = (p) =>
   p >= 70 ? '#16A34A' : p >= 50 ? '#F59E0B' : '#EF4444';
@@ -38,7 +38,7 @@ function Avatar({ name = '', size = 36 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+      background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: H, fontWeight: 900, color: 'var(--text-primary)',
       fontSize: size * 0.38,
@@ -55,7 +55,7 @@ function FilterBtn({ label, active, onClick }) {
       style={{
         padding: '8px 18px', borderRadius: 20, border: 'none',
         cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: F,
-        background: active ? '#0D9488' : 'var(--bg-tertiary, rgba(255,255,255,0.05))',
+        background: active ? '#15803D' : 'var(--bg-tertiary, rgba(255,255,255,0.05))',
         color:      active ? '#fff'    : 'var(--text-muted, #64748B)',
         transition: 'all 0.15s',
         flexShrink: 0,
@@ -164,7 +164,7 @@ export default function LeaderboardPage() {
         <Avatar name={entry.name} size={48} />
         <div style={{
           fontFamily: H, fontWeight: 900, fontSize: 13,
-          color: isMe ? '#0D9488' : 'var(--text-primary, #F1F5F9)',
+          color: isMe ? '#15803D' : 'var(--text-primary, #F1F5F9)',
           textAlign: 'center', wordBreak: 'break-word', lineHeight: 1.3,
           maxWidth: 90,
         }}>
@@ -217,7 +217,7 @@ export default function LeaderboardPage() {
           cursor: pointer;
           border-radius: 12px;
         }
-        .lb-row:hover { background: rgba(13,148,136,0.08) !important; transform: translateX(3px); }
+        .lb-row:hover { background: rgba(21,128,61,0.08) !important; transform: translateX(3px); }
         .lb-row:active { transform: scale(0.99); }
       `}</style>
 
@@ -248,8 +248,8 @@ export default function LeaderboardPage() {
         {/* ── Your rank banner (if ranked) ── */}
         {myRank > 0 && !loading && (
           <div style={{
-            background: 'linear-gradient(135deg, rgba(13,148,136,0.15), rgba(30,58,138,0.15))',
-            border: '1.5px solid rgba(13,148,136,0.3)',
+            background: 'linear-gradient(135deg, rgba(21,128,61,0.15), rgba(30,58,138,0.15))',
+            border: '1.5px solid rgba(21,128,61,0.3)',
             borderRadius: 14, padding: '12px 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 20,
@@ -266,7 +266,7 @@ export default function LeaderboardPage() {
             <div style={{
               fontFamily: H, fontWeight: 900,
               fontSize: 'clamp(1.6rem, 4vw, 2.2rem)',
-              color: myRank <= 3 ? '#0D9488' : '#F1F5F9',
+              color: myRank <= 3 ? '#15803D' : '#F1F5F9',
             }}>
               {myRank <= 3 ? MEDALS[myRank - 1] : `#${myRank}`}
             </div>
@@ -299,7 +299,7 @@ export default function LeaderboardPage() {
           return (
             <div style={{
               marginBottom: 20, padding: '8px 14px', borderRadius: 10,
-              background: 'rgba(13,148,136,0.07)', border: '1px solid rgba(13,148,136,0.2)',
+              background: 'rgba(21,128,61,0.07)', border: '1px solid rgba(21,128,61,0.2)',
               fontSize: 12, color: 'var(--text-muted)', fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
@@ -326,7 +326,7 @@ export default function LeaderboardPage() {
               onClick={load}
               style={{
                 marginTop: 16, padding: '10px 24px',
-                background: '#0D9488', color: 'var(--text-primary)',
+                background: '#15803D', color: 'var(--text-primary)',
                 border: 'none', borderRadius: 10, cursor: 'pointer',
                 fontWeight: 700, fontFamily: F,
               }}
@@ -395,11 +395,11 @@ export default function LeaderboardPage() {
                       alignItems: 'center',
                       padding: '10px 10px',
                       background: isMe
-                        ? 'rgba(13,148,136,0.1)'
+                        ? 'rgba(21,128,61,0.1)'
                         : i % 2 === 0
                           ? 'rgba(255,255,255,0.02)'
                           : 'transparent',
-                      border: isMe ? '1px solid rgba(13,148,136,0.25)' : '1px solid transparent',
+                      border: isMe ? '1px solid rgba(21,128,61,0.25)' : '1px solid transparent',
                       animation: 'fadeUp 0.35s ease both',
                       animationDelay: `${Math.min(i * 30, 300)}ms`,
                     }}
@@ -420,7 +420,7 @@ export default function LeaderboardPage() {
                     <div style={{ minWidth: 0 }}>
                       <div style={{
                         fontFamily: H, fontWeight: 900, fontSize: 13,
-                        color: isMe ? '#0D9488' : 'var(--text-primary, #F1F5F9)',
+                        color: isMe ? '#15803D' : 'var(--text-primary, #F1F5F9)',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
                         {row.name}{isMe ? ' 👈' : ''}

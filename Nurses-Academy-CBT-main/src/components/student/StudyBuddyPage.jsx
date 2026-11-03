@@ -32,8 +32,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Subject pill selector ─────────────────────────────────────────────────────
 function SubjectPill({ cat, selected, onClick }) {
@@ -93,7 +93,7 @@ function BuddyCard({ buddy, myWeakIds, idx }) {
   const theyHelp  = buddy.theyHelpMe;   // subjects where they're strong, I'm weak
   const iHelp     = buddy.iHelpThem;    // subjects where I'm strong, they're weak
 
-  const scoreColor = score >= 6 ? '#22C55E' : score >= 3 ? '#F59E0B' : '#0D9488';
+  const scoreColor = score >= 6 ? '#22C55E' : score >= 3 ? '#F59E0B' : '#15803D';
 
   return (
     <div
@@ -105,7 +105,7 @@ function BuddyCard({ buddy, myWeakIds, idx }) {
         borderRadius: 16, padding: '18px 18px 14px',
         opacity: 0, animation: `buddyFadeUp 0.45s ease ${idx * 120}ms forwards`,
         transition: 'border-color 0.2s, box-shadow 0.2s',
-        boxShadow: hov ? '0 6px 24px rgba(13,148,136,0.12)' : 'none',
+        boxShadow: hov ? '0 6px 24px rgba(21,128,61,0.12)' : 'none',
         position: 'relative', overflow: 'hidden',
       }}
     >
@@ -169,15 +169,15 @@ function BuddyCard({ buddy, myWeakIds, idx }) {
       {/* I can help them */}
       {iHelp.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#0D9488', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#15803D', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
             🤝 You can help them with
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {iHelp.map(cat => (
               <span key={cat.id} style={{
                 fontSize: 11, padding: '3px 10px', borderRadius: 20,
-                background: 'rgba(13,148,136,0.12)', color: 'var(--teal)',
-                border: '1px solid rgba(13,148,136,0.25)', fontWeight: 700,
+                background: 'rgba(21,128,61,0.12)', color: 'var(--teal)',
+                border: '1px solid rgba(21,128,61,0.25)', fontWeight: 700,
               }}>
                 {cat.icon} {cat.shortLabel}
               </span>
@@ -416,8 +416,8 @@ export default function StudyBuddyPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 10, background: 'rgba(13,148,136,0.15)',
-            border: '1.5px solid rgba(13,148,136,0.3)', display: 'flex', alignItems: 'center',
+            width: 32, height: 32, borderRadius: 10, background: 'rgba(21,128,61,0.15)',
+            border: '1.5px solid rgba(21,128,61,0.3)', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: 16, flexShrink: 0,
           }}>1️⃣</div>
           <div>
@@ -451,7 +451,7 @@ export default function StudyBuddyPage() {
         {weakSubjects.length > 0 && (
           <div style={{
             marginTop: 6, padding: '10px 14px', borderRadius: 10,
-            background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+            background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)',
             fontSize: 12, color: 'var(--text-muted)', fontFamily: F,
           }}>
             ✅ <strong style={{ color: 'var(--teal)' }}>{weakSubjects.length}</strong> weak subject{weakSubjects.length !== 1 ? 's' : ''} selected
@@ -508,7 +508,7 @@ export default function StudyBuddyPage() {
           style={{
             flex: 1, padding: '13px', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer',
             fontFamily: F, fontWeight: 700, fontSize: 14,
-            background: 'rgba(13,148,136,0.15)', border: '1.5px solid rgba(13,148,136,0.4)',
+            background: 'rgba(21,128,61,0.15)', border: '1.5px solid rgba(21,128,61,0.4)',
             color: 'var(--teal)', opacity: saving ? 0.7 : 1,
             transition: 'opacity 0.2s',
           }}
@@ -608,7 +608,7 @@ export default function StudyBuddyPage() {
       {/* How it works */}
       <div style={{
         marginTop: 32, padding: '18px 20px',
-        background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.15)',
+        background: 'rgba(21,128,61,0.06)', border: '1px solid rgba(21,128,61,0.15)',
         borderRadius: 14,
       }}>
         <div style={{ fontFamily: H, fontWeight: 900, fontSize: 13, color: 'var(--teal)', marginBottom: 10 }}>

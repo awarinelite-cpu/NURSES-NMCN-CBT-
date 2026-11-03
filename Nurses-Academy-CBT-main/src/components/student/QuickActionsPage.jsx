@@ -1,8 +1,8 @@
 // src/components/student/QuickActionsPage.jsx
 import { Link } from 'react-router-dom';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const actions = [
   {
@@ -18,8 +18,8 @@ const actions = [
     icon: '📖',
     label: 'Course Drill',
     desc: 'Take exam by courses',
-    color: '#0D9488',
-    bg: 'rgba(13,148,136,0.12)',
+    color: '#15803D',
+    bg: 'rgba(21,128,61,0.12)',
   },
   {
     to: '/topic-drill',
@@ -58,8 +58,8 @@ const actions = [
     icon: '🩺',
     label: 'CAOSCE PREP',
     desc: 'Computer-Based OSCE Practical Exam',
-    color: '#0D9488',
-    bg: 'rgba(13,148,136,0.12)',
+    color: '#15803D',
+    bg: 'rgba(21,128,61,0.12)',
   },
 ];
 
@@ -69,7 +69,7 @@ export default function QuickActionsPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h2 style={{
-          fontFamily: "'Arial Black', Arial, sans-serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           fontSize: 'clamp(1.3rem, 3vw, 1.8rem)',
           color: 'var(--text-primary)',
           margin: '0 0 6px',

@@ -38,8 +38,8 @@ import ExplanationText from '../shared/ExplanationText';
 import AiExplainButton from '../shared/AiExplainButton';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function EntranceExamReviewPage() {
   const { user } = useAuth();
@@ -191,7 +191,7 @@ export default function EntranceExamReviewPage() {
         }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(13,148,136,0.1)', border: '1px solid rgba(13,148,136,0.3)',
+            background: 'rgba(21,128,61,0.1)', border: '1px solid rgba(21,128,61,0.3)',
             borderRadius: 20, padding: '4px 14px', marginBottom: 14,
             fontSize: 13, fontWeight: 700, color: 'var(--teal)',
           }}>

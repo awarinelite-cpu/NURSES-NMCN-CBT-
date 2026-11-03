@@ -7,8 +7,8 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Detect if push notifications are genuinely usable ────────────────────────
 function checkSupported() {
@@ -119,8 +119,8 @@ export default function NotificationSettings() {
         {/* Icon */}
         <div style={{
           ...s.iconWrap,
-          background: subscribed ? 'rgba(13,148,136,0.15)' : 'rgba(255,255,255,0.05)',
-          border: `1.5px solid ${subscribed ? 'rgba(13,148,136,0.4)' : 'var(--border)'}`,
+          background: subscribed ? 'rgba(21,128,61,0.15)' : 'rgba(255,255,255,0.05)',
+          border: `1.5px solid ${subscribed ? 'rgba(21,128,61,0.4)' : 'var(--border)'}`,
         }}>
           {subscribed ? '🔔' : '🔕'}
         </div>
@@ -146,7 +146,7 @@ export default function NotificationSettings() {
           disabled={loading || blocked}
           style={{
             ...s.toggle,
-            background: subscribed ? '#0D9488' : 'rgba(255,255,255,0.1)',
+            background: subscribed ? '#15803D' : 'rgba(255,255,255,0.1)',
             opacity: (loading || blocked) ? 0.45 : 1,
             cursor: (loading || blocked) ? 'not-allowed' : 'pointer',
           }}
@@ -172,7 +172,7 @@ export default function NotificationSettings() {
           </div>
         )}
         {loading && (
-          <div style={{ ...s.chip, background: 'rgba(13,148,136,0.10)', border: '1px solid rgba(13,148,136,0.3)', color: '#0D9488' }}>
+          <div style={{ ...s.chip, background: 'rgba(21,128,61,0.10)', border: '1px solid rgba(21,128,61,0.3)', color: '#15803D' }}>
             ⏳ Processing…
           </div>
         )}
@@ -182,10 +182,10 @@ export default function NotificationSettings() {
       {subscribed && (
         <div style={{
           marginTop: 12, padding: '10px 12px',
-          background: 'rgba(13,148,136,0.06)', borderRadius: 10,
-          border: '1px solid rgba(13,148,136,0.15)',
+          background: 'rgba(21,128,61,0.06)', borderRadius: 10,
+          border: '1px solid rgba(21,128,61,0.15)',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#0D9488', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#15803D', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 }}>
             You'll receive
           </div>
           {[

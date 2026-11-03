@@ -185,7 +185,7 @@ function QuestionStatsTab() {
             }}>
               <div style={{
                 width:28, height:28, borderRadius:8, flexShrink:0, fontSize:12, fontWeight:900,
-                background:'rgba(13,148,136,0.1)', color:'var(--teal)',
+                background:'rgba(21,128,61,0.1)', color:'var(--teal)',
                 display:'flex', alignItems:'center', justifyContent:'center',
               }}>{i + 1}</div>
               <div style={{ flex:1, minWidth:0 }}>
@@ -1662,7 +1662,7 @@ export default function QuestionsManager() {
             {form.examType === 'question_bank' && (
               <div style={{
                 gridColumn: '1/-1',
-                background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.35)',
+                background: 'rgba(21,128,61,0.08)', border: '1.5px solid rgba(21,128,61,0.35)',
                 borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)',
               }}>
                 ⭐ <strong>Question Bank</strong> — set <strong>Course</strong> and <strong>Topic</strong> below.
@@ -1805,7 +1805,7 @@ export default function QuestionsManager() {
             {bulkMeta.examType === 'question_bank' && (
               <div style={{
                 gridColumn: '1/-1',
-                background: 'rgba(13,148,136,0.08)', border: '1.5px solid rgba(13,148,136,0.35)',
+                background: 'rgba(21,128,61,0.08)', border: '1.5px solid rgba(21,128,61,0.35)',
                 borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)',
               }}>
                 ⭐ <strong>Question Bank (Unified Pool)</strong> — upload once, used everywhere.<br />
@@ -1815,7 +1815,7 @@ export default function QuestionsManager() {
                   Missing courses will be <strong>auto-created</strong> and instantly visible to students.
                 </span>
                 {parsedQs.some(q => q._inlineYear) && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(13,148,136,0.25)', color: 'var(--blue-mid)', fontSize: 12 }}>
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(21,128,61,0.25)', color: 'var(--blue-mid)', fontSize: 12 }}>
                     📚 {parsedQs.filter(q => q._inlineYear).length} of {parsedQs.length} row(s) have an inline year —
                     those will <strong>also appear on the student Past Questions screen</strong> under
                     their category &amp; year, in addition to Course/Topic Drill and Daily Practice.
@@ -1983,7 +1983,7 @@ export default function QuestionsManager() {
             {fileImportInfo && (
               <div style={{
                 marginTop: 12, padding: '8px 14px', borderRadius: 9,
-                background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+                background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
                 fontSize: 12, color: 'var(--text-primary)', fontWeight: 600,
               }}>
                 {fileImportInfo}
@@ -2124,7 +2124,7 @@ export default function QuestionsManager() {
                         {(q._inlineCourse || q._inlineTopic || q._inlineYear) && (
                           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
                             {q._inlineCourse && (
-                              <span style={{ fontSize:11, padding:'2px 8px', borderRadius:12, background:'rgba(13,148,136,0.12)', color:'var(--teal)', border:'1px solid rgba(13,148,136,0.3)', fontWeight:700 }}>
+                              <span style={{ fontSize:11, padding:'2px 8px', borderRadius:12, background:'rgba(21,128,61,0.12)', color:'var(--teal)', border:'1px solid rgba(21,128,61,0.3)', fontWeight:700 }}>
                                 📖 {q._inlineCourse}
                               </span>
                             )}

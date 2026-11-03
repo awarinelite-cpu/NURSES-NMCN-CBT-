@@ -10,8 +10,8 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -32,7 +32,7 @@ function Avatar({ name='', size=46 }) {
   return (
     <div style={{
       width:size, height:size, borderRadius:'50%', flexShrink:0,
-      background:'linear-gradient(135deg,#0D9488,#1E3A8A)',
+      background:'linear-gradient(135deg,#15803D,#1E3A8A)',
       display:'flex', alignItems:'center', justifyContent:'center',
       fontFamily:H, fontWeight:900, color:'#fff', fontSize:size*0.38,
     }}>{initials}</div>
@@ -44,8 +44,8 @@ function Spinner() {
     <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
       <div style={{
         width:36, height:36, borderRadius:'50%',
-        border:'3px solid rgba(13,148,136,0.15)',
-        borderTopColor:'#0D9488',
+        border:'3px solid rgba(21,128,61,0.15)',
+        borderTopColor:'#15803D',
         animation:'spin 0.8s linear infinite',
       }} />
     </div>
@@ -149,28 +149,28 @@ export default function ChatInbox() {
           to   { opacity:1; transform:translateY(0); }
         }
         @keyframes unreadGlow {
-          0%,100% { box-shadow: inset 3px 0 0 #0D9488; }
-          50%     { box-shadow: inset 3px 0 0 #2dd4bf, 0 0 12px rgba(13,148,136,0.15); }
+          0%,100% { box-shadow: inset 3px 0 0 #15803D; }
+          50%     { box-shadow: inset 3px 0 0 #2dd4bf, 0 0 12px rgba(21,128,61,0.15); }
         }
-        .thread-row:hover  { background:rgba(13,148,136,0.07) !important; }
-        .thread-row:active { background:rgba(13,148,136,0.14) !important; }
+        .thread-row:hover  { background:rgba(21,128,61,0.07) !important; }
+        .thread-row:active { background:rgba(21,128,61,0.14) !important; }
         .thread-row.has-unread {
-          background: rgba(13,148,136,0.055) !important;
+          background: rgba(21,128,61,0.055) !important;
           animation: unreadGlow 2.4s ease-in-out infinite;
         }
         .thread-row.has-unread:hover {
-          background: rgba(13,148,136,0.11) !important;
+          background: rgba(21,128,61,0.11) !important;
         }
         .new-pill {
           display: inline-flex;
           align-items: center;
           padding: 1px 6px;
           border-radius: 8px;
-          background: linear-gradient(90deg,#0D9488,#0f766e);
+          background: linear-gradient(90deg,#15803D,#0f766e);
           color: #fff;
           font-size: 9px;
           font-weight: 900;
-          font-family: 'Arial Black', Arial, sans-serif;
+          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
           letter-spacing: 0.5px;
           flex-shrink: 0;
           animation: fadeUp 0.3s ease both;
@@ -187,14 +187,14 @@ export default function ChatInbox() {
       }}>
         <button onClick={() => navigate(backRoute)} style={{
           background:'none', border:'none', cursor:'pointer',
-          fontSize:22, color:'#0D9488', fontWeight:900, lineHeight:1, padding:'2px 4px',
+          fontSize:22, color:'#15803D', fontWeight:900, lineHeight:1, padding:'2px 4px',
         }}>←</button>
         <div style={{ flex:1 }}>
           <div style={{ fontFamily:H, fontWeight:900, fontSize:18, color:'var(--text-primary,#F1F5F9)' }}>
             💬 Messages
           </div>
           {totalUnread > 0 && (
-            <div style={{ fontSize:12, fontWeight:700, color:'#0D9488', marginTop:2 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#15803D', marginTop:2 }}>
               {totalUnread} unread message{totalUnread > 1 ? 's' : ''}
             </div>
           )}
@@ -217,10 +217,10 @@ export default function ChatInbox() {
             </div>
             <button onClick={() => navigate(leaderboardRoute)} style={{
               marginTop:8, padding:'12px 28px', borderRadius:24,
-              background:'linear-gradient(135deg,#0D9488,#0f766e)',
+              background:'linear-gradient(135deg,#15803D,#0f766e)',
               border:'none', color:'#fff', fontFamily:H, fontWeight:900,
               fontSize:14, cursor:'pointer',
-              boxShadow:'0 4px 16px rgba(13,148,136,0.35)',
+              boxShadow:'0 4px 16px rgba(21,128,61,0.35)',
             }}>
               🏆 Go to Leaderboard
             </button>
@@ -285,7 +285,7 @@ export default function ChatInbox() {
                 {t.unread > 0 && (
                   <div style={{
                     minWidth:20, height:20, borderRadius:10,
-                    background:'#0D9488', color:'#fff',
+                    background:'#15803D', color:'#fff',
                     fontSize:11, fontWeight:900, fontFamily:H,
                     display:'flex', alignItems:'center', justifyContent:'center',
                     padding:'0 5px', flexShrink:0,

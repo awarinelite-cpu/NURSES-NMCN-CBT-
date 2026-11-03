@@ -5,8 +5,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ─── Polished SVG Line Trend Chart ────────────────────────────────────────────
 function LineTrendChart({ data }) {
@@ -41,11 +41,11 @@ function LineTrendChart({ data }) {
       >
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#0D9488" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#0D9488" stopOpacity="0.02" />
+            <stop offset="0%"   stopColor="#15803D" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#15803D" stopOpacity="0.02" />
           </linearGradient>
           <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stopColor="#0D9488" />
+            <stop offset="0%"   stopColor="#15803D" />
             <stop offset="100%" stopColor="#2563EB" />
           </linearGradient>
         </defs>
@@ -60,7 +60,7 @@ function LineTrendChart({ data }) {
                 strokeDasharray={tick === 50 ? '4 3' : undefined}
               />
               <text x={PAD.left - 6} y={y + 4} textAnchor="end"
-                fill={tick === 50 ? '#0D9488' : 'rgba(148,163,184,0.55)'}
+                fill={tick === 50 ? '#15803D' : 'rgba(148,163,184,0.55)'}
                 fontSize="10" fontFamily="Arial"
               >{tick}%</text>
             </g>
@@ -71,7 +71,7 @@ function LineTrendChart({ data }) {
         <text
           x={W - PAD.right + 2}
           y={PAD.top + innerH - ((50 - min) / range) * innerH + 4}
-          fill="#0D9488" fontSize="9" fontFamily="Arial"
+          fill="#15803D" fontSize="9" fontFamily="Arial"
         >pass</text>
 
         {/* Area fill */}
@@ -111,7 +111,7 @@ function LineTrendChart({ data }) {
 // totalPool is an optional estimate; if null we just show count + bar vs best possible
 function SpecialtyProgressBar({ cat, attempted, sessions: sessionCount }) {
   const barPct = Math.min(100, attempted ? Math.min(100, (attempted / Math.max(attempted, 200)) * 100) : 0);
-  const color  = cat.color || '#0D9488';
+  const color  = cat.color || '#15803D';
 
   return (
     <div style={{ marginBottom: 18 }}>
@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
       {/* Top stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 32 }}>
         {[
-          { label: 'Exams Taken',     value: total,           icon: '📝', color: '#0D9488', bg: 'rgba(13,148,136,0.12)' },
+          { label: 'Exams Taken',     value: total,           icon: '📝', color: '#15803D', bg: 'rgba(21,128,61,0.12)' },
           { label: 'Average Score',   value: `${avgScore}%`,  icon: '📊', color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
           { label: 'Best Score',      value: `${bestScore}%`, icon: '🏆', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
           { label: 'Pass Rate',       value: `${passRate}%`,  icon: '✅', color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },

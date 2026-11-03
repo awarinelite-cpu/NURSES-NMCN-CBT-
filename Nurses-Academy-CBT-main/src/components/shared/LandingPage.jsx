@@ -67,7 +67,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
         <p style={{
           fontSize: 14, color: 'rgba(255,255,255,0.75)',
           lineHeight: 1.7, margin: '0 0 20px',
-          fontFamily: "'Times New Roman', Times, serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           fontWeight: 700,
         }}>
           {subtitle}
@@ -82,7 +82,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
               background: `${accentColor}18`,
               border: `1px solid ${accentColor}40`,
               borderRadius: 20, padding: '4px 12px',
-              fontFamily: "'Times New Roman', Times, serif",
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             }}>
               {tag}
             </span>
@@ -98,7 +98,7 @@ function PlatformBanner({ platform, icon, title, subtitle, tags, gradient, accen
           color: platform === 'nmcn' ? '#fff' : '#000',
           fontWeight: 800, fontSize: 15,
           padding: '13px 28px', borderRadius: 12,
-          fontFamily: "'Times New Roman', Times, serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           boxShadow: hov ? `0 6px 20px ${accentColor}55` : 'none',
           transform: hov ? 'translateX(4px)' : 'translateX(0)',
           transition: 'all 0.25s ease',
@@ -118,7 +118,7 @@ export default function LandingPage() {
       <nav style={{
         padding: '0 24px', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(13,148,136,0.3)',
+        borderBottom: '1px solid rgba(21,128,61,0.3)',
         position: 'sticky', top: 0, zIndex: 10, background: '#010810',
       }}>
         <div style={{
@@ -126,7 +126,7 @@ export default function LandingPage() {
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 56, width: 'auto', objectFit: 'contain' }} />
-          The Elite<span style={{ color: '#14B8A8' }}> Nurses</span>
+          The Elite<span style={{ color: '#22C55E' }}> Nurses</span>
         </div>
 
       </nav>
@@ -137,14 +137,14 @@ export default function LandingPage() {
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         padding: 'clamp(40px, 8vw, 80px) clamp(16px, 4vw, 40px)',
-        background: 'radial-gradient(ellipse at 20% 50%, rgba(13,148,136,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, rgba(30,58,138,0.18) 0%, transparent 55%)',
+        background: 'radial-gradient(ellipse at 20% 50%, rgba(21,128,61,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, rgba(30,58,138,0.18) 0%, transparent 55%)',
         position: 'relative',
       }}>
         {/* Background decoration */}
         <div style={{
           position: 'absolute', top: '10%', left: '5%',
           width: 320, height: 320, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(13,148,136,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(21,128,61,0.08) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
         <div style={{
@@ -168,7 +168,7 @@ export default function LandingPage() {
               width: 'auto',
               objectFit: 'contain',
               marginBottom: 'clamp(12px, 2vw, 20px)',
-              filter: 'drop-shadow(0 8px 32px rgba(13,148,136,0.35))',
+              filter: 'drop-shadow(0 8px 32px rgba(21,128,61,0.35))',
             }}
           />
 
@@ -187,13 +187,13 @@ export default function LandingPage() {
             color: '#fff', fontSize: 'clamp(1.8rem, 5vw, 3rem)',
             lineHeight: 1.25, marginBottom: 16, fontWeight: 900,
           }}>
-            Choose Your <span style={{ color: '#14B8A8' }}>Exam Path</span>
+            Choose Your <span style={{ color: '#22C55E' }}>Exam Path</span>
           </h1>
 
           <p style={{
             color: 'rgba(255,255,255,0.6)', fontSize: 'clamp(14px, 2vw, 16px)',
             lineHeight: 1.7, maxWidth: 520, margin: '0 auto',
-            fontFamily: "'Times New Roman', Times, serif", fontWeight: 700,
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 700,
           }}>
             Select the platform that matches your goal. Each platform is fully independent with its own questions, analytics, and experience.
           </p>
@@ -212,13 +212,13 @@ export default function LandingPage() {
             title="NMCN CBT — Nursing Council Exams"
             subtitle="Study real NMCN past questions from 2020–2025. AI-powered explanations, timed mock exams, course drills, topic drills and real-time analytics. All 17 nursing specialties covered."
             tags={['10,000+ Questions', '17 Specialties', '2020–2025', 'AI Explanations', 'Mock Exams']}
-            accentColor="#14B8A8"
+            accentColor="#22C55E"
             gradient={{
               base: 'linear-gradient(145deg, #051428 0%, #0A2540 100%)',
               hover: 'linear-gradient(145deg, #071C38 0%, #0D2F50 100%)',
             }}
-            borderColor={{ base: 'rgba(13,148,136,0.25)', hover: 'rgba(13,148,136,0.65)' }}
-            glowColor="rgba(13,148,136,0.2)"
+            borderColor={{ base: 'rgba(21,128,61,0.25)', hover: 'rgba(21,128,61,0.65)' }}
+            glowColor="rgba(21,128,61,0.2)"
           />
 
           {/* Entrance Exam Banner */}
@@ -323,7 +323,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer style={{
-        borderTop: '1px solid rgba(13,148,136,0.3)',
+        borderTop: '1px solid rgba(21,128,61,0.3)',
         padding: '24px', textAlign: 'center',
         color: 'rgba(255,255,255,0.35)', fontSize: 13,
       }}>

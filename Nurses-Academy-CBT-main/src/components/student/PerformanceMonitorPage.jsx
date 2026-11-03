@@ -8,8 +8,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton({ w = '100%', h = 14, r = 8 }) {
@@ -389,7 +389,7 @@ export default function PerformanceMonitorPage() {
           <div style={{ fontSize: 12, color: 'var(--teal)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
             📊 Analytics
           </div>
-          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 'clamp(1.3rem,3vw,1.8rem)', margin: 0, color: 'var(--text-primary)' }}>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: 'clamp(1.3rem,3vw,1.8rem)', margin: 0, color: 'var(--text-primary)' }}>
             Performance Monitor
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>
@@ -407,7 +407,7 @@ export default function PerformanceMonitorPage() {
         <FCard delay={100} style={{ marginBottom: 28 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
             {[
-              { icon: '📝', label: 'Total Exams',     value: summary.total,    color: '#0D9488', bg: 'rgba(13,148,136,0.1)'  },
+              { icon: '📝', label: 'Total Exams',     value: summary.total,    color: '#15803D', bg: 'rgba(21,128,61,0.1)'  },
               { icon: '📊', label: 'Average Score',   value: `${summary.avg}%`, color: '#2563EB', bg: 'rgba(37,99,235,0.1)'  },
               { icon: '💪', label: 'Strong Courses',  value: summary.strong,   color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
               { icon: '⚠️', label: 'Need Improvement',value: summary.needWork, color: '#EF4444', bg: 'rgba(239,68,68,0.1)'  },
@@ -433,7 +433,7 @@ export default function PerformanceMonitorPage() {
         <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
           <Tab active={activeTab === 'trends'} onClick={() => setActiveTab('trends')} icon="📈" label="Score Trend"      color="#8B5CF6" />
           <Tab active={activeTab === 'daily'}  onClick={() => setActiveTab('daily')}  icon="⚡" label="Daily Practice"  color="#F59E0B" />
-          <Tab active={activeTab === 'course'} onClick={() => setActiveTab('course')} icon="📖" label="Course Drill"    color="#0D9488" />
+          <Tab active={activeTab === 'course'} onClick={() => setActiveTab('course')} icon="📖" label="Course Drill"    color="#15803D" />
           <Tab active={activeTab === 'topic'}  onClick={() => setActiveTab('topic')}  icon="🎯" label="Topic Breakdown" color="#2563EB" />
         </div>
       </FCard>

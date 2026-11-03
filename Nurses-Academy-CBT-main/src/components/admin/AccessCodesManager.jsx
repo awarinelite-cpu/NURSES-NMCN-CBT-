@@ -175,7 +175,7 @@ export default function AccessCodesManager() {
         {filtered.map(c => (
           <div key={c.id} style={{
             background: 'var(--bg-card)',
-            border: `1.5px solid ${c.used ? 'rgba(100,116,139,0.2)' : 'rgba(13,148,136,0.2)'}`,
+            border: `1.5px solid ${c.used ? 'rgba(100,116,139,0.2)' : 'rgba(21,128,61,0.2)'}`,
             borderRadius: 12, padding: '14px 16px',
             opacity: c.used ? 0.75 : 1,
           }}>

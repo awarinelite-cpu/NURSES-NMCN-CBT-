@@ -43,7 +43,7 @@ const ENTRANCE_PLANS = [
     price:    3000,
     duration: 'Lifetime',
     days:     36500,
-    color:    '#0D9488',
+    color:    '#15803D',
     icon:     '🎯',
     features: [
       'All school past questions',
@@ -57,8 +57,8 @@ const ENTRANCE_PLANS = [
   },
 ];
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 /* ─── Tiny helpers ───────────────────────────────────────────────────────── */
 function Spinner() {
@@ -368,7 +368,7 @@ export default function EntranceExamPaymentPage() {
             Your entrance exam access is active
             {profile.entranceExamPlan ? ` (${ENTRANCE_PLANS.find(p => p.id === profile.entranceExamPlan)?.label || profile.entranceExamPlan})` : ''}.
           </p>
-          <button onClick={() => navigate('/entrance-exam')} style={S.btn('#0D9488')}>
+          <button onClick={() => navigate('/entrance-exam')} style={S.btn('#15803D')}>
             🏫 Go to Entrance Exam Hub →
           </button>
         </div>
@@ -394,7 +394,7 @@ export default function EntranceExamPaymentPage() {
               : 'Your payment proof has been received. Admin will confirm and activate your access within a few hours.'}
           </p>
           {doneMethod === 'manual' && (
-            <button onClick={() => navigate('/entrance-exam')} style={S.btn('#0D9488')}>
+            <button onClick={() => navigate('/entrance-exam')} style={S.btn('#15803D')}>
               🏫 Go to Entrance Exam Hub →
             </button>
           )}
@@ -414,7 +414,7 @@ export default function EntranceExamPaymentPage() {
 
         {/* Hero */}
         <div style={S.hero}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 40%, rgba(13,148,136,0.4) 0%, transparent 65%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 80% 40%, rgba(21,128,61,0.4) 0%, transparent 65%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontSize: 11, fontFamily: F, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
               🏫 Nurses Academy — Entrance Exam
@@ -473,7 +473,7 @@ export default function EntranceExamPaymentPage() {
         {/* CTA */}
         <button
           onClick={() => { setMethod(null); setError(''); setStep(2); }}
-          style={S.btn(plan?.color || '#0D9488')}
+          style={S.btn(plan?.color || '#15803D')}
         >
           {plan?.icon} Continue with {plan?.label} — ₦{plan?.price?.toLocaleString()} →
         </button>
@@ -515,7 +515,7 @@ export default function EntranceExamPaymentPage() {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
         {[
-          { id: 'paystack', icon: '💳', title: 'Pay Online', sub: 'Card · Transfer · USSD', badge: '✓ Instant Access', badgeColor: '#0D9488' },
+          { id: 'paystack', icon: '💳', title: 'Pay Online', sub: 'Card · Transfer · USSD', badge: '✓ Instant Access', badgeColor: '#15803D' },
           { id: 'manual',   icon: '🏦', title: 'Bank Transfer', sub: 'Manual · Admin confirms', badge: '⏳ 1–4 Hours', badgeColor: '#F59E0B' },
         ].map(m => (
           <div
@@ -524,16 +524,16 @@ export default function EntranceExamPaymentPage() {
             style={{
               position: 'relative', display: 'flex', flexDirection: 'column',
               alignItems: 'center', gap: 4, padding: '20px 12px',
-              border: `2px solid ${method === m.id ? (m.id === 'paystack' ? '#0D9488' : '#F59E0B') : 'var(--border)'}`,
+              border: `2px solid ${method === m.id ? (m.id === 'paystack' ? '#15803D' : '#F59E0B') : 'var(--border)'}`,
               borderRadius: 14, cursor: 'pointer', transition: 'all 0.2s',
-              background: method === m.id ? (m.id === 'paystack' ? 'rgba(13,148,136,0.09)' : 'rgba(245,158,11,0.08)') : 'var(--bg-card)',
+              background: method === m.id ? (m.id === 'paystack' ? 'rgba(21,128,61,0.09)' : 'rgba(245,158,11,0.08)') : 'var(--bg-card)',
             }}
           >
             {method === m.id && (
               <div style={{
                 position: 'absolute', top: -1, right: -1, fontSize: 10, fontWeight: 900,
                 padding: '3px 10px', borderRadius: '0 12px 0 10px',
-                background: m.id === 'paystack' ? '#0D9488' : '#F59E0B',
+                background: m.id === 'paystack' ? '#15803D' : '#F59E0B',
                 color: m.id === 'paystack' ? '#fff' : '#000', fontFamily: F,
               }}>✓ Selected</div>
             )}
@@ -548,7 +548,7 @@ export default function EntranceExamPaymentPage() {
       {/* Paystack panel */}
       {method === 'paystack' && (
         <div style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 10, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)', borderRadius: 10, marginBottom: 20 }}>
             <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.65, fontFamily: F, fontWeight: 700 }}>
               You'll pay through Paystack's secure checkout using <strong style={{ color: 'var(--text-primary)' }}>debit card</strong>,{' '}
@@ -568,7 +568,7 @@ export default function EntranceExamPaymentPage() {
           <button
             onClick={handlePaystack}
             disabled={!paystackReady}
-            style={{ ...S.btn('#0D9488'), opacity: paystackReady ? 1 : 0.55, cursor: paystackReady ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            style={{ ...S.btn('#15803D'), opacity: paystackReady ? 1 : 0.55, cursor: paystackReady ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
             {paystackReady ? `🔒 Pay ₦${plan?.price?.toLocaleString()} Securely` : <><Spinner /> Loading Paystack…</>}
           </button>
@@ -579,7 +579,7 @@ export default function EntranceExamPaymentPage() {
       {method === 'manual' && (
         <div style={S.card}>
           {/* Bank details */}
-          <div style={{ background: 'var(--bg-secondary)', border: '1.5px solid rgba(13,148,136,0.25)', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1.5px solid rgba(21,128,61,0.25)', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12, fontFamily: F }}>
               🏦 Transfer Details
             </div>
@@ -625,8 +625,8 @@ export default function EntranceExamPaymentPage() {
             <label style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               justifyContent: 'center', gap: 8, padding: '20px 12px',
-              border: `2px dashed ${receiptPreview ? 'rgba(13,148,136,0.5)' : 'rgba(13,148,136,0.25)'}`,
-              borderRadius: 12, background: receiptPreview ? 'rgba(13,148,136,0.06)' : 'transparent',
+              border: `2px dashed ${receiptPreview ? 'rgba(21,128,61,0.5)' : 'rgba(21,128,61,0.25)'}`,
+              borderRadius: 12, background: receiptPreview ? 'rgba(21,128,61,0.06)' : 'transparent',
               cursor: 'pointer', transition: 'border-color 0.2s',
             }}>
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
@@ -654,7 +654,7 @@ export default function EntranceExamPaymentPage() {
 
           {/* Status */}
           {submitting && submitStatus && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)', borderRadius: 8 }}>
               <Spinner />
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', fontFamily: F }}>{submitStatus}</span>
             </div>
@@ -706,7 +706,7 @@ const S = {
     color: 'var(--teal)', fontWeight: 700, fontSize: 13,
     padding: 0, marginBottom: 20, display: 'flex',
     alignItems: 'center', gap: 6,
-    fontFamily: "'Times New Roman', Times, serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
   },
   hero: {
     background: 'linear-gradient(135deg, #0F2A5E 0%, #065F46 100%)',
@@ -720,12 +720,12 @@ const S = {
   label: {
     display: 'block', fontSize: 12, color: 'var(--text-muted)',
     fontWeight: 700, letterSpacing: 0.4, marginBottom: 6,
-    fontFamily: "'Times New Roman', Times, serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
   },
   btn: (color) => ({
     width: '100%', padding: '15px', border: 'none', borderRadius: 12,
     background: color, color: '#fff', fontWeight: 900, fontSize: 15,
-    fontFamily: "'Arial Black', Arial, sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     letterSpacing: 0.3, cursor: 'pointer', transition: 'opacity 0.2s',
   }),
   doneCard: {
@@ -735,13 +735,13 @@ const S = {
     marginTop: 24,
   },
   doneTitle: {
-    fontFamily: "'Arial Black', Arial, sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     fontWeight: 900, color: 'var(--text-primary)',
     margin: '0 0 12px', fontSize: 'clamp(1.4rem,3vw,2rem)',
   },
   doneSub: {
     color: 'var(--text-muted)', fontSize: 15, fontWeight: 700,
-    fontFamily: "'Times New Roman', Times, serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     margin: '0 0 28px', lineHeight: 1.7, maxWidth: 420,
   },
   whatsappLink: {
@@ -749,6 +749,6 @@ const S = {
     width: '100%', padding: '11px 12px', borderRadius: 10,
     background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)',
     color: '#25D366', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-    fontFamily: "'Times New Roman', Times, serif", boxSizing: 'border-box',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", boxSizing: 'border-box',
   },
 };

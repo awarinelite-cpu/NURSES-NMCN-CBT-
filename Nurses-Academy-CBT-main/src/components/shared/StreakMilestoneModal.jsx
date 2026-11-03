@@ -4,13 +4,13 @@
 
 import { useEffect, useState } from 'react';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const MILESTONES = {
   3:   { emoji: '🔥', title: '3-Day Streak!',    msg: "You're on fire! 3 days of consistent practice.",   color: '#F97316', badge: 'Consistent Starter' },
   7:   { emoji: '⚡', title: 'One Full Week!',    msg: "7 days straight — you're building real habits.",   color: '#F59E0B', badge: 'Week Warrior' },
-  14:  { emoji: '💪', title: 'Two-Week Streak!',  msg: "14 days of dedication. NMCN success is near.",    color: '#0D9488', badge: 'Fortnight Fighter' },
+  14:  { emoji: '💪', title: 'Two-Week Streak!',  msg: "14 days of dedication. NMCN success is near.",    color: '#15803D', badge: 'Fortnight Fighter' },
   30:  { emoji: '🏆', title: '30-Day Legend!',    msg: "A full month! You're in the top tier of students.", color: '#7C3AED', badge: 'Monthly Legend' },
   60:  { emoji: '🌟', title: '60-Day Champion!',  msg: "Two months! You are unstoppable.",                 color: '#2563EB', badge: '60-Day Champion' },
   100: { emoji: '👑', title: '100 Days!',         msg: "100 consecutive days. You are NMCN certified in commitment.", color: '#DC2626', badge: 'Century Achiever' },
@@ -20,7 +20,7 @@ const MILESTONES = {
 function Confetti() {
   const pieces = Array.from({ length: 40 }, (_, i) => ({
     id: i,
-    color: ['#F59E0B','#0D9488','#7C3AED','#EF4444','#22C55E','#2563EB','#F97316'][i % 7],
+    color: ['#F59E0B','#15803D','#7C3AED','#EF4444','#22C55E','#2563EB','#F97316'][i % 7],
     left: `${Math.random() * 100}%`,
     animDelay: `${Math.random() * 2}s`,
     animDur: `${2 + Math.random() * 2}s`,

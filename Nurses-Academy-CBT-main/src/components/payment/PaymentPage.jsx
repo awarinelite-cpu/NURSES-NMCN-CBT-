@@ -19,7 +19,7 @@ const WHATSAPP_NUMBER = '2348134106745';
 const WHATSAPP_LINK   = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi, I need help with a payment on The Elite Nurses (NMCN CBT).')}`;
 
 const PLANS = [
-  { id: 'basic',    label: 'Basic',    price: 2500, days: 30,  color: '#0D9488' },
+  { id: 'basic',    label: 'Basic',    price: 2500, days: 30,  color: '#15803D' },
   { id: 'standard', label: 'Standard', price: 5000, days: 90,  color: '#2563EB' },
   { id: 'premium',  label: 'Premium',  price: 8000, days: 180, color: '#7C3AED' },
 ];
@@ -322,7 +322,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
         <div style={s.summary}>
           <div>
             <div style={{ color: 'var(--text-hint)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Total Due</div>
-            <div style={{ color: '#0D9488', fontWeight: 900, fontSize: 28, lineHeight: 1.1 }}>
+            <div style={{ color: '#15803D', fontWeight: 900, fontSize: 28, lineHeight: 1.1 }}>
               ₦{plan.price.toLocaleString()}
             </div>
           </div>
@@ -340,9 +340,9 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               onClick={() => { setMethod('paystack'); setError(''); }}
               style={{
                 ...s.methodBtn,
-                borderColor: method === 'paystack' ? '#0D9488' : 'rgba(255,255,255,0.1)',
-                background:  method === 'paystack' ? 'rgba(13,148,136,0.15)' : 'rgba(255,255,255,0.02)',
-                boxShadow:   method === 'paystack' ? '0 0 16px rgba(13,148,136,0.2)' : 'none',
+                borderColor: method === 'paystack' ? '#15803D' : 'rgba(255,255,255,0.1)',
+                background:  method === 'paystack' ? 'rgba(21,128,61,0.15)' : 'rgba(255,255,255,0.02)',
+                boxShadow:   method === 'paystack' ? '0 0 16px rgba(21,128,61,0.2)' : 'none',
               }}
             >
               <span style={{ fontSize: 24 }}>💳</span>
@@ -351,7 +351,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 Card · Transfer · USSD
               </span>
               {method === 'paystack' && (
-                <span style={{ fontSize: 10, color: '#0D9488', fontWeight: 700 }}>✓ Selected</span>
+                <span style={{ fontSize: 10, color: '#15803D', fontWeight: 700 }}>✓ Selected</span>
               )}
             </button>
 
@@ -400,7 +400,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
               style={{
                 ...s.primaryBtn,
                 background: paystackReady
-                  ? 'linear-gradient(135deg, #0D9488, #0891B2)'
+                  ? 'linear-gradient(135deg, #15803D, #0891B2)'
                   : 'rgba(255,255,255,0.1)',
                 cursor: paystackReady ? 'pointer' : 'not-allowed',
               }}
@@ -424,7 +424,7 @@ export default function PaymentPage({ selectedPlan: initialPlan }) {
                 <div key={row.label} style={s.bankRow}>
                   <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
                   <strong style={{
-                    color: row.teal ? '#0D9488' : '#fff',
+                    color: row.teal ? '#15803D' : '#fff',
                     letterSpacing: row.mono ? 2 : 0,
                     fontSize: row.mono ? 15 : 13,
                   }}>
@@ -544,12 +544,12 @@ const s = {
   },
   headerBand: {
     background: 'linear-gradient(135deg,#010810,#0F2A4A)',
-    borderBottom: '1px solid rgba(13,148,136,0.3)',
+    borderBottom: '1px solid rgba(21,128,61,0.3)',
     padding: '22px 20px', position: 'relative', overflow: 'hidden',
   },
   headerGlow: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
-    background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.2) 0%, transparent 60%)',
+    background: 'radial-gradient(ellipse at 80% 50%, rgba(21,128,61,0.2) 0%, transparent 60%)',
   },
   heading: {
     color: 'var(--text-primary)', fontFamily: "'Playfair Display', serif",
@@ -568,8 +568,8 @@ const s = {
   summary: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     margin: '0 20px 16px', padding: '14px 16px',
-    background: 'rgba(13,148,136,0.08)', borderRadius: 10,
-    border: '1px solid rgba(13,148,136,0.2)',
+    background: 'rgba(21,128,61,0.08)', borderRadius: 10,
+    border: '1px solid rgba(21,128,61,0.2)',
   },
   methodRow: { display: 'flex', gap: 10, marginBottom: 4 },
   methodBtn: {
@@ -579,7 +579,7 @@ const s = {
   },
   section: { padding: '16px 20px 20px' },
   infoBox: {
-    background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+    background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)',
     borderRadius: 10, padding: '12px 14px', marginBottom: 14,
   },
   bankBox: {

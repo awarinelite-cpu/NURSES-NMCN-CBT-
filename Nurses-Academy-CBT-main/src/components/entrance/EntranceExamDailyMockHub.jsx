@@ -47,7 +47,7 @@ export default function EntranceExamDailyMockHub() {
   const isPaid = profile?.entranceExamPaid || profile?.role === 'admin';
 
   const subject = location.state?.subject ?? {
-    id: 'entrance_general', label: 'Entrance Exam', shortLabel: 'Entrance Exam', icon: '🎓', color: '#0D9488',
+    id: 'entrance_general', label: 'Entrance Exam', shortLabel: 'Entrance Exam', icon: '🎓', color: '#15803D',
   };
 
   const [phase,       setPhase]       = useState('intro');
@@ -122,7 +122,7 @@ export default function EntranceExamDailyMockHub() {
         </button>
         <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 20, padding: '32px 28px', textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 52, marginBottom: 8 }}>📅</div>
-          <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>Daily Mock Exam</h2>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>Daily Mock Exam</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>Practice with fresh questions every day. Track your progress and build exam confidence.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
             {[
@@ -138,7 +138,7 @@ export default function EntranceExamDailyMockHub() {
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'left', background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.15)', borderRadius: 12, padding: '16px 18px', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ textAlign: 'left', background: 'rgba(21,128,61,0.06)', border: '1px solid rgba(21,128,61,0.15)', borderRadius: 12, padding: '16px 18px', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
               '📌 Questions are randomly selected from the question bank',
               `🔢 Every daily mock is a fixed set of ${mockConfig.questionCount || 100} questions`,
@@ -200,7 +200,7 @@ export default function EntranceExamDailyMockHub() {
         </div>
       </div>
 
-      <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 18, padding: 24, marginBottom: 32, boxShadow: '0 0 0 4px rgba(13,148,136,0.06)' }}>
+      <div style={{ background: 'var(--bg-card)', border: '2px solid var(--teal)', borderRadius: 18, padding: 24, marginBottom: 32, boxShadow: '0 0 0 4px rgba(21,128,61,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <span style={{ fontSize: 24 }}>⚡</span>
           <div>

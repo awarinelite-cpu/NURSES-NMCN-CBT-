@@ -252,13 +252,13 @@ export function AuthProvider({ children }) {
               borderRadius: 20, padding: '40px 32px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
-              <h2 style={{ color: '#EF4444', fontFamily: "'Arial Black',Arial,sans-serif", margin: '0 0 12px' }}>
+              <h2 style={{ color: '#EF4444', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,Arial,sans-serif", margin: '0 0 12px' }}>
                 Device Not Authorised
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,Times,serif", fontWeight: 700 }}>
                 Your access code is <strong style={{ color: 'var(--text-primary)' }}>locked to a different device</strong>.
               </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px', fontFamily: "'Times New Roman',Times,serif", fontWeight: 700 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, margin: '0 0 28px', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,Times,serif", fontWeight: 700 }}>
                 Each access code can only be used on <strong style={{ color: 'var(--text-primary)' }}>one device</strong>.
                 If you lost or changed your device, contact your admin to reset the device lock.
               </p>
@@ -269,7 +269,7 @@ export function AuthProvider({ children }) {
                   background: 'rgba(239,68,68,0.15)', color: '#EF4444',
                   fontWeight: 700, fontSize: 14,
                   border: '1px solid rgba(239,68,68,0.4)',
-                  fontFamily: "'Times New Roman',Times,serif",
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif,Times,serif",
                 }}
               >← Sign Out</button>
             </div>

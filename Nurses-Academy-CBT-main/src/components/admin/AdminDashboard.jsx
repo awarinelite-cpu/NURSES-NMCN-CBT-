@@ -68,7 +68,7 @@ function PulseDot({ color = '#10b981' }) {
 function LiveClock() {
   const [t, setT] = useState(new Date());
   useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i); }, []);
-  return <span style={{ color: '#0D9488', fontWeight: 700, fontSize: 13 }}>{t.toLocaleTimeString()}</span>;
+  return <span style={{ color: '#15803D', fontWeight: 700, fontSize: 13 }}>{t.toLocaleTimeString()}</span>;
 }
 
 // ── Animated card wrapper ─────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ function FloatingNav() {
             zIndex: 9999,
             display: 'flex', alignItems: 'center', gap: 10,
             background: '#0D1B2E',
-            border: '1.5px solid rgba(13,148,136,0.35)',
+            border: '1.5px solid rgba(21,128,61,0.35)',
             borderRadius: 28, padding: '10px 18px 10px 14px',
             cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             animation: `fabItemIn 0.25s ease ${i * 40}ms both`,
@@ -200,7 +200,7 @@ function FloatingNav() {
           <span style={{ fontSize: 18 }}>{item.icon}</span>
           <span style={{
             fontSize: 13, fontWeight: 700,
-            color: '#e2e8f0', fontFamily: "'Times New Roman', Times, serif",
+            color: '#e2e8f0', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           }}>{item.label}</span>
         </div>
       ))}
@@ -213,9 +213,9 @@ function FloatingNav() {
           width: 54, height: 54, borderRadius: '50%', border: 'none',
           background: open
             ? 'linear-gradient(135deg,#EF4444,#B91C1C)'
-            : 'linear-gradient(135deg,#0D9488,#065F46)',
+            : 'linear-gradient(135deg,#15803D,#065F46)',
           color: '#fff', fontSize: 24, cursor: 'pointer',
-          boxShadow: '0 6px 24px rgba(13,148,136,0.5)',
+          boxShadow: '0 6px 24px rgba(21,128,61,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: vis ? 1 : 0,
           transform: vis ? 'scale(1)' : 'scale(0.6)',
@@ -279,7 +279,7 @@ export default function AdminDashboard() {
   }, []);
 
   const STAT_CARDS = [
-    { label: 'NMCN Questions',    value: stats.questions,  icon: '❓', color: '#0D9488', bg: 'rgba(13,148,136,0.12)', to: '/admin/questions',                    spark: SPARKS.questions },
+    { label: 'NMCN Questions',    value: stats.questions,  icon: '❓', color: '#15803D', bg: 'rgba(21,128,61,0.12)', to: '/admin/questions',                    spark: SPARKS.questions },
     { label: 'Entrance Questions',value: stats.entranceQs, icon: '🏫', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', to: '/admin/entrance-exam?tab=bank',        spark: SPARKS.questions },
     { label: 'Registered Users',  value: stats.users,      icon: '👥', color: '#2563EB', bg: 'rgba(37,99,235,0.12)',  to: '/admin/users',                        spark: SPARKS.users     },
     { label: 'Payments',          value: stats.payments,   icon: '💰', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', to: '/admin/payments',                     spark: SPARKS.payments  },
@@ -288,7 +288,7 @@ export default function AdminDashboard() {
 
   // ── NMCN CBT quick actions ──────────────────────────────────────────────────
   const NMCN_ACTIONS = [
-    { label: 'Add Question',     icon: '➕', to: '/admin/questions?action=add',  color: '#0D9488' },
+    { label: 'Add Question',     icon: '➕', to: '/admin/questions?action=add',  color: '#15803D' },
     { label: 'Bulk Upload',      icon: '📤', to: '/admin/questions?action=bulk', color: '#2563EB' },
     { label: 'Essay Questions',  icon: '📜', to: '/admin/essay-questions',       color: '#DB2777' },
     { label: 'Manage Users',     icon: '👥', to: '/admin/users',                 color: '#7C3AED' },
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
 
   // ── Entrance Exam quick actions — all write to entranceExamQuestions ─────────
   const ENTRANCE_ACTIONS = [
-    { label: 'Add Question',     icon: '➕', to: '/admin/entrance-exam?tab=add_single', color: '#0D9488',
+    { label: 'Add Question',     icon: '➕', to: '/admin/entrance-exam?tab=add_single', color: '#15803D',
       hint: 'Add to Entrance Exam bank' },
     { label: 'Bulk Upload',      icon: '📤', to: '/admin/entrance-exam?tab=bulk',       color: '#3B82F6',
       hint: 'Bulk upload entrance questions' },
@@ -367,8 +367,8 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <h3 style={{ ...S.sectionTitle, margin: 0 }}>⚡ NMCN CBT Actions</h3>
           <span style={{
-            fontSize: 11, fontWeight: 700, color: '#0D9488',
-            background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)',
+            fontSize: 11, fontWeight: 700, color: '#15803D',
+            background: 'rgba(21,128,61,0.12)', border: '1px solid rgba(21,128,61,0.3)',
             borderRadius: 20, padding: '2px 10px',
           }}>questions → NMCN bank</span>
         </div>
@@ -526,14 +526,14 @@ function ListItem({ primary, secondary, initial, badge, badgeClass, delay }) {
 const S = {
   header: {
     background: 'linear-gradient(135deg,#010810,#0F2A4A)',
-    border: '1px solid rgba(13,148,136,0.3)',
+    border: '1px solid rgba(21,128,61,0.3)',
     borderRadius: 20, padding: '28px 32px', marginBottom: 28,
     position: 'relative', overflow: 'hidden',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
   },
   headerGlow: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
-    background: 'radial-gradient(ellipse at 80% 50%, rgba(13,148,136,0.25) 0%, transparent 60%)',
+    background: 'radial-gradient(ellipse at 80% 50%, rgba(21,128,61,0.25) 0%, transparent 60%)',
   },
   statsGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
@@ -563,7 +563,7 @@ const S = {
   },
   listAvatar: {
     width: 34, height: 34, borderRadius: '50%',
-    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+    background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0,
   },

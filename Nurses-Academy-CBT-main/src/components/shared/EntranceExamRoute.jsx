@@ -41,8 +41,8 @@ export default function EntranceExamRoute({ children }) {
       }}>
         <div style={{
           width: 36, height: 36,
-          border: '3px solid rgba(13,148,136,0.2)',
-          borderTopColor: '#0D9488',
+          border: '3px solid rgba(21,128,61,0.2)',
+          borderTopColor: '#15803D',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
         }} />

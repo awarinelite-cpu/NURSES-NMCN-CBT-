@@ -41,7 +41,7 @@ export default function EntranceDailyMockUpload() {
 
   return (
     <div style={{ padding: 24, maxWidth: 720 }}>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", marginBottom: 8 }}>
+      <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", marginBottom: 8 }}>
         📤 Upload Daily Mock — Entrance Exam
       </h2>
       <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: 14 }}>
@@ -90,8 +90,8 @@ export default function EntranceDailyMockUpload() {
       {message && (
         <div style={{
           marginBottom: 16, padding: '10px 14px', borderRadius: 8,
-          background: status === 'success' ? 'rgba(13,148,136,0.12)' : 'rgba(220,38,38,0.1)',
-          color:      status === 'success' ? '#0D9488' : '#DC2626',
+          background: status === 'success' ? 'rgba(21,128,61,0.12)' : 'rgba(220,38,38,0.1)',
+          color:      status === 'success' ? '#15803D' : '#DC2626',
           fontSize: 14, fontWeight: 600,
         }}>
           {message}

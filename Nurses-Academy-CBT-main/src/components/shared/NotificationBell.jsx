@@ -7,8 +7,8 @@ import { useChatNotifications }   from '../../hooks/useChatNotifications';
 const entrancePrefixes = ['/entrance-exam', '/admin/entrance-exam'];
 function isEntrancePath(p) { return entrancePrefixes.some(x => p.startsWith(x)); }
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function timeAgo(date) {
   if (!date) return '';
@@ -32,7 +32,7 @@ function tsToDate(ts) {
 }
 
 const ENTRANCE_BADGE = { label: 'ENTRANCE', color: 'linear-gradient(135deg,#0891b2,#0e7490)' };
-const NMCN_BADGE     = { label: 'NMCN',     color: 'linear-gradient(135deg,#0D9488,#0f766e)' };
+const NMCN_BADGE     = { label: 'NMCN',     color: 'linear-gradient(135deg,#15803D,#0f766e)' };
 const ACCOUNT_BADGE  = { label: 'ACCOUNT',  color: 'linear-gradient(135deg,#7c3aed,#6d28d9)' };
 
 // Personal notifications (payments, access changes, admin broadcasts) span
@@ -315,8 +315,8 @@ export default function NotificationBell() {
 const styles = {
   bellPulse: {
     animation: 'bellRing 0.4s ease 0s 3',
-    background: 'rgba(13,148,136,0.25)',
-    borderColor: 'rgba(13,148,136,0.6)',
+    background: 'rgba(21,128,61,0.25)',
+    borderColor: 'rgba(21,128,61,0.6)',
   },
   bellBtn: {
     position: 'relative',
@@ -348,7 +348,7 @@ const styles = {
     WebkitBackdropFilter: 'blur(18px)',
     border: '1px solid rgba(255,255,255,0.10)',
     borderRadius: 14,
-    boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,148,136,0.12)',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(21,128,61,0.12)',
     overflow: 'hidden', zIndex: 200,
     animation: 'fadeIn 0.15s ease',
   },
@@ -357,7 +357,7 @@ const styles = {
     color: '#F1F5F9', borderBottom: '1px solid rgba(255,255,255,0.08)',
     textTransform: 'uppercase', letterSpacing: 0.6,
     fontFamily: H,
-    background: 'rgba(13,148,136,0.10)',
+    background: 'rgba(21,128,61,0.10)',
   },
   sectionLabel: {
     padding: '8px 16px 4px',
@@ -383,7 +383,7 @@ const styles = {
   },
   chatAvatar: {
     width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-    background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+    background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontFamily: H, fontWeight: 900, color: '#fff', fontSize: 15,
   },
@@ -406,14 +406,14 @@ const styles = {
   },
   unreadBadge: {
     minWidth: 18, height: 18, borderRadius: 9,
-    background: '#0D9488', color: '#fff',
+    background: '#15803D', color: '#fff',
     fontSize: 10, fontWeight: 900, fontFamily: H,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: '0 4px',
   },
   viewAllBtn: {
     display: 'block', width: '100%', textAlign: 'center',
-    background: 'rgba(13,148,136,0.12)', border: 'none', cursor: 'pointer',
+    background: 'rgba(21,128,61,0.12)', border: 'none', cursor: 'pointer',
     padding: '10px 16px',
     borderBottom: '1px solid rgba(255,255,255,0.06)',
     fontSize: 12, fontWeight: 800, color: '#2dd4bf',

@@ -4,8 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── FIX: Extended to support up to 250 questions.
 // The displayed buttons are dynamically filtered so only counts ≤ availableCount
@@ -89,7 +89,7 @@ export default function ExamSetup() {
   return (
     <div style={{ padding: '16px', maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)', marginBottom: 6 }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: 'var(--text-primary)', marginBottom: 6 }}>
           📝 Set Up Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -142,7 +142,7 @@ export default function ExamSetup() {
                   }}
                 >
                   {et.icon} {et.label}
-                  {isPremiumType(et.id) && !isSub && <span style={{ fontSize: 9, marginLeft: 4, background: 'rgba(13,148,136,0.2)', color: 'var(--teal)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>FREE 10Q</span>}
+                  {isPremiumType(et.id) && !isSub && <span style={{ fontSize: 9, marginLeft: 4, background: 'rgba(21,128,61,0.2)', color: 'var(--teal)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>FREE 10Q</span>}
                 </button>
               ))}
             </div>
@@ -352,7 +352,7 @@ const styles = {
     borderRadius: 20, padding: '24px 20px',
   },
   previewHead: {
-    fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 700,
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 700,
     fontSize: 16, color: 'var(--text-primary)', textAlign: 'center', marginBottom: 16,
   },
   previewRows: { marginBottom: 20 },

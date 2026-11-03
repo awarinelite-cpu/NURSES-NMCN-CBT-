@@ -236,7 +236,7 @@ function BackButtonHandler() {
       position: 'fixed', bottom: 48, left: '50%', transform: 'translateX(-50%)',
       background: 'rgba(2,11,24,0.92)', color: 'var(--text-primary)', padding: '13px 28px',
       borderRadius: 28, fontSize: 14, fontWeight: 700, zIndex: 99999,
-      backdropFilter: 'blur(10px)', border: '1px solid rgba(13,148,136,0.4)',
+      backdropFilter: 'blur(10px)', border: '1px solid rgba(21,128,61,0.4)',
       boxShadow: '0 4px 32px rgba(0,0,0,0.5)', whiteSpace: 'nowrap',
       letterSpacing: 0.3, animation: 'fadeInUp 0.22s ease', pointerEvents: 'none',
     }}>
@@ -388,8 +388,8 @@ export default function App() {
 function NotFound() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, textAlign: 'center', padding: 24, background: '#020B18', color: 'var(--text-primary)' }}>
-      <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>404</div>
-      <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", color: 'var(--text-primary)' }}>Page Not Found</h2>
+      <div style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: '6rem', fontWeight: 900, color: 'rgba(255,255,255,0.07)' }}>404</div>
+      <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: 'var(--text-primary)' }}>Page Not Found</h2>
       <p style={{ color: 'var(--text-muted)' }}>This page doesn't exist.</p>
       <a href="/" className="btn btn-primary">← Go Home</a>
     </div>

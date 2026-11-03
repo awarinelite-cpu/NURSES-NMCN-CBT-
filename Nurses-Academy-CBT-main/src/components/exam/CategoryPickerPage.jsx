@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function CategoryPickerPage() {
   const navigate     = useNavigate();
@@ -73,7 +73,7 @@ export default function CategoryPickerPage() {
           </div>
         </div>
 
-        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: '0 0 6px', color: 'var(--text-primary)' }}>
           🏥 Choose a Nursing Category
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
@@ -137,8 +137,8 @@ export default function CategoryPickerPage() {
 
               <div style={{
                 fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-                background: cat.examType === 'basic' ? 'rgba(13,148,136,0.15)' : 'rgba(124,58,237,0.15)',
-                color:      cat.examType === 'basic' ? '#0D9488' : '#7C3AED',
+                background: cat.examType === 'basic' ? 'rgba(21,128,61,0.15)' : 'rgba(124,58,237,0.15)',
+                color:      cat.examType === 'basic' ? '#15803D' : '#7C3AED',
               }}>
                 {cat.examType === 'basic' ? 'Basic RN' : 'Post Basic'}
               </div>
@@ -221,7 +221,7 @@ const styles = {
   },
   stickyBar: {
     position: 'fixed', bottom: 0, left: 0, right: 0,
-    background: 'linear-gradient(135deg, #1E3A8A, #0D9488)',
+    background: 'linear-gradient(135deg, #1E3A8A, #15803D)',
     padding: '14px 20px',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
     zIndex: 100,

@@ -12,12 +12,12 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // All subject groups — nursing categories + some extra discussion groups
 const GROUP_SUBJECTS = [
-  { id: 'general_nursing',    label: 'General Nursing (RN)',            icon: '🏥', color: '#0D9488' },
+  { id: 'general_nursing',    label: 'General Nursing (RN)',            icon: '🏥', color: '#15803D' },
   { id: 'midwifery',          label: 'Midwifery',                       icon: '👶', color: '#7C3AED' },
   { id: 'mental_health',      label: 'Psychiatric Nursing',             icon: '🧠', color: '#2563EB' },
   { id: 'public_health',      label: 'Public Health Nursing',           icon: '🌍', color: '#16A34A' },
@@ -182,7 +182,7 @@ export default function GroupChatHub() {
             <div style={{ fontSize: 12, color: '#8696A0', fontFamily: F, fontWeight: 700, marginTop: 2 }}>
               {GROUP_SUBJECTS.length} subject groups
               {totalUnread > 0 && (
-                <span style={{ marginLeft: 8, background: '#0D9488', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11 }}>
+                <span style={{ marginLeft: 8, background: '#15803D', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11 }}>
                   {totalUnread} new
                 </span>
               )}

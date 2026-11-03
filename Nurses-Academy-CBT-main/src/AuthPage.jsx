@@ -98,8 +98,8 @@ export default function AuthPage() {
     }
   };
 
-  const F = "'Times New Roman', Times, serif";
-  const H = "'Arial Black', Arial, sans-serif";
+  const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+  const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
   return (
     <div style={styles.page}>
@@ -314,7 +314,7 @@ const styles = {
   },
   bgOrb1: {
     position: 'absolute', width: 400, height: 400, borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 70%)',
+    background: 'radial-gradient(circle, rgba(21,128,61,0.18) 0%, transparent 70%)',
     top: -100, right: -100, pointerEvents: 'none',
   },
   bgOrb2: {
@@ -323,21 +323,21 @@ const styles = {
     bottom: -80, left: -80, pointerEvents: 'none',
   },
   card: {
-    background: 'rgba(10,31,53,0.95)', border: '1px solid rgba(13,148,136,0.25)',
+    background: 'rgba(10,31,53,0.95)', border: '1px solid rgba(21,128,61,0.25)',
     borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 460,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(13,148,136,0.1)',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(21,128,61,0.1)',
     backdropFilter: 'blur(12px)', position: 'relative',
   },
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 },
   logoIcon: {
     width: 48, height: 48, borderRadius: 12,
-    background: 'linear-gradient(135deg, #0D9488, #1E3A8A)',
+    background: 'linear-gradient(135deg, #15803D, #1E3A8A)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 22, flexShrink: 0,
   },
   input: {
     background: 'rgba(255,255,255,0.07)',
-    border: '1.5px solid rgba(13,148,136,0.3)',
+    border: '1.5px solid rgba(21,128,61,0.3)',
     color: 'var(--text-primary)',
   },
   eyeBtn: {

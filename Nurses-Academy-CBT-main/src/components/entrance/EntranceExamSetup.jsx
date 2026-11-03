@@ -25,8 +25,8 @@ const TIME_OPTIONS = [
   { label: '2 hours',    value: 120 },
 ];
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function ToggleRow({ label, desc, checked, onChange }) {
   return (
@@ -177,7 +177,7 @@ export default function EntranceExamSetup() {
       {/* School pill */}
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 10,
-        background: 'rgba(13,148,136,0.12)', border: '1.5px solid rgba(13,148,136,0.35)',
+        background: 'rgba(21,128,61,0.12)', border: '1.5px solid rgba(21,128,61,0.35)',
         borderRadius: 40, padding: '8px 16px', marginBottom: 18,
       }}>
         <span style={{ fontSize: 20 }}>🏫</span>
@@ -268,7 +268,7 @@ export default function EntranceExamSetup() {
                   display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
                   border: `2px solid ${mode === m.id ? 'var(--teal)' : 'var(--border)'}`,
                   borderRadius: 10, cursor: 'pointer',
-                  background: mode === m.id ? 'rgba(13,148,136,0.08)' : 'var(--bg-tertiary)',
+                  background: mode === m.id ? 'rgba(21,128,61,0.08)' : 'var(--bg-tertiary)',
                   transition: 'all .2s', fontFamily: F,
                 }}
               >
@@ -300,7 +300,7 @@ export default function EntranceExamSetup() {
                 padding: '10px 18px', border: '2px solid', borderRadius: 8,
                 cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: F, transition: 'all 0.2s',
                 borderColor: count === n ? 'var(--teal)' : 'var(--border)',
-                background:  count === n ? 'rgba(13,148,136,0.12)' : 'var(--bg-tertiary)',
+                background:  count === n ? 'rgba(21,128,61,0.12)' : 'var(--bg-tertiary)',
                 color:       count === n ? 'var(--teal)' : 'var(--text-secondary)',
               }}>
                 {n === allCount && n !== Math.max(...QUESTION_COUNTS) ? `All (${n})` : `${n} Qs`}

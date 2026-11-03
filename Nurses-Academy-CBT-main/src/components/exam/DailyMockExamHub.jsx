@@ -215,7 +215,7 @@ export default function DailyMockExamHub() {
       <div style={{ padding: '24px 16px', maxWidth: 760, margin: '0 auto', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
           <span style={{ fontSize: 30, flexShrink: 0 }}>🗓️</span>
-          <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
             Daily Mock Exam
           </h2>
         </div>
@@ -304,7 +304,7 @@ export default function DailyMockExamHub() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 6, minWidth: 0 }}>
         <span style={{ fontSize: 28, flexShrink: 0 }}>{sp.icon}</span>
-        <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+        <h2 style={{ margin: 0, flex: '1 1 200px', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
           Daily Mock Exam — {sp.label}
         </h2>
       </div>

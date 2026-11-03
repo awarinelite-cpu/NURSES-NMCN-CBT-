@@ -342,7 +342,7 @@ export default function ScheduledExamsManager() {
                   style={{
                     borderColor: filterType === t.value ? 'var(--teal)' : 'var(--border)',
                     color:       filterType === t.value ? 'var(--teal)' : 'var(--text-muted)',
-                    background:  filterType === t.value ? 'rgba(13,148,136,0.08)' : 'transparent',
+                    background:  filterType === t.value ? 'rgba(21,128,61,0.08)' : 'transparent',
                     fontWeight:  filterType === t.value ? 700 : 400,
                   }}
                 >
@@ -410,7 +410,7 @@ export default function ScheduledExamsManager() {
                         <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
                           {exam.name}
                         </span>
-                        {isNew && <span style={{ ...S.pill, background: 'rgba(13,148,136,0.15)', color: 'var(--teal)', border: '1px solid rgba(13,148,136,0.3)' }}>NEW</span>}
+                        {isNew && <span style={{ ...S.pill, background: 'rgba(21,128,61,0.15)', color: 'var(--teal)', border: '1px solid rgba(21,128,61,0.3)' }}>NEW</span>}
                         <span style={{
                           ...S.pill,
                           background: exam.active !== false ? 'rgba(22,163,74,0.1)' : 'var(--bg-tertiary)',
@@ -642,8 +642,8 @@ const S = {
     padding: '14px 16px',
   },
   noteBox: {
-    background: 'rgba(13,148,136,0.08)',
-    border: '1px solid rgba(13,148,136,0.2)',
+    background: 'rgba(21,128,61,0.08)',
+    border: '1px solid rgba(21,128,61,0.2)',
     borderRadius: 8,
     padding: '10px 14px',
     fontSize: 13,

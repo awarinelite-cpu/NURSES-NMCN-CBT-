@@ -17,8 +17,8 @@ import { db }       from '../../firebase/config';
 import { useAuth }  from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const QUESTION_PRESETS = [10, 20, 30, 50];
 const PASS_MARK        = 50; // percent
@@ -191,7 +191,7 @@ export default function CourseDrillPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>📖</span>
-            <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
               Course Drill
             </h2>
           </div>

@@ -20,8 +20,8 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function todayKey() {
   const d = new Date();
@@ -43,11 +43,11 @@ function subjectColor(subject) {
     'General Knowledge':'#DC2626',
     'Current Affairs':  '#DC2626',
   };
-  if (!subject) return '#0D9488';
+  if (!subject) return '#15803D';
   for (const key of Object.keys(map)) {
     if (subject.toLowerCase().includes(key.toLowerCase())) return map[key];
   }
-  return '#0D9488';
+  return '#15803D';
 }
 
 export default function EntranceDailyChallenge() {

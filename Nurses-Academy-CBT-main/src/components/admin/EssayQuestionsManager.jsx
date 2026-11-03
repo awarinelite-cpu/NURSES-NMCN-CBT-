@@ -29,7 +29,7 @@ import { parseEssayQuestions } from '../../utils/essayQuestionParser';
 import { readEssayQuestionFile } from '../../utils/essayCsvImport';
 import { useToast } from '../shared/Toast';
 
-const H = "'Arial Black', Arial, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function Card({ children, style }) {
   return (
@@ -655,7 +655,7 @@ export default function EssayQuestionsManager() {
                 const smallInputStyle = { ...inputStyle, marginBottom: 0 };
 
                 return (
-                  <Card key={set.id} style={{ border: '1px solid var(--accent, #0D9488)' }}>
+                  <Card key={set.id} style={{ border: '1px solid var(--accent, #15803D)' }}>
                     <div style={{ fontFamily: H, fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', marginBottom: 14 }}>
                       ✏️ Editing: {editingSet.title || editingSet.setLabel || 'Untitled Set'}
                     </div>
@@ -858,7 +858,7 @@ export default function EssayQuestionsManager() {
                   key={set.id}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-                    border: isSelected ? '1px solid var(--accent, #0D9488)' : '1px solid var(--border)',
+                    border: isSelected ? '1px solid var(--accent, #15803D)' : '1px solid var(--border)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>

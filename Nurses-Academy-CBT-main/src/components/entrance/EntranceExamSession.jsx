@@ -22,8 +22,8 @@ import ExplanationText                               from '../shared/Explanation
 import AiExplainButton                               from '../shared/AiExplainButton';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
-const F           = "'Times New Roman', Times, serif";
-const H           = "'Arial Black', Arial, sans-serif";
+const F           = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H           = "'Plus Jakarta Sans', system-ui, sans-serif";
 const FREE_CAP    = 10;
 
 // ── Exit / Pause Modal ────────────────────────────────────────────────────────
@@ -338,7 +338,7 @@ export default function EntranceExamSession() {
   const getOptionStyle = (key) => {
     const chosen = answers[currentQ?.id], correct = currentQ?.correctAnswer;
     if (!submitted) return chosen === key
-      ? { background: 'rgba(13,148,136,0.15)', border: '1.5px solid var(--teal)', color: 'var(--text-primary)' }
+      ? { background: 'rgba(21,128,61,0.15)', border: '1.5px solid var(--teal)', color: 'var(--text-primary)' }
       : { background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-primary)' };
     if (key === correct) return { background: 'rgba(22,163,74,0.15)', border: '1.5px solid #16A34A', color: 'var(--text-primary)' };
     if (key === chosen && key !== correct) return { background: 'rgba(239,68,68,0.12)', border: '1.5px solid #EF4444', color: 'var(--text-primary)' };
@@ -356,7 +356,7 @@ export default function EntranceExamSession() {
   const navTileStyle = (idx) => {
     const q = questions[idx], ans = q ? answers[q.id] : undefined;
     if (idx === currentIndex) return { background: 'var(--teal)', color: '#fff', border: '2px solid var(--teal)' };
-    if (ans) return { background: 'rgba(13,148,136,0.15)', color: 'var(--teal)', border: '2px solid rgba(13,148,136,0.4)' };
+    if (ans) return { background: 'rgba(21,128,61,0.15)', color: 'var(--teal)', border: '2px solid rgba(21,128,61,0.4)' };
     return { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '2px solid var(--border)' };
   };
 
@@ -408,7 +408,7 @@ export default function EntranceExamSession() {
               { label: 'Correct', value: correctCount, color: '#16A34A', bg: 'rgba(22,163,74,0.1)',    icon: '✅' },
               { label: 'Wrong',   value: wrongCount,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: '❌' },
               { label: 'Skipped', value: skippedCount, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',   icon: '⏭' },
-              { label: 'Total',   value: result.total, color: 'var(--teal)', bg: 'rgba(13,148,136,0.08)', icon: '📝' },
+              { label: 'Total',   value: result.total, color: 'var(--teal)', bg: 'rgba(21,128,61,0.08)', icon: '📝' },
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: s.bg, border: `1.5px solid ${s.color}33`, borderRadius: 12, padding: '10px 16px', minWidth: 70 }}>
                 <div style={{ fontSize: 16 }}>{s.icon}</div>
@@ -495,9 +495,9 @@ export default function EntranceExamSession() {
         }}>
           <span style={{
             fontSize: 'clamp(16px,3.5vw,26px)', fontWeight: 900, letterSpacing: 3,
-            color: 'rgba(13,148,136,0.07)', transform: 'rotate(-30deg)',
+            color: 'rgba(21,128,61,0.07)', transform: 'rotate(-30deg)',
             whiteSpace: 'nowrap', userSelect: 'none',
-            fontFamily: "'Arial Black', Arial, sans-serif",
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           }}>
             {watermarkText} &nbsp;&nbsp; NMCN CBT &nbsp;&nbsp; {watermarkText}
           </span>
@@ -513,7 +513,7 @@ export default function EntranceExamSession() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg-card)', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 24, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', textAlign: 'center' }}>
             <div style={{ fontSize: 52, marginBottom: 12 }}>🔒</div>
-            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif" }}>
+            <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: 22, fontWeight: 900, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
               You've reached your free limit!
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 8px' }}>
@@ -525,7 +525,7 @@ export default function EntranceExamSession() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
                 onClick={() => navigate('/entrance-exam/payment')}
-                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Arial Black', Arial, sans-serif" }}
+                style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 900, fontSize: 15, border: 'none', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#000', letterSpacing: 0.5, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
               >
                 🚀 Upgrade Now — ₦3,000 Only
               </button>
@@ -553,7 +553,7 @@ export default function EntranceExamSession() {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {secondsLeft !== null && !submitted && !reviewMode && (
-              <div style={{ padding: '7px 14px', borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, background: secondsLeft <= 60 ? 'rgba(239,68,68,0.15)' : 'rgba(13,148,136,0.12)', border: `1px solid ${secondsLeft <= 60 ? 'rgba(239,68,68,0.5)' : 'rgba(13,148,136,0.3)'}`, color: secondsLeft <= 60 ? '#EF4444' : 'var(--teal)' }}>
+              <div style={{ padding: '7px 14px', borderRadius: 10, fontFamily: F, fontWeight: 800, fontSize: 13, background: secondsLeft <= 60 ? 'rgba(239,68,68,0.15)' : 'rgba(21,128,61,0.12)', border: `1px solid ${secondsLeft <= 60 ? 'rgba(239,68,68,0.5)' : 'rgba(21,128,61,0.3)'}`, color: secondsLeft <= 60 ? '#EF4444' : 'var(--teal)' }}>
                 ⏱ {formatTime(secondsLeft)}
               </div>
             )}
@@ -621,7 +621,7 @@ export default function EntranceExamSession() {
         {currentQ ? (
           <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '20px 18px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: 'var(--teal)' }}>{examType.replace(/_/g, ' ')}</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(21,128,61,0.12)', border: '1px solid rgba(21,128,61,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: 'var(--teal)' }}>{examType.replace(/_/g, ' ')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button onClick={handleFlag} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: flagged[currentQ.id] ? 1 : 0.35 }}>🚩</button>
                 <button onClick={handleBookmark} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', background: bookmarks[currentQ.id] ? 'rgba(59,130,246,0.2)' : 'var(--bg-tertiary)', border: bookmarks[currentQ.id] ? '1px solid #3B82F6' : '1px solid var(--border)', color: 'var(--text-primary)', fontFamily: F, fontWeight: 700, fontSize: 13 }}>🔖 Bookmark</button>

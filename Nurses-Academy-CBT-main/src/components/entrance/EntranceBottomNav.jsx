@@ -302,7 +302,7 @@ export default function EntranceBottomNav() {
           color: #fff;
           font-size: 10px;
           font-weight: 900;
-          font-family: 'Arial Black', Arial, sans-serif;
+          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -345,7 +345,7 @@ export default function EntranceBottomNav() {
             cx={fabX} cy={fabY}
             r={ARC_RADIUS * p}
             fill="none"
-            stroke={`rgba(13,148,136,${0.22 * p})`}
+            stroke={`rgba(21,128,61,${0.22 * p})`}
             strokeWidth="1"
             strokeDasharray="4 7"
           />
@@ -381,7 +381,7 @@ export default function EntranceBottomNav() {
               zIndex: 8100,
               borderRadius: '50%',
               background: active
-                ? 'rgba(13,148,136,0.25)'
+                ? 'rgba(21,128,61,0.25)'
                 : isAdmin_
                   ? 'rgba(124,58,237,0.18)'
                   : 'rgba(4,18,36,0.88)',
@@ -389,9 +389,9 @@ export default function EntranceBottomNav() {
                 ? '2px solid #2dd4bf'
                 : isAdmin_
                   ? '1.5px solid rgba(124,58,237,0.6)'
-                  : '1.5px solid rgba(13,148,136,0.35)',
+                  : '1.5px solid rgba(21,128,61,0.35)',
               boxShadow: active
-                ? '0 0 14px rgba(13,148,136,0.5)'
+                ? '0 0 14px rgba(21,128,61,0.5)'
                 : isAdmin_
                   ? '0 3px 14px rgba(124,58,237,0.3)'
                   : '0 3px 14px rgba(0,0,0,0.55)',
@@ -403,7 +403,7 @@ export default function EntranceBottomNav() {
               cursor: 'pointer', outline: 'none',
               WebkitTapHighlightColor: 'transparent',
               transition: 'border-color 0.15s, background 0.15s',
-              fontFamily: "'Arial Black', Arial, sans-serif",
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             }}
           >
             <span style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
@@ -439,11 +439,11 @@ export default function EntranceBottomNav() {
             left: 0, top: 0,
             width: FAB_SIZE, height: FAB_SIZE,
             borderRadius: '50%',
-            background: open ? 'linear-gradient(135deg,#0f766e,#0d9488)' : '#020B18',
-            border: `2.5px solid ${open ? '#2dd4bf' : 'rgba(13,148,136,0.65)'}`,
+            background: open ? 'linear-gradient(135deg,#0f766e,#15803D)' : '#020B18',
+            border: `2.5px solid ${open ? '#2dd4bf' : 'rgba(21,128,61,0.65)'}`,
             boxShadow: open
-              ? `0 0 0 ${Math.round(5 * p)}px rgba(13,148,136,0.18), 0 8px 28px rgba(13,148,136,0.35)`
-              : '0 4px 20px rgba(0,0,0,0.7), 0 0 0 1px rgba(13,148,136,0.18)',
+              ? `0 0 0 ${Math.round(5 * p)}px rgba(21,128,61,0.18), 0 8px 28px rgba(21,128,61,0.35)`
+              : '0 4px 20px rgba(0,0,0,0.7), 0 0 0 1px rgba(21,128,61,0.18)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'grab',
             touchAction: 'none',

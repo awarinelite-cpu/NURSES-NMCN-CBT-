@@ -11,12 +11,12 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // The 6 entrance exam subjects as subgroups
 export const ENTRANCE_GROUP_SUBJECTS = [
-  { id: 'entrance_english',     label: 'Use of English',          icon: '📖', color: '#0D9488' },
+  { id: 'entrance_english',     label: 'Use of English',          icon: '📖', color: '#15803D' },
   { id: 'entrance_biology',     label: 'Biology',                  icon: '🧬', color: '#16A34A' },
   { id: 'entrance_chemistry',   label: 'Chemistry',                icon: '⚗️', color: '#7C3AED' },
   { id: 'entrance_physics',     label: 'Physics',                  icon: '⚡', color: '#2563EB' },
@@ -170,7 +170,7 @@ export default function EntranceGroupChatHub() {
             <div style={{ fontSize: 12, color: '#8696A0', fontFamily: F, fontWeight: 700, marginTop: 2 }}>
               {ENTRANCE_GROUP_SUBJECTS.length} subject groups
               {totalUnread > 0 && (
-                <span style={{ marginLeft: 8, background: '#0D9488', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11 }}>
+                <span style={{ marginLeft: 8, background: '#15803D', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11 }}>
                   {totalUnread} new
                 </span>
               )}

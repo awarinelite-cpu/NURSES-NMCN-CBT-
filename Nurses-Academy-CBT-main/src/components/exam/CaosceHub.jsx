@@ -21,8 +21,8 @@ import {
 import { db }      from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function CaosceHub() {
   const navigate = useNavigate();

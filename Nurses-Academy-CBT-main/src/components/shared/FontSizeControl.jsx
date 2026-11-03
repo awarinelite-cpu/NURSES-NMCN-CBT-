@@ -91,7 +91,7 @@ const styles = {
     backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
     border: '1px solid rgba(255,255,255,0.10)',
     borderRadius: 14, padding: '12px 16px',
-    boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,148,136,0.12)',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(21,128,61,0.12)',
     zIndex: 200, width: 190,
   },
   header: {
@@ -101,7 +101,7 @@ const styles = {
   row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   stepBtn: {
     width: 40, height: 32, borderRadius: 8, cursor: 'pointer',
-    background: 'rgba(13,148,136,0.18)', border: '1px solid rgba(13,148,136,0.4)',
+    background: 'rgba(21,128,61,0.18)', border: '1px solid rgba(21,128,61,0.4)',
     color: '#F1F5F9', fontWeight: 800, fontSize: 13, flexShrink: 0,
   },
   dots: { display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' },

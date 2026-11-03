@@ -21,8 +21,8 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { ENTRANCE_SUBJECTS } from '../../utils/entranceExamParser';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // Default icon + colour for each known subject (used when seeding entranceExamSubjects)
 const SUBJECT_META = {
@@ -31,7 +31,7 @@ const SUBJECT_META = {
   'Chemistry':         { icon: '🧪', color: '#7C3AED' },
   'Physics':           { icon: '🔭', color: '#0891B2' },
   'Mathematics':       { icon: '📐', color: '#F59E0B' },
-  'General Studies':   { icon: '🌍', color: '#0D9488' },
+  'General Studies':   { icon: '🌍', color: '#15803D' },
   'Nursing Aptitude':  { icon: '💉', color: '#EF4444' },
   'Current Affairs':   { icon: '📰', color: '#64748B' },
 };
@@ -44,7 +44,7 @@ async function seedSubjectsCollection() {
   try {
     const batch = writeBatch(db);
     ENTRANCE_SUBJECTS.forEach((name, i) => {
-      const meta = SUBJECT_META[name] || { icon: '📚', color: '#0D9488' };
+      const meta = SUBJECT_META[name] || { icon: '📚', color: '#15803D' };
       batch.set(doc(db, 'entranceExamSubjects', name), {
         name,
         icon:  meta.icon,
@@ -253,7 +253,7 @@ export default function EntranceSubjectDrill() {
             const key  = name.toLowerCase().split(/\s+/)[0];
             metaMap[key] = {
               icon:  d.data().icon  || '📚',
-              color: d.data().color || '#0D9488',
+              color: d.data().color || '#15803D',
               order: d.data().order ?? i,
               displayName: name,
             };
@@ -286,7 +286,7 @@ export default function EntranceSubjectDrill() {
         // 3. Build subject list from actual data
         const subjects = Object.entries(subjectMap).map(([name, data]) => {
           const key  = name.toLowerCase().split(/\s+/)[0];
-          const meta = metaMap[key] || { icon: '📚', color: '#0D9488', order: 99 };
+          const meta = metaMap[key] || { icon: '📚', color: '#15803D', order: 99 };
           return {
             id:            name,
             name,
@@ -303,7 +303,7 @@ export default function EntranceSubjectDrill() {
           const fallback = ENTRANCE_SUBJECTS.map((name, i) => ({
             id: name, name,
             icon:          SUBJECT_META[name]?.icon  || '📚',
-            color:         SUBJECT_META[name]?.color || '#0D9488',
+            color:         SUBJECT_META[name]?.color || '#15803D',
             order:         i,
             questionCount: untagged, // untagged questions shown on all
             years:         [],

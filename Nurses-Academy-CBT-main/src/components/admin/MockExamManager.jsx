@@ -225,15 +225,15 @@ export default function MockExamManager() {
 
         {/* How questions link — info box */}
         <div style={{
-          background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+          background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
           borderRadius: 12, padding: '12px 16px', marginTop: 16, marginBottom: 20,
           fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
         }}>
           💡 <strong>Linking questions:</strong> After creating a mock exam, copy its <strong>Exam ID</strong> shown on the card.
           In the Questions Manager, upload questions with{' '}
-          <code style={{ background: 'rgba(13,148,136,0.15)', padding: '1px 6px', borderRadius: 4 }}>examType = mock_exam</code>{' '}
+          <code style={{ background: 'rgba(21,128,61,0.15)', padding: '1px 6px', borderRadius: 4 }}>examType = mock_exam</code>{' '}
           and{' '}
-          <code style={{ background: 'rgba(13,148,136,0.15)', padding: '1px 6px', borderRadius: 4 }}>mockExamId = &lt;Exam ID&gt;</code>.
+          <code style={{ background: 'rgba(21,128,61,0.15)', padding: '1px 6px', borderRadius: 4 }}>mockExamId = &lt;Exam ID&gt;</code>.
         </div>
 
         {/* Search + Add button row */}
@@ -499,16 +499,16 @@ export default function MockExamManager() {
 
       {/* Info box */}
       <div style={{
-        background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)',
+        background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.25)',
         borderRadius: 12, padding: '14px 18px', marginBottom: 28,
         fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
       }}>
         💡 <strong>How it works:</strong> Click a specialty to manage its mock exams.
         Create an exam, then link questions to it via the <strong>Exam ID</strong> shown on each card.
         In the Questions Manager set{' '}
-        <code style={{ background: 'rgba(13,148,136,0.15)', padding: '1px 5px', borderRadius: 4 }}>examType = mock_exam</code>{' '}
+        <code style={{ background: 'rgba(21,128,61,0.15)', padding: '1px 5px', borderRadius: 4 }}>examType = mock_exam</code>{' '}
         and{' '}
-        <code style={{ background: 'rgba(13,148,136,0.15)', padding: '1px 5px', borderRadius: 4 }}>mockExamId = &lt;Exam ID&gt;</code>{' '}
+        <code style={{ background: 'rgba(21,128,61,0.15)', padding: '1px 5px', borderRadius: 4 }}>mockExamId = &lt;Exam ID&gt;</code>{' '}
         when uploading. Only <strong>active</strong> exams are visible to students.
       </div>
 

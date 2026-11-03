@@ -142,7 +142,7 @@ const injectStyles = () => {
 function CountdownRing({ seconds }) {
   const r = 18, circ = +(2 * Math.PI * r).toFixed(2);
   const off = +(circ * (1 - Math.max(0, Math.min(1, seconds / TIMEOUT_SEC)))).toFixed(2);
-  const color = seconds <= 10 ? '#EF4444' : seconds <= 20 ? '#F59E0B' : '#0D9488';
+  const color = seconds <= 10 ? '#EF4444' : seconds <= 20 ? '#F59E0B' : '#15803D';
   return (
     <svg width={44} height={44} style={{ transform:'rotate(-90deg)', flexShrink:0 }}>
       <circle cx={22} cy={22} r={r} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth={3}/>
@@ -450,9 +450,9 @@ const VoiceExamMode = forwardRef(function VoiceExamMode({
           style={{
             display:'inline-flex', alignItems:'center', gap:8,
             padding:'8px 16px', borderRadius:999,
-            border: isActive ? '1.5px solid rgba(13,148,136,.6)' : '1.5px solid rgba(13,148,136,.3)',
-            background: isActive ? 'rgba(13,148,136,.13)' : 'rgba(255,255,255,.04)',
-            color: isActive ? '#14B8A6' : '#0D9488',
+            border: isActive ? '1.5px solid rgba(21,128,61,.6)' : '1.5px solid rgba(21,128,61,.3)',
+            background: isActive ? 'rgba(21,128,61,.13)' : 'rgba(255,255,255,.04)',
+            color: isActive ? '#14B8A6' : '#15803D',
             fontSize:13, fontWeight:600,
             cursor: isActive ? 'default' : 'pointer',
             transition:'all .2s',

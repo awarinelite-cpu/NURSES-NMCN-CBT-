@@ -8,7 +8,7 @@
 
 import React from 'react';
 
-const F  = "'Times New Roman', Times, serif";
+const F  = "'Plus Jakarta Sans', system-ui, sans-serif";
 const MO = "'Courier New', Courier, monospace";
 
 /* ── classify a single already-split line ── */

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { saveNote } from '../../utils/notesUtils';
 
-const F = "'Times New Roman', Times, serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function QuestionNoteButton({ uid, question, initialText = '', onSaved }) {
   const [open, setOpen]   = useState(false);

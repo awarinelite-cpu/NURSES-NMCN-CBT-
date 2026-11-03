@@ -12,14 +12,14 @@ import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import AdminNotificationBell from '../shared/AdminNotificationBell';
 
-const H = "'Arial Black', Arial, sans-serif";
-const F = "'Times New Roman', Times, serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 // ── Live clock ────────────────────────────────────────────────────────────────
 function LiveClock() {
   const [t, setT] = useState(new Date());
   useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i); }, []);
-  return <span style={{ color: '#0D9488', fontWeight: 700, fontSize: 13 }}>{t.toLocaleTimeString()}</span>;
+  return <span style={{ color: '#15803D', fontWeight: 700, fontSize: 13 }}>{t.toLocaleTimeString()}</span>;
 }
 
 // ── Pulse dot ─────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ function ToolCard({ icon, label, desc, to, color, badge }) {
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
-function SectionLabel({ children, accent = '#0D9488' }) {
+function SectionLabel({ children, accent = '#15803D' }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
@@ -147,7 +147,7 @@ function PaymentRow({ p }) {
     }}>
       <div style={{
         width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg,#0D9488,#1E3A8A)',
+        background: 'linear-gradient(135deg,#15803D,#1E3A8A)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: H, fontWeight: 900, color: '#fff', fontSize: 13,
       }}>{(p.userName || 'U')[0]}</div>
@@ -196,13 +196,13 @@ export default function SubAdminDashboard() {
 
   // ── Tool sections ──────────────────────────────────────────────────────────
   const NMCN_TOOLS = [
-    { icon: '➕', label: 'Add Question',    desc: 'Add a single NMCN CBT question',       to: '/admin/questions?action=add',  color: '#0D9488' },
+    { icon: '➕', label: 'Add Question',    desc: 'Add a single NMCN CBT question',       to: '/admin/questions?action=add',  color: '#15803D' },
     { icon: '📤', label: 'Bulk Upload',     desc: 'Upload many NMCN questions at once',    to: '/admin/questions?action=bulk', color: '#2563EB' },
     { icon: '📋', label: 'Question Bank',   desc: 'Browse, edit or delete NMCN questions', to: '/admin/questions',             color: '#7C3AED' },
   ];
 
   const ENTRANCE_TOOLS = [
-    { icon: '➕', label: 'Add Question',    desc: 'Add a single entrance exam question',        to: '/admin/entrance-exam?tab=add_single', color: '#0D9488' },
+    { icon: '➕', label: 'Add Question',    desc: 'Add a single entrance exam question',        to: '/admin/entrance-exam?tab=add_single', color: '#15803D' },
     { icon: '📤', label: 'Bulk Upload',     desc: 'Upload many entrance questions at once',     to: '/admin/entrance-exam?tab=bulk',       color: '#3B82F6' },
     { icon: '📋', label: 'Question Bank',   desc: 'Browse, edit or delete entrance questions',  to: '/admin/entrance-exam?tab=bank',       color: '#8B5CF6' },
     { icon: '📅', label: 'Daily Mock Bank', desc: 'Set up daily mock question rotation',        to: '/admin/entrance-exam?tab=daily_mock', color: '#F59E0B', badge: 'DAILY' },
@@ -222,7 +222,7 @@ export default function SubAdminDashboard() {
       {/* ── Header ── */}
       <div style={{
         background: 'linear-gradient(135deg,#020E1C,#0A2040)',
-        border: '1px solid rgba(13,148,136,0.3)',
+        border: '1px solid rgba(21,128,61,0.3)',
         borderRadius: 20, padding: '24px 28px', marginBottom: 28,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
         position: 'relative', overflow: 'hidden',
@@ -233,14 +233,14 @@ export default function SubAdminDashboard() {
         {/* Glow */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 20% 60%, rgba(13,148,136,0.18) 0%, transparent 60%)',
+          background: 'radial-gradient(ellipse at 20% 60%, rgba(21,128,61,0.18) 0%, transparent 60%)',
         }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontFamily: H, fontWeight: 900, fontSize: 22, color: '#F1F5F9' }}>
             🔧 Sub-Admin Panel
           </div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
-            Welcome, <span style={{ color: '#0D9488', fontWeight: 700 }}>{profile?.name || 'Sub-Admin'}</span> · Questions, payments &amp; announcements
+            Welcome, <span style={{ color: '#15803D', fontWeight: 700 }}>{profile?.name || 'Sub-Admin'}</span> · Questions, payments &amp; announcements
           </div>
         </div>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -256,14 +256,14 @@ export default function SubAdminDashboard() {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
         gap: 14, marginBottom: 32,
       }}>
-        <StatCard icon="❓" label="NMCN Questions"     value={loading ? 0 : stats.nmcnQs}     color="#0D9488" to="/admin/questions" />
+        <StatCard icon="❓" label="NMCN Questions"     value={loading ? 0 : stats.nmcnQs}     color="#15803D" to="/admin/questions" />
         <StatCard icon="🏫" label="Entrance Questions" value={loading ? 0 : stats.entranceQs} color="#3B82F6" to="/admin/entrance-exam?tab=bank" />
         <StatCard icon="💰" label="Total Payments"     value={loading ? 0 : stats.payments}   color="#F59E0B" to="/admin/payments" />
       </div>
 
       {/* ── NMCN CBT Questions ── */}
       <div style={{ marginBottom: 32 }}>
-        <SectionLabel accent="#0D9488">NMCN CBT Questions</SectionLabel>
+        <SectionLabel accent="#15803D">NMCN CBT Questions</SectionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
           {NMCN_TOOLS.map(t => <ToolCard key={t.label} {...t} />)}
         </div>
@@ -295,7 +295,7 @@ export default function SubAdminDashboard() {
         }}>
           <SectionLabel accent="#16A34A">Recent Payments</SectionLabel>
           <Link to="/admin/payments" style={{
-            fontSize: 12, color: '#0D9488', fontWeight: 700, textDecoration: 'none', fontFamily: H,
+            fontSize: 12, color: '#15803D', fontWeight: 700, textDecoration: 'none', fontFamily: H,
           }}>View all →</Link>
         </div>
         {loading ? (

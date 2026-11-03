@@ -7,8 +7,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
 
-const F = "'Times New Roman', Times, serif";
-const H = "'Arial Black', Arial, sans-serif";
+const F = "'Plus Jakarta Sans', system-ui, sans-serif";
+const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const QUESTION_COUNTS = [10, 20, 30, 50, 100, 200, 250];
 const TIME_OPTIONS = [
@@ -123,7 +123,7 @@ export default function ExamConfigPage() {
           </div>
         )}
 
-        <h2 style={{ fontFamily: "'Arial Black', Arial, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: '0 0 4px', color: 'var(--text-primary)' }}>
           ⚙️ Set Up Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
@@ -242,7 +242,7 @@ export default function ExamConfigPage() {
         </div>
 
         {/* Exam Preview */}
-        <div className="card" style={{ ...styles.section, background: 'linear-gradient(135deg, var(--bg-card), var(--bg-secondary))' }}>
+        <div className="card" style={{ ...styles.section, background: 'var(--bg-card))' }}>
           <div style={styles.sectionHead}>👁️ Exam Preview</div>
 
           {error && (
