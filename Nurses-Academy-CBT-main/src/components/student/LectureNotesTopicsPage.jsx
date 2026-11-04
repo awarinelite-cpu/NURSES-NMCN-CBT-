@@ -14,6 +14,8 @@ export default function LectureNotesTopicsPage() {
   const navigate = useNavigate();
   const [topics, setTopics] = useState(null);
   const [driveLinks, setDriveLinks] = useState([]);
+  const [openIds, setOpenIds] = useState({}); // semester folders start collapsed
+  const toggle = id => setOpenIds(o => ({ ...o, [id]: !o[id] }));
   const meta = specialtyMeta(specialtyId);
 
   useEffect(() => {
@@ -37,35 +39,45 @@ export default function LectureNotesTopicsPage() {
         </h1>
       </div>
 
-      {driveLinks.map((link, i) => (
-        <div key={link.id} style={{ marginBottom: 22 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 22 }}>📁</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>
-                {link.label || (driveLinks.length > 1 ? `Drive Folder ${i + 1}` : 'Lecture Notes Drive Folder')}
-              </div>
-              <div style={{ fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
-                Tap a file below to open it right here
-              </div>
+      {driveLinks.map((link, i) => {
+        const isOpen = !!openIds[link.id];
+        const title = link.label || (driveLinks.length > 1 ? `Drive Folder ${i + 1}` : 'Lecture Notes Drive Folder');
+        return (
+          <div key={link.id} style={{ marginBottom: 12, background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 14px 4px 0' }}>
+              <button
+                onClick={() => toggle(link.id)}
+                aria-expanded={isOpen}
+                style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 0 12px 14px' }}
+              >
+                <span style={{ fontSize: 22 }}>{isOpen ? '📂' : '📁'}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontFamily: H, fontWeight: 900, fontSize: 14, color: 'var(--text-primary)' }}>{title}</span>
+                  <span style={{ display: 'block', fontFamily: F, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                    {isOpen ? 'Tap a file below to open it right here' : 'Tap to show files'}
+                  </span>
+                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: 16, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+              </button>
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: H, fontWeight: 800, fontSize: 11, color: '#4285F4', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                Open in Drive ↗
+              </a>
             </div>
-            <a
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontFamily: H, fontWeight: 800, fontSize: 11, color: '#4285F4', textDecoration: 'none', whiteSpace: 'nowrap' }}
-            >
-              Open in Drive ↗
-            </a>
+            {isOpen && (
+              <iframe
+                src={`https://drive.google.com/embeddedfolderview?id=${link.folderId}#list`}
+                title={title}
+                style={{ display: 'block', width: '100%', height: 420, border: 'none', borderTop: '1px solid var(--border)', background: '#fff' }}
+              />
+            )}
           </div>
-          <iframe
-            src={`https://drive.google.com/embeddedfolderview?id=${link.folderId}#list`}
-            title={link.label || `Lecture Notes Drive Folder ${i + 1}`}
-            style={{ width: '100%', height: 420, border: '1px solid var(--border)', borderRadius: 10, background: '#fff' }}
-            loading="lazy"
-          />
-        </div>
-      ))}
+        );
+      })}
 
       {topics === null && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontFamily: F }}>Loading…</div>
