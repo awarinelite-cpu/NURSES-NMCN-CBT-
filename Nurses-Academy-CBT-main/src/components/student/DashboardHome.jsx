@@ -146,7 +146,7 @@ const T = {
 const QUICK = [
   { to: '/lecture-notes', title: ['Study', 'Materials'],    sub: 'Learn & Prepare',        art: 'study',    grad: ['#e3edff', '#c7dafd'], edge: '#7ea6f5', btn: '#2563eb' },
   { to: '/quick-actions', title: ['Practice', 'Questions'], sub: 'Test Your Knowledge',    art: 'practice', grad: ['#dff7e4', '#c4eecf'], edge: '#8ad79c', btn: '#16803a' },
-  { to: '/exams',         title: ['Take CBT', 'Exam'],      sub: 'Simulate the Real Exam', art: 'cbt',      grad: ['#ffe9d6', '#ffd3b0'], edge: '#f5a977', btn: '#f26a1b' },
+  { to: '/past-questions', title: ['Past', 'Questions'],     sub: 'Simulate the Real Exam', art: 'cbt',      grad: ['#ffe9d6', '#ffd3b0'], edge: '#f5a977', btn: '#f26a1b' },
   { to: '/results',       title: ['My Results'],            sub: 'Track Your Performance', art: 'results',  grad: ['#ece4ff', '#d9ccfc'], edge: '#b199f2', btn: '#6d3fd6' },
 ];
 
@@ -158,7 +158,6 @@ const PRACTICE_ROW = [
 ];
 
 const MORE_PRACTICE = [
-  { to: '/past-questions',  label: 'Past Questions',  icon: 'doc',      tint: 'yellow' },
   { to: '/bookmarks',       label: 'Bookmarks',       icon: 'bookmark', tint: 'pink'   },
   { to: '/study-plan',      label: 'Study Plan',      icon: 'list',     tint: 'blue'   },
   { to: '/lecture-notes',   label: 'Lecture Notes',   icon: 'notes',    tint: 'green'  },
