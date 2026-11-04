@@ -184,14 +184,14 @@ export default function TopicDrillPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 32 }}>🎯</span>
-            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", margin: 0, fontSize: 'clamp(1.7rem,8vw,2.2rem)', fontWeight: 800, letterSpacing: -0.5, color: 'var(--text-primary)' }}>
               Topic Drill
             </h2>
           </div>
-          <p style={{ color: 'var(--teal)', fontSize: 13, margin: '0 0 6px 0', fontWeight: 600 }}>
+          <p style={{ color: '#2f7d3f', fontSize: 15, margin: '0 0 8px 0', fontWeight: 600 }}>
             Take exam by topics
           </p>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+          <p style={{ color: '#2f4a3a', fontSize: 15, margin: 0, lineHeight: 1.55, fontWeight: 500 }}>
             Focus your practice on a specific topic. Select a specialty, course, and topic to answer targeted questions and master each area.
           </p>
         </div>
@@ -204,9 +204,9 @@ export default function TopicDrillPage() {
             <button
               key={cat.id}
               onClick={() => { setSpecialty(cat); setStep(2); setSearch(''); }}
-              style={{ ...styles.catCard, borderColor: `${cat.color}60`, background: `${cat.color}0D` }}
+              style={styles.catCard}
             >
-              <div style={{ ...styles.catAccent, background: cat.color }} />
+              
               <div style={{ ...styles.catIconBox, background: `${cat.color}20` }}>
                 <span style={{ fontSize: 26 }}>{cat.icon}</span>
               </div>
@@ -216,9 +216,13 @@ export default function TopicDrillPage() {
                   {courses.filter(c => c.category === cat.id && c.active !== false).length} courses
                 </div>
               </div>
-              <span style={{ color: cat.color, fontSize: 18, fontWeight: 900 }}>→</span>
+              <span style={{ color: '#10301d', fontSize: 24, fontWeight: 700, lineHeight: 1 }}>›</span>
             </button>
           ))}
+        </div>
+        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 22, background: 'linear-gradient(120deg,#e6f7df,#d2f0c9)', border: '1.5px solid #c1e5b8', boxShadow: '0 3px 10px rgba(20,90,50,0.10)' }}>
+          <span style={{ fontSize: 30 }}>⭐</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#10301d', lineHeight: 1.3 }}>Sharpen your knowledge one topic at a time!</span>
         </div>
       </div>
     );
@@ -560,26 +564,27 @@ function SelectedPill({ icon, color, label, value, onClear }) {
   );
 }
 
-function StepIndicator({ step, steps }) {
+function StepIndicator({ step, steps, vertical }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', alignItems: vertical ? 'flex-start' : 'center', gap: vertical ? 10 : 0, marginBottom: 22, flexWrap: 'wrap', rowGap: 10 }}>
       {steps.map((label, i) => {
         const num = i + 1; const done = step > num; const active = step === num;
+        const on = done || active;
         return (
           <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{
-                width: 26, height: 26, borderRadius: '50%',
-                background: done || active ? 'var(--teal)' : 'var(--bg-tertiary)',
-                border: `2px solid ${done || active ? 'var(--teal)' : 'var(--border)'}`,
-                color: done || active ? '#fff' : 'var(--text-muted)',
+                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                background: on ? 'linear-gradient(160deg,#1f9a45,#0b6b2c)' : '#fff',
+                border: `2px solid ${on ? '#0b6b2c' : '#d3e5d9'}`,
+                color: on ? '#fff' : '#3d5546',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 900, flexShrink: 0, opacity: done ? 0.65 : 1,
+                fontSize: 13, fontWeight: 800,
               }}>{done ? '✓' : num}</div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: active ? 'var(--teal)' : 'var(--text-muted)' }}>{label}</span>
+              <span style={{ fontSize: 13.5, fontWeight: active ? 800 : 600, color: active ? '#0b6b2c' : '#10301d' }}>{label}</span>
             </div>
-            {i < steps.length - 1 && (
-              <div style={{ width: 16, height: 2, borderRadius: 2, margin: '0 4px', background: step > num ? 'var(--teal)' : 'var(--border)' }} />
+            {!vertical && i < steps.length - 1 && (
+              <span style={{ margin: '0 8px', color: '#9bb8a5', fontSize: 14, fontWeight: 700 }}>→</span>
             )}
           </div>
         );
@@ -590,11 +595,11 @@ function StepIndicator({ step, steps }) {
 
 const styles = {
   backBtn:     { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--teal)', fontWeight: 700, fontSize: 13, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 },
-  sectionHead: { fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: 0.2 },
+  sectionHead: { fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', marginBottom: 16, letterSpacing: 0.2 },
   catGrid:     { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
-  catCard:     { display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: F, transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'var(--bg-card)' },
+  catCard:     { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 24, border: '1.5px solid #dcebe0', cursor: 'pointer', fontFamily: F, transition: 'all 0.2s', position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg,#ffffff 0%,#f1f7f3 100%)', boxShadow: '0 3px 10px rgba(20,90,50,0.10)', width: '100%' },
   catAccent:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '4px 0 0 4px' },
-  catIconBox:  { width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  catIconBox:  { width: 56, height: 56, borderRadius: 18, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   courseGrid:  { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 },
   courseCard:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 12px 14px', borderRadius: 14, border: '1.5px solid', cursor: 'pointer', fontFamily: F, transition: 'all 0.18s', background: 'var(--bg-card)' },
   courseIconBox: { width: 56, height: 56, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' },

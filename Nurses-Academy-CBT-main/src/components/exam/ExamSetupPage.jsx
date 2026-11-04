@@ -89,11 +89,11 @@ export default function ExamSetup() {
   return (
     <div style={{ padding: '16px', maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: 'var(--text-primary)', marginBottom: 6 }}>
-          📝 Set Up Your Exam
+        <h2 style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: '#10301d', margin: '0 0 6px', fontSize: 'clamp(1.5rem,6.5vw,1.9rem)', fontWeight: 800, letterSpacing: -0.4 }}>
+          ⚙️ Customise Your Exam
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          Customise your exam session parameters before starting
+          Set your preferred session parameters
         </p>
       </div>
 
@@ -112,12 +112,12 @@ export default function ExamSetup() {
                   style={{
                     ...styles.catBtn,
                     borderColor: category === cat.id ? cat.color : 'var(--border)',
-                    background: category === cat.id ? `${cat.color}18` : 'var(--bg-tertiary)',
+                    background: category === cat.id ? `${cat.color}22` : '#f6faf7',
                     color: category === cat.id ? cat.color : 'var(--text-secondary)',
                   }}
                 >
                   <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, textAlign: 'left', lineHeight: 1.25, minWidth: 0 }}>
                     {cat.shortLabel}
                   </span>
                 </button>
@@ -330,12 +330,13 @@ const styles = {
   section: { padding: '20px 20px' },
   sectionHead: { fontWeight: 700, color: 'var(--text-primary)', fontSize: 14, marginBottom: 14 },
   catGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8,
+    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10,
   },
   catBtn: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-    padding: '12px 8px', border: '2px solid', borderRadius: 10,
-    cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+    display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0,
+    padding: '10px 12px', border: '1.5px solid', borderRadius: 18,
+    cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', textAlign: 'left',
+    boxShadow: '0 2px 6px rgba(20,90,50,0.08)',
   },
   typeBtn: {
     padding: '10px 12px', border: '2px solid', borderRadius: 10,

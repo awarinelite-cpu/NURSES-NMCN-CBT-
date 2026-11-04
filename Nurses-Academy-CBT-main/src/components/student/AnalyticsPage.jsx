@@ -225,14 +225,17 @@ export default function AnalyticsPage() {
   );
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100 }}>
-      <h2 style={{ fontFamily: H, marginBottom: 6 }}>📊 My Performance Analytics</h2>
-      <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24, fontFamily: F }}>
+    <div style={{ padding: '18px 14px 24px', maxWidth: 1100 }}>
+      <h2 style={{ fontFamily: H, margin: '0 0 4px', fontSize: 'clamp(1.6rem,7vw,2rem)', fontWeight: 800, color: '#10301d', letterSpacing: -0.4 }}>My Performance</h2>
+      <p style={{ color: '#2f4a3a', fontSize: 14, margin: '0 0 4px', fontFamily: F, fontWeight: 500 }}>
+        Track your progress and see improvements
+      </p>
+      <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginBottom: 18, fontFamily: F }}>
         Based on {total} exam{total !== 1 ? 's' : ''} taken
       </p>
 
       {/* Top stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12, marginBottom: 24 }}>
         {[
           { label: 'Exams Taken',     value: total,           icon: '📝', color: '#15803D', bg: 'rgba(21,128,61,0.12)' },
           { label: 'Average Score',   value: `${avgScore}%`,  icon: '📊', color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
@@ -255,10 +258,10 @@ export default function AnalyticsPage() {
       {trend.length > 1 && (
         <div className="card" style={{ marginBottom: 28 }}>
           <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 15, fontFamily: H }}>
-            📈 Score Trend — Last {trend.length} Exams
+            Performance Trend
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: F, marginBottom: 14 }}>
-            Dashed line = 50% pass mark
+            Last {trend.length} exams · dashed line = 50% pass mark
           </div>
           <LineTrendChart data={trend} />
         </div>
