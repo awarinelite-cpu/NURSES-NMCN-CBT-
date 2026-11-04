@@ -1,5 +1,5 @@
 {
-  "buildCommand": "DISABLE_ESLINT_PLUGIN=true react-scripts build",
+  "buildCommand": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true react-scripts build",
   "outputDirectory": "build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
