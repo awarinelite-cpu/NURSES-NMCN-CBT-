@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#14803F"/><stop offset="0.55" stop-color="#0B4D2A"/><stop offset="1" stop-color="#062915"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FBE8A6"/><stop offset="0.45" stop-color="#E2B33C"/><stop offset="1" stop-color="#A97B14"/>
+  </linearGradient>
+  <linearGradient id="disc" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0A3A20"/><stop offset="1" stop-color="#04200F"/>
+  </linearGradient>
+  <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D7E9DD"/>
+  </linearGradient>
+</defs><rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="172" fill="url(#gold)"/>
+  <circle cx="256" cy="256" r="162" fill="url(#disc)"/>
+  <!-- open book -->
+  <path d="M126 352 Q191 334 256 356 Q321 334 386 352 L386 392 Q321 374 256 396 Q191 374 126 392 Z" fill="url(#gold)"/>
+  <path d="M134 346 Q192 330 252 350 L252 384 Q192 366 134 382 Z" fill="url(#page)"/>
+  <path d="M378 346 Q320 330 260 350 L260 384 Q320 366 378 382 Z" fill="url(#page)"/>
+  <!-- stethoscope heart -->
+  <path d="M256 354 C156 294 140 192 202 180 C230 175 250 190 256 204 C262 190 282 175 310 180 C372 192 356 294 256 354 Z"
+        fill="none" stroke="url(#gold)" stroke-width="10" stroke-linejoin="round"/>
+  <circle cx="256" cy="360" r="0" fill="none"/>
+  <!-- letter E -->
+  <g fill="url(#gold)">
+    <rect x="214" y="216" width="26" height="104" rx="3"/>
+    <rect x="214" y="216" width="84" height="22" rx="3"/>
+    <rect x="214" y="257" width="70" height="20" rx="3"/>
+    <rect x="214" y="298" width="88" height="22" rx="3"/>
+  </g>
+  <!-- nurse cap -->
+  <path d="M196 148 L206 110 Q256 94 306 110 L316 148 Q256 138 196 148 Z" fill="url(#page)" stroke="url(#gold)" stroke-width="5" stroke-linejoin="round"/>
+  <rect x="247" y="116" width="18" height="6" rx="2" fill="#14803F" transform="translate(0,7)"/>
+  <rect x="253" y="116" width="6" height="20" rx="2" fill="#14803F" transform="translate(0,0)"/>
+</svg>
