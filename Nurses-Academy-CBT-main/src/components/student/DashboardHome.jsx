@@ -7,9 +7,7 @@
 import { useState, useId } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import DailyChallenge from '../shared/DailyChallenge';
-import NotificationBell from '../shared/NotificationBell';
-import FontSizeControl from '../shared/FontSizeControl';
-import { useTheme } from '../../context/ThemeContext';
+import { AppHeader, DashBottomNav } from '../shared/DashChrome';
 
 const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
 const INK = '#10301d';
@@ -179,13 +177,6 @@ const COMMUNITY = [
   { to: '/group-chat',    label: 'Group Study',     icon: 'video',  tint: 'red'    },
 ];
 
-const NAV = [
-  { to: '/dashboard',    label: 'Home',      icon: 'home',      active: true },
-  { to: '/performance',  label: 'Progress',  icon: 'bars' },
-  { to: '/group-chat',   label: 'Community', icon: 'community' },
-  { to: '/profile',      label: 'Settings',  icon: 'gear' },
-];
-
 // ── Small pieces ──────────────────────────────────────────────────────────────
 function ListTile({ item, onAction }) {
   const t = T[item.tint];
@@ -249,20 +240,12 @@ function Ring({ pct }) {
   );
 }
 
-const ctlBtn = {
-  width: 38, height: 38, borderRadius: '50%', padding: 0, cursor: 'pointer', color: '#fff',
-  background: 'linear-gradient(160deg,#2f9a45,#0b5a2b)', border: '2px solid rgba(160,230,110,.75)',
-  boxShadow: '0 2px 6px rgba(0,0,0,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  fontFamily: FONT,
-};
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function DashboardHome({
   firstName, progressPct, examsCount, avgScore, streak, savedCount,
   daysToExam, pausedExam, onResume,
 }) {
   const [showDaily, setShowDaily] = useState(false);
-  const { toggleTheme } = useTheme();
   const outlet = useOutletContext() || {};
 
   const pausedPct = pausedExam && pausedExam.totalQuestions
@@ -285,10 +268,8 @@ export default function DashboardHome({
         .dh-press { transition: transform .12s ease; -webkit-tap-highlight-color: transparent; }
         .dh-press:active { transform: scale(0.97); }
         .dh-head { display: none; }
-        .dh-nav { display: none; }
         @media (max-width: 900px) {
           .dh-head { display: block; position: relative; z-index: 3; }
-          .dh-nav { display: flex; }
           .dh-root { padding-bottom: 104px; }
         }
         .dh-hero-img { mask-image: linear-gradient(to right, transparent 0%, #000 30%); -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%); }
@@ -297,38 +278,7 @@ export default function DashboardHome({
 
       {/* ── Header (mobile) ── */}
       <div className="dh-head">
-        <div style={{ position: 'relative', background: `linear-gradient(100deg,#1b8a32 0%,${DEEP} 38%,${DEEPER} 100%)`, padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 0 38px', overflow: 'hidden' }}>
-          <svg viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"
-            style={{ position: 'absolute', left: 0, right: 0, bottom: -1, width: '100%', height: 34 }}>
-            <path d="M0 40V10C60 30 120 36 190 24 270 8 330 4 400 16V40z" fill="#e9f1ef" />
-            <path d="M0 10C60 30 120 36 190 24 270 8 330 4 400 16" fill="none" stroke={LIME} strokeWidth="3" />
-          </svg>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 11px', position: 'relative' }}>
-            <button type="button" onClick={outlet.openMenu} aria-label="Menu"
-              style={{ ...ctlBtn, width: 44, height: 44, background: 'linear-gradient(160deg,#0d4d27,#04301a)', border: '2px solid rgba(255,255,255,.12)' }}>
-              <Icon name="menu" size={24} stroke={2.6} />
-            </button>
-            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, textDecoration: 'none' }}>
-              <img src="/logo.png" alt="The Elite Nurses" style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
-              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, color: '#fff' }}>
-                <span style={{ fontWeight: 800, fontSize: 'clamp(16px,5.2vw,21px)', lineHeight: 1.15, whiteSpace: 'nowrap' }}>The Elite Nurses</span>
-                <span style={{ fontSize: 'clamp(9px,2.8vw,11.5px)', opacity: .92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Your Path to Nursing Excellence...</span>
-              </span>
-            </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-              <button type="button" onClick={toggleTheme} aria-label="Switch theme" style={ctlBtn}>
-                <Icon name="book" size={20} stroke={2.2} />
-              </button>
-              <FontSizeControl btnStyle={ctlBtn}>
-                <span style={{ fontSize: 16, fontWeight: 800, lineHeight: 1 }}>A<span style={{ fontSize: 11 }}>A</span></span>
-              </FontSizeControl>
-              <NotificationBell
-                btnStyle={{ ...ctlBtn, fontSize: 18 }}
-                badgeStyle={{ top: -5, right: -5, minWidth: 18, height: 18, lineHeight: '18px', boxShadow: '0 0 0 2px #fff' }}
-              />
-            </div>
-          </div>
-        </div>
+        <AppHeader onMenu={outlet.openMenu} compact={false} waveFill="#e9f1ef" />
       </div>
 
       {/* ── Greeting + hero ── */}
@@ -493,26 +443,7 @@ export default function DashboardHome({
         </Link>
       </div>
 
-      {/* ── Floating bottom nav (mobile) ── */}
-      <nav className="dh-nav" aria-label="Main navigation" style={{
-        position: 'fixed', left: 8, right: 8, bottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', zIndex: 150,
-        height: 68, borderRadius: 30, alignItems: 'center', justifyContent: 'space-around', padding: '0 6px',
-        background: `linear-gradient(180deg,#0a4f2c,${DEEPER})`, border: '1.5px solid rgba(139,224,78,.45)',
-        boxShadow: '0 8px 22px rgba(2,40,24,.45)',
-      }}>
-        {NAV.map(n => (
-          <Link key={n.label} to={n.to} style={{
-            flex: 1, height: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-            textDecoration: 'none', position: 'relative', borderRadius: 24, WebkitTapHighlightColor: 'transparent',
-            color: n.active ? LIME : '#fff', fontSize: 14, fontWeight: n.active ? 800 : 600,
-            background: n.active ? 'rgba(255,255,255,.08)' : 'transparent',
-          }}>
-            <Icon name={n.icon} size={28} stroke={n.active ? 2.3 : 2} />
-            <span>{n.label}</span>
-            {n.active && <span style={{ position: 'absolute', bottom: 2, width: 36, height: 3.5, borderRadius: 2, background: LIME }} />}
-          </Link>
-        ))}
-      </nav>
+      <DashBottomNav />
 
       {/* Daily challenge sheet */}
       {showDaily && (

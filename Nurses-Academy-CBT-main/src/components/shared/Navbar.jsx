@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import NotificationBell from './NotificationBell';
 import FontSizeControl from './FontSizeControl';
+import { AppHeader } from './DashChrome';
 
 // ─── Per-site last-visited location tracker ───────────────────────────────────
 const SITE_KEY = 'nmcn_site';
@@ -69,33 +70,7 @@ export default function Navbar({ onMenuToggle }) {
   // Compact one-row header for the NMCN CBT side on phones
   if (user && isMobile && !isEntrance) {
     return (
-      <header style={styles.compactNav}>
-        <button style={styles.compactMenu} onClick={onMenuToggle} aria-label="Toggle sidebar">
-          <span style={styles.bar} /><span style={styles.bar} /><span style={styles.bar} />
-        </button>
-        <Link to={dashboardTo} style={styles.compactBrand}>
-          <img src="/logo.png" alt="The Elite Nurses Logo" style={{ height: 56, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
-          <span style={styles.compactText}>
-            The Elite Nurses
-            <span style={styles.compactTagline}>Your Path to Nursing Excellence</span>
-          </span>
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button
-            style={{
-              ...styles.themeBtn, width: 40, height: 40,
-              background: theme === 'dark' ? 'rgba(245,158,11,0.15)' : theme === 'reading' ? 'rgba(160,132,92,0.2)' : 'rgba(30,58,138,0.15)',
-              border: theme === 'dark' ? '1px solid rgba(245,158,11,0.45)' : theme === 'reading' ? '1px solid rgba(160,132,92,0.4)' : '1px solid rgba(99,102,241,0.35)',
-            }}
-            onClick={toggleTheme}
-            aria-label="Switch theme"
-          >
-            <span style={{ fontSize: 18 }}>{theme === 'dark' ? '☀️' : theme === 'light' ? '📖' : '🌙'}</span>
-          </button>
-          <FontSizeControl />
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader onMenu={onMenuToggle} />
     );
   }
 
