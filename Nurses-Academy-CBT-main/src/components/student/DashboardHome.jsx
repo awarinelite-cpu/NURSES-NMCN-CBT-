@@ -7,7 +7,7 @@
 import { useState, useId } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import DailyChallenge from '../shared/DailyChallenge';
-import { AppHeader, DashBottomNav } from '../shared/DashChrome';
+import { AppHeader } from '../shared/DashChrome';
 
 const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
 const INK = '#10301d';
@@ -270,7 +270,7 @@ export default function DashboardHome({
         .dh-head { display: none; }
         @media (max-width: 900px) {
           .dh-head { display: block; position: relative; z-index: 3; }
-          .dh-root { padding-bottom: 104px; }
+          .dh-root { padding-bottom: 24px; }
         }
         .dh-hero-img { mask-image: linear-gradient(to right, transparent 0%, #000 30%); -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%); }
         .dh-row4 > a + a { border-left: 1px solid rgba(20,70,40,.14); }
@@ -442,8 +442,6 @@ export default function DashboardHome({
           <span style={{ color: '#fff', display: 'flex' }}><Icon name="chevron" size={20} /></span>
         </Link>
       </div>
-
-      <DashBottomNav />
 
       {/* Daily challenge sheet */}
       {showDaily && (

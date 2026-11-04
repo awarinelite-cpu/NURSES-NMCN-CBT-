@@ -27,7 +27,7 @@ export function ChromeIcon({ name, size = 22, stroke = 1.9 }) {
 }
 
 export const ctlBtn = {
-  width: 38, height: 38, borderRadius: '50%', padding: 0, cursor: 'pointer', color: '#fff',
+  width: 34, height: 34, flex: '0 0 auto', borderRadius: '50%', padding: 0, cursor: 'pointer', color: '#fff',
   background: 'linear-gradient(160deg,#2f9a45,#0b5a31)', border: '2px solid rgba(160,230,110,.75)',
   boxShadow: '0 2px 6px rgba(0,0,0,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
   fontFamily: FONT,
@@ -47,19 +47,19 @@ export function AppHeader({ onMenu, compact = true, waveFill = 'var(--bg-primary
         <path d="M0 40V10C60 30 120 36 190 24 270 8 330 4 400 16V40z" fill={waveFill} />
         <path d="M0 10C60 30 120 36 190 24 270 8 330 4 400 16" fill="none" stroke={LIME} strokeWidth="3" />
       </svg>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 11px', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', position: 'relative' }}>
         <button type="button" onClick={onMenu} aria-label="Menu"
-          style={{ ...ctlBtn, width: 44, height: 44, background: 'linear-gradient(160deg,#0d4d27,#04301a)', border: '2px solid rgba(255,255,255,.12)' }}>
+          style={{ ...ctlBtn, width: 40, height: 40, flex: '0 0 auto', background: 'linear-gradient(160deg,#0d4d27,#04301a)', border: '2px solid rgba(255,255,255,.12)' }}>
           <ChromeIcon name="menu" size={24} stroke={2.6} />
         </button>
-        <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, textDecoration: 'none' }}>
-          <img src="/logo.png" alt="The Elite Nurses" style={{ height: compact ? 46 : 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, color: '#fff' }}>
-            <span style={{ fontWeight: 800, fontSize: 'clamp(16px,5.2vw,21px)', lineHeight: 1.15, whiteSpace: 'nowrap' }}>The Elite Nurses</span>
+        <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 0', minWidth: 0, overflow: 'hidden', textDecoration: 'none' }}>
+          <img src="/logo.png" alt="The Elite Nurses" style={{ height: compact ? 40 : 44, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', color: '#fff' }}>
+            <span style={{ fontWeight: 800, fontSize: 'clamp(13px,4.2vw,18px)', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>The Elite Nurses</span>
             <span style={{ fontSize: 'clamp(9px,2.8vw,11.5px)', opacity: .92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Your Path to Nursing Excellence...</span>
           </span>
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
           <button type="button" onClick={toggleTheme} aria-label="Switch theme" style={ctlBtn}>
             <ChromeIcon name="book" size={20} stroke={2.2} />
           </button>

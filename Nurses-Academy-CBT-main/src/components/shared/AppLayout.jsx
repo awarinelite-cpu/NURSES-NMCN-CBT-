@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation }  from 'react-router-dom';
 import Navbar                   from './Navbar';
-import { DashBottomNav }        from './DashChrome';
 import Sidebar                  from './Sidebar';
 import InstallBanner            from './InstallBanner';
 import MessageNotifier          from './MessageNotifier';
@@ -27,10 +26,7 @@ export default function AppLayout() {
   // Detect entrance vs NMCN context for MessageNotifier
   const isEntrance = location.pathname.startsWith('/entrance-exam');
   const isDash = location.pathname === '/dashboard';
-  const isChatScreen = /^\/chat\/|^\/group-chat\/[^/]+|^\/caosce\/exam|^\/group-study\//.test(location.pathname);
   const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/subadmin');
-
-  const showBottomNav = !!user && !isEntrance && !isAdminPath && !isChatScreen;
 
   // ── Fetch streak once on mount, re-check when route changes ──────────────
   useEffect(() => {
@@ -60,13 +56,11 @@ export default function AppLayout() {
   }, [streakData, streakToastFired, toast]);
 
   return (
-    <div className={(isDash ? 'is-dash ' : '') + (showBottomNav ? 'has-dc-nav' : '')} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div className={isDash ? 'is-dash' : ''} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <style>{`
         .nav-on-dash { display: contents; }
         @media (max-width: 900px) {
           .nav-on-dash { display: none; }
-          .has-dc-nav .main-content { padding-bottom: 92px; }
-          .is-dash .main-content { padding-bottom: 0; }
           .is-dash .dashboard-layout { height: 100vh; height: 100dvh; min-height: 100dvh; }
         }
       `}</style>
@@ -79,7 +73,6 @@ export default function AppLayout() {
           <Outlet context={{ openMenu: () => setSidebarOpen(true) }} />
         </main>
       </div>
-      {showBottomNav && <DashBottomNav />}
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
       <MessageNotifier mode={isEntrance ? 'entrance' : 'nmcn'} />
