@@ -47,7 +47,7 @@ function badgeForType(type, mode) {
   return mode === 'entrance' ? ENTRANCE_BADGE : NMCN_BADGE;
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ btnStyle, badgeStyle } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const mode = isEntrancePath(location.pathname) ? 'entrance' : 'nmcn';
@@ -154,6 +154,7 @@ export default function NotificationBell() {
         style={{
           ...styles.bellBtn,
           ...(pulse ? styles.bellPulse : {}),
+          ...(btnStyle || {}),
         }}
         onClick={handleToggle}
         aria-haspopup="true"
@@ -163,7 +164,7 @@ export default function NotificationBell() {
       >
         🔔
         {totalBadge > 0 && (
-          <span style={styles.badge}>{totalBadge > 99 ? '99+' : totalBadge}</span>
+          <span style={{ ...styles.badge, ...(badgeStyle || {}) }}>{totalBadge > 99 ? '99+' : totalBadge}</span>
         )}
         {showDot && (
           <span style={styles.dot} />

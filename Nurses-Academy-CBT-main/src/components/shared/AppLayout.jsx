@@ -25,6 +25,7 @@ export default function AppLayout() {
 
   // Detect entrance vs NMCN context for MessageNotifier
   const isEntrance = location.pathname.startsWith('/entrance-exam');
+  const isDash = location.pathname === '/dashboard';
   const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/subadmin');
 
   // ── Fetch streak once on mount, re-check when route changes ──────────────
@@ -55,12 +56,21 @@ export default function AppLayout() {
   }, [streakData, streakToastFired, toast]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      <Navbar onMenuToggle={() => setSidebarOpen(o => !o)} />
+    <div className={isDash ? 'is-dash' : ''} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      <style>{`
+        .nav-on-dash { display: contents; }
+        @media (max-width: 900px) {
+          .nav-on-dash { display: none; }
+          .is-dash .dashboard-layout { height: 100vh; height: 100dvh; min-height: 100dvh; }
+        }
+      `}</style>
+      <div className={isDash ? 'nav-on-dash' : ''} style={isDash ? undefined : { display: 'contents' }}>
+        <Navbar onMenuToggle={() => setSidebarOpen(o => !o)} />
+      </div>
       <div className="dashboard-layout" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="main-content" style={{ minHeight: 'calc(100vh - 60px)', overflowX: 'hidden' }}>
-          <Outlet />
+          <Outlet context={{ openMenu: () => setSidebarOpen(true) }} />
         </main>
       </div>
       <InstallBanner />

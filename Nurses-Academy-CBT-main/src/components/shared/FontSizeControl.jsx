@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useFontSize } from '../../context/FontSizeContext';
 
-export default function FontSizeControl() {
+export default function FontSizeControl({ btnStyle, children } = {}) {
   const { fontSize, setFontSize, min, max, step } = useFontSize();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -26,15 +26,17 @@ export default function FontSizeControl() {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} ref={ref}>
       <button
-        style={styles.btn}
+        style={{ ...styles.btn, ...(btnStyle || {}) }}
         onClick={() => setOpen(o => !o)}
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Text size"
         title="Text size"
       >
-        <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1 }}>A</span>
-        <span style={{ fontSize: 10, fontWeight: 800, lineHeight: 1, marginLeft: 1 }}>A</span>
+        {children || (<>
+          <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1 }}>A</span>
+          <span style={{ fontSize: 10, fontWeight: 800, lineHeight: 1, marginLeft: 1 }}>A</span>
+        </>)}
       </button>
 
       {open && (
