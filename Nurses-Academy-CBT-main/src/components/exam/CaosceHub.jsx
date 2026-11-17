@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -36,6 +37,7 @@ export default function CaosceHub() {
   const [casesLoading, setCasesLoading] = useState(false);
   const [search,       setSearch]       = useState('');
   const [selectedCase, setSelectedCase] = useState(null);
+  const [examMode,     setExamMode]     = useState('exam'); // 'exam' | 'reading'
 
   // ── Load case counts per specialty ──────────────────────────────────────────
   useEffect(() => {
@@ -94,6 +96,7 @@ export default function CaosceHub() {
       state: {
         caseIds:   [selectedCase.id],
         specialty: specialty.id,
+        readingMode: examMode === 'reading',
       },
     });
   };
@@ -308,6 +311,9 @@ export default function CaosceHub() {
                         </span>
                       ))}
                     </div>
+
+                    {/* Exam / Reading mode */}
+                    <ExamModeToggle value={examMode} onChange={setExamMode} accent={specialty.color} style={{ marginBottom: 4 }} />
 
                     {/* Start button */}
                     <button

@@ -59,6 +59,8 @@ export default function CaosceExamSession() {
   const [saved,      setSaved]      = useState(false);
   const [savedResultId, setSavedResultId] = useState(null);
   const [startedAt]  = useState(Date.now());
+  const readingMode = state?.readingMode === true;
+  const [checked, setChecked] = useState({});        // reading mode: { [caseId]: true } once procedures are checked
 
   const specialty = NURSING_CATEGORIES.find(c => c.id === state?.specialty);
 
@@ -108,6 +110,7 @@ export default function CaosceExamSession() {
   };
 
   const selectAnswer = (qId, idx) => {
+    if (readingMode && cbtAnswers[current.id]?.[qId] !== undefined) return; // locked once answered
     setCbtAnswers(prev => ({
       ...prev,
       [current.id]: { ...(prev[current.id] || {}), [qId]: idx },
@@ -248,7 +251,7 @@ export default function CaosceExamSession() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {specialty?.icon} {specialty?.shortLabel || 'CAOSCE'} · Case {caseIndex + 1} of {cases.length}
+          {specialty?.icon} {specialty?.shortLabel || 'CAOSCE'} · Case {caseIndex + 1} of {cases.length}{readingMode ? ' · 📖 Reading Mode' : ''}
         </div>
         <button onClick={handleExit} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
           ✕ Exit
@@ -276,15 +279,18 @@ export default function CaosceExamSession() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {current.procedures.map(p => {
               const isOn = !!caseTicked[p.id];
+              const showProc = readingMode && !!checked[current.id];
+              const procRight = isOn === !!p.isRequired;
               return (
+                <div key={p.id}>
                 <button
-                  key={p.id}
-                  onClick={() => toggleProcedure(p.id)}
+                  onClick={() => { if (!showProc) toggleProcedure(p.id); }}
                   style={{
+                    width: '100%',
                     display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left',
-                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: F,
-                    border: `1.5px solid ${isOn ? '#15803D' : 'var(--border)'}`,
-                    background: isOn ? 'rgba(21,128,61,0.1)' : 'var(--bg-card)',
+                    padding: '12px 14px', borderRadius: 10, cursor: showProc ? 'default' : 'pointer', fontFamily: F,
+                    border: `1.5px solid ${showProc ? (procRight ? '#16A34A' : '#DC2626') : (isOn ? '#15803D' : 'var(--border)')}`,
+                    background: showProc ? (procRight ? 'rgba(22,163,74,0.10)' : 'rgba(220,38,38,0.08)') : (isOn ? 'rgba(21,128,61,0.1)' : 'var(--bg-card)'),
                   }}
                 >
                   <div style={{
@@ -298,9 +304,27 @@ export default function CaosceExamSession() {
                   </div>
                   <span style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.5 }}>{p.text}</span>
                 </button>
+                {showProc && (
+                  <div style={{ fontSize: 12, fontWeight: 700, margin: '4px 4px 0', color: p.isRequired ? '#15803D' : '#B91C1C', fontFamily: F }}>
+                    {p.isRequired ? '✔ This procedure should be performed' : '✘ This procedure should NOT be performed'}
+                    {!procRight && (isOn ? ' — you ticked it' : ' — you missed it')}
+                    {(p.rationale || p.explanation) && (
+                      <div style={{ fontWeight: 500, color: 'var(--text-muted)', marginTop: 2 }}>💡 {p.rationale || p.explanation}</div>
+                    )}
+                  </div>
+                )}
+                </div>
               );
             })}
           </div>
+          {readingMode && !checked[current.id] && (
+            <button
+              onClick={() => setChecked(prev => ({ ...prev, [current.id]: true }))}
+              style={{ ...styles.ghostBtn, marginTop: 12, borderColor: '#15803D', color: '#15803D' }}
+            >
+              🔍 Check my procedures
+            </button>
+          )}
         </div>
       )}
 
@@ -317,15 +341,18 @@ export default function CaosceExamSession() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {(q.options || []).map((opt, oi) => {
                     const isSel = caseAnswers[q.id] === oi;
+                    const rmShow = readingMode && caseAnswers[q.id] !== undefined;
+                    const rmCorrect = rmShow && oi === q.correctIndex;
+                    const rmWrong   = rmShow && isSel && oi !== q.correctIndex;
                     return (
                       <button
                         key={oi}
                         onClick={() => selectAnswer(q.id, oi)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
-                          padding: '10px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: F,
-                          border: `1.5px solid ${isSel ? '#2563EB' : 'var(--border)'}`,
-                          background: isSel ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
+                          padding: '10px 12px', borderRadius: 9, cursor: rmShow ? 'default' : 'pointer', fontFamily: F,
+                          border: `1.5px solid ${rmCorrect ? '#16A34A' : rmWrong ? '#DC2626' : isSel ? '#2563EB' : 'var(--border)'}`,
+                          background: rmCorrect ? 'rgba(22,163,74,0.12)' : rmWrong ? 'rgba(220,38,38,0.10)' : isSel ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
                         }}
                       >
                         <div style={{
@@ -334,12 +361,20 @@ export default function CaosceExamSession() {
                           background: isSel ? '#2563EB' : 'transparent',
                         }} />
                         <span className="exam-opt-text" style={{ fontSize: 13, color: 'var(--text-primary)' }}>
-                          {String.fromCharCode(65 + oi)}. {opt}
+                          {String.fromCharCode(65 + oi)}. {opt}{rmCorrect ? ' ✓' : rmWrong ? ' ✗' : ''}
                         </span>
                       </button>
                     );
                   })}
                 </div>
+                {readingMode && caseAnswers[q.id] !== undefined && (
+                  <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.6, fontFamily: F, color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: 8, padding: '8px 10px' }}>
+                    <strong style={{ color: caseAnswers[q.id] === q.correctIndex ? '#16A34A' : '#DC2626' }}>
+                      {caseAnswers[q.id] === q.correctIndex ? '✓ Correct' : `✗ Correct answer: ${String.fromCharCode(65 + q.correctIndex)}`}
+                    </strong>
+                    {q.explanation && <div style={{ marginTop: 4 }}>💡 {q.explanation}</div>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -1,15 +1,19 @@
 // src/components/student/BookmarksPage.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import ExamModeToggle, { modeState } from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 export default function BookmarksPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [mode, setMode] = useState('reading'); // 'exam' | 'reading'
   const [bookmarks, setBookmarks] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
@@ -45,6 +49,22 @@ export default function BookmarksPage() {
     } catch (e) { console.error(e); }
   };
 
+  const startPractice = () => {
+    const ids = [...new Set(bookmarks.filter(b => b.question).map(b => b.questionId))];
+    if (!ids.length) return;
+    navigate('/exam/session', {
+      state: {
+        examType: 'bookmarks',
+        examName: 'Bookmarked Questions',
+        poolMode: false,
+        doShuffle: true,
+        count: ids.length,
+        presetQuestionIds: ids,
+        ...modeState(mode, ids.length),
+      },
+    });
+  };
+
   const filtered = bookmarks.filter(b =>
     !search || b.question?.question?.toLowerCase().includes(search.toLowerCase())
   );
@@ -59,6 +79,16 @@ export default function BookmarksPage() {
         <input className="form-input" placeholder="🔍 Search bookmarks…" value={search}
           onChange={e => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
       </div>
+
+      {!loading && bookmarks.some(b => b.question) && (
+        <div className="card" style={{ padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 12 }}>▶ Practise your bookmarks</div>
+          <ExamModeToggle value={mode} onChange={setMode} />
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={startPractice}>
+            {mode === 'reading' ? '📖 Start Reading Mode' : '📝 Start Exam Mode'}
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
