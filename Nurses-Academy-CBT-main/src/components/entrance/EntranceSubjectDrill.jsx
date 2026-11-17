@@ -20,6 +20,7 @@ import {
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { ENTRANCE_SUBJECTS } from '../../utils/entranceExamParser';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -233,6 +234,7 @@ export default function EntranceSubjectDrill() {
   const [customCount,     setCustomCount]     = useState('');
   const [useCustom,       setUseCustom]       = useState(false);
   const [timeLimit,       setTimeLimit]       = useState(20);
+  const [examMode,        setExamMode]        = useState('exam'); // 'exam' | 'reading'
 
   // ── Load subjects by scanning entranceExamQuestions directly ──────────────
   // This ensures the subject list ALWAYS matches what is actually in Firestore,
@@ -356,7 +358,8 @@ export default function EntranceSubjectDrill() {
         subject:      selectedSubject,
         year:         selectedYear || 'All Years',
         count:        Math.min(finalCount, selectedSubject.questionCount),
-        timeLimitMin: timeLimit,
+        timeLimitMin: examMode === 'reading' ? 0 : timeLimit,
+        readingMode:  examMode === 'reading',
         doShuffle:    true,
       },
     });
@@ -607,6 +610,8 @@ export default function EntranceSubjectDrill() {
                   ))}
                 </select>
               </div>
+
+              <ExamModeToggle value={examMode} onChange={setExamMode} />
 
               {/* Start */}
               <button

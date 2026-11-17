@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -80,6 +81,7 @@ export default function MockExamPage() {
   const [loadingCount,    setLoadingCount]    = useState(false);
   const [attempts,        setAttempts]        = useState([]);
   const [loadingAttempts, setLoadingAttempts] = useState(false);
+  const [examMode, setExamMode] = useState('exam'); // 'exam' | 'reading'
   // question counts for each specialty shown on the picker
   const [counts,          setCounts]          = useState({});
 
@@ -153,6 +155,7 @@ export default function MockExamPage() {
         doShuffle:  true,
         count:      questionCount || 100,
         timeLimit:  0,
+        readingMode: examMode === 'reading',
       },
     });
   };
@@ -380,6 +383,8 @@ export default function MockExamPage() {
             ⚠️ No questions uploaded yet. Admin needs to add questions first.
           </div>
         )}
+
+        {hasQuestions && <ExamModeToggle value={examMode} onChange={setExamMode} />}
 
         {hasQuestions && (
           <button

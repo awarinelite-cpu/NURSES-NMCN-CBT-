@@ -53,6 +53,7 @@ export default function EntranceSubjectSession() {
     year         = 'All Years',
     count        = 20,
     timeLimitMin = 20,
+    readingMode  = false,
     resumeMode   = false,
     pausedExamId = null,
     resumeData   = null,
@@ -289,6 +290,7 @@ export default function EntranceSubjectSession() {
   const handleSelect = (key) => {
     if (submitted) return;
     const qId = questions[current]?.id;
+    if (readingMode && qId && answers[qId] !== undefined) return; // locked once answered
     if (qId) setAnswers(prev => ({ ...prev, [qId]: key }));
 
     // If voice mode is on, instantly announce the choice and move on —
@@ -353,10 +355,12 @@ export default function EntranceSubjectSession() {
     }
   };
 
+  // Reading mode: reveal answer + explanation as soon as the student answers.
+  const revealed = submitted || (readingMode && !!currentQ && answers[currentQ.id] !== undefined);
   const getOptStyle = (key) => {
     if (!currentQ) return {};
     const chosen = answers[currentQ.id], correct = currentQ.correctAnswer;
-    if (!submitted) return chosen === key ? { background: subject.color + '25', border: `2px solid ${subject.color}`, color: 'var(--text-primary)' } : { background: 'var(--bg-tertiary)', border: '2px solid var(--border)', color: 'var(--text-primary)' };
+    if (!revealed) return chosen === key ? { background: subject.color + '25', border: `2px solid ${subject.color}`, color: 'var(--text-primary)' } : { background: 'var(--bg-tertiary)', border: '2px solid var(--border)', color: 'var(--text-primary)' };
     if (key === correct) return { background: 'rgba(22,163,74,0.15)', border: '2px solid #16A34A', color: 'var(--text-primary)' };
     if (key === chosen && key !== correct) return { background: 'rgba(239,68,68,0.12)', border: '2px solid #EF4444', color: 'var(--text-primary)' };
     return { background: 'var(--bg-tertiary)', border: '2px solid var(--border)', color: 'var(--text-muted)' };
@@ -365,7 +369,7 @@ export default function EntranceSubjectSession() {
   const getLetterStyle = (key) => {
     if (!currentQ) return {};
     const chosen = answers[currentQ.id], correct = currentQ.correctAnswer;
-    if (!submitted) return { background: chosen === key ? subject.color : 'var(--bg-tertiary)', color: chosen === key ? '#fff' : 'var(--text-muted)' };
+    if (!revealed) return { background: chosen === key ? subject.color : 'var(--bg-tertiary)', color: chosen === key ? '#fff' : 'var(--text-muted)' };
     if (key === correct) return { background: '#16A34A', color: '#fff' };
     if (key === chosen && key !== correct) return { background: '#EF4444', color: '#fff' };
     return { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' };
@@ -614,15 +618,15 @@ export default function EntranceSubjectSession() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {OPT_KEYS.map(key => {
                   const text = currentQ.options?.[key]; if (!text) return null;
-                  return <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
+                  return <button key={key} onClick={() => handleSelect(key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: revealed ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s', ...getOptStyle(key) }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, transition: 'all 0.15s', ...getLetterStyle(key) }}>{key}</div>
                     <span className="exam-opt-text" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}><ItalicText text={text} /></span>
-                    {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
-                    {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
+                    {revealed && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
+                    {revealed && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
                   </button>;
                 })}
               </div>
-              {submitted && currentQ.explanation && (
+              {revealed && currentQ.explanation && (
                 <div style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(21,128,61,0.35)', boxShadow: '0 2px 12px rgba(21,128,61,0.1)', width: '100%' }}>
                   <div style={{ background: 'var(--teal)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>💡</span>
@@ -633,7 +637,7 @@ export default function EntranceSubjectSession() {
                   </div>
                 </div>
               )}
-              {submitted && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
+              {revealed && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
             </div>
           )}
         </div>

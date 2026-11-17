@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS, DIFFICULTY_LEVELS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -31,6 +32,7 @@ export default function ExamConfigPage() {
   const [year,       setYear]       = useState('');
   const [count,      setCount]      = useState(40);
   const [timeLimit,  setTimeLimit]  = useState(60);
+  const [examMode, setExamMode] = useState('exam'); // 'exam' | 'reading'
   const [shuffle,    setShuffle]    = useState(true);
   const [showExpl,   setShowExpl]   = useState(false);
   const [error,      setError]      = useState('');
@@ -52,7 +54,8 @@ export default function ExamConfigPage() {
     const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
     navigate('/exam/session', {
       state: {
-        category: categoryId, examType, count, timeLimit,
+        category: categoryId, examType, count, timeLimit: examMode === 'reading' ? 0 : timeLimit,
+        readingMode: examMode === 'reading',
         doShuffle: shuffle, showExpl,
         year: year || '',
         poolMode: poolTypes.includes(examType),
@@ -67,7 +70,7 @@ export default function ExamConfigPage() {
     ['📋 Type',     EXAM_TYPES.find(e => e.id === examType)?.label || '—'],
     ...(!isDaily ? [['📅 Year', year || (needsYear ? '⚠️ Not selected' : 'N/A')]] : []),
     ['❓ Questions', count],
-    ['⏱ Time',      timeLimit ? `${timeLimit} mins` : 'Unlimited'],
+    ['⏱ Time',      examMode === 'reading' ? 'Untimed (Reading)' : timeLimit ? `${timeLimit} mins` : 'Unlimited'],
     ['🔀 Shuffle',   shuffle ? 'Yes' : 'No'],
   ];
 
@@ -208,8 +211,11 @@ export default function ExamConfigPage() {
 
             </div>
 
-            {/* Time limit */}
-            <div className="form-group" style={{ margin: 0 }}>
+            {/* Exam / Reading mode */}
+            <ExamModeToggle value={examMode} onChange={setExamMode} style={{ marginBottom: 0 }} />
+
+            {/* Time limit (exam mode only) */}
+            <div className="form-group" style={{ margin: 0, display: examMode === 'reading' ? 'none' : 'flex' }}>
               <label className="form-label">Time Limit</label>
               <select
                 className="form-input form-select"

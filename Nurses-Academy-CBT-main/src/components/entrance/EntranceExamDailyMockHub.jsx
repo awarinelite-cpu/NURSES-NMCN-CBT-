@@ -18,6 +18,7 @@ import {
   maybePushEntranceDailyMockNotification,
   todayKey,
 } from '../../utils/dailyNotifications';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const PASS_MARK        = 50;
 const FREE_CAP         = 10; // max questions for unpaid users
@@ -51,6 +52,7 @@ export default function EntranceExamDailyMockHub() {
   };
 
   const [phase,       setPhase]       = useState('intro');
+  const [examMode,    setExamMode]    = useState('exam'); // 'exam' | 'reading'
   const [countdown,   setCountdown]   = useState(msToNextMidnight());
   const [sessions,    setSessions]    = useState([]);
   const [sessLoading, setSessLoading] = useState(false);
@@ -102,7 +104,8 @@ export default function EntranceExamDailyMockHub() {
       state: {
         poolMode: true, examType: 'entrance_daily_mock',
         subject: subject.id, examName: `${subject.shortLabel} — Daily Mock`,
-        count: finalCount, doShuffle: true, timeLimitMin: mockConfig.timeLimit || 0,
+        count: finalCount, doShuffle: true, timeLimitMin: examMode === 'reading' ? 0 : (mockConfig.timeLimit || 0),
+        readingMode: examMode === 'reading',
       },
     });
   };
@@ -223,6 +226,8 @@ export default function EntranceExamDailyMockHub() {
             <button onClick={() => navigate('/entrance-exam/payment')} style={{ padding: '5px 14px', borderRadius: 20, border: '1.5px solid #F59E0B', background: 'transparent', color: '#F59E0B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Upgrade →</button>
           </div>
         )}
+
+        <ExamModeToggle value={examMode} onChange={setExamMode} />
 
         <button className="btn btn-primary" onClick={handleTakeNew} style={{ width: '100%', padding: '14px', fontSize: 15, fontWeight: 800, borderRadius: 12 }}>
           🚀 Start Exam — {finalCount} Questions

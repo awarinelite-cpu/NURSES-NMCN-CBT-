@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_TYPES, EXAM_YEARS } from '../../data/categories';
 import { useAuth } from '../../context/AuthContext';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -31,6 +32,7 @@ export default function ExamSetup() {
   const [year, setYear]             = useState('');
   const [count, setCount]           = useState(40);
   const [timeLimit, setTimeLimit]   = useState(60);
+  const [examMode, setExamMode] = useState('exam'); // 'exam' | 'reading'
   const [shuffle, setShuffle]       = useState(true);
   const [showExpl, setShowExpl]     = useState(false);
   const [error, setError]           = useState('');
@@ -65,7 +67,8 @@ export default function ExamSetup() {
     const poolTypes = ['daily_practice', 'course_drill', 'topic_drill', 'mock_exam'];
     navigate('/exam/session', {
       state: {
-        category, examType, count, timeLimit,
+        category, examType, count, timeLimit: examMode === 'reading' ? 0 : timeLimit,
+        readingMode: examMode === 'reading',
         doShuffle: shuffle, showExpl,
         year: year || '',
         poolMode: poolTypes.includes(examType),
@@ -201,8 +204,11 @@ export default function ExamSetup() {
                 </div>
               </div>
 
-              {/* Time limit */}
-              <div className="form-group">
+              {/* Exam / Reading mode */}
+              <ExamModeToggle value={examMode} onChange={setExamMode} style={{ marginBottom: 0 }} />
+
+              {/* Time limit (exam mode only) */}
+              <div className="form-group" style={{ display: examMode === 'reading' ? 'none' : 'flex' }}>
                 <label className="form-label">Time Limit</label>
                 <select
                   className="form-input form-select"
@@ -261,7 +267,7 @@ export default function ExamSetup() {
                 ['Type',      EXAM_TYPES.find(e => e.id === examType)?.label || '-'],
                 ['Year',      year || (needsYear ? 'Not selected' : 'N/A')],
                 ['Questions', `${count} / ${availableCount}`],
-                ['Time',      timeLimit ? `${timeLimit} mins` : 'Unlimited'],
+                ['Time',      examMode === 'reading' ? 'Untimed (Reading)' : timeLimit ? `${timeLimit} mins` : 'Unlimited'],
                 ['Shuffle',   shuffle ? 'Yes' : 'No'],
               ].map(([k, v]) => (
                 <div key={k} style={styles.previewRow}>

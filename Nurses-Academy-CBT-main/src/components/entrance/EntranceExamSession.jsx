@@ -86,6 +86,7 @@ export default function EntranceExamSession() {
     count        = 20,
     doShuffle    = true,
     timeLimitMin = 0,
+    readingMode  = false,
   } = state;
 
   const [questions,     setQuestions]     = useState([]);
@@ -206,6 +207,7 @@ export default function EntranceExamSession() {
 
   const handleSelect = (key) => {
     if (submitted || !currentQ) return;
+    if (readingMode && answers[currentQ.id] !== undefined) return; // locked once answered
     setAnswers(prev => ({ ...prev, [currentQ.id]: key }));
   };
 
@@ -335,9 +337,11 @@ export default function EntranceExamSession() {
 
   const handleAbandonExit = useCallback(() => { setShowExitModal(false); navigate(-1); }, [navigate]);
 
+  // Reading mode: reveal answer + explanation as soon as the student answers.
+  const revealed = submitted || (readingMode && !!currentQ && answers[currentQ.id] !== undefined);
   const getOptionStyle = (key) => {
     const chosen = answers[currentQ?.id], correct = currentQ?.correctAnswer;
-    if (!submitted) return chosen === key
+    if (!revealed) return chosen === key
       ? { background: 'rgba(21,128,61,0.15)', border: '1.5px solid var(--teal)', color: 'var(--text-primary)' }
       : { background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)', color: 'var(--text-primary)' };
     if (key === correct) return { background: 'rgba(22,163,74,0.15)', border: '1.5px solid #16A34A', color: 'var(--text-primary)' };
@@ -347,7 +351,7 @@ export default function EntranceExamSession() {
 
   const getLetterStyle = (key) => {
     const chosen = answers[currentQ?.id], correct = currentQ?.correctAnswer;
-    if (!submitted) return { background: chosen === key ? 'var(--teal)' : 'var(--bg-card)', color: chosen === key ? '#fff' : 'var(--text-muted)', border: `1.5px solid ${chosen === key ? 'var(--teal)' : 'var(--border)'}` };
+    if (!revealed) return { background: chosen === key ? 'var(--teal)' : 'var(--bg-card)', color: chosen === key ? '#fff' : 'var(--text-muted)', border: `1.5px solid ${chosen === key ? 'var(--teal)' : 'var(--border)'}` };
     if (key === correct) return { background: '#16A34A', color: '#fff', border: '1.5px solid #16A34A' };
     if (key === chosen && key !== correct) return { background: '#EF4444', color: '#fff', border: '1.5px solid #EF4444' };
     return { background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1.5px solid var(--border)' };
@@ -640,21 +644,21 @@ export default function EntranceExamSession() {
                     // spoken answer. Otherwise fall back to a plain silent select.
                     const handled = voiceModeRef.current?.selectOption(idx);
                     if (!handled) handleSelect(key);
-                  }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: submitted ? 'default' : 'pointer', ...getOptionStyle(key) }}>
+                  }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, fontFamily: F, cursor: revealed ? 'default' : 'pointer', ...getOptionStyle(key) }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, ...getLetterStyle(key) }}>{key}</div>
                     <span className="exam-opt-text" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, flex: 1 }}><ItalicText text={text} /></span>
-                    {submitted && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
-                    {submitted && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
+                    {revealed && key === currentQ.correctAnswer && <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>}
+                    {revealed && key === answers[currentQ.id] && key !== currentQ.correctAnswer && <span style={{ color: '#EF4444', fontWeight: 800 }}>✗</span>}
                   </button>
                 );
               })}
             </div>
-            {submitted && currentQ.explanation && (
+            {revealed && currentQ.explanation && (
               <div style={{ marginTop: 16, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                 <ExplanationText text={currentQ.explanation} />
               </div>
             )}
-            {submitted && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
+            {revealed && <AiExplainButton q={currentQ} collection="entranceExamQuestions" style={{ marginTop: 12 }} />}
 
           </div>
         ) : <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontWeight: 700 }}>No questions loaded.</div>}

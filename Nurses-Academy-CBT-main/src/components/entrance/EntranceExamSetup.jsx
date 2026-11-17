@@ -155,6 +155,7 @@ export default function EntranceExamSetup() {
         count,
         doShuffle:          shuffle,
         timeLimitMin:       mode === 'practice' ? 0 : timeLimit,
+        readingMode:        mode === 'practice',
       },
     });
   };
@@ -258,8 +259,8 @@ export default function EntranceExamSetup() {
           <div style={HEAD}>📝 Exam Mode</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
             {[
-              { id: 'timed',    icon: '⏱️', label: 'Timed Exam Mode', desc: 'Real exam simulation · Timer running' },
-              { id: 'practice', icon: '📖', label: 'Practice Mode',   desc: 'No timer · See answers at your pace' },
+              { id: 'timed',    icon: '⏱️', label: 'Exam Mode', desc: 'Real exam simulation · Timer running' },
+              { id: 'practice', icon: '📖', label: 'Reading Mode',    desc: 'No timer · Answer + explanation shown after each question' },
             ].map(m => (
               <div
                 key={m.id}
@@ -380,7 +381,7 @@ export default function EntranceExamSetup() {
             {[
               ['🏫 School',    school.shortName || school.name],
               ['📅 Year',      year === 'all' ? 'All Years' : year || '— not selected —'],
-              ['📝 Mode',      mode === 'timed' ? 'Timed' : 'Practice'],
+              ['📝 Mode',      mode === 'timed' ? 'Exam Mode' : 'Reading Mode'],
               ['❓ Questions', `${count} Qs`],
               ['⏱ Time',      mode === 'practice' ? 'Unlimited' : `${timeLimit} mins`],
               ['🔀 Shuffle',   shuffle ? 'Yes' : 'No'],

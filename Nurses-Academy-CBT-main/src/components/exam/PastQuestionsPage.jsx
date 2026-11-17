@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NURSING_CATEGORIES, EXAM_YEARS } from '../../data/categories';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -86,6 +87,7 @@ export default function PastQuestionsPage() {
 
   const [step,      setStep]      = useState(1);
   const [specialty, setSpecialty] = useState(null);
+  const [examMode, setExamMode] = useState('exam'); // 'exam' | 'reading'
   const [year,      setYear]      = useState('');
   const [count,     setCount]     = useState(40);
   const [timeLimit, setTimeLimit] = useState(30);
@@ -113,7 +115,8 @@ export default function PastQuestionsPage() {
         courseLabel: specialty.label,
         examYear:    year,
         count,
-        timeLimit,
+        timeLimit: examMode === 'reading' ? 0 : timeLimit,
+        readingMode: examMode === 'reading',
         doShuffle:   shuffle,
         showExpl,
       },
@@ -286,7 +289,7 @@ export default function PastQuestionsPage() {
               ['🏥 Specialty', specialty.shortLabel],
               ['📅 Year',      year || '— not selected —'],
               ['❓ Questions', `${count} Qs`],
-              ['⏱ Time',       timeLimit ? `${timeLimit} mins` : 'Unlimited'],
+              ['⏱ Time',       examMode === 'reading' ? 'Untimed (Reading)' : timeLimit ? `${timeLimit} mins` : 'Unlimited'],
               ['🔀 Shuffle',   shuffle ? 'Yes' : 'No'],
             ].map(([k, v]) => (
               <div key={k} style={{ background: 'var(--bg-tertiary)', borderRadius: 10, padding: '10px 12px' }}>
@@ -308,6 +311,8 @@ export default function PastQuestionsPage() {
               ⚠️ {error}
             </div>
           )}
+
+          <ExamModeToggle value={examMode} onChange={setExamMode} />
 
           <button
             className="btn btn-primary btn-full btn-lg"

@@ -19,6 +19,7 @@ import {
 import { db }      from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { NURSING_CATEGORIES } from '../../data/categories';
+import ExamModeToggle from '../shared/ExamModeToggle';
 
 const F = "'Plus Jakarta Sans', system-ui, sans-serif";
 const H = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -33,6 +34,7 @@ export default function TopicDrillPage() {
 
   const [step,      setStep]      = useState(1);
   const [specialty, setSpecialty] = useState(null);
+  const [examMode, setExamMode] = useState('exam'); // 'exam' | 'reading'
   const [course,    setCourse]    = useState(null);
   const [courses,   setCourses]   = useState([]);
   // { topicName: questionCount }
@@ -148,6 +150,7 @@ export default function TopicDrillPage() {
         count:       finalCount,
         doShuffle:   true,
         timeLimit:   0,
+        readingMode: examMode === 'reading',
       },
     });
   };
@@ -438,6 +441,8 @@ export default function TopicDrillPage() {
               : `${qCount} questions selected`}
           </div>
         </div>
+
+        <ExamModeToggle value={examMode} onChange={setExamMode} />
 
         <button
           className="btn btn-primary"
