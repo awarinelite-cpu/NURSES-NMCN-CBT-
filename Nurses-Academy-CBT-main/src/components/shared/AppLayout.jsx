@@ -82,14 +82,11 @@ export default function AppLayout() {
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
       <MessageNotifier mode={isEntrance ? 'entrance' : 'nmcn'} />
-      {/* Persistent admin contact — always available, not just on error */}
-      <AdminWhatsAppButton
-        message={
-          isEntrance
-            ? 'Hi, I need help with The Elite Nurses app (Entrance Exam).'
-            : 'Hi, I need help with The Elite Nurses app (NMCN CBT).'
-        }
-      />
+      {/* Admin WhatsApp contact bubble: removed from the NMCN student side (it covered the
+          bottom-nav Menu button); still shown in Entrance Exam mode */}
+      {isEntrance && (
+        <AdminWhatsAppButton message="Hi, I need help with The Elite Nurses app (Entrance Exam)." />
+      )}
     </div>
   );
 }
