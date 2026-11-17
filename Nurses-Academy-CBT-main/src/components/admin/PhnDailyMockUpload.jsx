@@ -16,6 +16,7 @@ import {
   collection, getDoc, getDocs, query, where, writeBatch, doc, serverTimestamp, updateDoc,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { rotatePhnClient } from '../../utils/dailyMockRotation';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
 import {
@@ -222,10 +223,19 @@ export default function PhnDailyMockUpload() {
   async function rotatePhn() {
     setRotating(true);
     try {
-      const fn  = httpsCallable(getFunctions(), 'manuallyRotatePhnDailyMock');
-      const res = (await fn()).data || {};
+      let res;
+      let viaClient = false;
+      try {
+        const fn = httpsCallable(getFunctions(), 'manuallyRotatePhnDailyMock');
+        res = (await fn()).data || {};
+      } catch (fnErr) {
+        // The Cloud Function is unavailable or erroring: rotate from the app instead.
+        console.warn('Cloud Function rotation failed, using in-app rotation:', fnErr);
+        res = await rotatePhnClient();
+        viaClient = true;
+      }
       if (res.ok) {
-        toast(`✅ PHN pool rebuilt: ${res.count} questions from ${res.bankActive} active (${res.carryoverCount} carried over)`, 'success', 4500);
+        toast(`✅ PHN pool rebuilt${viaClient ? ' (in-app)' : ''}: ${res.count} questions from ${res.bankActive} active (${res.carryoverCount} carried over)`, 'success', 4500);
       } else if (res.reason === 'phn-bank-empty') {
         toast('PHN bank has no active questions. Upload some first.', 'error');
       } else {

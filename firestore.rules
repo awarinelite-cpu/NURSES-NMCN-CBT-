@@ -111,12 +111,22 @@ service cloud.firestore {
     }
 
     // Today's per-specialty Daily Mock Exam pools (dailyMockExam/{categoryId},
-    // plus dailyMockExam/_index) — rotated every 24h by
-    // the rotateDailyMockExam Cloud Function (which uses the Admin SDK and
-    // bypasses these rules). Clients only ever need to read it.
+    // plus dailyMockExam/_index and the _rotationLock doc).
+    //
+    // Normally rebuilt every 24h by the rotateDailyMockExam Cloud Function
+    // (Admin SDK, bypasses these rules). As a fallback the app also rotates
+    // them itself when the first user opens it after Lagos midnight (see
+    // src/utils/dailyMockRotation.js). So any signed-in user may CREATE a
+    // missing pool, or replace one that has EXPIRED, but nobody except an
+    // admin can overwrite a pool that is still live.
+    function poolExpired(data) {
+      return !('expiresAt' in data) || data.expiresAt <= request.time;
+    }
     match /dailyMockExam/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdminOrSubAdmin();
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdminOrSubAdmin()
+                            || (isAuth() && (docId == '_rotationLock' || poolExpired(resource.data)));
     }
 
     // Archive of past daily pools — admin/debug use only.

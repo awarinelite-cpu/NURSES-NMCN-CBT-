@@ -47,7 +47,9 @@ const PHN_COLLECTION = 'phnDailyMockQuestions';
 const LOW_PASS_THRESHOLD = 49; // pass rate (%) at or below this ⇒ must repeat
 
 function todayKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Use Africa/Lagos (UTC+1, no DST), not the server's UTC clock, so the date
+  // key matches the midnight Lagos schedule and the in-app auto-rotation.
+  return new Date(date.getTime() + 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function shuffle(arr) {
@@ -219,5 +221,11 @@ exports.manuallyRotateDailyMockExam = functions.https.onCall(async (data, contex
   if (role !== 'admin') {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
-  return runRotation();
+  try {
+    return await runRotation();
+  } catch (e) {
+    // Surface the real cause instead of a bare "internal".
+    console.error('Daily mock rotation failed', e);
+    throw new functions.https.HttpsError('internal', `Rotation failed: ${e.code || ''} ${e.message || e}`.slice(0, 300));
+  }
 });

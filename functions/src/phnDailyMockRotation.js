@@ -24,7 +24,9 @@ const POOL_SIZE          = 250;
 const LOW_PASS_THRESHOLD = 49; // pass rate (%) at or below this => must repeat
 
 function todayKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Use Africa/Lagos (UTC+1, no DST), not the server's UTC clock, so the date
+  // key matches the midnight Lagos schedule and the in-app auto-rotation.
+  return new Date(date.getTime() + 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function shuffle(arr) {
@@ -77,11 +79,12 @@ async function rotatePhnPool() {
   });
 
   // Keep the student picker's live counts in sync, leaving other specialties alone.
+  // Leaves _index.date / generatedAt alone: those mark the last FULL rotation,
+  // which the app's auto-rotation uses to decide whether pools are stale.
   await db.doc('dailyMockExam/_index').set({
-    date,
     categories: admin.firestore.FieldValue.arrayUnion(CATEGORY),
     perCategory: { [CATEGORY]: { count: questionIds.length, carryoverCount: carryoverIds.length } },
-    generatedAt: now,
+    phnRotatedAt: now,
   }, { merge: true });
 
   return {
@@ -95,14 +98,15 @@ exports.manuallyRotatePhnDailyMock = functions.https.onCall(async (data, context
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
   }
-  const callerSnap = await db.doc(`users/${context.auth.uid}`).get();
-  const role = callerSnap.data()?.role;
-  if (role !== 'admin' && role !== 'subadmin') {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
   try {
+    const callerSnap = await db.doc(`users/${context.auth.uid}`).get();
+    const role = callerSnap.data()?.role;
+    if (role !== 'admin' && role !== 'subadmin') {
+      throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+    }
     return await rotatePhnPool();
   } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
     // Surface the real cause to the admin toast instead of a bare "internal".
     console.error('PHN rotation failed', e);
     throw new functions.https.HttpsError('internal', `PHN rotation failed: ${e.code || ''} ${e.message || e}`.slice(0, 300));

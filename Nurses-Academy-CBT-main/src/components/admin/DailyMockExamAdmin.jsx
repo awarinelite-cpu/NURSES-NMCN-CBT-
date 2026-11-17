@@ -13,6 +13,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase/config';
 import { useToast } from '../shared/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { forceRotateAllClient } from '../../utils/dailyMockRotation';
 import { NURSING_CATEGORIES } from '../../data/categories';
 
 function fmt(ts) {
@@ -25,6 +27,7 @@ function labelFor(categoryId) {
 
 export default function DailyMockExamAdmin() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [index,    setIndex]    = useState(null);   // dailyMockExam/_index doc
   const [pools,    setPools]    = useState([]);      // [{ categoryId, ...poolDoc }]
   const [loading,  setLoading]  = useState(true);
@@ -64,10 +67,23 @@ export default function DailyMockExamAdmin() {
     if (!window.confirm('Generate a new pool right now for every specialty? This replaces today\u2019s pools for every student.')) return;
     setRotating(true);
     try {
-      const fn = httpsCallable(getFunctions(), 'manuallyRotateDailyMockExam');
-      const res = await fn();
-      const specialtyCount = res.data?.categories?.length ?? '?';
-      toast(`✅ Rotated — ${specialtyCount} specialties, ${res.data?.count ?? '?'} total questions (${res.data?.carryoverCount ?? 0} carried over for low pass rate)`, 'success', 4500);
+      let data;
+      let viaClient = false;
+      try {
+        const fn = httpsCallable(getFunctions(), 'manuallyRotateDailyMockExam');
+        data = (await fn()).data;
+      } catch (fnErr) {
+        // The Cloud Function is unavailable or erroring: rotate from the app instead.
+        console.warn('Cloud Function rotation failed, using in-app rotation:', fnErr);
+        data = await forceRotateAllClient(user?.uid);
+        viaClient = true;
+      }
+      if (data && data.ok === false) {
+        toast(`⚠️ Rotation did not complete: ${data.reason || 'unknown reason'}`, 'error', 5000);
+      } else {
+        const specialtyCount = data?.categories?.length ?? '?';
+        toast(`✅ Rotated${viaClient ? ' (in-app)' : ''}: ${specialtyCount} specialties, ${data?.count ?? '?'} total questions (${data?.carryoverCount ?? 0} carried over for low pass rate)`, 'success', 4500);
+      }
       load();
     } catch (e) {
       toast(`❌ Rotation failed: ${e.message}`, 'error', 5000);
@@ -85,7 +101,7 @@ export default function DailyMockExamAdmin() {
       <h2 style={{ marginTop: 0 }}>🗓️ Daily Mock Exam — By Specialty</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6 }}>
         Each nursing specialty gets its own pool (up to 250 questions), rotated automatically every 24 hours
-        (midnight, Africa/Lagos), drawn only from that specialty's active questions.
+        (midnight, Africa/Lagos, or by the first user to open the app after that), drawn only from that specialty's active questions.
         Questions with a pass rate of 49% or below are carried over automatically — in their own specialty's pool —
         until they recover to 50%+.
       </p>

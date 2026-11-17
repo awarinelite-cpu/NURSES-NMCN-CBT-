@@ -52,6 +52,7 @@ import ExamConfigPage     from './components/exam/ExamConfigPage';
 import ExamListPage       from './components/exam/ExamListPage';
 import ExamSetupPage      from './components/exam/ExamSetupPage';
 import DailyMockExamHub   from './components/exam/DailyMockExamHub';
+import DailyMockAutoRotate from './components/shared/DailyMockAutoRotate';
 import GroupStudyContinue from './components/exam/GroupStudyContinue';
 import MockExamPage       from './components/exam/MockExamPage';
 import EssayQuestionsPage from './components/exam/EssayQuestionsPage';
@@ -256,6 +257,7 @@ export default function App() {
             <NativeStatusBarSetup />
             <SwNavigationHandler />
             <ContentProtectionActivator />
+            <DailyMockAutoRotate />
 
             <GroupCallProvider>
             <Routes>
