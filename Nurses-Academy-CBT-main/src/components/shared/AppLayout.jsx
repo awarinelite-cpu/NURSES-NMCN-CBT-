@@ -6,6 +6,7 @@ import Sidebar                  from './Sidebar';
 import InstallBanner            from './InstallBanner';
 import MessageNotifier          from './MessageNotifier';
 import AdminWhatsAppButton      from './AdminWhatsAppButton';
+import { DashBottomNav }        from './DashChrome';
 import { useToast }             from './Toast';
 import { useAuth }              from '../../context/AuthContext';
 import {
@@ -27,6 +28,10 @@ export default function AppLayout() {
   const isEntrance = location.pathname.startsWith('/entrance-exam');
   const isDash = location.pathname === '/dashboard';
   const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/subadmin');
+  // Navy bottom bar: NMCN student pages only; hidden on full-screen sessions and open chats
+  const p = location.pathname;
+  const hideNav = isEntrance || isAdminPath || p === '/caosce/exam' || p.startsWith('/group-study/')
+    || p.startsWith('/chat/') || p.startsWith('/group-chat/');
 
   // ── Fetch streak once on mount, re-check when route changes ──────────────
   useEffect(() => {
@@ -73,6 +78,7 @@ export default function AppLayout() {
           <Outlet context={{ openMenu: () => setSidebarOpen(true) }} />
         </main>
       </div>
+      {user && !hideNav && <DashBottomNav />}
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
       <MessageNotifier mode={isEntrance ? 'entrance' : 'nmcn'} />

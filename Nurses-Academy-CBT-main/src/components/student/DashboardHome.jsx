@@ -1,12 +1,11 @@
 // src/components/student/DashboardHome.jsx
 // Mobile-first student home, styled after the "Elite Nurses" home mock:
 // green wave header · greeting + nurse hero · progress card · 4 quick tiles ·
-// scheduled exam · Practice and Exams row · Track Your Progress · floating nav.
+// Practice and Exams row. Track Your Progress / Community / Entrance live in the bottom-nav Menu.
 // Presentational only: all data comes from StudentDashboard via props.
 
-import { useState, useId } from 'react';
+import { useId } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import DailyChallenge from '../shared/DailyChallenge';
 import { AppHeader } from '../shared/DashChrome';
 
 const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
@@ -165,17 +164,6 @@ const MORE_PRACTICE = [
   { to: '/essay-questions', label: 'Essay Questions', icon: 'pencil',   tint: 'purple' },
 ];
 
-const COMMUNITY = [
-  { to: '/progress-wall', label: 'Progress Wall',   icon: 'map',    tint: 'green'  },
-  { to: '/study-buddy',   label: 'Study Buddy',     icon: 'users',  tint: 'orange' },
-  { to: '/leaderboard',   label: 'Leaderboard',     icon: 'trophy', tint: 'purple' },
-  { to: '/group-chat',    label: 'Group Chat',      icon: 'chat',   tint: 'yellow' },
-  { to: '/chat-inbox',    label: 'Chat Inbox',      icon: 'inbox',  tint: 'pink'   },
-  { to: '/badges',        label: 'Badges',          icon: 'star',   tint: 'blue'   },
-  { action: 'daily',      label: 'Daily Challenge', icon: 'flame',  tint: 'green'  },
-  { to: '/group-chat',    label: 'Group Study',     icon: 'video',  tint: 'red'    },
-];
-
 // ── Small pieces ──────────────────────────────────────────────────────────────
 function ListTile({ item, onAction }) {
   const t = T[item.tint];
@@ -244,7 +232,6 @@ export default function DashboardHome({
   firstName, progressPct, examsCount, avgScore, streak, savedCount,
   daysToExam, pausedExam, onResume,
 }) {
-  const [showDaily, setShowDaily] = useState(false);
   const outlet = useOutletContext() || {};
 
   const pausedPct = pausedExam && pausedExam.totalQuestions
@@ -269,7 +256,7 @@ export default function DashboardHome({
         .dh-head { display: none; }
         @media (max-width: 900px) {
           .dh-head { display: block; position: relative; z-index: 3; }
-          .dh-root { padding-bottom: 24px; }
+          .dh-root { padding-bottom: 12px; }
         }
         .dh-hero-img { mask-image: linear-gradient(to right, transparent 0%, #000 30%); -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%); }
         .dh-row4 > a + a { border-left: 1px solid rgba(20,70,40,.14); }
@@ -364,24 +351,6 @@ export default function DashboardHome({
           </div>
         )}
 
-        {/* ── Upcoming scheduled exam ── */}
-        <div style={{ marginTop: 14, position: 'relative', background: 'linear-gradient(120deg,#fff9e8,#fdeec9)', border: '1.5px solid #f3dca4', borderRadius: 20, padding: '14px 14px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 3px 8px rgba(180,130,20,.12)' }}>
-          <span style={{ width: 44, height: 44, flexShrink: 0, color: DEEP, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="calendar" size={40} stroke={1.6} />
-          </span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: INK, lineHeight: 1.2 }}>Upcoming Scheduled Exam</div>
-            <div style={{ fontSize: 13, color: MUTED, marginTop: 3, lineHeight: 1.3 }}>Ready for your next practice?</div>
-          </div>
-          <Link to="/mock-exams" className="dh-press"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: `linear-gradient(180deg,#0b5a31,${DEEPER})`, color: '#fff', fontWeight: 800, fontSize: 15, padding: '12px 16px', borderRadius: 24, textDecoration: 'none', flexShrink: 0, boxShadow: '0 3px 8px rgba(2,52,31,.35)' }}>
-            Start Now <Icon name="arrow" size={17} stroke={2.6} />
-          </Link>
-          <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true" style={{ position: 'absolute', top: -9, right: 8 }}>
-            <path d="M4 18 9 6M14 20l4-14M24 17l-2-9" stroke="#f2b01e" strokeWidth="3.4" strokeLinecap="round" />
-          </svg>
-        </div>
-
         {/* ── Practice and Exams ── */}
         <SectionHead title="Practice and Exams" badge seeAllTo="/quick-actions" />
         <div className="dh-row4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 6 }}>
@@ -401,62 +370,8 @@ export default function DashboardHome({
           {MORE_PRACTICE.map(p => <ListTile key={p.label} item={p} />)}
         </div>
 
-        {/* ── Track Your Progress ── */}
-        <SectionHead title="Track Your Progress" icon="bars" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(120deg,#e4f7df,#cdeec8)', border: '1px solid #bfe3b8', borderRadius: 22, padding: '14px 14px', boxShadow: '0 3px 8px rgba(20,90,40,.10)' }}>
-          <svg width="46" height="40" viewBox="0 0 46 40" aria-hidden="true" style={{ flexShrink: 0 }}>
-            <rect x="2" y="26" width="8" height="12" rx="2" fill="#2fa84a" />
-            <rect x="14" y="18" width="8" height="20" rx="2" fill="#1f8f3b" />
-            <rect x="26" y="8" width="8" height="30" rx="2" fill="#177a31" />
-            <rect x="38" y="2" width="6" height="36" rx="2" fill="#0f6428" />
-          </svg>
-          <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(20,90,40,.2)' }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 800, color: INK }}>Your Performance</div>
-            <div style={{ fontSize: 15.5, fontWeight: 600, color: INK, marginTop: 4 }}>{progressPct}% Overall Progress</div>
-          </div>
-          <Link to="/performance" className="dh-press" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1.5px solid #1c8a3a', color: INK, fontWeight: 700, fontSize: 13.5, padding: '9px 12px', borderRadius: 22, textDecoration: 'none', background: 'rgba(255,255,255,.55)', flexShrink: 0 }}>
-            View Details <Icon name="arrow" size={16} stroke={2.4} />
-          </Link>
-        </div>
-
-        {/* ── Progress and community ── */}
-        <SectionHead title="Progress and Community" icon="community" />
-        <div className="dh-grid">
-          {COMMUNITY.map(p => <ListTile key={p.label} item={p} onAction={a => a === 'daily' && setShowDaily(true)} />)}
-        </div>
-
-        {/* ── Entrance exam mode ── */}
-        <Link to="/entrance-exam" className="dh-press" style={{
-          marginTop: 18, background: `linear-gradient(120deg,#0b5a31,${DEEPER})`, borderRadius: 20, padding: '14px 16px', textDecoration: 'none',
-          display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 12px rgba(2,52,31,.25)',
-        }}>
-          <span style={{ width: 40, height: 40, borderRadius: 12, background: '#f2b01e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon name="cap" size={22} />
-          </span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16.5, fontWeight: 800, color: '#fff' }}>Entrance Exam mode</div>
-            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>Its own drills, results and chats</div>
-          </div>
-          <span style={{ color: '#fff', display: 'flex' }}><Icon name="chevron" size={20} /></span>
-        </Link>
       </div>
 
-      {/* Daily challenge sheet */}
-      {showDaily && (
-        <div onClick={() => setShowDaily(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '88vh', overflowY: 'auto', background: '#F1FAF3', borderRadius: '24px 24px 0 0', padding: '14px 14px 24px', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: INK }}>Daily Challenge</h3>
-              <button type="button" onClick={() => setShowDaily(false)} aria-label="Close"
-                style={{ width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#fff', color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="close" size={16} />
-              </button>
-            </div>
-            <DailyChallenge />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
