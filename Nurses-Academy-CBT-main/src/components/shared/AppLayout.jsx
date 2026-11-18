@@ -7,6 +7,7 @@ import InstallBanner            from './InstallBanner';
 import MessageNotifier          from './MessageNotifier';
 import AdminWhatsAppButton      from './AdminWhatsAppButton';
 import { DashBottomNav }        from './DashChrome';
+import PullToRefresh            from './PullToRefresh';
 import { useToast }             from './Toast';
 import { useAuth }              from '../../context/AuthContext';
 import {
@@ -78,6 +79,7 @@ export default function AppLayout() {
           <Outlet context={{ openMenu: () => setSidebarOpen(true) }} />
         </main>
       </div>
+      <PullToRefresh disabled={p === '/caosce/exam' || p.startsWith('/group-study/') || p.startsWith('/chat/') || p.startsWith('/group-chat/')} />
       {user && !hideNav && <DashBottomNav />}
       <InstallBanner />
       {/* Message notifier — watches for new DMs and fires toast + push */}
